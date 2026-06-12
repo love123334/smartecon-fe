@@ -1,8 +1,45 @@
+# Dependencies
 node_modules/
+
+# Build
 dist/
+dist-ssr/
+
+# Vite
 .vite/
 *.local
+
+# Environment (keep .env.example)
 .env
-.env.*.local
+.env.*
+!.env.example
+
+# TypeScript
+*.tsbuildinfo
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Test / coverage
+coverage/
+
+# Editor
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS
 .DS_Store
 Thumbs.db
+Desktop.ini
+
+# Cursor (optional local)
+.cursor/

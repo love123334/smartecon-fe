@@ -1,14 +1,11 @@
-# SEDSP Frontend
+# SEDSP Frontend (smartecon-fe)
 
-**Smart E-Commerce Decision Support Platform** — giao diện Vue 3.
+Giao diện **Smart E-Commerce Decision Support Platform** — Vue 3 + TypeScript.
 
-Repo backend (ngang cấp): [smart-ecommerce-dssp](https://github.com/linhtnt2004/smart-ecommerce-dssp)
-
-```text
-capstone/
-├── smart-ecommerce-dssp/           ← Spring Boot + PostgreSQL
-└── smart-ecommerce-dssp-frontend/  ← Vue 3 (repo này)
-```
+| Repo | URL |
+|------|-----|
+| Frontend (repo này) | https://github.com/love123334/smartecon-fe |
+| Backend | https://github.com/linhtnt2004/smart-ecommerce-dssp |
 
 ## Chạy nhanh
 
@@ -17,19 +14,20 @@ npm install
 npm run dev
 ```
 
-http://localhost:5173
+Mở http://localhost:5173
 
-## Phạm vi UI (theo SRS / Report capstone)
+## Cấu trúc
 
-| Vai trò | Chức năng |
-|---------|-----------|
-| **Guest** | Đăng ký, danh sách/chi tiết/tìm sản phẩm |
-| **Customer** | Đăng nhập, hồ sơ, giỏ, checkout, đơn hàng, theo dõi, gợi ý AI, chatbot |
-| **Seller** | CRUD sản phẩm, giá, tồn kho, doanh số, DSS, seller assistant |
-| **Manager** | KPI dashboard, phân tích, DSS dự báo/kịch bản |
-| **Admin** | Quản lý user, role, kích hoạt tài khoản, giám sát hệ thống |
+```text
+src/
+├── api/          # Mock services + HTTP client (chuẩn bị backend)
+├── components/   # UI dùng chung
+├── views/        # Guest, Customer, Seller, Manager, Admin
+├── stores/       # Pinia (auth, cart)
+└── router/       # RBAC guards
+```
 
-## Tài khoản demo (mock)
+## Demo (mock)
 
 Mật khẩu: `123456`
 
@@ -42,24 +40,23 @@ Mật khẩu: `123456`
 
 ## Kết nối backend
 
-- Mặc định: **mock** (`localStorage`) — không cần Java chạy.
-- Khi API Spring Boot xong: copy `.env.example` → `.env`, đặt `VITE_USE_MOCK=false`.
-- Vite proxy `/api` → `http://localhost:8080`.
+Mặc định chạy **mock** (`localStorage`). Khi API Spring Boot sẵn sàng:
 
-Chi tiết: [docs/API-INTEGRATION.md](docs/API-INTEGRATION.md)
+```bash
+cp .env.example .env
+# VITE_USE_MOCK=false
+```
 
-## So sánh UI khác (Claude)
-
-Prompt tạo bản UI thay thế: [docs/PROMPT-UI-ALTERNATIVE.md](docs/PROMPT-UI-ALTERNATIVE.md)
-
-## Công nghệ
-
-Vue 3 · TypeScript · Vite · Pinia · Vue Router · Chart.js
+Proxy Vite: `/api` → `http://localhost:8080` — chi tiết [docs/API-INTEGRATION.md](docs/API-INTEGRATION.md).
 
 ## Scripts
 
 | Lệnh | Mô tả |
 |------|--------|
-| `npm run dev` | Dev server :5173 |
+| `npm run dev` | Dev server |
 | `npm run build` | Production build |
 | `npm run preview` | Xem bản build |
+
+## Tech stack
+
+Vue 3 · TypeScript · Vite · Pinia · Vue Router · Chart.js
