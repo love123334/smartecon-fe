@@ -43,7 +43,7 @@ async function addToCart(id: string) {
 
     <LoadingSpinner v-if="loading" />
     <template v-else-if="products.length">
-      <section v-if="flashProducts.length" class="mkt-section">
+      <section v-if="flashProducts.length" class="mkt-section mkt-section--reveal">
         <div class="mkt-section__head">
           <h2 class="mkt-section__title mkt-section__title--flash">
             <span aria-hidden="true">⚡</span>
@@ -63,7 +63,7 @@ async function addToCart(id: string) {
         </div>
       </section>
 
-      <section class="mkt-section">
+      <section class="mkt-section mkt-section--reveal">
         <div class="mkt-section__head">
           <h2 class="mkt-section__title">Gợi ý hôm nay</h2>
           <RouterLink to="/search" class="mkt-section__more">Xem thêm →</RouterLink>

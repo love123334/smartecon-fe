@@ -9,7 +9,7 @@ withDefaults(
 
 <template>
   <div class="loading" role="status" aria-live="polite">
-    <div class="spinner" aria-hidden="true" />
+    <div class="spinner spinner--dual" aria-hidden="true" />
     <span>{{ label }}</span>
   </div>
 </template>

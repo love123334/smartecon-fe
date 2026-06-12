@@ -14,7 +14,10 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <article class="card product-card product-card--mkt" :class="{ 'product-card--compact': compact }">
+  <article
+    class="card product-card product-card--mkt product-card--glow card--glow"
+    :class="{ 'product-card--compact': compact }"
+  >
     <div class="product-card__media">
       <img :src="product.imageUrl" :alt="product.name" loading="lazy" />
       <span v-if="product.isFlashSale" class="product-card__flash">Flash Sale</span>

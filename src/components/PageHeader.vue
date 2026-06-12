@@ -7,7 +7,7 @@ defineProps<{
 </script>
 
 <template>
-  <header class="page-header">
+  <header class="page-header page-header--animate">
     <p v-if="eyebrow" class="page-header__eyebrow">{{ eyebrow }}</p>
     <h1 class="page-title">{{ title }}</h1>
     <p v-if="lead" class="page-lead">{{ lead }}</p>

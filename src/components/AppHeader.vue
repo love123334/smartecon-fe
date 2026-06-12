@@ -93,7 +93,7 @@ function closeMenu() {
     <header class="mkt-header">
       <div class="container mkt-header__inner">
         <RouterLink to="/" class="mkt-brand" @click="closeMenu">
-          <span class="mkt-brand__icon">S</span>
+          <span class="mkt-brand__icon mkt-brand__icon--float">S</span>
           <span class="mkt-brand__text">
             <strong>SEDSP</strong>
             <small>Decision Support</small>
@@ -111,7 +111,13 @@ function closeMenu() {
             <RouterLink to="/cart" class="mkt-cart-btn" title="Giỏ hàng">
               <span class="mkt-cart-btn__icon">🛒</span>
               <span>Giỏ hàng</span>
-              <span v-if="cart.itemCount" class="mkt-cart-btn__badge">{{ cart.itemCount }}</span>
+              <span
+                v-if="cart.itemCount"
+                class="mkt-cart-btn__badge mkt-cart-btn__badge--live badge--pulse"
+                :key="cart.itemCount"
+              >
+                {{ cart.itemCount }}
+              </span>
             </RouterLink>
             <RouterLink to="/chatbot" class="mkt-cart-btn" title="Trợ lý AI">
               <span class="mkt-cart-btn__icon">💬</span>
@@ -136,7 +142,7 @@ function closeMenu() {
   <header v-else class="ops-header">
     <div class="container ops-header__inner">
       <RouterLink to="/" class="mkt-brand">
-        <span class="mkt-brand__icon">S</span>
+        <span class="mkt-brand__icon mkt-brand__icon--float">S</span>
         <span class="mkt-brand__text">
           <strong>SEDSP</strong>
           <small>{{ roleLabels[auth.role] }} Portal</small>
@@ -144,7 +150,7 @@ function closeMenu() {
       </RouterLink>
 
       <nav class="nav" style="flex: 1">
-        <RouterLink v-for="link in opsNavLinks" :key="link.to" :to="link.to" class="nav-link">
+        <RouterLink v-for="link in opsNavLinks" :key="link.to" :to="link.to" class="nav-link nav-link--slide">
           {{ link.label }}
         </RouterLink>
         <RouterLink to="/" class="nav-link">← Cửa hàng</RouterLink>

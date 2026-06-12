@@ -63,26 +63,28 @@ async function submit() {
         <h2 class="page-title" style="font-size: 1.35rem">Chào mừng trở lại</h2>
         <p class="page-lead" style="margin-bottom: 1.25rem">Nhập email và mật khẩu tài khoản của bạn.</p>
 
-        <form class="card card--flat" @submit.prevent="submit">
+        <div class="border-glow">
+          <form class="border-glow__inner card--flat" style="padding: 1.25rem 1.5rem" @submit.prevent="submit">
           <p v-if="localError || auth.error" class="alert alert-error alert--animate">
             {{ localError || auth.error }}
           </p>
           <div class="form-group">
             <label for="email">Email</label>
-            <input id="email" v-model="email" type="email" required autocomplete="email" />
+            <input id="email" v-model="email" type="email" required autocomplete="email" class="input-glow" />
           </div>
           <div class="form-group">
             <label for="pw">Mật khẩu</label>
-            <input id="pw" v-model="password" type="password" required autocomplete="current-password" />
+            <input id="pw" v-model="password" type="password" required autocomplete="current-password" class="input-glow" />
           </div>
-          <button type="submit" class="btn btn-primary btn-block" :disabled="auth.loading">
+          <button type="submit" class="btn btn-primary btn-block btn-glow" :disabled="auth.loading">
             {{ auth.loading ? 'Đang xử lý...' : 'Đăng nhập' }}
           </button>
           <p class="muted" style="margin: 1rem 0 0; text-align: center">
             Chưa có tài khoản?
             <RouterLink to="/register">Đăng ký ngay</RouterLink>
           </p>
-        </form>
+          </form>
+        </div>
 
         <div class="card demo-box card--flat" style="margin-top: 1.25rem">
           <p class="card-title" style="margin-bottom: 0.5rem">Tài khoản demo</p>
@@ -92,7 +94,7 @@ async function submit() {
               v-for="d in demos"
               :key="d.email"
               type="button"
-              class="demo-chip"
+              class="demo-chip btn-interactive"
               @click="fillDemo(d.email)"
             >
               <strong>{{ d.label }}</strong>

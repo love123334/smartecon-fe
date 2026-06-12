@@ -113,6 +113,16 @@
   border-radius: var(--radius);
   overflow: hidden;
   border: 2px solid var(--primary-500);
+  transition:
+    border-color var(--transition),
+    box-shadow var(--transition);
+}
+
+.mkt-search:focus-within {
+  border-color: var(--primary-600);
+  box-shadow:
+    0 0 0 3px rgba(20, 184, 166, 0.18),
+    0 4px 12px rgba(13, 148, 136, 0.12);
 }
 
 .mkt-search input {
@@ -131,16 +141,22 @@
 .mkt-search button {
   padding: 0 1.35rem;
   border: none;
-  background: var(--primary-600);
+  background: linear-gradient(135deg, var(--primary-600), var(--primary-700));
   color: #fff;
   font-weight: 600;
   font-size: 0.875rem;
   cursor: pointer;
-  transition: background var(--transition);
+  transition:
+    background var(--transition),
+    transform 0.15s ease;
 }
 
 .mkt-search button:hover {
-  background: var(--primary-700);
+  background: linear-gradient(135deg, var(--primary-500), var(--primary-600));
+}
+
+.mkt-search button:active {
+  transform: scale(0.97);
 }
 
 .mkt-header__actions {
@@ -238,6 +254,11 @@
   background: var(--primary-50);
   color: var(--primary-800);
   text-decoration: none;
+  box-shadow: inset 0 0 0 1px var(--primary-200);
+}
+
+.mkt-cat-link.router-link-active {
+  font-weight: 600;
 }
 
 .mkt-cat-link--all {
@@ -278,7 +299,10 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  box-shadow: var(--shadow-md);
+  box-shadow:
+    var(--shadow-md),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .mkt-promo__main h2 {
@@ -342,6 +366,14 @@
   margin-bottom: 0.75rem;
   border: 1px solid var(--color-border);
   box-shadow: var(--shadow-xs);
+  transition:
+    border-color var(--transition),
+    box-shadow var(--transition);
+}
+
+.mkt-section:hover {
+  border-color: var(--primary-100);
+  box-shadow: var(--shadow);
 }
 
 .mkt-section__head {
@@ -582,16 +614,26 @@
   padding: 0.85rem 1.5rem;
   background: linear-gradient(135deg, var(--primary-600), var(--primary-700));
   color: #fff;
-  border: none;
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: var(--radius);
   font-weight: 600;
   font-size: 0.9375rem;
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(13, 148, 136, 0.3);
+  transition:
+    transform 0.15s ease,
+    box-shadow var(--transition),
+    background var(--transition);
 }
 
 .mkt-detail__actions .btn-buy:hover {
   background: linear-gradient(135deg, var(--primary-500), var(--primary-600));
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(13, 148, 136, 0.4);
+}
+
+.mkt-detail__actions .btn-buy:active {
+  transform: scale(0.98);
 }
 
 .mkt-detail__actions .btn-cart {

@@ -10,11 +10,11 @@ Giao diện **Smart E-Commerce Decision Support Platform** — Vue 3 + TypeScrip
 ## Chạy nhanh
 
 ```bash
-npm install
+npm run setup   # install + tạo .env
 npm run dev
 ```
 
-Mở http://localhost:5173
+Mở http://localhost:5173 — chi tiết [docs/SETUP.md](docs/SETUP.md)
 
 ## Cấu trúc
 
@@ -47,7 +47,13 @@ cp .env.example .env
 # VITE_USE_MOCK=false
 ```
 
-Proxy Vite: `/api` → `http://localhost:8080` — chi tiết [docs/API-INTEGRATION.md](docs/API-INTEGRATION.md).
+| Tài liệu | Nội dung |
+|----------|----------|
+| [docs/BACKEND-HANDOFF.md](docs/BACKEND-HANDOFF.md) | **Yêu cầu API đầy đủ cho team backend** |
+| [docs/API-INTEGRATION.md](docs/API-INTEGRATION.md) | Tích hợp FE ↔ BE, proxy, JWT |
+| [docs/SETUP.md](docs/SETUP.md) | Cài đặt & biến môi trường |
+
+Proxy Vite: `/api` → `http://localhost:8080`
 
 ## Scripts
 

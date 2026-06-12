@@ -1,5 +1,7 @@
 # Tích hợp Frontend ↔ Backend
 
+> **Team backend:** đọc [BACKEND-HANDOFF.md](./BACKEND-HANDOFF.md) — contract API đầy đủ, DTO, checklist, thứ tự triển khai.
+
 ## Cấu trúc monorepo local
 
 ```text
@@ -65,7 +67,7 @@ Client: `src/api/http/client.ts` — tự unwrap `data`, gắn `Authorization: B
 | DSS (future) | DSS views | `dss/*` |
 | AI (future) | Recommendations, chatbot | `ai/*` |
 
-Chi tiết path: `src/api/http/paths.ts`.
+Chi tiết path: `src/api/http/paths.ts` · DTO: `src/api/contracts/dto.ts`.
 
 ## JWT
 

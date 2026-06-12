@@ -35,7 +35,7 @@ onMounted(async () => {
       </RouterView>
     </div>
   </main>
-  <footer class="footer">
+  <footer class="footer footer--animate">
     <div class="container footer-inner">
       <div class="footer-brand">
         <strong>SEDSP</strong>

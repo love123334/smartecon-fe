@@ -1,10 +1,14 @@
 <template>
-  <section class="mkt-promo" aria-label="Khuyến mãi">
-    <div class="mkt-promo__main">
+  <section class="mkt-promo mkt-promo--animate" aria-label="Khuyến mãi">
+    <div class="mkt-promo__main mkt-promo__main--shine">
       <h2>SIÊU SALE SEDSP</h2>
       <p>Giảm đến 40% — Miễn phí vận chuyển đơn từ 500K. Tích hợp DSS hỗ trợ quyết định mua bán.</p>
-      <RouterLink to="/search" class="btn btn-sm" style="background: #fff; color: var(--primary-700); width: fit-content">
-        Mua ngay
+      <RouterLink
+        to="/search"
+        class="btn btn-sm btn-interactive btn-glow"
+        style="background: #fff; color: var(--primary-700); width: fit-content; z-index: 1"
+      >
+        Mua ngay →
       </RouterLink>
     </div>
     <div class="mkt-promo__side">
