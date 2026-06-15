@@ -3,14 +3,12 @@ import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
-import SearchBar from '@/components/SearchBar.vue'
-import CategoryNav from '@/components/CategoryNav.vue'
 
 const auth = useAuthStore()
 const cart = useCartStore()
 const router = useRouter()
 const route = useRoute()
-const menuOpen = ref(false)
+const promoDismissed = ref(false)
 
 const isShopMode = computed(() => {
   if (auth.role === 'guest' || auth.role === 'customer') return true
@@ -53,100 +51,89 @@ const opsNavLinks = computed(() => {
   return []
 })
 
+const profileTo = computed(() => {
+  if (!auth.user) return '/login'
+  if (auth.role === 'customer') return '/profile'
+  return '/'
+})
+
+function onOpenCart() {
+  cart.openDrawer()
+}
+
 async function onLogout() {
   await auth.logout()
   cart.lines = []
-  menuOpen.value = false
   router.push('/login')
-}
-
-function closeMenu() {
-  menuOpen.value = false
 }
 </script>
 
 <template>
-  <!-- Marketplace header (guest + customer + shop browsing) -->
   <template v-if="isShopMode">
-    <div class="mkt-topbar">
-      <div class="container mkt-topbar__inner">
-        <div class="mkt-topbar__links">
-          <RouterLink to="/seller/products">Kênh Người Bán</RouterLink>
-          <RouterLink to="/manager/dashboard">Quản lý DSS</RouterLink>
-          <span class="mkt-topbar__badge">🧠 Tích hợp AI + Decision Support</span>
-        </div>
-        <div class="mkt-topbar__links">
-          <template v-if="auth.user">
-            <span>Xin chào, {{ auth.user.fullName }}</span>
-            <button type="button" class="btn-ghost btn-sm" style="color: #fff; border: none; padding: 0" @click="onLogout">
-              Đăng xuất
-            </button>
-          </template>
-          <template v-else>
-            <RouterLink to="/register">Đăng ký</RouterLink>
-            <RouterLink to="/login">Đăng nhập</RouterLink>
-          </template>
-        </div>
+    <div v-if="!promoDismissed" class="shop-promo-bar">
+      <div class="container shop-promo-bar__inner">
+        <p>
+          Giảm 30% toàn shop — Có hạn!
+          <RouterLink to="/search" class="shop-promo-bar__link">Mua ngay →</RouterLink>
+        </p>
+        <button type="button" class="shop-promo-bar__close" aria-label="Đóng thông báo" @click="promoDismissed = true">
+          ×
+        </button>
       </div>
     </div>
 
-    <header class="mkt-header">
-      <div class="container mkt-header__inner">
-        <RouterLink to="/" class="mkt-brand" @click="closeMenu">
-          <span class="mkt-brand__icon mkt-brand__icon--float">S</span>
-          <span class="mkt-brand__text">
-            <strong>SEDSP</strong>
-            <small>Decision Support</small>
-          </span>
+    <header class="shop-header">
+      <div class="container shop-header__inner">
+        <RouterLink to="/" class="shop-brand">
+          SEDSP<span class="shop-brand__dot">.</span>
         </RouterLink>
 
-        <SearchBar />
+        <nav class="shop-nav" aria-label="Điều hướng chính">
+          <RouterLink to="/" class="shop-nav__link">Trang chủ</RouterLink>
+          <RouterLink to="/search" class="shop-nav__link">Cửa hàng</RouterLink>
+          <RouterLink to="/chatbot" class="shop-nav__link">Liên hệ</RouterLink>
+        </nav>
 
-        <div class="mkt-header__actions">
-          <template v-if="auth.role === 'customer'">
-            <RouterLink to="/orders" class="mkt-cart-btn" title="Đơn hàng">
-              <span class="mkt-cart-btn__icon">📦</span>
-              <span>Đơn hàng</span>
-            </RouterLink>
-            <RouterLink to="/cart" class="mkt-cart-btn" title="Giỏ hàng">
-              <span class="mkt-cart-btn__icon">🛒</span>
-              <span>Giỏ hàng</span>
-              <span
-                v-if="cart.itemCount"
-                class="mkt-cart-btn__badge mkt-cart-btn__badge--live badge--pulse"
-                :key="cart.itemCount"
-              >
-                {{ cart.itemCount }}
-              </span>
-            </RouterLink>
-            <RouterLink to="/chatbot" class="mkt-cart-btn" title="Trợ lý AI">
-              <span class="mkt-cart-btn__icon">💬</span>
-              <span>Trợ lý</span>
-            </RouterLink>
-          </template>
-          <template v-else-if="!auth.user">
-            <RouterLink to="/login" class="mkt-cart-btn">
-              <span class="mkt-cart-btn__icon">🛒</span>
-              <span>Giỏ hàng</span>
-            </RouterLink>
-          </template>
-          <span v-if="auth.user" class="badge badge-role">{{ roleLabels[auth.role] }}</span>
+        <div class="shop-header__actions">
+          <RouterLink to="/search" class="shop-icon-btn btn-interactive" title="Tìm kiếm" aria-label="Tìm kiếm">
+            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+            </svg>
+          </RouterLink>
+          <RouterLink :to="profileTo" class="shop-icon-btn btn-interactive" title="Tài khoản" aria-label="Tài khoản">
+            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+            </svg>
+          </RouterLink>
+          <button
+            type="button"
+            class="shop-icon-btn shop-icon-btn--cart btn-interactive"
+            title="Giỏ hàng"
+            aria-label="Giỏ hàng"
+            @click="onOpenCart"
+          >
+            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" /><path d="M3 6h18" /><path d="M16 10a4 4 0 0 1-8 0" />
+            </svg>
+            <span v-if="cart.itemCount" class="shop-icon-btn__badge">{{ cart.itemCount }}</span>
+          </button>
+          <button
+            v-if="auth.user"
+            type="button"
+            class="shop-header__logout btn-interactive"
+            @click="onLogout"
+          >
+            Thoát
+          </button>
         </div>
       </div>
     </header>
-
-    <CategoryNav />
   </template>
 
-  <!-- Ops header (seller / manager / admin) -->
   <header v-else class="ops-header">
     <div class="container ops-header__inner">
-      <RouterLink to="/" class="mkt-brand">
-        <span class="mkt-brand__icon mkt-brand__icon--float">S</span>
-        <span class="mkt-brand__text">
-          <strong>SEDSP</strong>
-          <small>{{ roleLabels[auth.role] }} Portal</small>
-        </span>
+      <RouterLink to="/" class="shop-brand shop-brand--sm">
+        SEDSP<span class="shop-brand__dot">.</span>
       </RouterLink>
 
       <nav class="nav" style="flex: 1">
@@ -157,6 +144,7 @@ function closeMenu() {
       </nav>
 
       <div class="mkt-user-menu" style="color: var(--slate-700)">
+        <span class="badge badge-role">{{ roleLabels[auth.role] }}</span>
         <span class="user-name">{{ auth.user?.fullName }}</span>
         <button type="button" class="btn btn-ghost btn-sm" @click="onLogout">Đăng xuất</button>
       </div>
@@ -185,13 +173,13 @@ function closeMenu() {
 }
 
 .nav-link:hover {
-  background: var(--primary-50);
-  color: var(--primary-800);
+  background: var(--slate-100);
+  color: var(--slate-900);
   text-decoration: none;
 }
 
 .nav-link.router-link-active {
-  background: var(--primary-100);
+  background: var(--primary-50);
   color: var(--primary-800);
 }
 

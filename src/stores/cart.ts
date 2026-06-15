@@ -11,6 +11,7 @@ export const useCartStore = defineStore('cart', () => {
   const lines = ref<CartLine[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
+  const drawerOpen = ref(false)
 
   const itemCount = computed(() =>
     lines.value.reduce((s, l) => s + l.quantity, 0),
@@ -71,15 +72,27 @@ export const useCartStore = defineStore('cart', () => {
     await refresh()
   }
 
+  function openDrawer() {
+    drawerOpen.value = true
+    void refresh()
+  }
+
+  function closeDrawer() {
+    drawerOpen.value = false
+  }
+
   return {
     lines,
     loading,
     error,
+    drawerOpen,
     itemCount,
     total,
     refresh,
     add,
     setQuantity,
     remove,
+    openDrawer,
+    closeDrawer,
   }
 })

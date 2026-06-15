@@ -3,6 +3,7 @@ const props = defineProps<{
   modelValue: number
   min?: number
   max?: number
+  variant?: 'default' | 'pill'
 }>()
 
 const emit = defineEmits<{
@@ -30,7 +31,7 @@ function onInput(e: Event) {
 </script>
 
 <template>
-  <div class="qty-stepper">
+  <div class="qty-stepper" :class="{ 'qty-stepper--pill': variant === 'pill' }">
     <button type="button" :disabled="modelValue <= (min ?? 1)" aria-label="Giảm" @click="decrement">−</button>
     <input
       type="number"
