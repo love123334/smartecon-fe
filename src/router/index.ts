@@ -18,8 +18,8 @@ const router = createRouter({
     {
       path: '/',
       name: 'home',
-      component: () => import('@/views/guest/ProductListView.vue'),
-      meta: { title: 'Sản phẩm' },
+      component: () => import('@/views/guest/HomeView.vue'),
+      meta: { title: 'Trang chủ' },
     },
     {
       path: '/register',
@@ -41,7 +41,7 @@ const router = createRouter({
       path: '/search',
       name: 'search',
       component: () => import('@/views/guest/SearchView.vue'),
-      meta: { title: 'Tìm kiếm' },
+      meta: { title: 'Cửa hàng' },
     },
     {
       path: '/login',

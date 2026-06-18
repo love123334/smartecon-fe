@@ -14,6 +14,9 @@ const fullBleed = computed(() => Boolean(route.meta.fullBleed))
 
 const shopWide = computed(() => ['/', '/search'].includes(route.path))
 
+const isHomePage = computed(() => route.path === '/')
+const isShopCatalog = computed(() => route.path === '/search')
+
 const isShopPage = computed(() => {
   const shopPrefixes = ['/', '/search', '/products', '/cart', '/checkout', '/orders', '/recommendations', '/chatbot', '/profile']
   return shopPrefixes.some((p) => route.path === p || (p !== '/' && route.path.startsWith(p)))
@@ -30,7 +33,16 @@ onMounted(async () => {
 <template>
   <AppHeader />
   <CartFlyout />
-  <main class="page" :class="{ 'page--bleed': fullBleed, 'page--shop': isShopPage && !fullBleed, 'page--shop-wide': shopWide && !fullBleed }">
+  <main
+    class="page"
+    :class="{
+      'page--bleed': fullBleed,
+      'page--shop': isShopPage && !fullBleed,
+      'page--shop-wide': shopWide && !fullBleed,
+      'page--home': isHomePage,
+      'page--catalog': isShopCatalog,
+    }"
+  >
     <div v-if="shopWide || fullBleed" class="page-bleed-wrap">
       <RouterView v-slot="{ Component }">
         <Transition name="page-fade" mode="out-in">

@@ -89,8 +89,8 @@ async function onLogout() {
         </RouterLink>
 
         <nav class="shop-nav" aria-label="Điều hướng chính">
-          <RouterLink to="/" class="shop-nav__link">Trang chủ</RouterLink>
-          <RouterLink to="/search" class="shop-nav__link">Cửa hàng</RouterLink>
+          <RouterLink to="/" class="shop-nav__link" exact-active-class="shop-nav__link--active">Trang chủ</RouterLink>
+          <RouterLink to="/search" class="shop-nav__link" active-class="shop-nav__link--active">Cửa hàng</RouterLink>
           <RouterLink to="/chatbot" class="shop-nav__link">Liên hệ</RouterLink>
         </nav>
 

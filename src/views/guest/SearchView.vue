@@ -85,10 +85,11 @@ function showMore() {
 </script>
 
 <template>
-  <div class="shop-page">
+  <div class="shop-page shop-page--catalog">
     <ShopHero
+      variant="catalog"
       title="Cửa hàng"
-      subtitle="Tìm đúng món bạn cần trong vài cú click."
+      subtitle="Lọc, tìm kiếm và sắp xếp — trải nghiệm catalog đầy đủ."
       :breadcrumb="[
         { label: 'Trang chủ', to: '/' },
         { label: 'Cửa hàng', to: '/search' },

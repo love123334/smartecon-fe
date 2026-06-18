@@ -3,11 +3,16 @@ defineProps<{
   title?: string
   subtitle?: string
   breadcrumb?: { label: string; to?: string }[]
+  variant?: 'default' | 'catalog'
 }>()
 </script>
 
 <template>
-  <section class="shop-hero" aria-label="Tiêu đề trang">
+  <section
+    class="shop-hero"
+    :class="{ 'shop-hero--catalog': variant === 'catalog' }"
+    aria-label="Tiêu đề trang"
+  >
     <div class="shop-hero__bg" aria-hidden="true" />
     <div class="container shop-hero__inner">
       <nav v-if="breadcrumb?.length" class="shop-hero__crumb" aria-label="Breadcrumb">

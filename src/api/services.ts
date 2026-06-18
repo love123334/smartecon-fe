@@ -4,6 +4,8 @@ import {
   seedProducts,
   seedUsers,
 } from '@/api/mockData'
+import { apiConfig } from '@/api/config'
+import * as realAuth from '@/api/real/auth'
 import { STORAGE_KEYS, storageGet, storageSet } from '@/api/storage'
 import type {
   CartItem,
@@ -125,7 +127,7 @@ function publicUser(u: User): User {
 }
 
 // ——— Auth ———
-export const authApi = {
+const mockAuthApi = {
   async login(email: string, password: string): Promise<User> {
     await delay()
     const passwords = getPasswords()
@@ -199,6 +201,16 @@ export const authApi = {
     return publicUser(users[idx])
   },
 }
+
+export const authApi = apiConfig.useRealAuth
+  ? {
+      login: realAuth.login,
+      register: realAuth.registerUnsupported,
+      logout: realAuth.logout,
+      getCurrentUser: realAuth.getCurrentUser,
+      updateProfile: realAuth.updateProfile,
+    }
+  : mockAuthApi
 
 // ——— Products ———
 export const productApi = {

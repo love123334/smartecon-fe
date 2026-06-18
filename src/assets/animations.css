@@ -563,3 +563,53 @@
 .footer--animate {
   animation: fade-up 0.6s ease 0.2s backwards;
 }
+
+/* ——— Home page ——— */
+.hero-copy-enter-active,
+.hero-copy-leave-active {
+  transition:
+    opacity 0.45s var(--ease-out),
+    transform 0.45s var(--ease-out);
+}
+
+.hero-copy-enter-from {
+  opacity: 0;
+  transform: translateY(16px);
+}
+
+.hero-copy-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+.reveal-up {
+  animation: reveal-up 0.65s var(--ease-out) backwards;
+  animation-delay: var(--delay, 0s);
+}
+
+@keyframes reveal-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.home-hero__cta,
+.home-cat-card,
+.home-promo__btn,
+.home-hero__nav {
+  transition:
+    transform var(--dur-hover) var(--ease-float),
+    box-shadow var(--dur-hover) var(--ease-out);
+}
+
+.home-hero__cta:hover,
+.home-cat-card:hover,
+.home-promo__btn:hover,
+.home-hero__nav:hover {
+  transform: translateY(-5px) scale(1.04);
+}

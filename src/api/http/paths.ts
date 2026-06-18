@@ -13,8 +13,8 @@ export const apiPaths = {
   },
   users: {
     list: 'users',
+    profile: 'users/profile',
     byId: (id: string) => `users/${id}`,
-    profile: (id: string) => `users/${id}/profile`,
     activate: (id: string) => `users/${id}/activate`,
     deactivate: (id: string) => `users/${id}/deactivate`,
     role: (id: string) => `users/${id}/role`,
