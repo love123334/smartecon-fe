@@ -1,8 +1,64 @@
-import type { Order, Product, User } from '@/types'
+import type { Order, Product, User, UserRole } from '@/types'
 
 const now = () => new Date().toISOString()
 
+/** Mock mode (localStorage) */
 export const DEMO_PASSWORD = '123456'
+/** Backend seed (V26__seed_dev_users.sql) */
+export const DEMO_PASSWORD_BACKEND = '12345678'
+
+export interface DemoAccount {
+  role: Exclude<UserRole, 'guest'>
+  label: string
+  fullName: string
+  email: string
+  description: string
+}
+
+export const DEMO_ACCOUNTS: DemoAccount[] = [
+  {
+    role: 'customer',
+    label: 'Khách hàng',
+    fullName: 'Nguyễn Văn Khách',
+    email: 'customer@sedsp.vn',
+    description: 'Mua sắm, giỏ hàng, đơn hàng',
+  },
+  {
+    role: 'seller',
+    label: 'Người bán',
+    fullName: 'Trần Thị Bán',
+    email: 'seller@sedsp.vn',
+    description: 'Quản lý SP, tồn kho & DSS',
+  },
+  {
+    role: 'manager',
+    label: 'Quản lý',
+    fullName: 'Lê Văn Quản',
+    email: 'manager@sedsp.vn',
+    description: 'Analytics & báo cáo',
+  },
+  {
+    role: 'admin',
+    label: 'Quản trị',
+    fullName: 'Phạm Admin',
+    email: 'admin@sedsp.vn',
+    description: 'Users, hệ thống & giám sát',
+  },
+]
+
+/** Map email demo → id mock (catalog/cart/orders vẫn dùng localStorage) */
+export const DEMO_EMAIL_TO_MOCK_ID: Record<string, string> = Object.fromEntries(
+  DEMO_ACCOUNTS.map((a) => [a.email.toLowerCase(), `u-${a.role}`]),
+)
+
+export function findSeedUserByEmail(email: string): User | undefined {
+  const key = email.trim().toLowerCase()
+  return seedUsers.find((u) => u.email.toLowerCase() === key)
+}
+
+export function resolveCatalogUserId(email: string, backendId: number | string): string {
+  return DEMO_EMAIL_TO_MOCK_ID[email.trim().toLowerCase()] ?? String(backendId)
+}
 
 export const SHOP_NAME = 'SEDSP Tech Mall'
 

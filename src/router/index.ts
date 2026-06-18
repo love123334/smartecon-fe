@@ -89,7 +89,7 @@ const router = createRouter({
       path: '/chatbot',
       name: 'chatbot',
       component: () => import('@/views/customer/ChatbotView.vue'),
-      meta: { roles: ['customer'], title: 'Trợ lý AI' },
+      meta: { roles: ['customer', 'manager', 'admin'], title: 'Trợ lý AI' },
     },
     {
       path: '/seller/products',

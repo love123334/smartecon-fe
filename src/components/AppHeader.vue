@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
+import { roleContactPath, roleOpsHome, roleOpsHomeLabel } from '@/utils/roleNav'
 
 const auth = useAuthStore()
 const cart = useCartStore()
@@ -40,16 +41,23 @@ const opsNavLinks = computed(() => {
       { to: '/manager/dashboard', label: 'Dashboard' },
       { to: '/manager/analytics', label: 'Phân tích' },
       { to: '/manager/dss', label: 'DSS' },
+      { to: '/chatbot', label: 'Trợ lý AI' },
     ]
   }
   if (r === 'admin') {
     return [
       { to: '/admin/users', label: 'Người dùng' },
       { to: '/admin/monitoring', label: 'Giám sát' },
+      { to: '/chatbot', label: 'Trợ lý AI' },
     ]
   }
   return []
 })
+
+const opsHome = computed(() => roleOpsHome(auth.role))
+const opsHomeLabel = computed(() => roleOpsHomeLabel(auth.role))
+const contactTo = computed(() => roleContactPath(auth.role))
+const showCart = computed(() => auth.role === 'guest' || auth.role === 'customer')
 
 const profileTo = computed(() => {
   if (!auth.user) return '/login'
@@ -89,12 +97,23 @@ async function onLogout() {
         </RouterLink>
 
         <nav class="shop-nav" aria-label="Điều hướng chính">
+          <RouterLink
+            v-if="opsHome"
+            :to="opsHome"
+            class="shop-nav__link shop-nav__link--ops"
+          >
+            {{ opsHomeLabel }}
+          </RouterLink>
           <RouterLink to="/" class="shop-nav__link" exact-active-class="shop-nav__link--active">Trang chủ</RouterLink>
           <RouterLink to="/search" class="shop-nav__link" active-class="shop-nav__link--active">Cửa hàng</RouterLink>
-          <RouterLink to="/chatbot" class="shop-nav__link">Liên hệ</RouterLink>
+          <RouterLink :to="contactTo" class="shop-nav__link" active-class="shop-nav__link--active">Liên hệ</RouterLink>
         </nav>
 
         <div class="shop-header__actions">
+          <span v-if="auth.user" class="shop-header__user" :title="auth.user.email">
+            <span class="shop-header__role">{{ roleLabels[auth.role] }}</span>
+            <span class="shop-header__name">{{ auth.user.fullName }}</span>
+          </span>
           <RouterLink to="/search" class="shop-icon-btn btn-interactive" title="Tìm kiếm" aria-label="Tìm kiếm">
             <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
               <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
@@ -106,6 +125,7 @@ async function onLogout() {
             </svg>
           </RouterLink>
           <button
+            v-if="showCart"
             type="button"
             class="shop-icon-btn shop-icon-btn--cart btn-interactive"
             title="Giỏ hàng"
@@ -191,6 +211,43 @@ async function onLogout() {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.shop-user-meta {
+  display: none;
+  align-items: center;
+  gap: 0.5rem;
+  margin-right: 0.25rem;
+}
+
+.shop-user-meta__name {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--slate-700);
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.badge-role--sm {
+  font-size: 0.625rem;
+  padding: 0.1rem 0.4rem;
+}
+
+@media (min-width: 900px) {
+  .shop-user-meta {
+    display: inline-flex;
+  }
+}
+
+.shop-nav__link--ops {
+  color: var(--primary-700);
+  font-weight: 700;
+}
+
+.shop-nav__link--ops:hover {
+  color: var(--primary-800);
 }
 
 @media (max-width: 768px) {

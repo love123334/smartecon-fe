@@ -1,8 +1,10 @@
 import type { User, UserRole } from '@/types'
+import { findSeedUserByEmail, resolveCatalogUserId } from '@/api/mockData'
 
 /** Backend role enum → FE lowercase role */
 export function mapApiRole(role?: string | null): UserRole {
-  const r = (role ?? 'CUSTOMER').toUpperCase()
+  if (!role) return 'customer'
+  const r = role.toUpperCase()
   if (r === 'ADMIN') return 'admin'
   if (r === 'MANAGER') return 'manager'
   if (r === 'SELLER') return 'seller'
@@ -43,16 +45,20 @@ export interface BackendUserProfileResponse {
 export function mapBackendUser(
   data: BackendMeResponse | BackendUserProfileResponse,
 ): User {
+  const seed = findSeedUserByEmail(data.email)
   const phone = 'phone' in data ? data.phone : undefined
   const status = 'status' in data ? data.status : undefined
+  const role = data.role ? mapApiRole(data.role) : (seed?.role ?? 'customer')
+
   return {
-    id: String(data.id),
+    id: resolveCatalogUserId(data.email, data.id),
     email: data.email,
-    fullName: data.fullName ?? data.username ?? data.email.split('@')[0],
-    role: mapApiRole(data.role),
-    phone,
-    createdAt: new Date().toISOString(),
-    active: status ? status.toUpperCase() === 'ACTIVE' : true,
+    fullName: data.fullName ?? seed?.fullName ?? data.username ?? data.email.split('@')[0],
+    role,
+    phone: phone ?? seed?.phone,
+    address: seed?.address,
+    createdAt: seed?.createdAt ?? new Date().toISOString(),
+    active: status ? status.toUpperCase() === 'ACTIVE' : (seed?.active ?? true),
   }
 }
 

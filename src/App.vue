@@ -5,10 +5,13 @@ import AppHeader from '@/components/AppHeader.vue'
 import CartFlyout from '@/components/CartFlyout.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
+import { roleContactPath } from '@/utils/roleNav'
 
 const auth = useAuthStore()
 const cart = useCartStore()
 const route = useRoute()
+
+const contactTo = computed(() => roleContactPath(auth.role))
 
 const fullBleed = computed(() => Boolean(route.meta.fullBleed))
 
@@ -67,7 +70,7 @@ onMounted(async () => {
       <nav class="footer-elegant__nav" aria-label="Footer">
         <RouterLink to="/">Trang chủ</RouterLink>
         <RouterLink to="/search">Cửa hàng</RouterLink>
-        <RouterLink to="/chatbot">Liên hệ</RouterLink>
+        <RouterLink :to="contactTo">Liên hệ</RouterLink>
         <RouterLink to="/orders">Đơn hàng</RouterLink>
       </nav>
     </div>

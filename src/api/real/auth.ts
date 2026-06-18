@@ -16,8 +16,21 @@ export async function login(email: string, password: string): Promise<User> {
     password,
   })
   saveAccessToken(data.accessToken)
-  const me = await http.get<BackendMeResponse>(apiPaths.auth.me)
-  return mapBackendUser(me)
+
+  try {
+    const me = await http.get<BackendMeResponse>(apiPaths.auth.me)
+    return mapBackendUser({
+      ...me,
+      role: me.role ?? data.user.role,
+    })
+  } catch {
+    return mapBackendUser({
+      id: data.user.id,
+      email: data.user.email,
+      username: data.user.username,
+      role: data.user.role,
+    })
+  }
 }
 
 export async function getCurrentUser(): Promise<User | null> {

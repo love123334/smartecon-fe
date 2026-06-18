@@ -1,9 +1,14 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
-import { DEMO_PASSWORD } from '@/api/mockData'
+import { apiConfig } from '@/api/config'
+import {
+  DEMO_ACCOUNTS,
+  DEMO_PASSWORD,
+  DEMO_PASSWORD_BACKEND,
+} from '@/api/mockData'
 
 const route = useRoute()
 const router = useRouter()
@@ -13,16 +18,13 @@ const email = ref('')
 const password = ref('')
 const localError = ref('')
 
-const demos = [
-  { label: 'Customer', email: 'customer@sedsp.vn', desc: 'Mua sắm, giỏ hàng' },
-  { label: 'Seller', email: 'seller@sedsp.vn', desc: 'Quản lý & DSS' },
-  { label: 'Manager', email: 'manager@sedsp.vn', desc: 'Analytics' },
-  { label: 'Admin', email: 'admin@sedsp.vn', desc: 'Hệ thống' },
-]
+const demoPassword = computed(() =>
+  apiConfig.useRealAuth ? DEMO_PASSWORD_BACKEND : DEMO_PASSWORD,
+)
 
-function fillDemo(e: string) {
-  email.value = e
-  password.value = DEMO_PASSWORD
+function fillDemo(accountEmail: string) {
+  email.value = accountEmail
+  password.value = demoPassword.value
 }
 
 async function submit() {
@@ -88,17 +90,24 @@ async function submit() {
 
         <div class="card demo-box card--flat" style="margin-top: 1.25rem">
           <p class="card-title" style="margin-bottom: 0.5rem">Tài khoản demo</p>
-          <p class="muted" style="margin: 0 0 0.75rem">Mật khẩu: <code>123456</code></p>
+          <p class="muted" style="margin: 0 0 0.75rem">
+            Mật khẩu chung: <code>{{ demoPassword }}</code>
+            <span v-if="apiConfig.useRealAuth" class="demo-hint">(backend)</span>
+            <span v-else class="demo-hint">(mock)</span>
+          </p>
           <div class="demo-grid">
             <button
-              v-for="d in demos"
+              v-for="d in DEMO_ACCOUNTS"
               :key="d.email"
               type="button"
               class="demo-chip btn-interactive"
+              :class="`demo-chip--${d.role}`"
               @click="fillDemo(d.email)"
             >
-              <strong>{{ d.label }}</strong>
-              <span>{{ d.desc }}</span>
+              <span class="demo-chip__badge">{{ d.label }}</span>
+              <strong>{{ d.fullName }}</strong>
+              <span class="demo-chip__email">{{ d.email }}</span>
+              <span class="demo-chip__desc">{{ d.description }}</span>
             </button>
           </div>
         </div>
@@ -152,11 +161,17 @@ async function submit() {
   gap: 0.5rem;
 }
 
+.demo-hint {
+  font-size: 0.75rem;
+  margin-left: 0.25rem;
+  opacity: 0.75;
+}
+
 .demo-chip {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.15rem;
+  gap: 0.2rem;
   padding: 0.65rem 0.75rem;
   text-align: left;
   background: var(--slate-50);
@@ -164,12 +179,42 @@ async function submit() {
   border-radius: var(--radius);
   cursor: pointer;
   font-family: inherit;
-  transition: border-color var(--transition), background var(--transition);
+  transition: border-color var(--transition), background var(--transition), transform var(--transition);
 }
 
 .demo-chip:hover {
   border-color: var(--primary-500);
   background: var(--primary-50);
+  transform: translateY(-1px);
+}
+
+.demo-chip__badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+}
+
+.demo-chip--customer .demo-chip__badge {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.demo-chip--seller .demo-chip__badge {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.demo-chip--manager .demo-chip__badge {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.demo-chip--admin .demo-chip__badge {
+  background: #fce7f3;
+  color: #be185d;
 }
 
 .demo-chip strong {
@@ -177,8 +222,20 @@ async function submit() {
   color: var(--slate-800);
 }
 
-.demo-chip span {
-  font-size: 0.7rem;
+.demo-chip__email {
+  font-size: 0.68rem;
+  color: var(--slate-600);
+  font-family: ui-monospace, monospace;
+}
+
+.demo-chip__desc {
+  font-size: 0.68rem;
   color: var(--slate-500);
+}
+
+@media (max-width: 520px) {
+  .demo-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
