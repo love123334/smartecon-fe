@@ -6,6 +6,10 @@ import {
 } from '@/api/mockData'
 import { apiConfig } from '@/api/config'
 import * as realAuth from '@/api/real/auth'
+import * as realProducts from '@/api/real/products'
+import * as realCart from '@/api/real/cart'
+import * as realOrders from '@/api/real/orders'
+import { generateAssistantReply, typingDelay } from '@/api/chat/engine'
 import { STORAGE_KEYS, storageGet, storageSet } from '@/api/storage'
 import type {
   CartItem,
@@ -205,15 +209,14 @@ const mockAuthApi = {
 export const authApi = apiConfig.useRealAuth
   ? {
       login: realAuth.login,
-      register: realAuth.registerUnsupported,
+      register: realAuth.register,
       logout: realAuth.logout,
       getCurrentUser: realAuth.getCurrentUser,
       updateProfile: realAuth.updateProfile,
     }
   : mockAuthApi
 
-// ——— Products ———
-export const productApi = {
+const mockProductApi = {
   async list(params?: {
     q?: string
     category?: string
@@ -287,8 +290,61 @@ export const productApi = {
   },
 }
 
+async function listProductsHybrid(params?: {
+  q?: string
+  category?: string
+  sellerId?: string
+}): Promise<Product[]> {
+  if (!apiConfig.useRealProducts) {
+    return mockProductApi.list(params)
+  }
+  try {
+    const sellerNum =
+      params?.sellerId && /^\d+$/.test(params.sellerId)
+        ? Number(params.sellerId)
+        : undefined
+    let list = await realProducts.listProducts({
+      q: params?.q,
+      sellerId: sellerNum,
+      size: 100,
+    })
+    if (params?.category) {
+      list = list.filter(
+        (p) => p.category.toLowerCase() === params.category!.toLowerCase(),
+      )
+    }
+    if (params?.sellerId && !sellerNum) {
+      list = list.filter((p) => p.sellerId === params.sellerId)
+    }
+    return list.map(enrichProduct)
+  } catch {
+    return mockProductApi.list(params)
+  }
+}
+
+export const productApi = {
+  list: listProductsHybrid,
+
+  async getById(id: string): Promise<Product | null> {
+    if (apiConfig.useRealProducts) {
+      try {
+        const p = await realProducts.getProductById(id)
+        return p ? enrichProduct(p) : null
+      } catch {
+        /* fallback mock */
+      }
+    }
+    return mockProductApi.getById(id)
+  },
+
+  create: mockProductApi.create,
+  update: mockProductApi.update,
+  remove: mockProductApi.remove,
+  categories: mockProductApi.categories,
+}
+
 // ——— Cart ———
-export const cartApi = {
+const mockCartApi = {
   async getCart(userId: string): Promise<CartItem[]> {
     await delay(30)
     return getCarts()[userId] ?? []
@@ -329,7 +385,7 @@ export const cartApi = {
     quantity: number,
   ): Promise<CartItem[]> {
     await delay()
-    if (quantity <= 0) return cartApi.removeItem(userId, productId)
+    if (quantity <= 0) return mockCartApi.removeItem(userId, productId)
     const product = getProducts().find((p) => p.id === productId)
     if (!product || product.stock < quantity) {
       throw new Error('Không đủ tồn kho')
@@ -359,30 +415,121 @@ export const cartApi = {
   },
 }
 
+async function findRealCartItemId(productId: string): Promise<string | null> {
+  const cart = await realCart.getCart()
+  const item = cart.items.find((i) => String(i.productId) === productId)
+  return item ? String(item.id) : null
+}
+
+export const cartApi = {
+  async getCart(userId: string): Promise<CartItem[]> {
+    if (apiConfig.useRealCart && localStorage.getItem('sedsp_access_token')) {
+      const cart = await realCart.getCart()
+      return cart.items.map((i) => ({
+        productId: String(i.productId),
+        quantity: i.quantity,
+        cartItemId: String(i.id),
+      }))
+    }
+    return mockCartApi.getCart(userId)
+  },
+
+  async addItem(userId: string, productId: string, qty = 1): Promise<CartItem[]> {
+    if (apiConfig.useRealCart && localStorage.getItem('sedsp_access_token')) {
+      await realCart.addCartItem(productId, qty)
+      return cartApi.getCart(userId)
+    }
+    return mockCartApi.addItem(userId, productId, qty)
+  },
+
+  async updateQuantity(
+    userId: string,
+    productId: string,
+    quantity: number,
+  ): Promise<CartItem[]> {
+    if (apiConfig.useRealCart && localStorage.getItem('sedsp_access_token')) {
+      if (quantity <= 0) return cartApi.removeItem(userId, productId)
+      const itemId = await findRealCartItemId(productId)
+      if (!itemId) throw new Error('Sản phẩm không có trong giỏ')
+      await realCart.updateCartItem(itemId, quantity)
+      return cartApi.getCart(userId)
+    }
+    return mockCartApi.updateQuantity(userId, productId, quantity)
+  },
+
+  async removeItem(userId: string, productId: string): Promise<CartItem[]> {
+    if (apiConfig.useRealCart && localStorage.getItem('sedsp_access_token')) {
+      const itemId = await findRealCartItemId(productId)
+      if (itemId) await realCart.removeCartItem(itemId)
+      return cartApi.getCart(userId)
+    }
+    return mockCartApi.removeItem(userId, productId)
+  },
+
+  async clear(userId: string): Promise<void> {
+    if (apiConfig.useRealCart && localStorage.getItem('sedsp_access_token')) {
+      await realCart.clearCart()
+      return
+    }
+    return mockCartApi.clear(userId)
+  },
+}
+
 export interface CartLine {
   product: Product
   quantity: number
   subtotal: number
+  cartItemId?: string
 }
 
 export async function resolveCartLines(userId: string): Promise<CartLine[]> {
   const items = await cartApi.getCart(userId)
-  const products = getProducts()
-  return items
-    .map((item) => {
-      const product = products.find((p) => p.id === item.productId)
-      if (!product) return null
+
+  if (apiConfig.useRealCart && localStorage.getItem('sedsp_access_token')) {
+    const cart = await realCart.getCart()
+    return cart.items.map((item) => {
+      const price = realCart.cartNum(item.price)
+      const subtotal = realCart.cartNum(item.totalPrice, price * item.quantity)
       return {
-        product,
+        cartItemId: String(item.id),
+        product: {
+          id: String(item.productId),
+          name: item.productName,
+          description: '',
+          price,
+          stock: 99,
+          category: '',
+          imageUrl: `https://picsum.photos/seed/prod-${item.productId}/400/400`,
+          sellerId: '',
+          shopName: 'SEDSP Official',
+          shopLocation: 'TP.HCM',
+          rating: 4.5,
+          soldCount: 0,
+          createdAt: new Date().toISOString(),
+        },
         quantity: item.quantity,
-        subtotal: product.price * item.quantity,
+        subtotal,
       }
     })
-    .filter((x): x is CartLine => x != null)
+  }
+
+  const products = getProducts()
+  const lines: CartLine[] = []
+  for (const item of items) {
+    const product = products.find((p) => p.id === item.productId)
+    if (!product) continue
+    lines.push({
+      product,
+      quantity: item.quantity,
+      subtotal: product.price * item.quantity,
+      cartItemId: item.cartItemId,
+    })
+  }
+  return lines
 }
 
 // ——— Orders ———
-export const orderApi = {
+const mockOrderApi = {
   async listForCustomer(customerId: string): Promise<Order[]> {
     await delay()
     return getOrders()
@@ -403,6 +550,7 @@ export const orderApi = {
   async placeOrder(
     customerId: string,
     shippingAddress: string,
+    _payment?: 'cod' | 'bank' | 'card',
   ): Promise<Order> {
     await delay()
     const user = getUsers().find((u) => u.id === customerId)
@@ -459,6 +607,57 @@ export const orderApi = {
     }
     saveOrders(orders)
     return orders[idx]
+  },
+}
+
+export const orderApi = {
+  async listForCustomer(customerId: string): Promise<Order[]> {
+    if (apiConfig.useRealOrders && localStorage.getItem('sedsp_access_token')) {
+      return realOrders.listMyOrders()
+    }
+    return mockOrderApi.listForCustomer(customerId)
+  },
+
+  async listAll(): Promise<Order[]> {
+    if (apiConfig.useRealOrders && localStorage.getItem('sedsp_access_token')) {
+      return realOrders.listMyOrders(0, 100)
+    }
+    return mockOrderApi.listAll()
+  },
+
+  async getById(id: string): Promise<Order | null> {
+    if (apiConfig.useRealOrders && localStorage.getItem('sedsp_access_token')) {
+      return realOrders.getOrderById(id)
+    }
+    return mockOrderApi.getById(id)
+  },
+
+  async placeOrder(
+    customerId: string,
+    shippingAddress: string,
+    payment: 'cod' | 'bank' | 'card' = 'cod',
+  ): Promise<Order> {
+    if (apiConfig.useRealOrders && localStorage.getItem('sedsp_access_token')) {
+      const order = await realOrders.createOrder(
+        shippingAddress,
+        realOrders.toBackendPayment(payment),
+      )
+      return order
+    }
+    return mockOrderApi.placeOrder(customerId, shippingAddress, payment)
+  },
+
+  async updateStatus(id: string, status: Order['status']): Promise<Order> {
+    if (apiConfig.useRealOrders && localStorage.getItem('sedsp_access_token')) {
+      if (status === 'cancelled') {
+        await realOrders.cancelOrder(id)
+        const order = await realOrders.getOrderById(id)
+        if (!order) throw new Error('Đơn hàng không tồn tại')
+        return order
+      }
+      throw new Error('Chỉ hỗ trợ hủy đơn qua API backend')
+    }
+    return mockOrderApi.updateStatus(id, status)
   },
 }
 
@@ -606,44 +805,19 @@ export const adminApi = {
   },
 }
 
-// ——— Chatbot ———
-const BOT_REPLIES: Record<string, string[]> = {
-  default: [
-    'Tôi có thể giúp bạn tìm sản phẩm, theo dõi đơn hàng hoặc gợi ý khuyến mãi.',
-    'Bạn muốn xem sản phẩm nào hôm nay?',
-  ],
-  đơn: ['Bạn có thể xem đơn hàng tại mục "Đơn hàng của tôi".'],
-  giá: ['Giá đã bao gồm VAT. Thanh toán COD hoặc chuyển khoản.'],
-  tồn: ['Tồn kho được cập nhật theo thời gian thực trên hệ thống SEDSP.'],
-}
-
-function botReply(text: string, role: UserRole): string {
-  const lower = text.toLowerCase()
-  if (role === 'seller' || role === 'manager') {
-    if (lower.includes('doanh thu') || lower.includes('bán')) {
-      return 'Doanh thu tháng này tăng 12% so với tháng trước. Xem biểu đồ tại Bảng điều khiển.'
-    }
-    if (lower.includes('tồn') || lower.includes('kho')) {
-      return 'Có 2 SKU dưới ngưỡng an toàn. Kiểm tra mục Tồn kho.'
-    }
-  }
-  for (const [key, replies] of Object.entries(BOT_REPLIES)) {
-    if (key !== 'default' && lower.includes(key)) {
-      return replies[Math.floor(Math.random() * replies.length)]
-    }
-  }
-  const defaults = BOT_REPLIES.default
-  return defaults[Math.floor(Math.random() * defaults.length)]
-}
-
+// ——— Chatbot (local AI engine — sẵn sàng thay bằng POST /api/v1/ai/chat) ———
 export const chatApi = {
   async getHistory(userId: string): Promise<ChatMessage[]> {
     await delay(30)
     return getChatMap()[userId] ?? []
   },
 
-  async send(userId: string, content: string, role: UserRole): Promise<ChatMessage[]> {
-    await delay(200)
+  async send(
+    userId: string,
+    content: string,
+    role: UserRole,
+    opts?: { userName?: string },
+  ): Promise<ChatMessage[]> {
     const map = getChatMap()
     const history = map[userId] ?? []
     const userMsg: ChatMessage = {
@@ -652,10 +826,26 @@ export const chatApi = {
       content,
       timestamp: new Date().toISOString(),
     }
+
+    let products: Product[] = []
+    try {
+      products = await listProductsHybrid()
+    } catch {
+      products = getProducts()
+    }
+
+    const reply = generateAssistantReply(content, {
+      role,
+      products,
+      userName: opts?.userName,
+    })
+
+    await delay(typingDelay(reply))
+
     const assistantMsg: ChatMessage = {
       id: `c-${Date.now() + 1}`,
       role: 'assistant',
-      content: botReply(content, role),
+      content: reply,
       timestamp: new Date().toISOString(),
     }
     const updated = [...history, userMsg, assistantMsg]

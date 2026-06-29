@@ -2,6 +2,8 @@ export type UserRole = 'guest' | 'customer' | 'seller' | 'manager' | 'admin'
 
 export interface User {
   id: string
+  /** ID thật từ backend — dùng cho API products/seller */
+  backendId?: string
   email: string
   fullName: string
   role: UserRole
@@ -60,6 +62,7 @@ export interface Order {
 export interface CartItem {
   productId: string
   quantity: number
+  cartItemId?: string
 }
 
 export interface ChatMessage {
@@ -67,6 +70,8 @@ export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
   timestamp: string
+  /** Bot đang gõ phản hồi */
+  pending?: boolean
 }
 
 export interface DssInsight {

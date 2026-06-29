@@ -19,7 +19,8 @@ const form = ref({
 
 async function load() {
   if (!auth.user) return
-  products.value = await productApi.list({ sellerId: auth.user.id })
+  const sellerKey = auth.user.backendId ?? auth.user.id
+  products.value = await productApi.list({ sellerId: sellerKey })
 }
 
 onMounted(load)

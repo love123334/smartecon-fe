@@ -52,6 +52,7 @@ export function mapBackendUser(
 
   return {
     id: resolveCatalogUserId(data.email, data.id),
+    backendId: String(data.id),
     email: data.email,
     fullName: data.fullName ?? seed?.fullName ?? data.username ?? data.email.split('@')[0],
     role,

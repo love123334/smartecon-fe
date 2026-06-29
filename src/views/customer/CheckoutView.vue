@@ -58,7 +58,7 @@ async function placeOrder() {
   error.value = ''
   try {
     const fullAddress = [address.value, city.value, state.value, zip.value].filter(Boolean).join(', ')
-    const order = await orderApi.placeOrder(auth.user.id, fullAddress || address.value)
+    const order = await orderApi.placeOrder(auth.user.id, fullAddress || address.value, payment.value)
     await cart.refresh()
     router.push(`/orders/${order.id}`)
   } catch (e) {

@@ -25,20 +25,18 @@ export const apiPaths = {
     search: 'products/search',
   },
   inventory: {
-    byProduct: (id: string) => `inventory/products/${id}`,
-    update: (id: string) => `inventory/products/${id}`,
+    byProduct: (id: string) => `inventory/${id}`,
+    update: (id: string) => `inventory/${id}`,
   },
   cart: {
     mine: 'cart',
     items: 'cart/items',
-    item: (productId: string) => `cart/items/${productId}`,
+    item: (itemId: string) => `cart/items/${itemId}`,
   },
   orders: {
     list: 'orders',
-    mine: 'orders/me',
     byId: (id: string) => `orders/${id}`,
-    checkout: 'orders/checkout',
-    track: (id: string) => `orders/${id}/tracking`,
+    cancel: (id: string) => `orders/${id}/cancel`,
   },
   analytics: {
     sales: 'analytics/sales',

@@ -60,7 +60,17 @@ export async function updateProfile(
   return mapBackendUser(data)
 }
 
-/** Backend chưa có register — giữ mock hoặc báo lỗi */
-export async function registerUnsupported(): Promise<never> {
-  throw new Error('Đăng ký tạm chưa hỗ trợ trên backend — dùng tài khoản seed hoặc mock mode.')
+/** Backend register — role CUSTOMER mặc định */
+export async function register(data: {
+  email: string
+  password: string
+  fullName: string
+}): Promise<User> {
+  await http.post<void>(apiPaths.auth.register, {
+    fullName: data.fullName,
+    email: data.email,
+    password: data.password,
+    confirmPassword: data.password,
+  })
+  return login(data.email, data.password)
 }
