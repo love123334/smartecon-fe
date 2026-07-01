@@ -20,7 +20,7 @@ export interface BackendOrderResponse {
   shippingFee?: number | string
   discount?: number | string
   total: number | string
-  createdAt: string
+  createdAt?: string | null
   items?: BackendOrderItem[]
 }
 
@@ -65,6 +65,14 @@ function mapPaymentToFrontend(method?: BackendPaymentMethod): Order['paymentMeth
   return undefined
 }
 
+function formatTimestamp(createdAt?: string | null): string {
+  if (createdAt == null || createdAt === '') {
+    return new Date().toISOString()
+  }
+  const s = String(createdAt)
+  return s.includes('T') ? s : `${s}T00:00:00.000Z`
+}
+
 export function mapBackendOrder(
   o: BackendOrderResponse,
   extras?: {
@@ -74,7 +82,7 @@ export function mapBackendOrder(
     paymentMethod?: BackendPaymentMethod
   },
 ): Order {
-  const ts = o.createdAt.includes('T') ? o.createdAt : `${o.createdAt}T00:00:00.000Z`
+  const ts = formatTimestamp(o.createdAt)
   return {
     id: String(o.id),
     customerId: extras?.customerId ?? '',
@@ -103,7 +111,7 @@ export async function createOrder(
     shippingAddress,
     paymentMethod,
   })
-  return mapBackendOrder(data, { shippingAddress })
+  return mapBackendOrder(data, { shippingAddress, paymentMethod })
 }
 
 export async function listMyOrders(page = 0, size = 20): Promise<Order[]> {

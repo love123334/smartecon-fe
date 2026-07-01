@@ -118,8 +118,8 @@ export async function createProduct(input: ProductWriteInput): Promise<Product> 
   if (input.imageUrl) {
     body.images = [{ imageUrl: input.imageUrl, isPrimary: true }]
   }
-  const data = await http.post<BackendProductDetail>(apiPaths.products.list, body)
-  return mapProductDetail(data)
+  const data = await http.post<BackendProductResponse>(apiPaths.products.list, body)
+  return mapProductSummary(data)
 }
 
 export async function updateProduct(
@@ -131,8 +131,8 @@ export async function updateProduct(
   if (input.description != null) body.description = input.description
   if (input.price != null) body.price = input.price
   if (input.categoryId != null) body.categoryId = input.categoryId
-  const data = await http.put<BackendProductDetail>(apiPaths.products.byId(id), body)
-  return mapProductDetail(data)
+  const data = await http.put<BackendProductResponse>(apiPaths.products.byId(id), body)
+  return mapProductSummary(data)
 }
 
 export async function deleteProduct(id: string): Promise<void> {
