@@ -6,13 +6,17 @@ import CartFlyout from '@/components/CartFlyout.vue'
 import ChatSupportFab from '@/components/ChatSupportFab.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
-import { roleContactPath } from '@/utils/roleNav'
+import { footerLinksForRole } from '@/utils/roleNav'
+import { roleAiFooterLinks } from '@/utils/roleAiNav'
 
 const auth = useAuthStore()
 const cart = useCartStore()
 const route = useRoute()
 
-const contactTo = computed(() => roleContactPath(auth.role))
+const footerLinks = computed(() => [
+  ...footerLinksForRole(auth.role),
+  ...roleAiFooterLinks(auth.role),
+])
 
 const fullBleed = computed(() => Boolean(route.meta.fullBleed))
 
@@ -70,10 +74,9 @@ onMounted(async () => {
         <span class="footer-elegant__tag">Chợ tech · Gợi ý thông minh DSS & AI</span>
       </div>
       <nav class="footer-elegant__nav" aria-label="Footer">
-        <RouterLink to="/">Trang chủ</RouterLink>
-        <RouterLink to="/search">Cửa hàng</RouterLink>
-        <RouterLink :to="contactTo">Liên hệ</RouterLink>
-        <RouterLink to="/orders">Đơn hàng</RouterLink>
+        <RouterLink v-for="link in footerLinks" :key="link.to" :to="link.to">
+          {{ link.label }}
+        </RouterLink>
       </nav>
     </div>
     <div class="container footer-elegant__bottom">

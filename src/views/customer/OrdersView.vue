@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { formatVnd, orderApi } from '@/api/services'
 import type { Order } from '@/types'
 import { useAuthStore } from '@/stores/auth'
+import { orderStatusLabel } from '@/utils/orderStatus'
 
 const auth = useAuthStore()
 const orders = ref<Order[]>([])
@@ -38,7 +39,7 @@ function statusClass(s: string) {
             <td>{{ o.id }}</td>
             <td>{{ new Date(o.createdAt).toLocaleDateString('vi-VN') }}</td>
             <td>{{ formatVnd(o.total) }}</td>
-            <td><span :class="statusClass(o.status)">{{ o.status }}</span></td>
+            <td><span :class="statusClass(o.status)">{{ orderStatusLabel(o.status) }}</span></td>
             <td>
               <RouterLink :to="`/orders/${o.id}`">Chi tiết</RouterLink>
             </td>

@@ -21,28 +21,28 @@ export const DEMO_ACCOUNTS: DemoAccount[] = [
     label: 'Khách hàng',
     fullName: 'Nguyễn Văn Khách',
     email: 'customer@sedsp.vn',
-    description: 'Mua sắm, giỏ hàng, đơn hàng',
+    description: 'Mua sắm, Gợi ý AI & chatbot tư vấn',
   },
   {
     role: 'seller',
     label: 'Người bán',
     fullName: 'Trần Thị Bán',
     email: 'seller@sedsp.vn',
-    description: 'Quản lý SP, tồn kho & DSS',
+    description: 'SP, tồn kho, DSS kế hoạch & trợ lý AI',
   },
   {
     role: 'manager',
     label: 'Quản lý',
     fullName: 'Lê Văn Quản',
     email: 'manager@sedsp.vn',
-    description: 'Analytics & báo cáo',
+    description: 'Dashboard, DSS what-if & trợ lý AI',
   },
   {
     role: 'admin',
     label: 'Quản trị',
     fullName: 'Phạm Admin',
     email: 'admin@sedsp.vn',
-    description: 'Users, hệ thống & giám sát',
+    description: 'Users, giám sát & trợ lý AI admin',
   },
 ]
 

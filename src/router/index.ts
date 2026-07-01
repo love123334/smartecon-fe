@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import type { UserRole } from '@/types'
 import { useAuthStore } from '@/stores/auth'
+import { roleHomePath } from '@/utils/roleNav'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -188,18 +189,7 @@ router.beforeEach(async (to) => {
 })
 
 function roleHome(role: UserRole): { path: string } {
-  switch (role) {
-    case 'customer':
-      return { path: '/' }
-    case 'seller':
-      return { path: '/seller/products' }
-    case 'manager':
-      return { path: '/manager/dashboard' }
-    case 'admin':
-      return { path: '/admin/users' }
-    default:
-      return { path: '/' }
-  }
+  return { path: roleHomePath(role) }
 }
 
 export default router

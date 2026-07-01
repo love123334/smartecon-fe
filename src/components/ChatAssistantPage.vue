@@ -6,6 +6,8 @@ import type { ChatMessage, UserRole } from '@/types'
 import { useAuthStore } from '@/stores/auth'
 import PageHeader from '@/components/PageHeader.vue'
 import ChatPanel from '@/components/ChatPanel.vue'
+import AiShortcutBar from '@/components/AiShortcutBar.vue'
+import { roleChatShortcuts } from '@/utils/roleAiNav'
 
 const props = defineProps<{
   role?: UserRole
@@ -25,6 +27,7 @@ const loading = ref(false)
 const effectiveRole = computed<UserRole>(() => props.role ?? auth.role ?? 'guest')
 const chatUserId = computed(() => props.storageKey ?? auth.user?.id ?? 'guest')
 const quickPrompts = computed(() => quickPromptsForRole(effectiveRole.value))
+const shortcuts = computed(() => roleChatShortcuts(effectiveRole.value))
 
 const header = computed(() => {
   if (props.pageCopy) return props.pageCopy
@@ -90,6 +93,7 @@ async function onClear() {
       :title="header.title"
       :lead="header.lead"
     />
+    <AiShortcutBar title="Module liên quan:" :links="shortcuts" />
     <ChatPanel
       :messages="messages"
       :quick-prompts="quickPrompts"

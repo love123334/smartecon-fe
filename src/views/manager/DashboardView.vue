@@ -1,13 +1,17 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { dssApi, orderApi, formatVnd } from '@/api/services'
 import type { ChartPoint, Order } from '@/types'
+import HybridDataNotice from '@/components/HybridDataNotice.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import LineChart from '@/components/LineChart.vue'
+import { orderStatusLabel } from '@/utils/orderStatus'
 
 const sales = ref<ChartPoint[]>([])
 const orders = ref<Order[]>([])
 const totalRevenue = ref(0)
+
+const recentOrders = computed(() => orders.value.slice(0, 8))
 
 onMounted(async () => {
   sales.value = await dssApi.salesChart()
@@ -20,9 +24,12 @@ onMounted(async () => {
   <div>
     <PageHeader
       class="page-header--animate"
-      eyebrow="Manager"
+      eyebrow="Quản lý"
       title="Bảng điều khiển"
-      lead="Tổng quan KPI — doanh thu và đơn hàng theo thời gian thực (demo)."
+      lead="Tổng quan KPI — đơn hàng demo + đơn thật từ backend."
+    />
+    <HybridDataNotice
+      message="Đơn hàng gộp mock + API; biểu đồ doanh thu vẫn mô phỏng cho đến khi có module analytics."
     />
 
     <div class="stat-grid grid-stagger">
@@ -46,6 +53,30 @@ onMounted(async () => {
       <h2 class="card-title">Xu hướng doanh thu</h2>
       <LineChart v-if="sales.length" :data="sales" label="Doanh thu" />
       <p v-else class="muted">Chưa có dữ liệu biểu đồ.</p>
+    </div>
+
+    <div v-if="recentOrders.length" class="card card--flat" style="margin-top: 1.25rem">
+      <h2 class="card-title">Đơn hàng gần đây</h2>
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr>
+              <th>Mã</th>
+              <th>Khách</th>
+              <th>Tổng</th>
+              <th>Trạng thái</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="o in recentOrders" :key="o.id">
+              <td>{{ o.id }}</td>
+              <td>{{ o.customerName ?? '—' }}</td>
+              <td>{{ formatVnd(o.total) }}</td>
+              <td>{{ orderStatusLabel(o.status) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 </template>

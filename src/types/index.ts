@@ -9,6 +9,10 @@ export interface User {
   role: UserRole
   phone?: string
   address?: string
+  /** Icon preset id — xem utils/avatar */
+  avatarPreset?: string
+  /** Data URL hoặc URL ảnh tùy chỉnh */
+  avatarUrl?: string
   createdAt: string
   active: boolean
 }

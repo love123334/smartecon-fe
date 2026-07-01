@@ -9,6 +9,7 @@ import {
   DEMO_PASSWORD,
   DEMO_PASSWORD_BACKEND,
 } from '@/api/mockData'
+import { resolvePostLoginPath } from '@/utils/roleNav'
 
 const route = useRoute()
 const router = useRouter()
@@ -17,6 +18,7 @@ const cart = useCartStore()
 const email = ref('')
 const password = ref('')
 const localError = ref('')
+const backendOnline = ref(true)
 
 const demoPassword = computed(() =>
   apiConfig.useRealAuth ? DEMO_PASSWORD_BACKEND : DEMO_PASSWORD,
@@ -27,17 +29,28 @@ function fillDemo(accountEmail: string) {
   password.value = demoPassword.value
 }
 
+async function checkBackend() {
+  if (!apiConfig.useRealAuth) {
+    backendOnline.value = true
+    return
+  }
+  try {
+    const res = await fetch('/api/v1/products?page=0&size=1')
+    backendOnline.value = res.ok
+  } catch {
+    backendOnline.value = false
+  }
+}
+
+void checkBackend()
+
 async function submit() {
   localError.value = ''
   try {
     await auth.login(email.value, password.value)
-    if (auth.role === 'customer') await cart.refresh()
+    if (auth.user?.role === 'customer') await cart.refresh()
     const redirect = (route.query.redirect as string) || undefined
-    if (redirect) router.push(redirect)
-    else if (auth.role === 'seller') router.push('/seller/products')
-    else if (auth.role === 'manager') router.push('/manager/dashboard')
-    else if (auth.role === 'admin') router.push('/admin/users')
-    else router.push('/')
+    await router.push(resolvePostLoginPath(auth.user?.role ?? 'guest', redirect))
   } catch {
     localError.value = auth.error ?? 'Đăng nhập thất bại'
   }
@@ -64,6 +77,10 @@ async function submit() {
       <div class="auth-form-box">
         <h2 class="page-title" style="font-size: 1.35rem">Chào mừng trở lại</h2>
         <p class="page-lead" style="margin-bottom: 1.25rem">Nhập email và mật khẩu tài khoản của bạn.</p>
+
+        <p v-if="apiConfig.useRealAuth && !backendOnline" class="login-offline-hint">
+          Backend chưa chạy — vẫn đăng nhập được bằng tài khoản demo (chế độ offline).
+        </p>
 
         <div class="border-glow">
           <form class="border-glow__inner card--flat" style="padding: 1.25rem 1.5rem" @submit.prevent="submit">
@@ -231,6 +248,16 @@ async function submit() {
 .demo-chip__desc {
   font-size: 0.68rem;
   color: var(--slate-500);
+}
+
+.login-offline-hint {
+  margin: 0 0 1rem;
+  padding: 0.65rem 0.85rem;
+  font-size: 0.8125rem;
+  border-radius: var(--radius);
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  color: #92400e;
 }
 
 @media (max-width: 520px) {

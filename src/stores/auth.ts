@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { authApi } from '@/api/services'
 import type { User, UserRole } from '@/types'
+import { saveUserAvatar } from '@/utils/avatar'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
@@ -60,9 +61,15 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function updateProfile(
-    patch: Partial<Pick<User, 'fullName' | 'phone' | 'address'>>,
+    patch: Partial<Pick<User, 'fullName' | 'phone' | 'address' | 'avatarPreset' | 'avatarUrl'>>,
   ) {
     if (!user.value) return
+    if (patch.avatarPreset !== undefined || patch.avatarUrl !== undefined) {
+      saveUserAvatar(user.value.id, {
+        avatarPreset: patch.avatarPreset ?? user.value.avatarPreset,
+        avatarUrl: patch.avatarUrl ?? user.value.avatarUrl,
+      })
+    }
     user.value = await authApi.updateProfile(user.value.id, patch)
   }
 

@@ -1,5 +1,6 @@
 import type { User, UserRole } from '@/types'
 import { findSeedUserByEmail, resolveCatalogUserId } from '@/api/mockData'
+import { applyAvatarToUser } from '@/utils/avatar'
 
 /** Backend role enum → FE lowercase role */
 export function mapApiRole(role?: string | null): UserRole {
@@ -50,7 +51,7 @@ export function mapBackendUser(
   const status = 'status' in data ? data.status : undefined
   const role = data.role ? mapApiRole(data.role) : (seed?.role ?? 'customer')
 
-  return {
+  return applyAvatarToUser({
     id: resolveCatalogUserId(data.email, data.id),
     backendId: String(data.id),
     email: data.email,
@@ -60,7 +61,7 @@ export function mapBackendUser(
     address: seed?.address,
     createdAt: seed?.createdAt ?? new Date().toISOString(),
     active: status ? status.toUpperCase() === 'ACTIVE' : (seed?.active ?? true),
-  }
+  })
 }
 
 export function saveAccessToken(token: string) {

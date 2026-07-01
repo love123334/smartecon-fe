@@ -3,8 +3,11 @@ import {
   seedPasswords,
   seedProducts,
   seedUsers,
+  DEMO_EMAIL_TO_MOCK_ID,
+  DEMO_PASSWORD_BACKEND,
 } from '@/api/mockData'
 import { apiConfig } from '@/api/config'
+import { ApiError } from '@/api/http/client'
 import * as realAuth from '@/api/real/auth'
 import * as realProducts from '@/api/real/products'
 import * as realCart from '@/api/real/cart'
@@ -13,6 +16,7 @@ import * as realCategories from '@/api/real/categories'
 import * as realInventory from '@/api/real/inventory'
 import * as realUsers from '@/api/real/users'
 import { generateAssistantReply, typingDelay } from '@/api/chat/engine'
+import { applyAvatarToUser, saveUserAvatar } from '@/utils/avatar'
 import { STORAGE_KEYS, storageGet, storageSet } from '@/api/storage'
 import type {
   CartItem,
@@ -130,7 +134,7 @@ function saveChatMap(map: ChatMap): void {
 }
 
 function publicUser(u: User): User {
-  return { ...u }
+  return applyAvatarToUser({ ...u })
 }
 
 // ——— Auth ———
@@ -197,12 +201,18 @@ const mockAuthApi = {
 
   async updateProfile(
     userId: string,
-    patch: Partial<Pick<User, 'fullName' | 'phone' | 'address'>>,
+    patch: Partial<Pick<User, 'fullName' | 'phone' | 'address' | 'avatarPreset' | 'avatarUrl'>>,
   ): Promise<User> {
     await delay()
     const users = getUsers()
     const idx = users.findIndex((u) => u.id === userId)
     if (idx < 0) throw new Error('Không tìm thấy người dùng')
+    if (patch.avatarPreset !== undefined || patch.avatarUrl !== undefined) {
+      saveUserAvatar(userId, {
+        avatarPreset: patch.avatarPreset ?? users[idx].avatarPreset,
+        avatarUrl: patch.avatarUrl ?? users[idx].avatarUrl,
+      })
+    }
     users[idx] = { ...users[idx], ...patch }
     saveUsers(users)
     return publicUser(users[idx])
@@ -211,11 +221,81 @@ const mockAuthApi = {
 
 export const authApi = apiConfig.useRealAuth
   ? {
-      login: realAuth.login,
+      login: async (email: string, password: string) => {
+        try {
+          return await realAuth.login(email, password)
+        } catch (e) {
+          if (isBackendUnreachableError(e)) {
+            return mockLoginAcceptingDemoPassword(email, password)
+          }
+          throw e
+        }
+      },
       register: realAuth.register,
       logout: realAuth.logout,
-      getCurrentUser: realAuth.getCurrentUser,
-      updateProfile: realAuth.updateProfile,
+      getCurrentUser: async () => {
+        if (isMockSession()) {
+          return mockAuthApi.getCurrentUser()
+        }
+        try {
+          return await realAuth.getCurrentUser()
+        } catch (e) {
+          if (isBackendUnreachableError(e)) {
+            return mockAuthApi.getCurrentUser()
+          }
+          return null
+        }
+      },
+      updateProfile: async (
+        userId: string,
+        patch: Partial<Pick<User, 'fullName' | 'phone' | 'address' | 'avatarPreset' | 'avatarUrl'>>,
+      ) => {
+        if (isMockSession()) {
+          return mockAuthApi.updateProfile(userId, patch)
+        }
+        const hasProfileFields =
+          patch.fullName !== undefined ||
+          patch.phone !== undefined ||
+          patch.address !== undefined
+        const avatarOnly =
+          !hasProfileFields &&
+          (patch.avatarPreset !== undefined || patch.avatarUrl !== undefined)
+
+        if (avatarOnly) {
+          const me = await realAuth.getCurrentUser()
+          if (!me) throw new Error('Phiên đăng nhập hết hạn')
+          saveUserAvatar(userId, {
+            avatarPreset: patch.avatarPreset ?? me.avatarPreset,
+            avatarUrl: patch.avatarUrl ?? me.avatarUrl,
+          })
+          return applyAvatarToUser({
+            ...me,
+            avatarPreset: patch.avatarPreset ?? me.avatarPreset,
+            avatarUrl: patch.avatarUrl ?? me.avatarUrl,
+          })
+        }
+
+        try {
+          const updated = await realAuth.updateProfile(userId, patch)
+          if (patch.avatarPreset !== undefined || patch.avatarUrl !== undefined) {
+            saveUserAvatar(userId, {
+              avatarPreset: patch.avatarPreset ?? updated.avatarPreset,
+              avatarUrl: patch.avatarUrl ?? updated.avatarUrl,
+            })
+            return applyAvatarToUser({
+              ...updated,
+              avatarPreset: patch.avatarPreset ?? updated.avatarPreset,
+              avatarUrl: patch.avatarUrl ?? updated.avatarUrl,
+            })
+          }
+          return updated
+        } catch (e) {
+          if (isBackendUnreachableError(e)) {
+            return mockAuthApi.updateProfile(userId, patch)
+          }
+          throw e
+        }
+      },
     }
   : mockAuthApi
 
@@ -294,7 +374,43 @@ const mockProductApi = {
 }
 
 function hasBackendToken(): boolean {
-  return Boolean(localStorage.getItem('sedsp_access_token'))
+  const token = localStorage.getItem('sedsp_access_token')
+  return Boolean(token && !token.startsWith('mock.'))
+}
+
+function isBackendUnreachableError(e: unknown): boolean {
+  if (e instanceof ApiError && (e.status === 0 || e.status >= 500)) return true
+  if (e instanceof TypeError) return true
+  return false
+}
+
+function isMockSession(): boolean {
+  const token = localStorage.getItem('sedsp_access_token')
+  return Boolean(token?.startsWith('mock.'))
+}
+
+async function mockLoginAcceptingDemoPassword(
+  email: string,
+  password: string,
+): Promise<User> {
+  await delay()
+  const passwords = getPasswords()
+  const user = getUsers().find(
+    (u) => u.email.toLowerCase() === email.toLowerCase(),
+  )
+  if (!user) throw new Error('Email hoặc mật khẩu không đúng')
+  const isDemo = Boolean(DEMO_EMAIL_TO_MOCK_ID[user.email.toLowerCase()])
+  const passwordOk =
+    passwords[user.email] === password ||
+    (isDemo && password === DEMO_PASSWORD_BACKEND)
+  if (!passwordOk) throw new Error('Email hoặc mật khẩu không đúng')
+  if (!user.active) throw new Error('Tài khoản đã bị khóa')
+  storageSet(STORAGE_KEYS.session, user.id)
+  localStorage.setItem(
+    'sedsp_access_token',
+    `mock.${btoa(JSON.stringify({ sub: user.id, role: user.role.toUpperCase() }))}`,
+  )
+  return publicUser(user)
 }
 
 async function listProductsHybrid(params?: {
@@ -544,7 +660,7 @@ async function findRealCartItemId(productId: string): Promise<string | null> {
 
 export const cartApi = {
   async getCart(userId: string): Promise<CartItem[]> {
-    if (apiConfig.useRealCart && localStorage.getItem('sedsp_access_token')) {
+    if (apiConfig.useRealCart && hasBackendToken()) {
       const cart = await realCart.getCart()
       return cart.items.map((i) => ({
         productId: String(i.productId),
@@ -556,7 +672,7 @@ export const cartApi = {
   },
 
   async addItem(userId: string, productId: string, qty = 1): Promise<CartItem[]> {
-    if (apiConfig.useRealCart && localStorage.getItem('sedsp_access_token')) {
+    if (apiConfig.useRealCart && hasBackendToken()) {
       await realCart.addCartItem(productId, qty)
       return cartApi.getCart(userId)
     }
@@ -568,7 +684,7 @@ export const cartApi = {
     productId: string,
     quantity: number,
   ): Promise<CartItem[]> {
-    if (apiConfig.useRealCart && localStorage.getItem('sedsp_access_token')) {
+    if (apiConfig.useRealCart && hasBackendToken()) {
       if (quantity <= 0) return cartApi.removeItem(userId, productId)
       const itemId = await findRealCartItemId(productId)
       if (!itemId) throw new Error('Sản phẩm không có trong giỏ')
@@ -579,7 +695,7 @@ export const cartApi = {
   },
 
   async removeItem(userId: string, productId: string): Promise<CartItem[]> {
-    if (apiConfig.useRealCart && localStorage.getItem('sedsp_access_token')) {
+    if (apiConfig.useRealCart && hasBackendToken()) {
       const itemId = await findRealCartItemId(productId)
       if (itemId) await realCart.removeCartItem(itemId)
       return cartApi.getCart(userId)
@@ -588,7 +704,7 @@ export const cartApi = {
   },
 
   async clear(userId: string): Promise<void> {
-    if (apiConfig.useRealCart && localStorage.getItem('sedsp_access_token')) {
+    if (apiConfig.useRealCart && hasBackendToken()) {
       await realCart.clearCart()
       return
     }
@@ -606,7 +722,7 @@ export interface CartLine {
 export async function resolveCartLines(userId: string): Promise<CartLine[]> {
   const items = await cartApi.getCart(userId)
 
-  if (apiConfig.useRealCart && localStorage.getItem('sedsp_access_token')) {
+  if (apiConfig.useRealCart && hasBackendToken()) {
     const cart = await realCart.getCart()
     return cart.items.map((item) => {
       const price = realCart.cartNum(item.price)
@@ -731,23 +847,34 @@ const mockOrderApi = {
   },
 }
 
+async function mergedAllOrders(): Promise<Order[]> {
+  const mock = await mockOrderApi.listAll()
+  if (!apiConfig.useRealOrders || !hasBackendToken()) return mock
+  try {
+    const real = await realOrders.listMyOrders(0, 100)
+    const byId = new Map<string, Order>()
+    for (const o of mock) byId.set(o.id, o)
+    for (const o of real) byId.set(o.id, o)
+    return [...byId.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+  } catch {
+    return mock
+  }
+}
+
 export const orderApi = {
   async listForCustomer(customerId: string): Promise<Order[]> {
-    if (apiConfig.useRealOrders && localStorage.getItem('sedsp_access_token')) {
+    if (apiConfig.useRealOrders && hasBackendToken()) {
       return realOrders.listMyOrders()
     }
     return mockOrderApi.listForCustomer(customerId)
   },
 
   async listAll(): Promise<Order[]> {
-    if (apiConfig.useRealOrders && localStorage.getItem('sedsp_access_token')) {
-      return realOrders.listMyOrders(0, 100)
-    }
-    return mockOrderApi.listAll()
+    return mergedAllOrders()
   },
 
   async getById(id: string): Promise<Order | null> {
-    if (apiConfig.useRealOrders && localStorage.getItem('sedsp_access_token')) {
+    if (apiConfig.useRealOrders && hasBackendToken()) {
       return realOrders.getOrderById(id)
     }
     return mockOrderApi.getById(id)
@@ -758,7 +885,7 @@ export const orderApi = {
     shippingAddress: string,
     payment: 'cod' | 'bank' | 'card' = 'cod',
   ): Promise<Order> {
-    if (apiConfig.useRealOrders && localStorage.getItem('sedsp_access_token')) {
+    if (apiConfig.useRealOrders && hasBackendToken()) {
       const order = await realOrders.createOrder(
         shippingAddress,
         realOrders.toBackendPayment(payment),
@@ -769,7 +896,7 @@ export const orderApi = {
   },
 
   async updateStatus(id: string, status: Order['status']): Promise<Order> {
-    if (apiConfig.useRealOrders && localStorage.getItem('sedsp_access_token')) {
+    if (apiConfig.useRealOrders && hasBackendToken()) {
       if (status === 'cancelled') {
         await realOrders.cancelOrder(id)
         const order = await realOrders.getOrderById(id)
@@ -784,32 +911,52 @@ export const orderApi = {
 
 // ——— DSS & Analytics ———
 export const dssApi = {
-  async sellerInsights(): Promise<DssInsight[]> {
+  async sellerInsights(sellerKey?: string): Promise<DssInsight[]> {
     await delay()
-    const products = getProducts().filter((p) => p.sellerId === 'u-seller')
+    let products: Product[] = []
+    try {
+      products = await listProductsHybrid({
+        sellerId: sellerKey,
+        withStock: true,
+      })
+    } catch {
+      products = []
+    }
+    if (!products.length) {
+      const fallback = sellerKey ?? 'u-seller'
+      products = getProducts().filter(
+        (p) => p.sellerId === fallback || p.sellerId === 'u-seller',
+      )
+    }
     const lowStock = products.filter((p) => p.stock < 20)
+    const topSeller = [...products].sort((a, b) => b.soldCount - a.soldCount)[0]
     return [
       {
         id: 'd1',
         title: 'Nhập thêm hàng',
         description:
           lowStock.length > 0
-            ? `${lowStock.map((p) => p.name).join(', ')} sắp hết hàng.`
-            : 'Tồn kho ổn định.',
+            ? `${lowStock.map((p) => p.name).join(', ')} sắp hết hàng (${lowStock.length} SP).`
+            : `Tồn kho ổn định — ${products.length} sản phẩm đang bán.`,
         impact: lowStock.length > 0 ? 'high' : 'low',
         category: 'inventory',
       },
       {
         id: 'd2',
         title: 'Điều chỉnh giá cạnh tranh',
-        description: 'Giày chạy bộ AirFlex có thể giảm 5% để tăng chuyển đổi.',
-        impact: 'medium',
+        description: topSeller
+          ? `${topSeller.name} bán chạy nhất (${topSeller.soldCount} đơn). Cân nhắc combo hoặc flash sale.`
+          : 'Thêm sản phẩm để nhận gợi ý giá.',
+        impact: topSeller && topSeller.soldCount > 10 ? 'medium' : 'low',
         category: 'pricing',
       },
       {
         id: 'd3',
         title: 'Khuyến mãi chéo',
-        description: 'Gợi ý bundle tai nghe + bàn phím cho khách điện tử.',
+        description:
+          products.length >= 2
+            ? `Gợi ý bundle ${products[0]?.category} với phụ kiện liên quan.`
+            : 'Mở rộng danh mục để tăng AOV.',
         impact: 'medium',
         category: 'promotion',
       },
@@ -818,22 +965,26 @@ export const dssApi = {
 
   async managerInsights(): Promise<DssInsight[]> {
     await delay()
-    const orders = getOrders()
+    const orders = await mergedAllOrders()
     const revenue = orders.reduce((s, o) => s + o.total, 0)
+    const pending = orders.filter((o) => o.status === 'pending').length
     return [
       {
         id: 'm1',
         title: 'Tăng trưởng doanh thu',
-        description: `Doanh thu tích lũy ${formatVnd(revenue)}. Dự báo +12% tháng tới.`,
+        description: `Doanh thu tích lũy ${formatVnd(revenue)} từ ${orders.length} đơn. Dự báo +12% tháng tới.`,
         impact: 'high',
         category: 'revenue',
       },
       {
         id: 'm2',
-        title: 'Phân khúc khách hàng',
-        description: 'Nhóm khách mua điện tử chiếm 45% GMV.',
-        impact: 'medium',
-        category: 'segment',
+        title: 'Đơn chờ xử lý',
+        description:
+          pending > 0
+            ? `${pending} đơn đang chờ xác nhận — ưu tiên xử lý để giảm tỷ lệ hủy.`
+            : 'Không có đơn chờ — vận hành ổn định.',
+        impact: pending > 2 ? 'high' : 'medium',
+        category: 'operations',
       },
       {
         id: 'm3',
@@ -845,9 +996,9 @@ export const dssApi = {
     ]
   },
 
-  async salesChart(): Promise<ChartPoint[]> {
+  async salesChart(sellerKey?: string): Promise<ChartPoint[]> {
     await delay()
-    return [
+    const mockChart: ChartPoint[] = [
       { label: 'T1', value: 12_500_000 },
       { label: 'T2', value: 15_200_000 },
       { label: 'T3', value: 14_800_000 },
@@ -855,6 +1006,35 @@ export const dssApi = {
       { label: 'T5', value: 22_100_000 },
       { label: 'T6', value: 25_300_000 },
     ]
+
+    let products: Product[] = []
+    try {
+      if (sellerKey) {
+        products = await listProductsHybrid({ sellerId: sellerKey, withStock: false })
+      }
+    } catch {
+      products = []
+    }
+    if (!products.length && sellerKey) {
+      products = getProducts().filter(
+        (p) => p.sellerId === sellerKey || p.sellerId === 'u-seller',
+      )
+    }
+
+    if (!products.length) return mockChart
+
+    const estimatedRevenue = products.reduce(
+      (s, p) => s + p.soldCount * p.price,
+      0,
+    )
+    if (estimatedRevenue <= 0) return mockChart
+
+    const months = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6']
+    const weights = [0.12, 0.14, 0.15, 0.16, 0.2, 0.23]
+    return months.map((label, i) => ({
+      label,
+      value: Math.round(estimatedRevenue * weights[i]),
+    }))
   },
 
   async categoryChart(): Promise<ChartPoint[]> {
@@ -871,17 +1051,51 @@ export const dssApi = {
 
   async recommendations(customerId: string): Promise<Recommendation[]> {
     await delay()
-    const orders = getOrders().filter((o) => o.customerId === customerId)
+    let orders = getOrders().filter((o) => o.customerId === customerId)
+    if (apiConfig.useRealOrders && hasBackendToken()) {
+      try {
+        const real = await realOrders.listMyOrders()
+        orders = [...orders, ...real]
+      } catch {
+        /* keep mock orders */
+      }
+    }
+
     const bought = new Set(orders.flatMap((o) => o.items.map((i) => i.productId)))
-    const products = getProducts().filter((p) => !bought.has(p.id))
-    return products.slice(0, 4).map((p, i) => ({
-      productId: p.id,
-      score: 0.95 - i * 0.08,
-      reason:
-        i === 0
-          ? 'Dựa trên lịch sử mua hàng của bạn'
-          : 'Khách hàng tương tự cũng mua',
-    }))
+    const boughtCategories = new Map<string, number>()
+    for (const o of orders) {
+      for (const item of o.items) {
+        const p = getProducts().find((x) => x.id === item.productId)
+        if (p) boughtCategories.set(p.category, (boughtCategories.get(p.category) ?? 0) + 1)
+      }
+    }
+
+    let catalog: Product[] = []
+    try {
+      catalog = await listProductsHybrid()
+    } catch {
+      catalog = getProducts()
+    }
+
+    const candidates = catalog.filter((p) => !bought.has(p.id))
+    const ranked = candidates
+      .map((p) => {
+        const catBoost = (boughtCategories.get(p.category) ?? 0) * 0.12
+        const ratingBoost = p.rating * 0.08
+        const popularBoost = Math.min(p.soldCount / 200, 0.15)
+        const score = Math.min(0.98, 0.55 + catBoost + ratingBoost + popularBoost)
+        const topCat = [...boughtCategories.entries()].sort((a, b) => b[1] - a[1])[0]?.[0]
+        const reason =
+          bought.size === 0
+            ? 'Phổ biến trên SEDSP — bắt đầu khám phá'
+            : topCat && p.category === topCat
+              ? `Bạn thường mua ${topCat} — gợi ý bổ sung`
+              : 'Khách hàng tương tự cũng quan tâm'
+        return { productId: p.id, score, reason }
+      })
+      .sort((a, b) => b.score - a.score)
+
+    return ranked.slice(0, 6)
   },
 }
 
@@ -915,7 +1129,7 @@ const mockAdminApi = {
 
   async systemMetrics(): Promise<SystemMetric[]> {
     await delay()
-    return [
+    const base: SystemMetric[] = [
       { name: 'API Gateway', value: '99.9%', status: 'ok' },
       { name: 'PostgreSQL', value: 'Connected', status: 'ok' },
       { name: 'Redis', value: '12ms latency', status: 'ok' },
@@ -923,6 +1137,24 @@ const mockAdminApi = {
       { name: 'Order Queue', value: 2, status: 'warn' },
       { name: 'Error Rate (1h)', value: '0.02%', status: 'ok' },
     ]
+    if (apiConfig.useMock) return base
+    try {
+      const res = await fetch(`${apiConfig.backendOrigin}/api/v1/products?page=0&size=1`)
+      const apiOk = res.ok
+      return [
+        {
+          name: 'Backend API (Spring)',
+          value: apiOk ? 'Online' : `HTTP ${res.status}`,
+          status: apiOk ? 'ok' : 'error',
+        },
+        ...base,
+      ]
+    } catch {
+      return [
+        { name: 'Backend API (Spring)', value: 'Offline', status: 'error' },
+        ...base,
+      ]
+    }
   },
 }
 

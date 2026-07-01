@@ -2,17 +2,40 @@
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { roleContactPath } from '@/utils/roleNav'
+import { isChatPage, roleChatPath } from '@/utils/roleAiNav'
+import { isShopBrowsePath } from '@/utils/roleNav'
 
 const route = useRoute()
 const auth = useAuthStore()
 
 const showFab = computed(() => {
-  const shop = ['/', '/search', '/products']
-  return shop.some((p) => route.path === p || route.path.startsWith(`${p}/`))
+  if (isChatPage(route.path)) return false
+  if (['/login', '/register'].includes(route.path)) return false
+
+  if (!auth.isLoggedIn) {
+    return ['/', '/search', '/products'].some(
+      (p) => route.path === p || route.path.startsWith(`${p}/`),
+    )
+  }
+
+  if (auth.role === 'customer' || auth.role === 'guest') {
+    return (
+      isShopBrowsePath(route.path) ||
+      route.path === '/recommendations' ||
+      route.path === '/chatbot'
+    )
+  }
+
+  // seller / manager / admin — FAB trên mọi trang ops & shop (trừ chat)
+  return true
 })
 
-const to = computed(() => roleContactPath(auth.role))
+const to = computed(() => {
+  if (!auth.isLoggedIn) {
+    return { path: '/login', query: { redirect: '/chatbot' } }
+  }
+  return roleChatPath(auth.role)
+})
 </script>
 
 <template>

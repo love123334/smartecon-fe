@@ -9,6 +9,7 @@ import NewsletterBanner from '@/components/NewsletterBanner.vue'
 const route = useRoute()
 const order = ref<Order | null>(null)
 const productImages = ref<Record<string, string>>({})
+const cancelling = ref(false)
 
 const paymentLabel = computed(() => {
   const m = order.value?.paymentMethod
@@ -37,6 +38,8 @@ const statusLabel: Record<OrderStatus, string> = {
   cancelled: 'Đã hủy',
 }
 
+const canCancel = computed(() => order.value?.status === 'pending')
+
 const isFreshOrder = computed(() => {
   if (!order.value) return false
   const age = Date.now() - new Date(order.value.createdAt).getTime()
@@ -60,6 +63,19 @@ function stepClass(i: number) {
   if (i < statusIndex.value) return 'mkt-status-step--done'
   if (i === statusIndex.value) return 'mkt-status-step--active'
   return ''
+}
+
+async function cancelOrder() {
+  if (!order.value || !canCancel.value) return
+  if (!confirm('Bạn có chắc muốn hủy đơn hàng này?')) return
+  cancelling.value = true
+  try {
+    order.value = await orderApi.updateStatus(order.value.id, 'cancelled')
+  } catch (e) {
+    alert(e instanceof Error ? e.message : 'Không thể hủy đơn')
+  } finally {
+    cancelling.value = false
+  }
 }
 </script>
 
@@ -179,6 +195,17 @@ function stepClass(i: number) {
           <div class="elegant-summary__total" style="justify-content: flex-end; margin-top: 1.5rem">
             <span>Tổng</span>
             <strong>{{ formatVnd(order.total) }}</strong>
+          </div>
+
+          <div v-if="canCancel" class="elegant-order-actions" style="margin-top: 1.25rem">
+            <button
+              type="button"
+              class="btn-elegant-outline btn-interactive"
+              :disabled="cancelling"
+              @click="cancelOrder"
+            >
+              {{ cancelling ? 'Đang hủy...' : 'Hủy đơn hàng' }}
+            </button>
           </div>
 
           <RouterLink to="/orders" class="btn-elegant-outline btn-interactive" style="margin-top: 1.5rem; display: inline-flex">

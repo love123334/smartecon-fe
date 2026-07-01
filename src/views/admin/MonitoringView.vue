@@ -2,6 +2,8 @@
 import { onMounted, ref } from 'vue'
 import { adminApi } from '@/api/services'
 import type { SystemMetric } from '@/types'
+import HybridDataNotice from '@/components/HybridDataNotice.vue'
+import PageHeader from '@/components/PageHeader.vue'
 
 const metrics = ref<SystemMetric[]>([])
 
@@ -12,7 +14,15 @@ onMounted(async () => {
 
 <template>
   <div>
-    <h1 class="page-title">Giám sát hệ thống</h1>
+    <PageHeader
+      eyebrow="Admin"
+      title="Giám sát hệ thống"
+      lead="Trạng thái backend thật + chỉ số hạ tầng mô phỏng."
+    />
+    <HybridDataNotice
+      mode="hybrid"
+      message="Dòng đầu ping API Spring Boot; các metric còn lại là demo cho đến khi có observability stack."
+    />
     <div class="grid grid-2">
       <div v-for="m in metrics" :key="m.name" class="card metric">
         <h3>{{ m.name }}</h3>

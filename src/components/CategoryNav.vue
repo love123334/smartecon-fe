@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { productApi } from '@/api/services'
+import { useAuthStore } from '@/stores/auth'
+import { roleCategoryAiLink } from '@/utils/roleAiNav'
 
+const auth = useAuthStore()
 const categories = ref<string[]>([])
 
 const categoryIcons: Record<string, string> = {
@@ -12,6 +15,15 @@ const categoryIcons: Record<string, string> = {
   'Gia dụng': '🏠',
   'Phụ kiện': '🎒',
 }
+
+const aiLink = computed(() => roleCategoryAiLink(auth.role, auth.isLoggedIn))
+
+const aiTo = computed(() => {
+  if (!auth.isLoggedIn) {
+    return { path: '/login', query: { redirect: '/recommendations' } }
+  }
+  return aiLink.value.to
+})
 
 onMounted(async () => {
   categories.value = await productApi.categories()
@@ -31,10 +43,17 @@ onMounted(async () => {
         <span aria-hidden="true">{{ categoryIcons[cat] ?? '🏷️' }}</span>
         {{ cat }}
       </RouterLink>
-      <RouterLink to="/recommendations" class="mkt-cat-link">
+      <RouterLink :to="aiTo" class="mkt-cat-link mkt-cat-link--ai">
         <span aria-hidden="true">✨</span>
-        Gợi ý AI
+        {{ aiLink.label }}
       </RouterLink>
     </div>
   </nav>
 </template>
+
+<style scoped>
+.mkt-cat-link--ai {
+  color: #0f766e;
+  font-weight: 600;
+}
+</style>

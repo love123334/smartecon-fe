@@ -33,10 +33,18 @@ export async function apiRequest<T>(
   options: RequestInit = {},
 ): Promise<T> {
   const url = `${apiConfig.baseUrl.replace(/\/$/, '')}/${path.replace(/^\//, '')}`
-  const res = await fetch(url, {
-    ...options,
-    headers: { ...authHeaders(), ...options.headers },
-  })
+  let res: Response
+  try {
+    res = await fetch(url, {
+      ...options,
+      headers: { ...authHeaders(), ...options.headers },
+    })
+  } catch {
+    throw new ApiError(
+      'Không kết nối được backend. Hãy chạy Spring Boot tại localhost:8080 (hoặc dùng chế độ mock).',
+      0,
+    )
+  }
 
   let body: ApiResponse<T> | unknown
   try {

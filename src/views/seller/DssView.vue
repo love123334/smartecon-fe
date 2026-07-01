@@ -1,18 +1,40 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { dssApi } from '@/api/services'
 import type { DssInsight } from '@/types'
+import { useAuthStore } from '@/stores/auth'
+import HybridDataNotice from '@/components/HybridDataNotice.vue'
+import PageHeader from '@/components/PageHeader.vue'
+import AiShortcutBar from '@/components/AiShortcutBar.vue'
 
+const auth = useAuthStore()
 const insights = ref<DssInsight[]>([])
 
+const sellerKey = computed(() => auth.user?.backendId ?? auth.user?.id)
+
 onMounted(async () => {
-  insights.value = await dssApi.sellerInsights()
+  insights.value = await dssApi.sellerInsights(sellerKey.value)
 })
 </script>
 
 <template>
   <div>
-    <h1 class="page-title">Hỗ trợ quyết định (DSS)</h1>
+    <PageHeader
+      eyebrow="Người bán"
+      title="Hỗ trợ quyết định (DSS)"
+      lead="Gợi ý tồn kho, giá và khuyến mãi dựa trên sản phẩm của bạn."
+    />
+    <AiShortcutBar
+      title="Tiếp theo:"
+      :links="[
+        { to: '/seller/chatbot', label: 'Trợ lý AI người bán', highlight: true },
+        { to: '/seller/sales', label: 'Bảng doanh số' },
+        { to: '/seller/inventory', label: 'Tồn kho' },
+      ]"
+    />
+    <HybridDataNotice
+      message="Tồn kho lấy từ API; khuyến mãi & what-if vẫn mô phỏng DSS."
+    />
     <div class="grid grid-2">
       <article v-for="i in insights" :key="i.id" class="card insight">
         <span :class="['impact', i.impact]">{{ i.impact }}</span>
