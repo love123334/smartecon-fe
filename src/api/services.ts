@@ -9,6 +9,9 @@ import * as realAuth from '@/api/real/auth'
 import * as realProducts from '@/api/real/products'
 import * as realCart from '@/api/real/cart'
 import * as realOrders from '@/api/real/orders'
+import * as realCategories from '@/api/real/categories'
+import * as realInventory from '@/api/real/inventory'
+import * as realUsers from '@/api/real/users'
 import { generateAssistantReply, typingDelay } from '@/api/chat/engine'
 import { STORAGE_KEYS, storageGet, storageSet } from '@/api/storage'
 import type {
@@ -290,10 +293,15 @@ const mockProductApi = {
   },
 }
 
+function hasBackendToken(): boolean {
+  return Boolean(localStorage.getItem('sedsp_access_token'))
+}
+
 async function listProductsHybrid(params?: {
   q?: string
   category?: string
   sellerId?: string
+  withStock?: boolean
 }): Promise<Product[]> {
   if (!apiConfig.useRealProducts) {
     return mockProductApi.list(params)
@@ -303,12 +311,21 @@ async function listProductsHybrid(params?: {
       params?.sellerId && /^\d+$/.test(params.sellerId)
         ? Number(params.sellerId)
         : undefined
+
+    let categoryId: number | undefined
+    if (params?.category && apiConfig.useRealCategories) {
+      const cats = await realCategories.listCategories()
+      categoryId = realCategories.resolveCategoryId(cats, params.category)
+    }
+
     let list = await realProducts.listProducts({
       q: params?.q,
       sellerId: sellerNum,
+      categoryId,
       size: 100,
     })
-    if (params?.category) {
+
+    if (params?.category && !categoryId) {
       list = list.filter(
         (p) => p.category.toLowerCase() === params.category!.toLowerCase(),
       )
@@ -316,7 +333,12 @@ async function listProductsHybrid(params?: {
     if (params?.sellerId && !sellerNum) {
       list = list.filter((p) => p.sellerId === params.sellerId)
     }
-    return list.map(enrichProduct)
+
+    let enriched = list.map(enrichProduct)
+    if (apiConfig.useRealInventory && (params?.withStock ?? true) && hasBackendToken()) {
+      enriched = await realInventory.attachStockToProducts(enriched)
+    }
+    return enriched
   } catch {
     return mockProductApi.list(params)
   }
@@ -328,8 +350,14 @@ export const productApi = {
   async getById(id: string): Promise<Product | null> {
     if (apiConfig.useRealProducts) {
       try {
-        const p = await realProducts.getProductById(id)
-        return p ? enrichProduct(p) : null
+        let p = await realProducts.getProductById(id)
+        if (!p) return null
+        p = enrichProduct(p)
+        if (apiConfig.useRealInventory && hasBackendToken()) {
+          const [withStock] = await realInventory.attachStockToProducts([p])
+          return withStock
+        }
+        return p
       } catch {
         /* fallback mock */
       }
@@ -337,10 +365,103 @@ export const productApi = {
     return mockProductApi.getById(id)
   },
 
-  create: mockProductApi.create,
-  update: mockProductApi.update,
-  remove: mockProductApi.remove,
-  categories: mockProductApi.categories,
+  async create(
+    _sellerId: string,
+    data: Omit<Product, 'id' | 'sellerId' | 'createdAt' | 'soldCount' | 'rating'> & {
+      categoryId?: number
+    },
+  ): Promise<Product> {
+    if (apiConfig.useRealProducts && hasBackendToken()) {
+      let categoryId = data.categoryId
+      if (!categoryId && data.category) {
+        const cats = await realCategories.listCategories()
+        categoryId = realCategories.resolveCategoryId(cats, data.category)
+      }
+      const created = await realProducts.createProduct({
+        name: data.name,
+        description: data.description,
+        price: data.price,
+        categoryId,
+        imageUrl: data.imageUrl,
+      })
+      if (data.stock > 0 && apiConfig.useRealInventory) {
+        try {
+          await realInventory.adjustInventory(created.id, data.stock, 'MANUAL_ADJUST')
+        } catch {
+          /* inventory row may not exist yet */
+        }
+      }
+      return enrichProduct({ ...created, stock: data.stock })
+    }
+    return mockProductApi.create(_sellerId, data)
+  },
+
+  async update(
+    id: string,
+    patch: Partial<Product> & { categoryId?: number; stockDelta?: number },
+  ): Promise<Product> {
+    if (apiConfig.useRealProducts && hasBackendToken()) {
+      let categoryId = patch.categoryId
+      if (!categoryId && patch.category) {
+        const cats = await realCategories.listCategories()
+        categoryId = realCategories.resolveCategoryId(cats, patch.category)
+      }
+      const updated = await realProducts.updateProduct(id, {
+        name: patch.name,
+        description: patch.description,
+        price: patch.price,
+        categoryId,
+      })
+      if (patch.stockDelta != null && patch.stockDelta !== 0 && apiConfig.useRealInventory) {
+        try {
+          await realInventory.adjustInventory(id, patch.stockDelta, 'MANUAL_ADJUST')
+        } catch {
+          /* ignore */
+        }
+      }
+      const [withStock] = await realInventory.attachStockToProducts([enrichProduct(updated)])
+      return withStock
+    }
+    return mockProductApi.update(id, patch)
+  },
+
+  async remove(id: string): Promise<void> {
+    if (apiConfig.useRealProducts && hasBackendToken()) {
+      await realProducts.deleteProduct(id)
+      return
+    }
+    return mockProductApi.remove(id)
+  },
+
+  async categories(): Promise<string[]> {
+    if (apiConfig.useRealCategories) {
+      try {
+        return await realCategories.categoryNames()
+      } catch {
+        /* fallback */
+      }
+    }
+    return mockProductApi.categories()
+  },
+}
+
+export const categoryApi = {
+  async list(): Promise<realCategories.Category[]> {
+    if (apiConfig.useRealCategories) {
+      return realCategories.listCategories()
+    }
+    const names = await mockProductApi.categories()
+    return names.map((name, i) => ({
+      id: String(i + 1),
+      name,
+      slug: name.toLowerCase().replace(/\s+/g, '-'),
+    }))
+  },
+}
+
+export const inventoryApi = {
+  get: realInventory.getInventory,
+  adjust: realInventory.adjustInventory,
 }
 
 // ——— Cart ———
@@ -765,7 +886,7 @@ export const dssApi = {
 }
 
 // ——— Admin ———
-export const adminApi = {
+const mockAdminApi = {
   async listUsers(): Promise<User[]> {
     await delay()
     return getUsers()
@@ -803,6 +924,39 @@ export const adminApi = {
       { name: 'Error Rate (1h)', value: '0.02%', status: 'ok' },
     ]
   },
+}
+
+export const adminApi = {
+  async listUsers(): Promise<User[]> {
+    if (apiConfig.useRealAdmin && hasBackendToken()) {
+      return realUsers.listUsers()
+    }
+    return mockAdminApi.listUsers()
+  },
+
+  async setUserActive(userId: string, active: boolean): Promise<User> {
+    if (apiConfig.useRealAdmin && hasBackendToken()) {
+      await realUsers.setUserActive(userId, active)
+      const users = await realUsers.listUsers()
+      const u = users.find((x) => x.id === userId)
+      if (!u) throw new Error('Không tìm thấy người dùng')
+      return u
+    }
+    return mockAdminApi.setUserActive(userId, active)
+  },
+
+  async setUserRole(userId: string, role: UserRole): Promise<User> {
+    if (apiConfig.useRealAdmin && hasBackendToken()) {
+      await realUsers.assignRole(userId, role)
+      const users = await realUsers.listUsers()
+      const u = users.find((x) => x.id === userId)
+      if (!u) throw new Error('Không tìm thấy người dùng')
+      return u
+    }
+    return mockAdminApi.setUserRole(userId, role)
+  },
+
+  systemMetrics: mockAdminApi.systemMetrics,
 }
 
 // ——— Chatbot (local AI engine — sẵn sàng thay bằng POST /api/v1/ai/chat) ———

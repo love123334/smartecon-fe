@@ -24,6 +24,11 @@ export const apiPaths = {
     byId: (id: string) => `products/${id}`,
     search: 'products/search',
   },
+  categories: {
+    list: 'categories',
+    tree: 'categories/tree',
+    byId: (id: string) => `categories/${id}`,
+  },
   inventory: {
     byProduct: (id: string) => `inventory/${id}`,
     update: (id: string) => `inventory/${id}`,
@@ -37,6 +42,11 @@ export const apiPaths = {
     list: 'orders',
     byId: (id: string) => `orders/${id}`,
     cancel: (id: string) => `orders/${id}/cancel`,
+  },
+  payments: {
+    list: 'payments',
+    byOrder: (orderId: string) => `payments/orders/${orderId}`,
+    status: (paymentId: string) => `payments/${paymentId}/status`,
   },
   analytics: {
     sales: 'analytics/sales',

@@ -9,7 +9,10 @@ const products = ref<Product[]>([])
 
 onMounted(async () => {
   if (auth.user) {
-    products.value = await productApi.list({ sellerId: auth.user.backendId ?? auth.user.id })
+    products.value = await productApi.list({
+      sellerId: auth.user.backendId ?? auth.user.id,
+      withStock: true,
+    })
   }
 })
 

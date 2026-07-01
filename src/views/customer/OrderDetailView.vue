@@ -11,7 +11,10 @@ const order = ref<Order | null>(null)
 const productImages = ref<Record<string, string>>({})
 
 const paymentLabel = computed(() => {
-  return 'Thanh toán khi nhận hàng'
+  const m = order.value?.paymentMethod
+  if (m === 'bank') return 'Chuyển khoản ngân hàng'
+  if (m === 'card') return 'Ví MoMo / thẻ'
+  return 'Thanh toán khi nhận hàng (COD)'
 })
 
 const statusSteps: { key: OrderStatus; label: string }[] = [

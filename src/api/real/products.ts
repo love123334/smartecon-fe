@@ -97,3 +97,44 @@ export async function getProductById(id: string): Promise<Product | null> {
     return null
   }
 }
+
+export interface ProductWriteInput {
+  name: string
+  description: string
+  price: number
+  categoryId?: number
+  imageUrl?: string
+  stock?: number
+}
+
+export async function createProduct(input: ProductWriteInput): Promise<Product> {
+  const body: Record<string, unknown> = {
+    name: input.name,
+    description: input.description,
+    price: input.price,
+    status: 'ACTIVE',
+  }
+  if (input.categoryId) body.categoryId = input.categoryId
+  if (input.imageUrl) {
+    body.images = [{ imageUrl: input.imageUrl, isPrimary: true }]
+  }
+  const data = await http.post<BackendProductDetail>(apiPaths.products.list, body)
+  return mapProductDetail(data)
+}
+
+export async function updateProduct(
+  id: string,
+  input: Partial<ProductWriteInput>,
+): Promise<Product> {
+  const body: Record<string, unknown> = {}
+  if (input.name != null) body.name = input.name
+  if (input.description != null) body.description = input.description
+  if (input.price != null) body.price = input.price
+  if (input.categoryId != null) body.categoryId = input.categoryId
+  const data = await http.put<BackendProductDetail>(apiPaths.products.byId(id), body)
+  return mapProductDetail(data)
+}
+
+export async function deleteProduct(id: string): Promise<void> {
+  await http.delete<void>(apiPaths.products.byId(id))
+}

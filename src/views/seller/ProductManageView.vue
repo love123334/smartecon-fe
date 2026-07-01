@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { productApi, formatVnd } from '@/api/services'
+import { productApi, categoryApi, formatVnd } from '@/api/services'
+import type { Category } from '@/api/real/categories'
 import type { Product } from '@/types'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
 const products = ref<Product[]>([])
+const categories = ref<Category[]>([])
 const editing = ref<Product | null>(null)
 const showForm = ref(false)
 const form = ref({
@@ -13,17 +15,20 @@ const form = ref({
   description: '',
   price: 0,
   stock: 0,
-  category: '',
+  categoryId: '',
   imageUrl: 'https://picsum.photos/seed/new/400/300',
 })
 
 async function load() {
   if (!auth.user) return
   const sellerKey = auth.user.backendId ?? auth.user.id
-  products.value = await productApi.list({ sellerId: sellerKey })
+  products.value = await productApi.list({ sellerId: sellerKey, withStock: true })
 }
 
-onMounted(load)
+onMounted(async () => {
+  categories.value = await categoryApi.list()
+  await load()
+})
 
 function startCreate() {
   editing.value = null
@@ -33,7 +38,7 @@ function startCreate() {
     description: '',
     price: 0,
     stock: 0,
-    category: 'Điện tử',
+    categoryId: categories.value[0]?.id ?? '',
     imageUrl: 'https://picsum.photos/seed/new/400/300',
   }
 }
@@ -41,22 +46,45 @@ function startCreate() {
 function startEdit(p: Product) {
   editing.value = p
   showForm.value = true
+  const cat = categories.value.find(
+    (c) => c.name.toLowerCase() === p.category.toLowerCase(),
+  )
   form.value = {
     name: p.name,
     description: p.description,
     price: p.price,
     stock: p.stock,
-    category: p.category,
+    categoryId: cat?.id ?? categories.value[0]?.id ?? '',
     imageUrl: p.imageUrl,
   }
 }
 
 async function save() {
   if (!auth.user) return
+  const cat = categories.value.find((c) => c.id === form.value.categoryId)
   if (editing.value) {
-    await productApi.update(editing.value.id, { ...form.value })
+    const stockDelta = form.value.stock - editing.value.stock
+    await productApi.update(editing.value.id, {
+      name: form.value.name,
+      description: form.value.description,
+      price: form.value.price,
+      category: cat?.name ?? editing.value.category,
+      categoryId: form.value.categoryId ? Number(form.value.categoryId) : undefined,
+      imageUrl: form.value.imageUrl,
+      stockDelta,
+    })
   } else {
-    await productApi.create(auth.user.id, form.value)
+    await productApi.create(auth.user.id, {
+      name: form.value.name,
+      description: form.value.description,
+      price: form.value.price,
+      stock: form.value.stock,
+      category: cat?.name ?? 'Khác',
+      categoryId: form.value.categoryId ? Number(form.value.categoryId) : undefined,
+      imageUrl: form.value.imageUrl,
+      shopName: auth.user.fullName,
+      shopLocation: 'TP.HCM',
+    })
   }
   editing.value = null
   showForm.value = false
@@ -95,7 +123,9 @@ async function remove(id: string) {
       </div>
       <div class="form-group">
         <label>Danh mục</label>
-        <input v-model="form.category" required />
+        <select v-model="form.categoryId" required>
+          <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
+        </select>
       </div>
       <button type="submit" class="btn btn-primary">Lưu</button>
     </form>

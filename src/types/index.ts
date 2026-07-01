@@ -55,6 +55,7 @@ export interface Order {
   total: number
   status: OrderStatus
   shippingAddress: string
+  paymentMethod?: 'cod' | 'bank' | 'card'
   createdAt: string
   updatedAt: string
 }

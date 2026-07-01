@@ -58,9 +58,21 @@ function mapItems(items: BackendOrderItem[] | undefined): OrderItem[] {
   }))
 }
 
+function mapPaymentToFrontend(method?: BackendPaymentMethod): Order['paymentMethod'] {
+  if (method === 'BANK') return 'bank'
+  if (method === 'MOMO') return 'card'
+  if (method === 'COD') return 'cod'
+  return undefined
+}
+
 export function mapBackendOrder(
   o: BackendOrderResponse,
-  extras?: { customerId?: string; customerName?: string; shippingAddress?: string },
+  extras?: {
+    customerId?: string
+    customerName?: string
+    shippingAddress?: string
+    paymentMethod?: BackendPaymentMethod
+  },
 ): Order {
   const ts = o.createdAt.includes('T') ? o.createdAt : `${o.createdAt}T00:00:00.000Z`
   return {
@@ -71,6 +83,7 @@ export function mapBackendOrder(
     total: num(o.total),
     status: mapStatus(o.status),
     shippingAddress: extras?.shippingAddress ?? '',
+    paymentMethod: mapPaymentToFrontend(extras?.paymentMethod),
     createdAt: ts,
     updatedAt: ts,
   }
@@ -103,7 +116,10 @@ export async function listMyOrders(page = 0, size = 20): Promise<Order[]> {
 export async function getOrderById(id: string): Promise<Order | null> {
   const data = await http.get<BackendOrderDetailResponse>(apiPaths.orders.byId(id))
   if (!data?.order) return null
-  return mapBackendOrder(data.order, { shippingAddress: data.shippingAddress })
+  return mapBackendOrder(data.order, {
+    shippingAddress: data.shippingAddress,
+    paymentMethod: data.paymentMethod,
+  })
 }
 
 export async function cancelOrder(id: string): Promise<void> {
