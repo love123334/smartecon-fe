@@ -77,6 +77,9 @@ export interface ChatMessage {
   timestamp: string
   /** Bot đang gõ phản hồi */
   pending?: boolean
+  meta?: {
+    source?: 'llm' | 'local'
+  }
 }
 
 export interface DssInsight {

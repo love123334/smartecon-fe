@@ -20,6 +20,11 @@ export const apiConfig = {
   useRealSeller: import.meta.env.VITE_USE_MOCK !== 'true',
   /** Đánh giá sản phẩm từ /api/v1/products/{id}/reviews */
   useRealReviews: import.meta.env.VITE_USE_MOCK !== 'true',
+  /** Bật LLM Groq/OpenAI-compatible (cần VITE_AI_API_KEY) */
+  aiEnabled: import.meta.env.VITE_AI_ENABLED === 'true',
+  aiApiKey: import.meta.env.VITE_AI_API_KEY ?? '',
+  aiBaseUrl: import.meta.env.VITE_AI_API_BASE_URL ?? 'https://api.groq.com/openai/v1',
+  aiModel: import.meta.env.VITE_AI_MODEL ?? 'llama-3.3-70b-versatile',
   baseUrl: import.meta.env.VITE_API_BASE_URL ?? '/api/v1',
   backendOrigin: import.meta.env.VITE_BACKEND_ORIGIN ?? 'http://localhost:8080',
 } as const

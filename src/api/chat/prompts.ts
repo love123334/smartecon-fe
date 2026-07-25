@@ -11,29 +11,33 @@ export function quickPromptsForRole(role: UserRole): QuickPrompt[] {
       return [
         { label: 'Doanh thu', text: 'Doanh thu tháng này thế nào?' },
         { label: 'Tồn kho', text: 'SKU nào sắp hết hàng?' },
-        { label: 'Giá cạnh tranh', text: 'Gợi ý điều chỉnh giá sản phẩm' },
-        { label: 'Khuyến mãi', text: 'Chiến lược khuyến mãi tuần này' },
+        { label: 'Khuyến mãi', text: 'Kế hoạch khuyến mãi tuần này' },
+        { label: 'Thêm SP', text: 'Làm sao để thêm sản phẩm mới?' },
+        { label: 'Giá', text: 'Gợi ý điều chỉnh giá sản phẩm bán chậm' },
       ]
     case 'manager':
       return [
         { label: 'KPI', text: 'Tóm tắt KPI tháng này' },
-        { label: 'Phân khúc', text: 'Phân khúc khách hàng nào đóng góp nhiều nhất?' },
+        { label: 'Đơn chờ', text: 'Có bao nhiêu đơn chờ xử lý?' },
         { label: 'What-if', text: 'Mô phỏng giảm giá 10% thì sao?' },
         { label: 'Xu hướng', text: 'Danh mục nào đang tăng trưởng?' },
+        { label: 'Doanh thu', text: 'Doanh thu GMV hiện tại?' },
       ]
     case 'admin':
       return [
         { label: 'Hệ thống', text: 'Trạng thái các dịch vụ hệ thống?' },
         { label: 'Người dùng', text: 'Có bao nhiêu tài khoản đang hoạt động?' },
         { label: 'Cảnh báo', text: 'Có cảnh báo vận hành nào không?' },
-        { label: 'Bảo mật', text: 'Tóm tắt log bảo mật gần đây' },
+        { label: 'Bảo mật', text: 'Tóm tắt bảo mật JWT và RBAC' },
+        { label: 'Cấu hình', text: 'Các biến môi trường cần cấu hình?' },
       ]
     default:
       return [
-        { label: 'Giao hàng', text: 'Chính sách giao hàng và phí ship?' },
-        { label: 'Thanh toán', text: 'Có những hình thức thanh toán nào?' },
-        { label: 'Đơn hàng', text: 'Làm sao để theo dõi đơn hàng?' },
-        { label: 'Gợi ý SP', text: 'Gợi ý sản phẩm điện tử bán chạy' },
+        { label: 'Web bán gì', text: 'Web bán gì vậy?' },
+        { label: 'Giỏ hàng', text: 'Giỏ hàng của tôi có gì?' },
+        { label: 'Đơn hàng', text: 'Đơn hàng của tôi thế nào?' },
+        { label: 'Danh mục', text: 'Điện tử có những sản phẩm gì?' },
+        { label: 'Liên hệ', text: 'Chuyển sang liên hệ quản lý giúp tôi' },
       ]
   }
 }
@@ -41,12 +45,14 @@ export function quickPromptsForRole(role: UserRole): QuickPrompt[] {
 export function welcomeMessage(role: UserRole): string {
   switch (role) {
     case 'seller':
-      return 'Xin chào! Tôi là trợ lý bán hàng SEDSP — hỏi về doanh thu, tồn kho, giá hoặc DSS.'
+      return 'Xin chào! Hỏi về doanh thu, tồn kho, giá, khuyến mãi hoặc cách thêm sản phẩm — tôi trả lời dựa trên dữ liệu shop của bạn.'
     case 'manager':
-      return 'Xin chào! Tôi hỗ trợ phân tích KPI, phân khúc khách hàng và kịch bản what-if.'
+      return 'Xin chào! Hỏi KPI, đơn chờ, phân khúc, what-if hoặc xu hướng danh mục — tôi tổng hợp từ dữ liệu đơn hàng.'
     case 'admin':
-      return 'Xin chào! Tôi hỗ trợ giám sát hệ thống, người dùng và vận hành nền tảng.'
+      return 'Xin chào! Hỏi trạng thái hệ thống, số user, cảnh báo, bảo mật hoặc cấu hình môi trường.'
+    case 'guest':
+      return 'Xin chào! Hỏi "web bán gì", sản phẩm, giao hàng, thanh toán. Đăng nhập để xem đơn hàng và gợi ý cá nhân.'
     default:
-      return 'Xin chào! Tôi có thể tư vấn sản phẩm, đơn hàng, giao hàng và khuyến mãi.'
+      return 'Xin chào! Hỏi "web bán gì", tên SP, đơn hàng, giao hàng, thanh toán — hoặc "what do you sell" (tiếng Anh).'
   }
 }

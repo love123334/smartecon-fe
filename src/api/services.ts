@@ -18,7 +18,10 @@ import * as realUsers from '@/api/real/users'
 import * as realSeller from '@/api/real/seller'
 import * as realReviews from '@/api/real/reviews'
 import * as realProductImages from '@/api/real/productImages'
-import { generateAssistantReply, typingDelay } from '@/api/chat/engine'
+import { typingDelay } from '@/api/chat/engine'
+import { buildChatContext } from '@/api/chat/context'
+import { chatModeLabel, resolveChatReply } from '@/api/chat/responder'
+import { isLlmConfigured } from '@/api/chat/llm'
 import { applyAvatarToUser, saveUserAvatar } from '@/utils/avatar'
 import { STORAGE_KEYS, storageGet, storageSet } from '@/api/storage'
 import type {
@@ -1315,8 +1318,11 @@ export const adminApi = {
   systemMetrics: mockAdminApi.systemMetrics,
 }
 
-// ——— Chatbot (local AI engine — sẵn sàng thay bằng POST /api/v1/ai/chat) ———
+// ——— Chatbot (LLM Groq/OpenAI + fallback engine local) ———
 export const chatApi = {
+  isLlmEnabled: isLlmConfigured,
+  modeLabel: chatModeLabel,
+
   async getHistory(userId: string): Promise<ChatMessage[]> {
     await delay(30)
     return getChatMap()[userId] ?? []
@@ -1326,7 +1332,7 @@ export const chatApi = {
     userId: string,
     content: string,
     role: UserRole,
-    opts?: { userName?: string },
+    opts?: { userName?: string; sellerBackendId?: string },
   ): Promise<ChatMessage[]> {
     const map = getChatMap()
     const history = map[userId] ?? []
@@ -1337,18 +1343,13 @@ export const chatApi = {
       timestamp: new Date().toISOString(),
     }
 
-    let products: Product[] = []
-    try {
-      products = await listProductsHybrid()
-    } catch {
-      products = getProducts()
-    }
-
-    const reply = generateAssistantReply(content, {
-      role,
-      products,
+    const ctx = await buildChatContext(role, {
       userName: opts?.userName,
+      userId,
+      sellerBackendId: opts?.sellerBackendId,
     })
+
+    const { content: reply, source } = await resolveChatReply(content, history, ctx)
 
     await delay(typingDelay(reply))
 
@@ -1357,6 +1358,7 @@ export const chatApi = {
       role: 'assistant',
       content: reply,
       timestamp: new Date().toISOString(),
+      meta: { source },
     }
     const updated = [...history, userMsg, assistantMsg]
     map[userId] = updated

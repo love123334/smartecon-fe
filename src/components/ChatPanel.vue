@@ -2,6 +2,7 @@
 import { nextTick, ref, watch } from 'vue'
 import type { ChatMessage } from '@/types'
 import type { QuickPrompt } from '@/api/chat/prompts'
+import { formatChatHtml } from '@/api/chat/engine'
 
 const props = defineProps<{
   messages: ChatMessage[]
@@ -71,7 +72,9 @@ defineExpose({ scrollToEnd: scrollEnd })
           :key="m.id"
           :class="['chat-bubble', m.role === 'user' ? 'user' : 'assistant']"
         >
-          <p class="chat-bubble__text">{{ m.content }}</p>
+          <p class="chat-bubble__text" v-html="formatChatHtml(m.content)" />
+          <span v-if="m.meta?.source === 'llm'" class="chat-bubble__tag">AI</span>
+          <span v-else-if="m.role === 'assistant' && m.meta?.source === 'local'" class="chat-bubble__tag chat-bubble__tag--local">Local</span>
           <time class="chat-bubble__time">{{
             new Date(m.timestamp).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
           }}</time>
@@ -157,6 +160,33 @@ defineExpose({ scrollToEnd: scrollEnd })
   white-space: pre-wrap;
   line-height: 1.5;
   font-size: 0.875rem;
+}
+
+.chat-bubble__text :deep(strong) {
+  font-weight: 700;
+  color: inherit;
+}
+
+.chat-bubble.assistant .chat-bubble__text :deep(strong) {
+  color: var(--slate-900);
+}
+
+.chat-bubble__tag {
+  display: inline-block;
+  margin-top: 0.35rem;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: 4px;
+  background: #ecfdf5;
+  color: #065f46;
+}
+
+.chat-bubble__tag--local {
+  background: var(--slate-100);
+  color: var(--slate-500);
 }
 
 .chat-bubble__time {
