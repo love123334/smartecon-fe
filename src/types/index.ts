@@ -103,3 +103,17 @@ export interface Recommendation {
   score: number
   reason: string
 }
+
+export interface ProductReview {
+  id: string
+  userId: string
+  userName: string
+  rating: number
+  comment: string
+  createdAt: string
+}
+
+export interface RatingSummary {
+  averageRating: number
+  totalReviews: number
+}

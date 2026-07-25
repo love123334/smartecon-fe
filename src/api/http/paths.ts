@@ -23,6 +23,17 @@ export const apiPaths = {
     list: 'products',
     byId: (id: string) => `products/${id}`,
     search: 'products/search',
+    priceHistory: (id: string) => `products/${id}/price-history`,
+    imageUpload: 'products/images/upload',
+  },
+  reviews: {
+    list: (productId: string) => `products/${productId}/reviews`,
+    summary: (productId: string) => `products/${productId}/reviews/summary`,
+    byId: (productId: string, reviewId: string) => `products/${productId}/reviews/${reviewId}`,
+  },
+  seller: {
+    dashboard: 'seller/dashboard',
+    salesPerformance: 'seller/sales-performance',
   },
   categories: {
     list: 'categories',

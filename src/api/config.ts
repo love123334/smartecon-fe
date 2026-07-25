@@ -16,6 +16,10 @@ export const apiConfig = {
   useRealInventory: import.meta.env.VITE_USE_MOCK !== 'true',
   /** Quản lý user (admin) từ /api/v1/users */
   useRealAdmin: import.meta.env.VITE_USE_MOCK !== 'true',
+  /** Seller dashboard & sales-performance */
+  useRealSeller: import.meta.env.VITE_USE_MOCK !== 'true',
+  /** Đánh giá sản phẩm từ /api/v1/products/{id}/reviews */
+  useRealReviews: import.meta.env.VITE_USE_MOCK !== 'true',
   baseUrl: import.meta.env.VITE_API_BASE_URL ?? '/api/v1',
   backendOrigin: import.meta.env.VITE_BACKEND_ORIGIN ?? 'http://localhost:8080',
 } as const

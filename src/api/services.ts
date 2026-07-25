@@ -15,6 +15,9 @@ import * as realOrders from '@/api/real/orders'
 import * as realCategories from '@/api/real/categories'
 import * as realInventory from '@/api/real/inventory'
 import * as realUsers from '@/api/real/users'
+import * as realSeller from '@/api/real/seller'
+import * as realReviews from '@/api/real/reviews'
+import * as realProductImages from '@/api/real/productImages'
 import { generateAssistantReply, typingDelay } from '@/api/chat/engine'
 import { applyAvatarToUser, saveUserAvatar } from '@/utils/avatar'
 import { STORAGE_KEYS, storageGet, storageSet } from '@/api/storage'
@@ -26,6 +29,8 @@ import type {
   Order,
   OrderItem,
   Product,
+  ProductReview,
+  RatingSummary,
   Recommendation,
   SystemMetric,
   User,
@@ -559,6 +564,13 @@ export const productApi = {
     }
     return mockProductApi.categories()
   },
+
+  async uploadImage(file: File): Promise<string> {
+    if (apiConfig.useRealProducts && hasBackendToken()) {
+      return realProductImages.uploadProductImage(file)
+    }
+    throw new Error('Upload ảnh cần đăng nhập seller/admin và backend đang chạy')
+  },
 }
 
 export const categoryApi = {
@@ -909,10 +921,112 @@ export const orderApi = {
   },
 }
 
+// ——— Seller (dashboard & sales) ———
+export const sellerApi = {
+  async getSalesPerformance(): Promise<realSeller.SalesPerformance | null> {
+    if (apiConfig.useRealSeller && hasBackendToken()) {
+      try {
+        return await realSeller.getSalesPerformance()
+      } catch {
+        return null
+      }
+    }
+    return null
+  },
+
+  async getDashboard(): Promise<realSeller.SellerDashboard | null> {
+    if (apiConfig.useRealSeller && hasBackendToken()) {
+      try {
+        return await realSeller.getDashboard()
+      } catch {
+        return null
+      }
+    }
+    return null
+  },
+}
+
+// ——— Reviews ———
+export const reviewApi = {
+  async list(productId: string): Promise<ProductReview[]> {
+    if (apiConfig.useRealReviews) {
+      try {
+        return await realReviews.listReviews(productId)
+      } catch {
+        /* fallback mock below */
+      }
+    }
+    return []
+  },
+
+  async summary(productId: string): Promise<RatingSummary | null> {
+    if (apiConfig.useRealReviews) {
+      try {
+        return await realReviews.getRatingSummary(productId)
+      } catch {
+        return null
+      }
+    }
+    return null
+  },
+
+  async create(
+    productId: string,
+    input: { rating: number; comment: string },
+  ): Promise<ProductReview> {
+    if (apiConfig.useRealReviews && hasBackendToken()) {
+      return realReviews.createReview(productId, input)
+    }
+    throw new Error('Cần đăng nhập để đánh giá sản phẩm')
+  },
+}
+
 // ——— DSS & Analytics ———
 export const dssApi = {
   async sellerInsights(sellerKey?: string): Promise<DssInsight[]> {
     await delay()
+
+    if (apiConfig.useRealSeller && hasBackendToken()) {
+      try {
+        const dash = await realSeller.getDashboard()
+        const fromApi: DssInsight[] = []
+
+        for (const low of dash.lowStockProducts) {
+          fromApi.push({
+            id: `api-low-${low.productId}`,
+            title: 'Tồn kho thấp',
+            description: `${low.productName} — còn ${low.quantity} sản phẩm.`,
+            impact: low.quantity < 10 ? 'high' : 'medium',
+            category: 'inventory',
+          })
+        }
+
+        dash.recommendations.forEach((text, i) => {
+          fromApi.push({
+            id: `api-rec-${i}`,
+            title: 'Gợi ý từ dashboard',
+            description: text,
+            impact: 'medium',
+            category: 'recommendation',
+          })
+        })
+
+        if (dash.ratingWarning) {
+          fromApi.push({
+            id: 'api-rating',
+            title: 'Cảnh báo đánh giá',
+            description: dash.ratingWarning,
+            impact: 'high',
+            category: 'rating',
+          })
+        }
+
+        if (fromApi.length) return fromApi
+      } catch {
+        /* fallback hybrid below */
+      }
+    }
+
     let products: Product[] = []
     try {
       products = await listProductsHybrid({
@@ -998,6 +1112,16 @@ export const dssApi = {
 
   async salesChart(sellerKey?: string): Promise<ChartPoint[]> {
     await delay()
+
+    if (apiConfig.useRealSeller && hasBackendToken()) {
+      try {
+        const perf = await realSeller.getSalesPerformance()
+        if (perf.monthlyRevenue.length) return perf.monthlyRevenue
+      } catch {
+        /* fallback below */
+      }
+    }
+
     const mockChart: ChartPoint[] = [
       { label: 'T1', value: 12_500_000 },
       { label: 'T2', value: 15_200_000 },

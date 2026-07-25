@@ -72,6 +72,48 @@ export async function apiRequest<T>(
   return body as T
 }
 
+export async function apiUpload<T>(path: string, formData: FormData): Promise<T> {
+  const url = `${apiConfig.baseUrl.replace(/\/$/, '')}/${path.replace(/^\//, '')}`
+  const token = localStorage.getItem('sedsp_access_token')
+  const headers: Record<string, string> = { Accept: 'application/json' }
+  if (token) headers.Authorization = `Bearer ${token}`
+
+  let res: Response
+  try {
+    res = await fetch(url, { method: 'POST', headers, body: formData })
+  } catch {
+    throw new ApiError(
+      'Không kết nối được backend. Hãy chạy Spring Boot tại localhost:8080.',
+      0,
+    )
+  }
+
+  let body: ApiResponse<T> | unknown
+  try {
+    body = await res.json()
+  } catch {
+    body = null
+  }
+
+  if (!res.ok) {
+    const msg =
+      body && typeof body === 'object' && 'message' in body
+        ? String((body as ApiResponse<unknown>).message)
+        : res.statusText
+    throw new ApiError(msg || 'Upload failed', res.status, body)
+  }
+
+  if (body && typeof body === 'object' && 'success' in body && 'data' in body) {
+    const wrapped = body as ApiResponse<T>
+    if (!wrapped.success) {
+      throw new ApiError(wrapped.message || 'API error', res.status, body)
+    }
+    return wrapped.data
+  }
+
+  return body as T
+}
+
 export const http = {
   get: <T>(path: string) => apiRequest<T>(path),
   post: <T>(path: string, data?: unknown) =>
@@ -81,4 +123,5 @@ export const http = {
   patch: <T>(path: string, data?: unknown) =>
     apiRequest<T>(path, { method: 'PATCH', body: JSON.stringify(data ?? {}) }),
   delete: <T>(path: string) => apiRequest<T>(path, { method: 'DELETE' }),
+  upload: <T>(path: string, formData: FormData) => apiUpload<T>(path, formData),
 }

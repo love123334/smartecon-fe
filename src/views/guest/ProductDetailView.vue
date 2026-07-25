@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { productApi, formatVnd, getDiscountPercent } from '@/api/services'
-import type { Product } from '@/types'
+import { productApi, reviewApi, formatVnd, getDiscountPercent } from '@/api/services'
+import type { Product, ProductReview } from '@/types'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
 import QuantityStepper from '@/components/QuantityStepper.vue'
@@ -18,16 +18,36 @@ const activeTab = ref<'info' | 'questions' | 'reviews'>('reviews')
 const auth = useAuthStore()
 const cart = useCartStore()
 const message = ref('')
+const reviews = ref<ProductReview[]>([])
+const reviewCount = ref(0)
+const showReviewForm = ref(false)
+const reviewForm = ref({ rating: 5, comment: '' })
+const reviewError = ref('')
+const reviewSaving = ref(false)
 
 const discount = computed(() => (product.value ? getDiscountPercent(product.value) : 0))
 const isNew = computed(() => (product.value ? product.value.soldCount < 40 : false))
 
+const displayRating = computed(() => {
+  if (reviews.value.length) {
+    return reviews.value.reduce((s, r) => s + r.rating, 0) / reviews.value.length
+  }
+  return product.value?.rating ?? 5
+})
+
 const mockReviews = computed(() => {
+  if (reviews.value.length) {
+    return reviews.value.map((r) => ({
+      user: r.userName,
+      rating: r.rating,
+      text: r.comment,
+      date: new Date(r.createdAt).toLocaleDateString('vi-VN'),
+    }))
+  }
   if (!product.value) return []
   return [
     { user: 'Nguyễn A.', rating: 5, text: 'Sản phẩm đúng mô tả, giao nhanh.', date: '2 tuần trước' },
     { user: 'Trần B.', rating: 4, text: 'Chất lượng tốt trong tầm giá.', date: '1 tháng trước' },
-    { user: 'Lê C.', rating: 5, text: 'Shop tư vấn nhiệt tình, sẽ mua lại.', date: '1 tháng trước' },
   ]
 })
 
@@ -42,7 +62,44 @@ onMounted(async () => {
   if (!p) return
   product.value = p
   related.value = all.filter((x) => x.category === p.category && x.id !== p.id).slice(0, 4)
+
+  const [list, summary] = await Promise.all([
+    reviewApi.list(id),
+    reviewApi.summary(id),
+  ])
+  reviews.value = list
+  reviewCount.value = summary?.totalReviews ?? list.length
+  if (summary && summary.averageRating > 0) {
+    product.value = { ...product.value, rating: summary.averageRating, reviewCount: summary.totalReviews }
+  }
 })
+
+async function submitReview() {
+  if (auth.role !== 'customer') {
+    router.push({ name: 'login', query: { redirect: route.fullPath } })
+    return
+  }
+  if (!product.value || !reviewForm.value.comment.trim()) {
+    reviewError.value = 'Vui lòng nhập nội dung đánh giá'
+    return
+  }
+  reviewSaving.value = true
+  reviewError.value = ''
+  try {
+    const created = await reviewApi.create(product.value.id, {
+      rating: reviewForm.value.rating,
+      comment: reviewForm.value.comment.trim(),
+    })
+    reviews.value = [created, ...reviews.value]
+    reviewCount.value += 1
+    showReviewForm.value = false
+    reviewForm.value = { rating: 5, comment: '' }
+  } catch (e) {
+    reviewError.value = e instanceof Error ? e.message : 'Không gửi được đánh giá'
+  } finally {
+    reviewSaving.value = false
+  }
+}
 
 async function addToCart() {
   if (auth.role !== 'customer') {
@@ -98,9 +155,9 @@ async function addRelated(id: string) {
         </div>
 
         <div class="elegant-product__info">
-          <p class="elegant-product__stars" :aria-label="`${product.rating} sao`">
-            {{ starDisplay(product.rating) }}
-            <span class="elegant-product__review-count">({{ product.reviewCount ?? mockReviews.length }} đánh giá)</span>
+          <p class="elegant-product__stars" :aria-label="`${displayRating} sao`">
+            {{ starDisplay(displayRating) }}
+            <span class="elegant-product__review-count">({{ reviewCount || product.reviewCount || mockReviews.length }} đánh giá)</span>
           </p>
           <h1 class="elegant-product__title">{{ product.name }}</h1>
           <p class="elegant-product__desc">{{ product.description }}</p>
@@ -192,8 +249,33 @@ async function addRelated(id: string) {
         <div v-else class="elegant-tabs__panel">
           <div class="elegant-reviews-head">
             <h2>Đánh giá khách hàng</h2>
-            <button type="button" class="btn-elegant-outline btn-interactive">Viết đánh giá</button>
+            <button
+              type="button"
+              class="btn-elegant-outline btn-interactive"
+              @click="showReviewForm = !showReviewForm"
+            >
+              Viết đánh giá
+            </button>
           </div>
+
+          <form v-if="showReviewForm" class="review-form card" @submit.prevent="submitReview">
+            <label>
+              Số sao
+              <select v-model.number="reviewForm.rating" class="input">
+                <option v-for="n in 5" :key="n" :value="n">{{ n }} sao</option>
+              </select>
+            </label>
+            <label>
+              Nội dung
+              <textarea v-model="reviewForm.comment" class="input" rows="3" required />
+            </label>
+            <p v-if="reviewError" class="form-error">{{ reviewError }}</p>
+            <button type="submit" class="btn btn-primary btn-sm" :disabled="reviewSaving">
+              {{ reviewSaving ? 'Đang gửi...' : 'Gửi đánh giá' }}
+            </button>
+          </form>
+
+          <p v-if="!mockReviews.length" class="elegant-muted">Chưa có đánh giá nào.</p>
           <article v-for="(r, i) in mockReviews" :key="i" class="elegant-review">
             <div class="elegant-review__avatar">{{ r.user[0] }}</div>
             <div>

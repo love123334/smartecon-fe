@@ -12,6 +12,7 @@ const editing = ref<Product | null>(null)
 const showForm = ref(false)
 const error = ref('')
 const saving = ref(false)
+const uploading = ref(false)
 const form = ref({
   name: '',
   description: '',
@@ -58,6 +59,22 @@ function startEdit(p: Product) {
     stock: p.stock,
     categoryId: cat?.id ?? categories.value[0]?.id ?? '',
     imageUrl: p.imageUrl,
+  }
+}
+
+async function onImagePick(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  uploading.value = true
+  error.value = ''
+  try {
+    form.value.imageUrl = await productApi.uploadImage(file)
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'Upload thất bại'
+  } finally {
+    uploading.value = false
+    input.value = ''
   }
 }
 
@@ -147,7 +164,13 @@ async function remove(id: string) {
           <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
         </select>
       </div>
-      <button type="submit" class="btn btn-primary" :disabled="saving">
+      <div class="form-group">
+        <label>Ảnh sản phẩm</label>
+        <input type="file" accept="image/*" @change="onImagePick" />
+        <img v-if="form.imageUrl" :src="form.imageUrl" alt="" class="form-thumb" />
+        <p v-if="uploading" class="muted">Đang upload...</p>
+      </div>
+      <button type="submit" class="btn btn-primary" :disabled="saving || uploading">
         {{ saving ? 'Đang lưu...' : 'Lưu' }}
       </button>
     </form>
@@ -189,5 +212,11 @@ async function remove(id: string) {
 .form-edit h2 {
   margin-top: 0;
   font-size: 1.1rem;
+}
+.form-thumb {
+  display: block;
+  margin-top: 0.5rem;
+  max-width: 160px;
+  border-radius: 8px;
 }
 </style>

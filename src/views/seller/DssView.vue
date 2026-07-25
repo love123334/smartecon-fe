@@ -33,7 +33,7 @@ onMounted(async () => {
       ]"
     />
     <HybridDataNotice
-      message="Tồn kho lấy từ API; khuyến mãi & what-if vẫn mô phỏng DSS."
+      message="Tồn kho từ API inventory; gợi ý từ GET /api/v1/seller/dashboard khi đăng nhập seller."
     />
     <div class="grid grid-2">
       <article v-for="i in insights" :key="i.id" class="card insight">
