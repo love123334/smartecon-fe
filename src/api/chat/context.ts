@@ -70,8 +70,10 @@ export interface ChatContext {
   users: User[]
   systemMetrics: SystemMetric[]
   recommendations: Recommendation[]
-  /** api = backend thật, mock = localStorage, hybrid = gộp */
+  /** api = catalog từ backend, mock = localStorage, hybrid = mock session + backend lỗi */
   dataSource: 'api' | 'mock' | 'hybrid'
+  backendOnline: boolean
+  catalogSource: 'backend' | 'mock'
   enrichment?: ChatEnrichment
 }
 
@@ -83,11 +85,16 @@ async function safe<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
   }
 }
 
-async function loadProducts(sellerId?: string): Promise<Product[]> {
-  return safe(
-    () => productApi.list({ sellerId, withStock: true }),
-    [],
-  )
+async function loadProducts(sellerId?: string): Promise<{
+  products: Product[]
+  catalogSource: 'backend' | 'mock'
+  backendUnreachable?: boolean
+}> {
+  try {
+    return await productApi.listWithMeta({ sellerId, withStock: true })
+  } catch {
+    return { products: [], catalogSource: 'mock', backendUnreachable: true }
+  }
 }
 
 function countProductsByCategory(products: Product[], cats: Category[]): ChatCategory[] {
@@ -129,11 +136,15 @@ async function loadCart(userId?: string): Promise<{ lines: ChatCartLine[]; total
   }, { lines: [], total: 0 })
 }
 
-function detectDataSource(): ChatContext['dataSource'] {
+function detectDataSource(
+  catalogSource: 'backend' | 'mock',
+  backendUnreachable?: boolean,
+): ChatContext['dataSource'] {
   if (apiConfig.useMock) return 'mock'
+  if (catalogSource === 'backend') return 'api'
   const token = localStorage.getItem('sedsp_access_token')
-  if (token?.startsWith('mock.')) return 'hybrid'
-  return 'api'
+  if (token?.startsWith('mock.') || backendUnreachable) return 'hybrid'
+  return 'mock'
 }
 
 /** Thu thập dữ liệu từ backend + mock — gọi song song theo role */
@@ -143,7 +154,7 @@ export async function buildChatContext(
 ): Promise<ChatContext> {
   const sellerKey = opts?.sellerBackendId ?? opts?.userId
 
-  const [products, rawCategories, cartData] = await Promise.all([
+  const [catalog, rawCategories, cartData] = await Promise.all([
     loadProducts(),
     safe(() => categoryApi.list(), [] as Category[]),
     loadCart(opts?.userId),
@@ -153,12 +164,12 @@ export async function buildChatContext(
     role,
     userName: opts?.userName,
     userId: opts?.userId,
-    products,
+    products: catalog.products,
     orders: [],
     cartLines: cartData.lines,
     cartTotal: cartData.total,
     cartItemCount: cartData.lines.reduce((s, l) => s + l.quantity, 0),
-    categories: countProductsByCategory(products, rawCategories),
+    categories: countProductsByCategory(catalog.products, rawCategories),
     sellerProducts: [],
     sellerInsights: [],
     managerInsights: [],
@@ -166,7 +177,9 @@ export async function buildChatContext(
     users: [],
     systemMetrics: [],
     recommendations: [],
-    dataSource: detectDataSource(),
+    dataSource: detectDataSource(catalog.catalogSource, catalog.backendUnreachable),
+    backendOnline: catalog.catalogSource === 'backend' && !catalog.backendUnreachable,
+    catalogSource: catalog.catalogSource,
   }
 
   const roleTasks: Promise<void>[] = []
@@ -187,7 +200,8 @@ export async function buildChatContext(
   if (role === 'seller') {
     roleTasks.push(
       (async () => {
-        ctx.sellerProducts = await loadProducts(sellerKey)
+        const sellerCatalog = await loadProducts(sellerKey)
+        ctx.sellerProducts = sellerCatalog.products
         if (apiConfig.useRealSeller) {
           ctx.salesPerformance = await safe(() => sellerApi.getSalesPerformance(), null)
           ctx.sellerDashboard = await safe(() => sellerApi.getDashboard(), null)

@@ -421,14 +421,28 @@ async function mockLoginAcceptingDemoPassword(
   return publicUser(user)
 }
 
-async function listProductsHybrid(params?: {
-  q?: string
-  category?: string
-  sellerId?: string
-  withStock?: boolean
-}): Promise<Product[]> {
+export type CatalogSource = 'backend' | 'mock'
+
+export interface ProductListResult {
+  products: Product[]
+  catalogSource: CatalogSource
+  /** Backend không phản hồi — đã fallback mock */
+  backendUnreachable?: boolean
+}
+
+async function listProductsHybridInternal(
+  params?: {
+    q?: string
+    category?: string
+    sellerId?: string
+    withStock?: boolean
+  },
+): Promise<ProductListResult> {
   if (!apiConfig.useRealProducts) {
-    return mockProductApi.list(params)
+    return {
+      products: await mockProductApi.list(params),
+      catalogSource: 'mock',
+    }
   }
   try {
     const sellerNum =
@@ -462,14 +476,29 @@ async function listProductsHybrid(params?: {
     if (apiConfig.useRealInventory && (params?.withStock ?? true) && hasBackendToken()) {
       enriched = await realInventory.attachStockToProducts(enriched)
     }
-    return enriched
-  } catch {
-    return mockProductApi.list(params)
+    return { products: enriched, catalogSource: 'backend' }
+  } catch (e) {
+    return {
+      products: await mockProductApi.list(params),
+      catalogSource: 'mock',
+      backendUnreachable: isBackendUnreachableError(e),
+    }
   }
+}
+
+async function listProductsHybrid(params?: {
+  q?: string
+  category?: string
+  sellerId?: string
+  withStock?: boolean
+}): Promise<Product[]> {
+  const { products } = await listProductsHybridInternal(params)
+  return products
 }
 
 export const productApi = {
   list: listProductsHybrid,
+  listWithMeta: listProductsHybridInternal,
 
   async getById(id: string): Promise<Product | null> {
     if (apiConfig.useRealProducts) {

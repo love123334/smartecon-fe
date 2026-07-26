@@ -1,5 +1,6 @@
 import type { ChatContext } from '@/api/chat/context'
 import type { ChatIntent } from '@/api/chat/intents'
+import { apiConfig } from '@/api/config'
 import { formatVnd, normalizeText } from '@/api/chat/match'
 import { findProductsByQuery } from '@/api/chat/products'
 import type { Order, Product } from '@/types'
@@ -23,9 +24,12 @@ export function productLines(products: Product[], limit = 4): string {
 }
 
 function apiNote(ctx: ChatContext): string {
-  if (ctx.dataSource === 'api') return ' *(API backend)*'
-  if (ctx.dataSource === 'hybrid') return ' *(API + demo)*'
-  return ''
+  if (ctx.catalogSource === 'backend') return ' *(API backend)*'
+  if (!ctx.backendOnline && !apiConfig.useMock) {
+    return ' *(mock — backend :8080 chưa chạy)*'
+  }
+  if (ctx.dataSource === 'hybrid') return ' *(mock + demo)*'
+  return ' *(mock local)*'
 }
 
 function formatOrderSummary(orders: Order[], limit = 3): string {
@@ -75,7 +79,11 @@ function shopOverviewReply(ctx: ChatContext): string {
   const top = [...ctx.products].sort((a, b) => b.soldCount - a.soldCount).slice(0, 5)
   const total = ctx.products.length
   const catCount = ctx.categories.length || new Set(ctx.products.map((p) => p.category)).size
-  return `${name}**SEDSP** — sàn TMĐT + DSS & AI${apiNote(ctx)}.\n• **${total}** sản phẩm · **${catCount}** danh mục\n\n**Danh mục:**\n${categoryOverview(ctx)}\n\n**Nổi bật / bán chạy:**\n${top.length ? productLines(top, 5) : '• Xem **Cửa hàng**.'}\n\nHỏi tên SP, "giỏ hàng", "đơn của tôi" hoặc **what do you sell**.`
+  const offlineHint =
+    !ctx.backendOnline && !apiConfig.useMock
+      ? '\n\n⚠ **Backend chưa kết nối** — chat đang dùng catalog mock (10 SP). Chạy `backend/` → `docker compose up -d` + `gradlew bootRun` để lấy **4 SP seed** từ Postgres.'
+      : ''
+  return `${name}**SEDSP** — sàn TMĐT + DSS & AI${apiNote(ctx)}.\n• **${total}** sản phẩm · **${catCount}** danh mục\n\n**Danh mục:**\n${categoryOverview(ctx)}\n\n**Nổi bật / bán chạy:**\n${top.length ? productLines(top, 5) : '• Xem **Cửa hàng**.'}\n\nHỏi tên SP, "giỏ hàng", "đơn của tôi" hoặc **what do you sell**.${offlineHint}`
 }
 
 function categoriesReply(ctx: ChatContext): string {
