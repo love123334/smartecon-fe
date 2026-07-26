@@ -13,6 +13,8 @@ import CheckoutStepper from '@/components/CheckoutStepper.vue'
 import NewsletterBanner from '@/components/NewsletterBanner.vue'
 import OrderTrackStepper from '@/components/OrderTrackStepper.vue'
 import SellerShopTag from '@/components/SellerShopTag.vue'
+import OrderProductReview from '@/components/OrderProductReview.vue'
+import { getOrderOverlay } from '@/utils/orderStatusOverlay'
 
 const route = useRoute()
 const auth = useAuthStore()
@@ -20,6 +22,11 @@ const order = ref<Order | null>(null)
 const productsById = ref<Record<string, Product>>({})
 const reviewsByProductId = ref<Record<string, ProductReview[]>>({})
 const cancelling = ref(false)
+
+const statusNote = computed(() => {
+  if (!order.value) return ''
+  return getOrderOverlay(order.value.id)?.note ?? ''
+})
 
 const paymentLabel = computed(() => {
   const m = order.value?.paymentMethod
@@ -115,19 +122,31 @@ async function cancelOrder() {
     cancelling.value = false
   }
 }
+
+async function onReviewSubmitted(productId: string) {
+  if (!order.value) return
+  const list = await reviewApi.list(productId).catch(() => [] as ProductReview[])
+  reviewsByProductId.value = { ...reviewsByProductId.value, [productId]: list }
+}
 </script>
 
 <template>
   <div v-if="order" class="elegant-page">
     <div class="container elegant-page__inner">
       <template v-if="isFreshOrder && order.status !== 'cancelled'">
-        <h1 class="elegant-page-title">Hoàn tất!</h1>
+        <h1 class="elegant-page-title">Đặt hàng thành công</h1>
         <CheckoutStepper :step="3" />
 
         <div class="elegant-complete">
           <div class="elegant-complete__card">
-            <p class="elegant-complete__emoji">Cảm ơn bạn!</p>
-            <h2 class="elegant-complete__heading">Đơn hàng đã được tiếp nhận</h2>
+            <p class="elegant-complete__emoji">Đã đặt hàng</p>
+            <h2 class="elegant-complete__heading">Đơn đang chờ xác nhận</h2>
+            <p class="elegant-muted" style="margin: 0 0 1rem">
+              Người bán / quản lý sẽ xác nhận đơn. Bạn có thể theo dõi tiến trình bên dưới hoặc trong lịch sử mua hàng.
+            </p>
+            <p v-if="statusNote" class="elegant-muted" style="margin: 0 0 1rem">
+              Cập nhật gần nhất: {{ statusNote }}
+            </p>
 
             <OrderTrackStepper :status="order.status" show-hint />
 
@@ -199,6 +218,9 @@ async function cancelOrder() {
           <section class="order-track-panel" aria-labelledby="track-heading">
             <h2 id="track-heading" class="order-track-panel__title">Theo dõi đơn hàng</h2>
             <OrderTrackStepper :status="order.status" show-hint />
+            <p v-if="statusNote" class="elegant-muted" style="margin-top: 0.5rem">
+              Ghi chú: {{ statusNote }}
+            </p>
           </section>
 
           <p><strong>Địa chỉ giao:</strong> {{ order.shippingAddress || '—' }}</p>
@@ -226,14 +248,17 @@ async function cancelOrder() {
                     class="order-item-seller-tag"
                   />
                   <template v-if="order.status === 'delivered'">
-                    <RouterLink
+                    <OrderProductReview
                       v-if="itemReviewState(item.productId).canReview"
-                      :to="`/products/${item.productId}#reviews`"
-                      class="review-link"
+                      :product-id="item.productId"
+                      :product-name="item.productName"
+                      @submitted="onReviewSubmitted(item.productId)"
+                    />
+                    <span
+                      v-else
+                      class="review-link review-link--muted"
+                      :title="itemReviewState(item.productId).message"
                     >
-                      {{ itemReviewState(item.productId).label }}
-                    </RouterLink>
-                    <span v-else class="review-link review-link--muted" :title="itemReviewState(item.productId).message">
                       {{ itemReviewState(item.productId).label }}
                     </span>
                   </template>

@@ -46,6 +46,8 @@ const opsNavLinks = computed(() => {
   if (r === 'manager') {
     return [
       { to: '/manager/dashboard', label: 'Dashboard' },
+      { to: '/manager/orders', label: 'Đơn hàng' },
+      { to: '/manager/approvals', label: 'Duyệt role' },
       { to: '/manager/analytics', label: 'Phân tích' },
       { to: '/manager/dss', label: 'DSS' },
       { to: '/chatbot', label: 'Trợ lý AI' },
@@ -54,6 +56,7 @@ const opsNavLinks = computed(() => {
   if (r === 'admin') {
     return [
       { to: '/admin/users', label: 'Người dùng' },
+      { to: '/admin/approvals', label: 'Duyệt role' },
       { to: '/admin/monitoring', label: 'Giám sát' },
       { to: '/chatbot', label: 'Trợ lý AI' },
     ]

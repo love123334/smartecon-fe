@@ -7,6 +7,7 @@ import { orderStatusLabel } from '@/utils/orderStatus'
 import EmptyState from '@/components/EmptyState.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import OrderTrackStepper from '@/components/OrderTrackStepper.vue'
+import OrderProductReview from '@/components/OrderProductReview.vue'
 import PageHeader from '@/components/PageHeader.vue'
 
 const auth = useAuthStore()
@@ -83,21 +84,28 @@ function toggleTrack(id: string) {
           <button type="button" class="btn btn-sm" @click="toggleTrack(o.id)">
             {{ expandedId === o.id ? 'Ẩn sản phẩm' : 'Xem sản phẩm' }}
           </button>
+          <RouterLink
+            v-if="o.status === 'delivered'"
+            :to="`/orders/${o.id}`"
+            class="btn btn-outline btn-sm"
+          >
+            Đánh giá đơn
+          </RouterLink>
           <RouterLink :to="`/orders/${o.id}`" class="btn btn-primary btn-sm">
             Chi tiết & theo dõi
           </RouterLink>
         </div>
 
-        <ul v-if="expandedId === o.id" class="orders-track-card__items">
+        <ul v-if="expandedId === o.id || o.status === 'delivered'" class="orders-track-card__items">
           <li v-for="item in o.items" :key="item.productId">
-            {{ item.productName }} × {{ item.quantity }}
-            <RouterLink
-              v-if="o.status === 'delivered'"
-              :to="`/products/${item.productId}#reviews`"
-              class="review-inline"
-            >
-              Đánh giá
-            </RouterLink>
+            <div>
+              {{ item.productName }} × {{ item.quantity }}
+              <OrderProductReview
+                v-if="o.status === 'delivered'"
+                :product-id="item.productId"
+                :product-name="item.productName"
+              />
+            </div>
           </li>
         </ul>
       </article>

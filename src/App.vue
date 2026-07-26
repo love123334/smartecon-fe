@@ -3,6 +3,7 @@ import { computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import AppHeader from '@/components/AppHeader.vue'
 import CartFlyout from '@/components/CartFlyout.vue'
+import CenterNotice from '@/components/CenterNotice.vue'
 import ChatSupportFab from '@/components/ChatSupportFab.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
@@ -41,6 +42,7 @@ onMounted(async () => {
 <template>
   <AppHeader />
   <CartFlyout />
+  <CenterNotice />
   <ChatSupportFab />
   <main
     class="page"

@@ -48,9 +48,13 @@ onMounted(async () => {
       class="page-header--animate"
       eyebrow="Quản lý"
       title="Bảng điều khiển"
-      lead="KPI từ đơn hàng — ưu tiên API backend khi có GET /orders/manage."
+      lead="KPI vận hành — dùng Đơn hàng để xác nhận/đẩy giao, và Duyệt role để xét hồ sơ Seller/Manager."
     />
 
+    <p style="margin: 0 0 1rem; display: flex; flex-wrap: wrap; gap: 0.5rem">
+      <RouterLink to="/manager/orders" class="btn btn-primary btn-sm">Quản lý đơn hàng</RouterLink>
+      <RouterLink to="/manager/approvals" class="btn btn-outline btn-sm">Duyệt nâng quyền</RouterLink>
+    </p>
     <HybridDataNotice
       v-if="!ordersFromApi && apiConfig.useRealOrders"
       message="Backend hiện chưa có GET /orders/manage — bảng đơn & một số KPI dùng dữ liệu demo. Biểu đồ seller/manager lấy từ sales-performance hoặc catalog khi có."

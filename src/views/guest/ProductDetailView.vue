@@ -5,6 +5,7 @@ import { orderApi, productApi, reviewApi, formatVnd, getDiscountPercent } from '
 import type { Order, Product, ProductReview } from '@/types'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
+import { isOutOfStockError, useNoticeStore } from '@/stores/notice'
 import {
   REVIEW_WINDOW_DAYS,
   checkReviewEligibility,
@@ -178,11 +179,20 @@ async function addToCart() {
     router.push({ name: 'login', query: { redirect: route.fullPath } })
     return
   }
+  if (!product.value) return
+  if (product.value.stock <= 0) {
+    useNoticeStore().showOutOfStock(product.value.name)
+    return
+  }
   try {
-    await cart.add(product.value!.id, qty.value)
+    await cart.add(product.value.id, qty.value)
     message.value = 'Đã thêm vào giỏ hàng'
     cart.openDrawer()
   } catch (e) {
+    if (isOutOfStockError(e)) {
+      message.value = ''
+      return
+    }
     message.value = e instanceof Error ? e.message : 'Lỗi'
   }
 }
@@ -192,8 +202,12 @@ async function addRelated(id: string) {
     router.push({ name: 'login', query: { redirect: route.fullPath } })
     return
   }
-  await cart.add(id)
-  cart.openDrawer()
+  try {
+    await cart.add(id)
+    cart.openDrawer()
+  } catch {
+    /* hết hàng → CenterNotice */
+  }
 }
 </script>
 
@@ -264,13 +278,11 @@ async function addRelated(id: string) {
             <button
               type="button"
               class="btn-elegant-primary btn-interactive"
-              :disabled="product.stock <= 0"
               @click="addToCart"
             >
               {{ product.stock > 0 ? 'Thêm vào giỏ' : 'Hết hàng' }}
             </button>
           </div>
-          <p v-if="product.stock <= 0" class="elegant-alert elegant-alert--error">Sản phẩm tạm hết hàng</p>
           <p v-if="message" class="elegant-alert" :class="message.startsWith('Đã') ? 'elegant-alert--success' : 'elegant-alert--error'">{{ message }}</p>
 
           <div class="elegant-product__shop">

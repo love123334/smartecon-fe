@@ -45,17 +45,49 @@ interface BackendRecentOrder {
   createdAt?: string
 }
 
+interface BackendSellerRating {
+  averageRating?: number
+  totalReviews?: number
+  warning?: string | null
+  ratingBreakdown?: Array<{ rating: number; count: number; percentage: number }>
+  recentReviews?: Array<{
+    reviewId: number
+    productId: number
+    productName: string
+    rating: number
+    comment: string
+    createdAt?: string
+  }>
+}
+
+interface BackendOrderCounts {
+  pending?: number
+  processing?: number
+  shipping?: number
+  delivered?: number
+  pendingOrders?: number
+  totalOrders?: number
+}
+
+interface BackendInventorySummary {
+  lowStockProducts?: number
+  outOfStockProducts?: number
+  lowStockCount?: number
+  totalStock?: number
+}
+
 interface BackendSellerDashboard {
   revenue?: { totalRevenue?: number | string; completedOrders?: number }
-  orders?: { pendingOrders?: number; totalOrders?: number }
+  orders?: BackendOrderCounts
   products?: { totalProducts?: number; activeProducts?: number }
-  inventory?: { lowStockCount?: number; totalStock?: number }
+  inventory?: BackendInventorySummary
   recentOrders?: BackendRecentOrder[]
   lowStockProducts?: BackendLowStockProduct[]
   recommendations?: string[]
   averageRating?: number
   totalReviews?: number
   ratingWarning?: string
+  rating?: BackendSellerRating
 }
 
 export interface SalesPerformance {
@@ -75,16 +107,33 @@ export interface SalesPerformance {
 
 export interface SellerDashboard {
   revenue: { totalRevenue: number; completedOrders: number }
+  orders: {
+    pending: number
+    processing: number
+    shipping: number
+    delivered: number
+  }
+  products: { totalProducts: number; activeProducts: number }
+  inventory: { lowStockCount: number; outOfStockCount: number }
   lowStockProducts: Array<{ productId: string; productName: string; quantity: number }>
   recommendations: string[]
   averageRating?: number
   totalReviews?: number
   ratingWarning?: string
+  recentReviews: Array<{
+    id: string
+    productId: string
+    productName: string
+    rating: number
+    comment: string
+    createdAt: string
+  }>
   recentOrders: Array<{
     orderId: string
     customer: string
     total: number
     status: string
+    createdAt?: string
   }>
 }
 
@@ -96,23 +145,38 @@ function mapSalesPerformance(data: BackendSalesPerformance): SalesPerformance {
       averageOrderValue: num(data.summary?.averageOrderValue),
     },
     monthlyRevenue: (data.monthlyRevenue ?? []).map((m) => ({
-      label: m.month,
+      label: String(m.month),
       value: num(m.revenue),
     })),
     topProducts: (data.topProducts ?? []).map((p) => ({
       productId: String(p.productId),
       productName: p.productName,
-      quantitySold: p.quantitySold ?? 0,
+      quantitySold: Number(p.quantitySold ?? 0),
       revenue: num(p.revenue),
     })),
   }
 }
 
 function mapDashboard(data: BackendSellerDashboard): SellerDashboard {
+  const rating = data.rating
   return {
     revenue: {
       totalRevenue: num(data.revenue?.totalRevenue),
       completedOrders: data.revenue?.completedOrders ?? 0,
+    },
+    orders: {
+      pending: data.orders?.pending ?? data.orders?.pendingOrders ?? 0,
+      processing: data.orders?.processing ?? 0,
+      shipping: data.orders?.shipping ?? 0,
+      delivered: data.orders?.delivered ?? 0,
+    },
+    products: {
+      totalProducts: data.products?.totalProducts ?? 0,
+      activeProducts: data.products?.activeProducts ?? 0,
+    },
+    inventory: {
+      lowStockCount: data.inventory?.lowStockProducts ?? data.inventory?.lowStockCount ?? 0,
+      outOfStockCount: data.inventory?.outOfStockProducts ?? 0,
     },
     lowStockProducts: (data.lowStockProducts ?? []).map((p) => ({
       productId: String(p.productId),
@@ -120,14 +184,23 @@ function mapDashboard(data: BackendSellerDashboard): SellerDashboard {
       quantity: p.quantity ?? 0,
     })),
     recommendations: data.recommendations ?? [],
-    averageRating: data.averageRating,
-    totalReviews: data.totalReviews,
-    ratingWarning: data.ratingWarning,
+    averageRating: data.averageRating ?? rating?.averageRating,
+    totalReviews: data.totalReviews ?? rating?.totalReviews,
+    ratingWarning: data.ratingWarning ?? rating?.warning ?? undefined,
+    recentReviews: (rating?.recentReviews ?? []).map((r) => ({
+      id: String(r.reviewId),
+      productId: String(r.productId),
+      productName: r.productName,
+      rating: r.rating,
+      comment: r.comment,
+      createdAt: r.createdAt ?? new Date().toISOString(),
+    })),
     recentOrders: (data.recentOrders ?? []).map((o) => ({
       orderId: String(o.orderId),
       customer: o.customer,
       total: num(o.total),
       status: o.status,
+      createdAt: o.createdAt,
     })),
   }
 }
@@ -151,8 +224,8 @@ export function ordersFromDashboardRecent(recent: SellerDashboard['recentOrders'
     status: statusMap[o.status] ?? 'pending',
     rawStatus: o.status,
     shippingAddress: '',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    createdAt: o.createdAt ?? new Date().toISOString(),
+    updatedAt: o.createdAt ?? new Date().toISOString(),
   }))
 }
 

@@ -24,6 +24,15 @@ import { chatModeLabel, resolveChatReply } from '@/api/chat/responder'
 import { isLlmConfigured } from '@/api/chat/llm'
 import { applyAvatarToUser, saveUserAvatar } from '@/utils/avatar'
 import { categoryRevenueChart, monthlyRevenueChart } from '@/utils/orderAnalytics'
+import {
+  applyOrderOverlay,
+  applyOrderOverlays,
+  frontendStatusFromRaw,
+  overlayOnlyOrders,
+  saveOrderOverlay,
+  seedPendingOverlay,
+} from '@/utils/orderStatusOverlay'
+import { applyRoleOverride, setRoleOverride } from '@/utils/roleApplications'
 import { STORAGE_KEYS, storageGet, storageSet } from '@/api/storage'
 import type {
   CartItem,
@@ -233,25 +242,44 @@ export const authApi = apiConfig.useRealAuth
   ? {
       login: async (email: string, password: string) => {
         try {
-          return await realAuth.login(email, password)
+          const user = await realAuth.login(email, password)
+          return applyRoleOverride(user)
         } catch (e) {
           if (isBackendUnreachableError(e)) {
-            return mockLoginAcceptingDemoPassword(email, password)
+            return applyRoleOverride(await mockLoginAcceptingDemoPassword(email, password))
           }
           throw e
         }
       },
-      register: realAuth.register,
+      register: async (data: {
+        email: string
+        password: string
+        fullName: string
+        phone?: string
+      }) => {
+        try {
+          return await realAuth.register(data)
+        } catch (e) {
+          if (isBackendUnreachableError(e)) {
+            const user = applyRoleOverride(await mockAuthApi.register(data))
+            return { status: 'active' as const, user }
+          }
+          throw e
+        }
+      },
       logout: realAuth.logout,
       getCurrentUser: async () => {
         if (isMockSession()) {
-          return mockAuthApi.getCurrentUser()
+          const u = await mockAuthApi.getCurrentUser()
+          return u ? applyRoleOverride(u) : null
         }
         try {
-          return await realAuth.getCurrentUser()
+          const u = await realAuth.getCurrentUser()
+          return u ? applyRoleOverride(u) : null
         } catch (e) {
           if (isBackendUnreachableError(e)) {
-            return mockAuthApi.getCurrentUser()
+            const u = await mockAuthApi.getCurrentUser()
+            return u ? applyRoleOverride(u) : null
           }
           return null
         }
@@ -261,7 +289,7 @@ export const authApi = apiConfig.useRealAuth
         patch: Partial<Pick<User, 'fullName' | 'phone' | 'address' | 'avatarPreset' | 'avatarUrl'>>,
       ) => {
         if (isMockSession()) {
-          return mockAuthApi.updateProfile(userId, patch)
+          return applyRoleOverride(await mockAuthApi.updateProfile(userId, patch))
         }
         const hasProfileFields =
           patch.fullName !== undefined ||
@@ -278,11 +306,13 @@ export const authApi = apiConfig.useRealAuth
             avatarPreset: patch.avatarPreset ?? me.avatarPreset,
             avatarUrl: patch.avatarUrl ?? me.avatarUrl,
           })
-          return applyAvatarToUser({
-            ...me,
-            avatarPreset: patch.avatarPreset ?? me.avatarPreset,
-            avatarUrl: patch.avatarUrl ?? me.avatarUrl,
-          })
+          return applyRoleOverride(
+            applyAvatarToUser({
+              ...me,
+              avatarPreset: patch.avatarPreset ?? me.avatarPreset,
+              avatarUrl: patch.avatarUrl ?? me.avatarUrl,
+            }),
+          )
         }
 
         try {
@@ -292,22 +322,49 @@ export const authApi = apiConfig.useRealAuth
               avatarPreset: patch.avatarPreset ?? updated.avatarPreset,
               avatarUrl: patch.avatarUrl ?? updated.avatarUrl,
             })
-            return applyAvatarToUser({
-              ...updated,
-              avatarPreset: patch.avatarPreset ?? updated.avatarPreset,
-              avatarUrl: patch.avatarUrl ?? updated.avatarUrl,
-            })
+            return applyRoleOverride(
+              applyAvatarToUser({
+                ...updated,
+                avatarPreset: patch.avatarPreset ?? updated.avatarPreset,
+                avatarUrl: patch.avatarUrl ?? updated.avatarUrl,
+              }),
+            )
           }
-          return updated
+          return applyRoleOverride(updated)
         } catch (e) {
           if (isBackendUnreachableError(e)) {
-            return mockAuthApi.updateProfile(userId, patch)
+            return applyRoleOverride(await mockAuthApi.updateProfile(userId, patch))
           }
           throw e
         }
       },
+      resendOtp: realAuth.resendOtp,
+      verifyEmail: realAuth.verifyEmail,
     }
-  : mockAuthApi
+  : {
+      ...mockAuthApi,
+      login: async (email: string, password: string) =>
+        applyRoleOverride(await mockAuthApi.login(email, password)),
+      register: async (data: {
+        email: string
+        password: string
+        fullName: string
+        phone?: string
+      }) => {
+        const user = applyRoleOverride(await mockAuthApi.register(data))
+        return { status: 'active' as const, user }
+      },
+      getCurrentUser: async () => {
+        const u = await mockAuthApi.getCurrentUser()
+        return u ? applyRoleOverride(u) : null
+      },
+      resendOtp: async (_email: string) => {
+        /* mock: no OTP */
+      },
+      verifyEmail: async (_email: string, _otp: string) => {
+        /* mock: already active */
+      },
+    }
 
 const mockProductApi = {
   async list(params?: {
@@ -524,6 +581,7 @@ export const productApi = {
     _sellerId: string,
     data: Omit<Product, 'id' | 'sellerId' | 'createdAt' | 'soldCount' | 'rating'> & {
       categoryId?: number
+      imagePublicId?: string
     },
   ): Promise<Product> {
     if (apiConfig.useRealProducts && hasBackendToken()) {
@@ -538,15 +596,18 @@ export const productApi = {
         price: data.price,
         categoryId,
         imageUrl: data.imageUrl,
+        imagePublicId: data.imagePublicId,
       })
       if (data.stock > 0 && apiConfig.useRealInventory) {
-        try {
-          await realInventory.adjustInventory(created.id, data.stock, 'MANUAL_ADJUST')
-        } catch {
-          /* inventory row may not exist yet */
-        }
+        await realInventory.adjustInventory(created.id, data.stock, 'MANUAL_ADJUST')
       }
-      return enrichProduct({ ...created, stock: data.stock })
+      const [withStock] = await realInventory.attachStockToProducts([
+        enrichProduct({ ...created, stock: data.stock }),
+      ])
+      return withStock
+    }
+    if (apiConfig.useRealProducts) {
+      throw new Error('Cần đăng nhập seller thật (JWT) để lưu sản phẩm vào database')
     }
     return mockProductApi.create(_sellerId, data)
   },
@@ -567,12 +628,14 @@ export const productApi = {
         price: patch.price,
         categoryId,
       })
-      if (patch.stockDelta != null && patch.stockDelta !== 0 && apiConfig.useRealInventory) {
-        try {
-          await realInventory.adjustInventory(id, patch.stockDelta, 'MANUAL_ADJUST')
-        } catch {
-          /* ignore */
+      if (patch.stock != null && apiConfig.useRealInventory) {
+        const inv = await realInventory.getInventory(id)
+        const delta = patch.stock - inv.availableQuantity
+        if (delta !== 0) {
+          await realInventory.adjustInventory(id, delta, 'MANUAL_ADJUST')
         }
+      } else if (patch.stockDelta != null && patch.stockDelta !== 0 && apiConfig.useRealInventory) {
+        await realInventory.adjustInventory(id, patch.stockDelta, 'MANUAL_ADJUST')
       }
       const [withStock] = await realInventory.attachStockToProducts([enrichProduct(updated)])
       return withStock
@@ -599,7 +662,7 @@ export const productApi = {
     return mockProductApi.categories()
   },
 
-  async uploadImage(file: File): Promise<string> {
+  async uploadImage(file: File): Promise<{ url: string; publicId: string }> {
     if (apiConfig.useRealProducts && hasBackendToken()) {
       return realProductImages.uploadProductImage(file)
     }
@@ -608,9 +671,9 @@ export const productApi = {
 }
 
 export const categoryApi = {
-  async list(): Promise<realCategories.Category[]> {
+  async list(force = false): Promise<realCategories.Category[]> {
     if (apiConfig.useRealCategories) {
-      return realCategories.listCategories()
+      return realCategories.listCategories(force)
     }
     const names = await mockProductApi.categories()
     return names.map((name, i) => ({
@@ -618,6 +681,13 @@ export const categoryApi = {
       name,
       slug: name.toLowerCase().replace(/\s+/g, '-'),
     }))
+  },
+
+  async create(name: string): Promise<realCategories.Category> {
+    if (apiConfig.useRealCategories && hasBackendToken()) {
+      return realCategories.createCategory(name)
+    }
+    throw new Error('Cần đăng nhập seller/admin và backend để tạo danh mục')
   },
 }
 
@@ -784,7 +854,7 @@ export async function resolveCartLines(userId: string): Promise<CartLine[]> {
           name: item.productName,
           description: '',
           price,
-          stock: 99,
+          stock: 0,
           category: '',
           imageUrl: `https://picsum.photos/seed/prod-${item.productId}/400/400`,
           sellerId: '',
@@ -898,22 +968,33 @@ const mockOrderApi = {
 }
 
 async function mergedAllOrders(): Promise<Order[]> {
+  let orders: Order[] = []
   if (apiConfig.useRealOrders && hasBackendToken()) {
     try {
-      return await realOrders.listManagedOrders(0, 100)
+      orders = await realOrders.listManagedOrders(0, 100)
     } catch {
-      /* backend hiện tại chưa có GET /orders/manage */
+      /* backend hiện tại chưa có GET /orders/manage — dùng mock + overlay */
+      orders = await mockOrderApi.listAll()
     }
+  } else {
+    orders = await mockOrderApi.listAll()
   }
-  return mockOrderApi.listAll()
+  const merged = applyOrderOverlays(orders)
+  const ids = new Set(merged.map((o) => o.id))
+  return [...merged, ...overlayOnlyOrders(ids)].sort((a, b) =>
+    b.createdAt.localeCompare(a.createdAt),
+  )
 }
 
 export const orderApi = {
   async listForCustomer(customerId: string): Promise<Order[]> {
+    let orders: Order[]
     if (apiConfig.useRealOrders && hasBackendToken()) {
-      return realOrders.listMyOrders()
+      orders = await realOrders.listMyOrders()
+    } else {
+      orders = await mockOrderApi.listForCustomer(customerId)
     }
-    return mockOrderApi.listForCustomer(customerId)
+    return applyOrderOverlays(orders).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
   },
 
   async listForSeller(): Promise<Order[]> {
@@ -922,32 +1003,44 @@ export const orderApi = {
   },
 
   async listForSellerWithMeta(): Promise<{ orders: Order[]; source: SellerOrdersSource }> {
+    let orders: Order[] = []
+    let source: SellerOrdersSource = 'mock'
+
     if (apiConfig.useRealOrders && hasBackendToken()) {
       try {
-        const orders = await realOrders.listSellerOrders(0, 50)
-        return { orders, source: 'api' }
+        orders = await realOrders.listSellerOrders(0, 50)
+        source = 'api'
       } catch {
         try {
           const dash = await realSeller.getDashboard()
           if (dash.recentOrders.length) {
-            return {
-              orders: realSeller.ordersFromDashboardRecent(dash.recentOrders),
-              source: 'dashboard',
-            }
+            orders = realSeller.ordersFromDashboardRecent(dash.recentOrders)
+            source = 'dashboard'
           }
         } catch {
           /* fallback mock */
         }
       }
     }
-    const sellerId = getUsers().find((u) => u.role === 'seller')?.id ?? 'u-seller'
-    const productIds = new Set(
-      getProducts().filter((p) => p.sellerId === sellerId).map((p) => p.id),
-    )
-    const orders = getOrders()
-      .filter((o) => o.items.some((i) => productIds.has(i.productId)))
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    return { orders, source: 'mock' }
+
+    if (!orders.length) {
+      const sellerId = getUsers().find((u) => u.role === 'seller')?.id ?? 'u-seller'
+      const productIds = new Set(
+        getProducts().filter((p) => p.sellerId === sellerId).map((p) => p.id),
+      )
+      orders = getOrders()
+        .filter((o) => o.items.some((i) => productIds.has(i.productId)))
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      source = 'mock'
+    }
+
+    const merged = applyOrderOverlays(orders)
+    const ids = new Set(merged.map((o) => o.id))
+    const extra = overlayOnlyOrders(ids)
+    return {
+      orders: [...merged, ...extra].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+      source,
+    }
   },
 
   async listAll(): Promise<Order[]> {
@@ -955,10 +1048,17 @@ export const orderApi = {
   },
 
   async getById(id: string): Promise<Order | null> {
+    let order: Order | null = null
     if (apiConfig.useRealOrders && hasBackendToken()) {
-      return realOrders.getOrderById(id)
+      order = await realOrders.getOrderById(id)
+    } else {
+      order = await mockOrderApi.getById(id)
     }
-    return mockOrderApi.getById(id)
+    if (!order) {
+      const only = overlayOnlyOrders(new Set()).find((o) => o.id === id)
+      return only ?? null
+    }
+    return applyOrderOverlay(order)
   },
 
   async placeOrder(
@@ -966,14 +1066,24 @@ export const orderApi = {
     shippingAddress: string,
     payment: 'cod' | 'bank' | 'card' = 'cod',
   ): Promise<Order> {
+    let order: Order
     if (apiConfig.useRealOrders && hasBackendToken()) {
-      const order = await realOrders.createOrder(
+      order = await realOrders.createOrder(
         shippingAddress,
         realOrders.toBackendPayment(payment),
       )
-      return order
+      // Backend tạo PENDING — đảm bảo FE và seller cùng thấy chờ xác nhận
+      order = {
+        ...order,
+        status: order.status || 'pending',
+        rawStatus: order.rawStatus || 'PENDING',
+        shippingAddress: order.shippingAddress || shippingAddress,
+      }
+    } else {
+      order = await mockOrderApi.placeOrder(customerId, shippingAddress, payment)
     }
-    return mockOrderApi.placeOrder(customerId, shippingAddress, payment)
+    seedPendingOverlay(order)
+    return applyOrderOverlay(order)
   },
 
   async updateStatus(id: string, status: Order['status']): Promise<Order> {
@@ -982,11 +1092,40 @@ export const orderApi = {
         await realOrders.cancelOrder(id)
         const order = await realOrders.getOrderById(id)
         if (!order) throw new Error('Đơn hàng không tồn tại')
-        return order
+        saveOrderOverlay({
+          orderId: id,
+          status: 'cancelled',
+          rawStatus: 'CANCELLED',
+          note: 'Khách hủy đơn',
+          updatedByRole: 'customer',
+          customerName: order.customerName,
+          total: order.total,
+          shippingAddress: order.shippingAddress,
+          items: order.items,
+          createdAt: order.createdAt,
+        })
+        return applyOrderOverlay(order)
       }
       throw new Error('Chỉ hỗ trợ hủy đơn qua API backend')
     }
-    return mockOrderApi.updateStatus(id, status)
+    const updated = await mockOrderApi.updateStatus(id, status)
+    const rawMap: Record<Order['status'], realOrders.BackendOrderStatus> = {
+      pending: 'PENDING',
+      confirmed: 'PROCESSING',
+      shipping: 'SHIPPING',
+      delivered: 'DELIVERED',
+      cancelled: 'CANCELLED',
+    }
+    saveOrderOverlay({
+      orderId: id,
+      status,
+      rawStatus: rawMap[status],
+      customerName: updated.customerName,
+      total: updated.total,
+      items: updated.items,
+      createdAt: updated.createdAt,
+    })
+    return applyOrderOverlay(updated)
   },
 
   async updateBackendStatus(
@@ -997,22 +1136,78 @@ export const orderApi = {
     if (apiConfig.useRealOrders && hasBackendToken()) {
       try {
         const order = await realOrders.updateOrderStatus(id, status, note)
-        return { order, persistedOnBackend: true }
+        saveOrderOverlay({
+          orderId: id,
+          status: frontendStatusFromRaw(status),
+          rawStatus: status,
+          note,
+          updatedByRole: 'seller',
+          customerName: order.customerName,
+          total: order.total,
+          shippingAddress: order.shippingAddress,
+          items: order.items,
+          createdAt: order.createdAt,
+        })
+        return { order: applyOrderOverlay(order), persistedOnBackend: true }
       } catch {
-        /* backend chưa có PUT /orders/{id}/status — lưu demo local */
+        /* backend chưa có PUT /orders/{id}/status — lưu overlay dùng chung buyer/seller */
       }
     }
-    const statusMap: Record<realOrders.BackendOrderStatus, Order['status']> = {
-      PENDING: 'pending',
-      PAID: 'confirmed',
-      PROCESSING: 'confirmed',
-      SHIPPING: 'shipping',
-      DELIVERED: 'delivered',
-      CANCELLED: 'cancelled',
-      REFUNDED: 'cancelled',
+
+    const feStatus = frontendStatusFromRaw(status)
+    let base: Order | null = null
+    try {
+      base = await this.getById(id)
+    } catch {
+      base = null
     }
-    const order = await mockOrderApi.updateStatus(id, statusMap[status] ?? 'pending')
-    return { order: { ...order, rawStatus: status }, persistedOnBackend: false }
+    if (!base) {
+      try {
+        base = await mockOrderApi.updateStatus(id, feStatus)
+      } catch {
+        base = {
+          id,
+          customerId: '',
+          customerName: '',
+          items: [],
+          total: 0,
+          status: feStatus,
+          rawStatus: status,
+          shippingAddress: '',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }
+      }
+    }
+
+    const overlay = saveOrderOverlay({
+      orderId: id,
+      status: feStatus,
+      rawStatus: status,
+      note,
+      updatedByRole: 'seller',
+      customerName: base.customerName,
+      total: base.total,
+      shippingAddress: base.shippingAddress,
+      items: base.items,
+      createdAt: base.createdAt,
+    })
+
+    try {
+      await mockOrderApi.updateStatus(id, feStatus)
+    } catch {
+      /* id từ backend không có trong mock — overlay là nguồn sự thật */
+    }
+
+    return {
+      order: applyOrderOverlay({
+        ...base,
+        status: feStatus,
+        rawStatus: status,
+        updatedAt: overlay.updatedAt,
+      }),
+      persistedOnBackend: false,
+    }
   },
 }
 
@@ -1367,6 +1562,7 @@ const mockAdminApi = {
     if (idx < 0) throw new Error('Không tìm thấy người dùng')
     users[idx] = { ...users[idx], role }
     saveUsers(users)
+    setRoleOverride(users[idx].email, role)
     return users[idx]
   },
 
@@ -1426,6 +1622,7 @@ export const adminApi = {
       const users = await realUsers.listUsers()
       const u = users.find((x) => x.id === userId)
       if (!u) throw new Error('Không tìm thấy người dùng')
+      setRoleOverride(u.email, role)
       return u
     }
     return mockAdminApi.setUserRole(userId, role)

@@ -6,6 +6,7 @@ import {
   type CartLine,
 } from '@/api/services'
 import { useAuthStore } from '@/stores/auth'
+import { isOutOfStockError, useNoticeStore } from '@/stores/notice'
 
 export const useCartStore = defineStore('cart', () => {
   const lines = ref<CartLine[]>([])
@@ -50,6 +51,9 @@ export const useCartStore = defineStore('cart', () => {
       await refresh()
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Không thêm được'
+      if (isOutOfStockError(e)) {
+        useNoticeStore().showOutOfStock()
+      }
       throw e
     } finally {
       loading.value = false

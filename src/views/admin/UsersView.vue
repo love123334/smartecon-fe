@@ -2,11 +2,15 @@
 import { onMounted, ref } from 'vue'
 import { adminApi } from '@/api/services'
 import type { User, UserRole } from '@/types'
+import PageHeader from '@/components/PageHeader.vue'
+import { listPendingRoleApplications } from '@/utils/roleApplications'
 
 const users = ref<User[]>([])
+const pendingApps = ref(0)
 
 onMounted(async () => {
   users.value = await adminApi.listUsers()
+  pendingApps.value = listPendingRoleApplications().length
 })
 
 async function toggleActive(u: User) {
@@ -24,7 +28,17 @@ const roles: UserRole[] = ['customer', 'seller', 'manager', 'admin']
 
 <template>
   <div>
-    <h1 class="page-title">Quản lý người dùng</h1>
+    <PageHeader
+      eyebrow="Quản trị"
+      title="Quản lý người dùng"
+      lead="Gán role trực tiếp hoặc duyệt hồ sơ xin Seller/Manager từ khách hàng."
+    />
+
+    <p v-if="pendingApps > 0" class="alert alert-success" style="margin-bottom: 1rem">
+      Có <strong>{{ pendingApps }}</strong> yêu cầu nâng quyền đang chờ.
+      <RouterLink to="/admin/approvals">Duyệt ngay →</RouterLink>
+    </p>
+
     <div class="table-wrap card">
       <table class="data">
         <thead>

@@ -79,8 +79,8 @@ async function addToCart(id: string) {
   try {
     await cart.add(id)
     cart.openDrawer()
-  } catch (e) {
-    alert(e instanceof Error ? e.message : 'Không thêm được vào giỏ')
+  } catch {
+    /* hết hàng → CenterNotice từ cart store */
   }
 }
 

@@ -37,6 +37,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  /** Trả về pending_verification nếu backend yêu cầu OTP email */
   async function register(data: {
     email: string
     password: string
@@ -46,13 +47,25 @@ export const useAuthStore = defineStore('auth', () => {
     loading.value = true
     error.value = null
     try {
-      user.value = await authApi.register(data)
+      const result = await authApi.register(data)
+      if (result.status === 'active') {
+        user.value = result.user
+      }
+      return result
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Đăng ký thất bại'
       throw e
     } finally {
       loading.value = false
     }
+  }
+
+  async function resendOtp(email: string) {
+    await authApi.resendOtp(email)
+  }
+
+  async function verifyEmail(email: string, otp: string) {
+    await authApi.verifyEmail(email, otp)
   }
 
   async function logout() {
@@ -73,6 +86,12 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = await authApi.updateProfile(user.value.id, patch)
   }
 
+  /** Áp role override ngay (sau khi được duyệt seller/manager) */
+  function applyLocalRole(role: UserRole) {
+    if (!user.value) return
+    user.value = { ...user.value, role }
+  }
+
   return {
     user,
     loading,
@@ -82,7 +101,10 @@ export const useAuthStore = defineStore('auth', () => {
     hydrate,
     login,
     register,
+    resendOtp,
+    verifyEmail,
     logout,
     updateProfile,
+    applyLocalRole,
   }
 })

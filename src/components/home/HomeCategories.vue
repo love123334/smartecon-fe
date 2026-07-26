@@ -1,32 +1,73 @@
 <script setup lang="ts">
+import { onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
+import { categoryApi } from '@/api/services'
 
-const categories = [
+const FALLBACK = [
   {
     name: 'Điện tử',
     desc: 'Tai nghe, loa, thiết bị thông minh',
     image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600&q=80',
-    query: 'Điện tử',
   },
   {
     name: 'Thời trang',
     desc: 'Phụ kiện và gear lifestyle',
     image: 'https://images.unsplash.com/photo-1445205170230-053b83016050?w=600&q=80',
-    query: 'Thời trang',
   },
   {
     name: 'Thể thao',
     desc: 'Đồ tập, wearable, outdoor',
     image: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=600&q=80',
-    query: 'Thể thao',
   },
   {
     name: 'Gia dụng',
     desc: 'Nhà bếp, không gian sống',
     image: 'https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?w=600&q=80',
-    query: 'Gia dụng',
+  },
+  {
+    name: 'Sách',
+    desc: 'Sách kỹ thuật & phát triển',
+    image: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?w=600&q=80',
+  },
+  {
+    name: 'Phụ kiện',
+    desc: 'Balo, kính, phụ kiện hàng ngày',
+    image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&q=80',
   },
 ]
+
+const IMAGE_BY_NAME: Record<string, string> = Object.fromEntries(
+  FALLBACK.map((c) => [c.name.toLowerCase(), c.image]),
+)
+
+const categories = ref(
+  FALLBACK.map((c) => ({
+    name: c.name,
+    desc: c.desc,
+    image: c.image,
+    query: c.name,
+  })),
+)
+
+onMounted(async () => {
+  try {
+    const list = await categoryApi.list(true)
+    if (!list.length) return
+    categories.value = list.map((c) => {
+      const fb = FALLBACK.find((f) => f.name.toLowerCase() === c.name.toLowerCase())
+      return {
+        name: c.name,
+        desc: fb?.desc ?? `Khám phá sản phẩm ${c.name}`,
+        image:
+          IMAGE_BY_NAME[c.name.toLowerCase()] ??
+          `https://picsum.photos/seed/cat-${c.slug}/600/400`,
+        query: c.name,
+      }
+    })
+  } catch {
+    /* giữ fallback */
+  }
+})
 </script>
 
 <template>

@@ -29,6 +29,15 @@ export async function listCategories(force = false): Promise<Category[]> {
   return cache
 }
 
+export async function createCategory(name: string, parentId?: number): Promise<Category> {
+  const data = await http.post<BackendCategory>(apiPaths.categories.list, {
+    name: name.trim(),
+    parentId: parentId ?? null,
+  })
+  cache = null
+  return mapCategory(data)
+}
+
 export async function categoryNames(): Promise<string[]> {
   const cats = await listCategories()
   return cats.map((c) => c.name).sort()

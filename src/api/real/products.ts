@@ -53,7 +53,7 @@ export function mapProductSummary(p: BackendProductResponse): Product {
     name: p.name,
     description: '',
     price: num(p.price),
-    stock: 50,
+    stock: 0,
     category: p.categoryName ?? 'Khác',
     imageUrl: `https://picsum.photos/seed/prod-${p.id}/400/400`,
     sellerId: p.sellerId != null ? String(p.sellerId) : '',
@@ -115,6 +115,7 @@ export interface ProductWriteInput {
   price: number
   categoryId?: number
   imageUrl?: string
+  imagePublicId?: string
   stock?: number
 }
 
@@ -127,7 +128,13 @@ export async function createProduct(input: ProductWriteInput): Promise<Product> 
   }
   if (input.categoryId) body.categoryId = input.categoryId
   if (input.imageUrl) {
-    body.images = [{ imageUrl: input.imageUrl, isPrimary: true }]
+    body.images = [
+      {
+        imageUrl: input.imageUrl,
+        publicId: input.imagePublicId || `ext-${Date.now()}`,
+        isPrimary: true,
+      },
+    ]
   }
   const data = await http.post<BackendProductResponse>(apiPaths.products.list, body)
   return mapProductSummary(data)

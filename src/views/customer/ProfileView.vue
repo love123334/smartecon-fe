@@ -87,6 +87,9 @@ async function save() {
 
       <div class="profile-form__actions">
         <button type="submit" class="btn btn-primary">Lưu hồ sơ</button>
+        <RouterLink to="/role-upgrade" class="btn btn-outline">
+          Xin nâng Seller / Manager
+        </RouterLink>
         <RouterLink to="/recommendations" class="btn btn-outline">
           Xem gợi ý AI →
         </RouterLink>

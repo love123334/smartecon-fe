@@ -8,6 +8,8 @@ export const apiPaths = {
   auth: {
     login: 'auth/login',
     register: 'auth/register',
+    resendOtp: 'auth/resend-otp',
+    verifyEmail: 'auth/verify-email',
     logout: 'auth/logout',
     me: 'auth/me',
   },

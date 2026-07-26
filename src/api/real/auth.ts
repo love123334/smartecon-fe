@@ -60,17 +60,55 @@ export async function updateProfile(
   return mapBackendUser(data)
 }
 
-/** Backend register — role CUSTOMER mặc định */
+export type RegisterResult =
+  | { status: 'active'; user: User }
+  | { status: 'pending_verification'; email: string; message: string }
+
+/**
+ * Backend register tạo CUSTOMER + PENDING (OTP email).
+ * Không ép login nếu tài khoản chưa ACTIVE.
+ */
 export async function register(data: {
   email: string
   password: string
   fullName: string
-}): Promise<User> {
+}): Promise<RegisterResult> {
   await http.post<void>(apiPaths.auth.register, {
     fullName: data.fullName,
     email: data.email,
     password: data.password,
     confirmPassword: data.password,
   })
-  return login(data.email, data.password)
+
+  try {
+    const user = await login(data.email, data.password)
+    return { status: 'active', user }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : ''
+    if (/verify|pending|otp|email first/i.test(msg)) {
+      return {
+        status: 'pending_verification',
+        email: data.email,
+        message:
+          'Đăng ký thành công. Vui lòng xác thực email (OTP) trước khi đăng nhập. Bạn có thể gửi lại OTP bên dưới.',
+      }
+    }
+    return {
+      status: 'pending_verification',
+      email: data.email,
+      message:
+        'Đăng ký thành công. Tài khoản có thể đang chờ xác thực — hãy thử đăng nhập sau khi xác nhận email, hoặc nhờ admin kích hoạt.',
+    }
+  }
+}
+
+export async function resendOtp(email: string): Promise<void> {
+  await http.post<void>(`${apiPaths.auth.resendOtp}?email=${encodeURIComponent(email)}`, {})
+}
+
+export async function verifyEmail(email: string, otp: string): Promise<void> {
+  await http.post<void>(apiPaths.auth.verifyEmail, {
+    email: email.trim().toLowerCase(),
+    otp: otp.trim(),
+  })
 }

@@ -57,6 +57,12 @@ const router = createRouter({
       meta: { roles: ['customer'], title: 'Hồ sơ' },
     },
     {
+      path: '/role-upgrade',
+      name: 'role-upgrade',
+      component: () => import('@/views/customer/RoleUpgradeView.vue'),
+      meta: { roles: ['customer'], title: 'Xin nâng quyền' },
+    },
+    {
       path: '/cart',
       name: 'cart',
       component: () => import('@/views/customer/CartView.vue'),
@@ -147,10 +153,28 @@ const router = createRouter({
       meta: { roles: ['manager'], title: 'DSS Quản lý' },
     },
     {
+      path: '/manager/orders',
+      name: 'manager-orders',
+      component: () => import('@/views/manager/ManagerOrdersView.vue'),
+      meta: { roles: ['manager'], title: 'Đơn hàng' },
+    },
+    {
+      path: '/manager/approvals',
+      name: 'manager-approvals',
+      component: () => import('@/views/shared/RoleApprovalsView.vue'),
+      meta: { roles: ['manager'], title: 'Duyệt nâng quyền' },
+    },
+    {
       path: '/admin/users',
       name: 'admin-users',
       component: () => import('@/views/admin/UsersView.vue'),
       meta: { roles: ['admin'], title: 'Người dùng' },
+    },
+    {
+      path: '/admin/approvals',
+      name: 'admin-approvals',
+      component: () => import('@/views/shared/RoleApprovalsView.vue'),
+      meta: { roles: ['admin'], title: 'Duyệt nâng quyền' },
     },
     {
       path: '/admin/monitoring',
