@@ -123,7 +123,7 @@ export async function listMyOrders(page = 0, size = 20): Promise<Order[]> {
   const data = await http.get<SpringPage<BackendOrderResponse>>(
     `${apiPaths.orders.list}?page=${page}&size=${size}`,
   )
-  return data.content.map((o) => mapBackendOrder(o))
+  return (data?.content ?? []).map((o) => mapBackendOrder(o))
 }
 
 export async function getOrderById(id: string): Promise<Order | null> {

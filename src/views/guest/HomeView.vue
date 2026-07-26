@@ -32,15 +32,15 @@ onMounted(async () => {
 })
 
 async function addToCart(id: string) {
-  if (!auth.isLoggedIn) {
+  if (!auth.isLoggedIn || auth.role !== 'customer') {
     router.push({ name: 'login', query: { redirect: '/' } })
     return
   }
   try {
     await cart.add(id)
     cart.openDrawer()
-  } catch {
-    /* */
+  } catch (e) {
+    alert(e instanceof Error ? e.message : 'Không thêm được vào giỏ')
   }
 }
 </script>
@@ -66,7 +66,7 @@ async function addToCart(id: string) {
           <div v-for="p in flashSale" :key="p.id" class="home-flash__card reveal-up">
             <ProductCard
               :product="p"
-              :show-add="auth.role === 'customer'"
+              :show-add="auth.role === 'guest' || auth.role === 'customer'"
               @add="addToCart"
             />
           </div>
@@ -89,7 +89,7 @@ async function addToCart(id: string) {
             v-for="p in bestSellers"
             :key="p.id"
             :product="p"
-            :show-add="auth.role === 'customer'"
+            :show-add="auth.role === 'guest' || auth.role === 'customer'"
             @add="addToCart"
           />
         </div>

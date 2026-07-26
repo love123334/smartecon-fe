@@ -1462,16 +1462,13 @@
   inset: auto 0 0;
   padding: 0.65rem;
   z-index: 4;
-  opacity: 0;
-  transform: translateY(8px);
-  transition:
-    opacity 0.28s ease,
-    transform 0.28s var(--ease-float);
+  opacity: 1;
+  transform: none;
 }
 
 .product-card--elegant:hover .product-card__overlay {
   opacity: 1;
-  transform: translateY(0);
+  transform: none;
 }
 
 .product-card__add-btn {

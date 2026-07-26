@@ -701,7 +701,11 @@ const mockCartApi = {
 async function findRealCartItemId(productId: string): Promise<string | null> {
   const cart = await realCart.getCart()
   const item = cart.items.find((i) => String(i.productId) === productId)
-  return item ? String(item.id) : null
+  if (!item) return null
+  if (item.id == null) {
+    throw new Error('Giỏ hàng thiếu mã item — hãy tải lại trang')
+  }
+  return String(item.id)
 }
 
 export const cartApi = {
@@ -711,7 +715,7 @@ export const cartApi = {
       return cart.items.map((i) => ({
         productId: String(i.productId),
         quantity: i.quantity,
-        cartItemId: String(i.id),
+        cartItemId: i.id != null ? String(i.id) : undefined,
       }))
     }
     return mockCartApi.getCart(userId)
@@ -903,8 +907,6 @@ async function mergedAllOrders(): Promise<Order[]> {
   }
   return mockOrderApi.listAll()
 }
-
-export type { SellerOrdersSource }
 
 export const orderApi = {
   async listForCustomer(customerId: string): Promise<Order[]> {

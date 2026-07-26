@@ -126,7 +126,7 @@ function onOpenCart() {
               class="shop-nav__link"
               active-class="shop-nav__link--active"
             >
-              Đơn hàng
+              Đơn hàng / lịch sử
             </RouterLink>
             <RouterLink :to="contactTo" class="shop-nav__link" active-class="shop-nav__link--active">
               Liên hệ

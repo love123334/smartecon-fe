@@ -33,7 +33,7 @@ export function roleAccountMenuLinks(role: UserRole): NavLink[] {
         { to: '/profile', label: 'Hồ sơ & avatar' },
         { to: '/recommendations', label: 'Gợi ý AI sản phẩm', highlight: true },
         { to: '/chatbot', label: 'Chatbot tư vấn' },
-        { to: '/orders', label: 'Đơn hàng của tôi' },
+        { to: '/orders', label: 'Lịch sử mua hàng' },
         { to: '/cart', label: 'Giỏ hàng' },
       ]
     case 'seller':

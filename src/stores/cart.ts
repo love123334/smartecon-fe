@@ -40,6 +40,9 @@ export const useCartStore = defineStore('cart', () => {
   async function add(productId: string, qty = 1) {
     const auth = useAuthStore()
     if (!auth.user) throw new Error('Vui lòng đăng nhập')
+    if (auth.role !== 'customer') {
+      throw new Error('Chỉ tài khoản khách hàng mới thêm được giỏ hàng')
+    }
     loading.value = true
     error.value = null
     try {

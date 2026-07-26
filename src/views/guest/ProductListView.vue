@@ -52,14 +52,15 @@ watch([category, priceRange], () => {
 })
 
 async function addToCart(id: string) {
-  if (!auth.isLoggedIn) {
+  if (!auth.isLoggedIn || auth.role !== 'customer') {
     router.push({ name: 'login', query: { redirect: '/' } })
     return
   }
   try {
     await cart.add(id)
-  } catch {
-    /* cart store */
+    cart.openDrawer()
+  } catch (e) {
+    alert(e instanceof Error ? e.message : 'Không thêm được vào giỏ')
   }
 }
 
@@ -117,7 +118,7 @@ function showMore() {
               v-for="p in visibleProducts"
               :key="p.id"
               :product="p"
-              :show-add="auth.role === 'customer'"
+              :show-add="auth.role === 'guest' || auth.role === 'customer'"
               @add="addToCart"
             />
           </div>
