@@ -11,9 +11,9 @@ export function quickPromptsForRole(role: UserRole): QuickPrompt[] {
       return [
         { label: 'Doanh thu', text: 'Doanh thu tháng này thế nào?' },
         { label: 'Tồn kho', text: 'SKU nào sắp hết hàng?' },
-        { label: 'Khuyến mãi', text: 'Kế hoạch khuyến mãi tuần này' },
+        { label: 'Đơn hàng', text: 'Đơn gần đây cần xử lý?' },
+        { label: 'Bán chạy', text: 'Sản phẩm nào bán chạy nhất?' },
         { label: 'Thêm SP', text: 'Làm sao để thêm sản phẩm mới?' },
-        { label: 'Giá', text: 'Gợi ý điều chỉnh giá sản phẩm bán chậm' },
       ]
     case 'manager':
       return [
@@ -34,10 +34,11 @@ export function quickPromptsForRole(role: UserRole): QuickPrompt[] {
     default:
       return [
         { label: 'Web bán gì', text: 'Web bán gì vậy?' },
+        { label: 'Rẻ nhất', text: 'Sản phẩm nào rẻ nhất?' },
+        { label: 'Dưới 2tr', text: 'Có gì dưới 2 triệu không?' },
         { label: 'Giỏ hàng', text: 'Giỏ hàng của tôi có gì?' },
         { label: 'Đơn hàng', text: 'Đơn hàng của tôi thế nào?' },
-        { label: 'Danh mục', text: 'Điện tử có những sản phẩm gì?' },
-        { label: 'Liên hệ', text: 'Chuyển sang liên hệ quản lý giúp tôi' },
+        { label: 'Người bán', text: 'Liên hệ người bán món tai nghe' },
       ]
   }
 }
@@ -45,14 +46,14 @@ export function quickPromptsForRole(role: UserRole): QuickPrompt[] {
 export function welcomeMessage(role: UserRole): string {
   switch (role) {
     case 'seller':
-      return 'Xin chào! Hỏi về doanh thu, tồn kho, giá, khuyến mãi hoặc cách thêm sản phẩm — tôi trả lời dựa trên dữ liệu shop của bạn.'
+      return 'Xin chào! Hỏi doanh thu, tồn kho, đơn cần xử lý, SP bán chạy — tôi trả lời từ dữ liệu shop của bạn.'
     case 'manager':
-      return 'Xin chào! Hỏi KPI, đơn chờ, phân khúc, what-if hoặc xu hướng danh mục — tôi tổng hợp từ dữ liệu đơn hàng.'
+      return 'Xin chào! Hỏi KPI, đơn chờ, phân khúc, what-if hoặc xu hướng — tổng hợp từ đơn hàng.'
     case 'admin':
-      return 'Xin chào! Hỏi trạng thái hệ thống, số user, cảnh báo, bảo mật hoặc cấu hình môi trường.'
+      return 'Xin chào! Hỏi trạng thái hệ thống, số user, cảnh báo, bảo mật hoặc cấu hình.'
     case 'guest':
-      return 'Xin chào! Hỏi "web bán gì", sản phẩm, giao hàng, thanh toán. Đăng nhập để xem đơn hàng và gợi ý cá nhân.'
+      return 'Xin chào! Thử "web bán gì", "sp rẻ nhất", "dưới 2 triệu", tên SP + "giá bao nhiêu". Đăng nhập để xem đơn & giỏ.'
     default:
-      return 'Xin chào! Hỏi "web bán gì", tên SP, đơn hàng, giao hàng, thanh toán — hoặc "what do you sell" (tiếng Anh).'
+      return 'Xin chào! Hỏi catalog, giá, tồn kho, đơn hàng, giao hàng — hoặc "what do you sell" / "cheapest product".'
   }
 }

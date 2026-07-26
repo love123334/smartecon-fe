@@ -2,7 +2,12 @@ import type { ChatContext } from '@/api/chat/context'
 import type { ChatIntent } from '@/api/chat/intents'
 import { apiConfig } from '@/api/config'
 import { formatVnd, normalizeText } from '@/api/chat/match'
-import { findProductsByQuery } from '@/api/chat/products'
+import {
+  cheapestProducts,
+  extractBudgetVnd,
+  findProductsByQuery,
+  productsUnderBudget,
+} from '@/api/chat/products'
 import type { Order, Product } from '@/types'
 import { orderStatusLabel } from '@/utils/orderStatus'
 
@@ -123,7 +128,11 @@ function categoryBrowseReply(ctx: ChatContext, raw: string): string {
   const name = greet(ctx.userName ?? '')
   const fromApi = ctx.enrichment?.categoryProducts
   const n = normalizeText(raw)
-  const cat = ctx.categories.find((c) => normalizeText(c.name).split(/\s+/).some((w) => w.length > 3 && n.includes(w)))
+  const cat = ctx.categories.find((c) =>
+    normalizeText(c.name)
+      .split(/\s+/)
+      .some((w: string) => w.length > 3 && n.includes(w)),
+  )
   const products = fromApi?.length
     ? fromApi
     : cat
@@ -136,13 +145,37 @@ function categoryBrowseReply(ctx: ChatContext, raw: string): string {
   return `${name}**${label}**${apiNote(ctx)}:\n${productLines(products.slice(0, 6), 6)}\n\nXem thêm **Cửa hàng**.`
 }
 
-function productSearchReply(ctx: ChatContext): string {
+function productSearchReply(ctx: ChatContext, raw: string): string {
   const name = greet(ctx.userName ?? '')
-  const hits = ctx.enrichment?.searchResults ?? []
+  const hits = ctx.enrichment?.searchResults?.length
+    ? ctx.enrichment.searchResults
+    : findProductsByQuery(ctx.products, raw)
   if (!hits.length) {
-    return `${name}Gõ tên SP hoặc "tìm kiếm tai nghe bluetooth". API: **GET /products?keyword=...**`
+    return `${name}Gõ tên SP cụ thể, vd: "tìm tai nghe bluetooth" hoặc "bàn phím cơ".`
   }
   return `${name}**Kết quả tìm kiếm${apiNote(ctx)}:**\n${productLines(hits.slice(0, 6), 6)}`
+}
+
+function cheapestReply(ctx: ChatContext): string {
+  const name = greet(ctx.userName ?? '')
+  const list = cheapestProducts(ctx.products, 5)
+  if (!list.length) {
+    return `${name}Chưa có SP để so giá — xem **Cửa hàng**.`
+  }
+  return `${name}**Rẻ nhất hiện có${apiNote(ctx)}:**\n${productLines(list, 5)}\n\nHỏi "dưới 2 triệu" để lọc ngân sách.`
+}
+
+function budgetReply(ctx: ChatContext, raw: string): string {
+  const name = greet(ctx.userName ?? '')
+  const budget = extractBudgetVnd(raw)
+  if (!budget) {
+    return `${name}Cho mình biết ngân sách, vd: **"dưới 2 triệu"** hoặc **"budget 500k"**.`
+  }
+  const hits = productsUnderBudget(ctx.products, budget, 6)
+  if (!hits.length) {
+    return `${name}Không có SP ≤ **${formatVnd(budget)}**${apiNote(ctx)}. Thử mức cao hơn hoặc hỏi **"sp rẻ nhất"**.`
+  }
+  return `${name}**Phù hợp ngân sách ≤ ${formatVnd(budget)}**${apiNote(ctx)}:\n${productLines(hits, 6)}\n\n→ Mở **Cửa hàng** để thêm giỏ.`
 }
 
 function contactSellerReply(ctx: ChatContext, raw: string): string {
@@ -564,7 +597,11 @@ export function buildIntentReply(ctx: ChatContext, intent: ChatIntent, raw: stri
     case 'category_browse':
       return categoryBrowseReply(ctx, raw)
     case 'product_search':
-      return productSearchReply(ctx)
+      return productSearchReply(ctx, raw)
+    case 'product_cheapest':
+      return cheapestReply(ctx)
+    case 'product_budget':
+      return budgetReply(ctx, raw)
     case 'cart_summary':
       return cartSummaryReply(ctx)
     case 'order_detail':

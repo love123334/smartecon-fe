@@ -43,16 +43,73 @@ export function wordSimilarity(a: string, b: string): number {
   return 1 - dist / Math.max(a.length, b.length)
 }
 
-/** Text đã normalize có chứa keyword (substring hoặc fuzzy từng từ) */
+/** Boost nếu cụm từ (phrase) xuất hiện nguyên trong câu */
+export function phraseBoost(normalizedText: string, phrases: string[]): number {
+  let boost = 0
+  for (const p of phrases) {
+    const np = normalizeText(p)
+    if (np.length >= 3 && normalizedText.includes(np)) {
+      boost = Math.max(boost, np.length * 2.5 + 20)
+    }
+  }
+  return boost
+}
+
+/** Score keyword có ưu tiên cụm dài / khớp gần đúng tốt hơn */
+export function scoreKeywords(normalizedText: string, keywords: string[]): number {
+  let best = 0
+  for (const kw of keywords) {
+    const nk = normalizeText(kw)
+    if (!nk) continue
+
+    if (normalizedText === nk) {
+      best = Math.max(best, nk.length + 40)
+      continue
+    }
+    if (normalizedText.includes(nk)) {
+      best = Math.max(best, nk.length + 18 + Math.min(nk.split(/\s+/).length * 4, 16))
+      continue
+    }
+
+    const parts = nk.split(/\s+/).filter((p: string) => p.length > 2)
+    const textWords = normalizedText.split(/\s+/).filter((w: string) => w.length > 1)
+    if (!parts.length) continue
+
+    let partScore = 0
+    let matched = 0
+    for (const part of parts) {
+      let local = 0
+      if (normalizedText.includes(part)) {
+        local = part.length * 1.4
+        matched++
+      } else {
+        for (const tw of textWords) {
+          const sim = wordSimilarity(tw, part)
+          if (sim >= 0.72) {
+            local = Math.max(local, sim * part.length)
+            matched++
+            break
+          }
+        }
+      }
+      partScore += local
+    }
+    if (matched / parts.length >= 0.55) {
+      best = Math.max(best, partScore)
+    }
+  }
+  return best
+}
+
 export function fuzzyMatchText(normalizedText: string, keyword: string, minSim = 0.68): boolean {
   const nk = normalizeText(keyword)
   if (!nk) return false
   if (normalizedText.includes(nk)) return true
 
-  const kwParts = nk.split(/\s+/).filter((p) => p.length > 2)
+  const kwParts = nk.split(/\s+/).filter((p: string) => p.length > 2)
   if (!kwParts.length) return false
 
-  const textWords = normalizedText.split(/\s+/).filter((w) => w.length > 1)
+  const textWords = normalizedText.split(/\s+/).filter((w: string) => w.length > 1)
   let matchedParts = 0
   for (const part of kwParts) {
     if (normalizedText.includes(part)) {
@@ -77,25 +134,7 @@ export function matchAnyKeyword(
   return keywords.some((kw) => fuzzyMatchText(normalizedText, kw, minSim))
 }
 
-export function scoreKeywords(normalizedText: string, keywords: string[]): number {
-  let best = 0
-  for (const kw of keywords) {
-    const nk = normalizeText(kw)
-    if (normalizedText.includes(nk)) {
-      best = Math.max(best, nk.length + 15)
-      continue
-    }
-    const parts = nk.split(/\s+/).filter((p) => p.length > 2)
-    const textWords = normalizedText.split(/\s+/).filter((w) => w.length > 1)
-    let partScore = 0
-    for (const part of parts) {
-      let local = 0
-      for (const tw of textWords) {
-        local = Math.max(local, wordSimilarity(tw, part) * part.length)
-      }
-      partScore += local
-    }
-    best = Math.max(best, partScore)
-  }
-  return best
+/** Câu rất ngắn kiểu chào */
+export function isShortGreeting(normalized: string): boolean {
+  return /^(xin chao|chao|hello|hi|hey|alo|yo|chao shop|chao ban)$/.test(normalized)
 }

@@ -14,6 +14,9 @@ const PRODUCT_INTENTS = new Set<ChatIntent>([
   'promo',
   'recommend',
   'contact_seller',
+  'product_search',
+  'product_cheapest',
+  'product_budget',
 ])
 
 const SEARCH_INTENTS = new Set<ChatIntent>(['shop_overview', 'categories', 'category_browse'])
@@ -41,7 +44,7 @@ function matchCategoryName(ctx: ChatContext, raw: string): string | null {
   const n = normalizeText(raw)
   for (const c of ctx.categories) {
     const cn = normalizeText(c.name)
-    if (n.includes(cn) || cn.split(/\s+/).some((w) => w.length > 3 && n.includes(w))) {
+    if (n.includes(cn) || cn.split(/\s+/).some((w: string) => w.length > 3 && n.includes(w))) {
       return c.name
     }
   }
@@ -108,10 +111,11 @@ export async function enrichChatContext(
   }
 
   const searchQ = extractSearchQuery(raw)
-  if (searchQ) {
+  if (searchQ || intent === 'product_search') {
     tasks.push(
       (async () => {
-        enrichment.searchResults = await productApi.list({ q: searchQ, withStock: true })
+        const q = searchQ ?? raw
+        enrichment.searchResults = await productApi.list({ q, withStock: true })
       })(),
     )
   }
