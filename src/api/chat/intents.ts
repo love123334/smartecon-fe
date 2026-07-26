@@ -10,6 +10,7 @@ export type ChatIntent =
   | 'shop_overview'
   | 'categories'
   | 'contact_escalate'
+  | 'contact_seller'
   | 'complaint'
   | 'shipping'
   | 'payment'
@@ -120,6 +121,16 @@ const COMMON: IntentRule[] = [
       'tim kiem', 'tim sp', 'search for', 'find product', 'kiem san pham',
       'co ban', 'shop co', 'lookup',
     ],
+  },
+  {
+    intent: 'contact_seller',
+    keywords: [
+      'lien he nguoi ban', 'contact seller', 'gap nguoi ban', 'nguoi ban mon',
+      'shop ban mon', 'email nguoi ban', 'goi nguoi ban', 'lien lac nguoi ban',
+      'seller cua mon', 'lien he shop', 'gap shop ban', 'noi chuyen voi nguoi ban',
+      'can lien he nguoi ban', 'muon lien he nguoi ban', 'seller san pham',
+    ],
+    minScore: 3,
   },
   {
     intent: 'contact_escalate',

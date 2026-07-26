@@ -182,6 +182,13 @@ async function cancelOrder() {
                 />
                 <div>
                   <div class="elegant-cart-row__name">{{ item.productName }}</div>
+                  <RouterLink
+                    v-if="order.status === 'delivered'"
+                    :to="`/products/${item.productId}#reviews`"
+                    class="review-link"
+                  >
+                    Đánh giá sản phẩm
+                  </RouterLink>
                 </div>
               </div>
               <span>{{ item.quantity }}</span>
@@ -195,6 +202,12 @@ async function cancelOrder() {
           <div class="elegant-summary__total" style="justify-content: flex-end; margin-top: 1.5rem">
             <span>Tổng</span>
             <strong>{{ formatVnd(order.total) }}</strong>
+          </div>
+
+          <div v-if="order.status === 'delivered'" class="elegant-order-actions" style="margin-top: 1rem">
+            <p class="elegant-muted">
+              Đơn đã giao — bạn có thể đánh giá từng sản phẩm ở bảng trên hoặc mở trang chi tiết SP.
+            </p>
           </div>
 
           <div v-if="canCancel" class="elegant-order-actions" style="margin-top: 1.25rem">

@@ -52,7 +52,7 @@ export function roleHelpHints(role: ChatContext['role']): string {
     case 'admin':
       return 'Gợi ý: "trạng thái hệ thống", "bao nhiêu user", "cảnh báo vận hành", "bảo mật JWT".'
     default:
-      return 'Gợi ý: "web bán gì", "giao hàng", "thanh toán", "đơn của tôi", "tai nghe giá bao nhiêu".'
+      return 'Gợi ý: "web bán gì", "lien he nguoi ban mon X", "giao hàng", "đơn của tôi", "tai nghe giá bao nhiêu".'
   }
 }
 
@@ -145,6 +145,21 @@ function productSearchReply(ctx: ChatContext): string {
   return `${name}**Kết quả tìm kiếm${apiNote(ctx)}:**\n${productLines(hits.slice(0, 6), 6)}`
 }
 
+function contactSellerReply(ctx: ChatContext, raw: string): string {
+  const name = greet(ctx.userName ?? '')
+  const p = ctx.enrichment?.product ?? findProductsByQuery(ctx.products, raw)[0]
+  if (!p) {
+    return `${name}Bạn muốn liên hệ người bán sản phẩm nào? Hỏi cụ thể, vd: "lien he nguoi ban mon tai nghe bluetooth".`
+  }
+  const shop = p.shopName ?? 'SEDSP Official'
+  const email = p.sellerEmail ?? 'seller@sedsp.vn'
+  const phone = p.sellerPhone ?? '1900-SEDSP'
+  const contactNote = p.sellerEmail
+    ? ''
+    : '\n\n_(Email/SĐT mặc định demo — backend chưa trả sellerEmail/sellerPhone.)_'
+  return `${name}**Liên hệ người bán — ${p.name}**${apiNote(ctx)}\n\n• **Shop:** ${shop}\n• **Email:** ${email}\n• **Điện thoại:** ${phone}${contactNote}\n\n👉 Xem trang SP **${p.name}** · menu **Liên hệ** CSKH: **customer@sedsp.vn**`
+}
+
 function contactEscalateReply(ctx: ChatContext, raw: string): string {
   return escalateReply(ctx, raw, 'explicit')
 }
@@ -162,7 +177,7 @@ export function escalateReply(
       : `${name}Mình chưa có câu trả lời chính xác cho: *"${raw.slice(0, 80)}${raw.length > 80 ? '…' : ''}"*.\n\n**Chuyển sang người phụ trách:**\n`
 
   const productBlock = matched
-    ? `• **Shop "${matched.shopName ?? 'SEDSP Official'}"** — xem trang SP **${matched.name}** hoặc email seller **seller@sedsp.vn**\n`
+    ? `• **Shop "${matched.shopName ?? 'SEDSP Official'}"** — ${matched.name}\n  Email: **${matched.sellerEmail ?? 'seller@sedsp.vn'}** · SĐT: **${matched.sellerPhone ?? '1900-SEDSP'}**\n`
     : ''
 
   const roleBlock: Record<ChatContext['role'], string> = {
@@ -398,8 +413,12 @@ function buildSellerIntent(ctx: ChatContext, intent: ChatIntent): string | null 
     }
     case 'seller_add_product':
       return `${name}**Thêm SP:**\n1. **Quản lý SP** → **+ Thêm SP**\n2. Danh mục, giá, tồn\n3. Upload ảnh Cloudinary\n4. Lưu — hiện cửa hàng ngay.`
-    case 'seller_orders':
-      return `${name}Xử lý đơn qua module seller. Theo dõi **Bảng doanh số** & **Tồn kho**.`
+    case 'seller_orders': {
+      if (ctx.orders.length) {
+        return `${name}**${ctx.orders.length} đơn cần xử lý${apiNote(ctx)}:**\n${formatOrderSummary(ctx.orders, 5)}\n\n👉 **Quản lý đơn hàng** (/seller/orders) để cập nhật trạng thái.`
+      }
+      return `${name}Chưa có đơn từ API. Xem **Quản lý đơn hàng** khi có khách đặt.`
+    }
     case 'seller_recent_orders': {
       const recent = ctx.sellerDashboard?.recentOrders ?? []
       if (recent.length) {
@@ -526,6 +545,8 @@ export function buildIntentReply(ctx: ChatContext, intent: ChatIntent, raw: stri
       return shopOverviewReply(ctx)
     case 'categories':
       return categoriesReply(ctx)
+    case 'contact_seller':
+      return contactSellerReply(ctx, raw)
     case 'contact_escalate':
       return contactEscalateReply(ctx, raw)
     case 'complaint':

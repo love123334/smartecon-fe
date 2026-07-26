@@ -13,6 +13,7 @@ const PRODUCT_INTENTS = new Set<ChatIntent>([
   'compare',
   'promo',
   'recommend',
+  'contact_seller',
 ])
 
 const SEARCH_INTENTS = new Set<ChatIntent>(['shop_overview', 'categories', 'category_browse'])
@@ -137,7 +138,7 @@ export async function enrichChatContext(
         const e = await enrichProduct(topProduct, {
           reviews: intent === 'product_review' || intent === 'product_info',
           inventory: intent === 'product_stock' || intent === 'product_info',
-          detail: intent === 'product_info',
+          detail: intent === 'product_info' || intent === 'contact_seller',
         })
         Object.assign(enrichment, e)
       })(),

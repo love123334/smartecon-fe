@@ -36,6 +36,7 @@ const opsNavLinks = computed(() => {
   if (r === 'seller') {
     return [
       { to: '/seller/products', label: 'Sản phẩm' },
+      { to: '/seller/orders', label: 'Đơn hàng' },
       { to: '/seller/inventory', label: 'Tồn kho' },
       { to: '/seller/sales', label: 'Doanh số' },
       { to: '/seller/dss', label: 'DSS' },

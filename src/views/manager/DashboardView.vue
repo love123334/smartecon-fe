@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { apiConfig } from '@/api/config'
 import { dssApi, orderApi, formatVnd } from '@/api/services'
+import { monthlyRevenueChart, totalRevenue } from '@/utils/orderAnalytics'
 import type { ChartPoint, Order } from '@/types'
 import HybridDataNotice from '@/components/HybridDataNotice.vue'
 import PageHeader from '@/components/PageHeader.vue'
@@ -9,14 +11,34 @@ import { orderStatusLabel } from '@/utils/orderStatus'
 
 const sales = ref<ChartPoint[]>([])
 const orders = ref<Order[]>([])
-const totalRevenue = ref(0)
+const loading = ref(true)
+const ordersFromApi = ref(false)
 
+const totalRev = computed(() => totalRevenue(orders.value))
 const recentOrders = computed(() => orders.value.slice(0, 8))
 
 onMounted(async () => {
-  sales.value = await dssApi.salesChart()
-  orders.value = await orderApi.listAll()
-  totalRevenue.value = orders.value.reduce((s, o) => s + o.total, 0)
+  loading.value = true
+  try {
+    if (apiConfig.useRealOrders) {
+      try {
+        const real = await orderApi.listAll()
+        const mockOnly = real.length > 0 && real[0]?.id.startsWith('o-')
+        ordersFromApi.value = !mockOnly && real.length > 0
+        orders.value = real
+      } catch {
+        orders.value = await orderApi.listAll()
+      }
+    } else {
+      orders.value = await orderApi.listAll()
+    }
+    sales.value = await dssApi.salesChart()
+    if (!sales.value.length && orders.value.length) {
+      sales.value = monthlyRevenueChart(orders.value)
+    }
+  } finally {
+    loading.value = false
+  }
 })
 </script>
 
@@ -26,10 +48,12 @@ onMounted(async () => {
       class="page-header--animate"
       eyebrow="Quản lý"
       title="Bảng điều khiển"
-      lead="Tổng quan KPI — đơn hàng demo + đơn thật từ backend."
+      lead="KPI từ đơn hàng — ưu tiên API backend khi có GET /orders/manage."
     />
+
     <HybridDataNotice
-      message="Đơn hàng gộp mock + API; biểu đồ doanh thu vẫn mô phỏng cho đến khi có module analytics."
+      v-if="!ordersFromApi && apiConfig.useRealOrders"
+      message="Backend hiện chưa có GET /orders/manage — bảng đơn & một số KPI dùng dữ liệu demo. Biểu đồ seller/manager lấy từ sales-performance hoặc catalog khi có."
     />
 
     <div class="stat-grid grid-stagger">
@@ -39,12 +63,12 @@ onMounted(async () => {
       </div>
       <div class="card stat-card stat-card--hover">
         <span class="stat-label">Doanh thu</span>
-        <span class="stat-value">{{ formatVnd(totalRevenue) }}</span>
+        <span class="stat-value">{{ formatVnd(totalRev) }}</span>
       </div>
       <div class="card stat-card stat-card--hover">
         <span class="stat-label">Đơn trung bình</span>
         <span class="stat-value">
-          {{ orders.length ? formatVnd(totalRevenue / orders.length) : '—' }}
+          {{ orders.length ? formatVnd(totalRev / orders.length) : '—' }}
         </span>
       </div>
     </div>
@@ -52,7 +76,8 @@ onMounted(async () => {
     <div class="card chart-card card--flat">
       <h2 class="card-title">Xu hướng doanh thu</h2>
       <LineChart v-if="sales.length" :data="sales" label="Doanh thu" />
-      <p v-else class="muted">Chưa có dữ liệu biểu đồ.</p>
+      <p v-else-if="!loading" class="muted">Chưa có dữ liệu biểu đồ.</p>
+      <p v-else class="muted">Đang tải…</p>
     </div>
 
     <div v-if="recentOrders.length" class="card card--flat" style="margin-top: 1.25rem">

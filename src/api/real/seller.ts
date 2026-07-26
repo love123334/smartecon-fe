@@ -1,6 +1,6 @@
 import { http } from '@/api/http/client'
 import { apiPaths } from '@/api/http/paths'
-import type { ChartPoint } from '@/types'
+import type { ChartPoint, Order } from '@/types'
 
 function num(v: number | string | undefined, fallback = 0): number {
   if (v == null) return fallback
@@ -130,6 +130,30 @@ function mapDashboard(data: BackendSellerDashboard): SellerDashboard {
       status: o.status,
     })),
   }
+}
+
+export function ordersFromDashboardRecent(recent: SellerDashboard['recentOrders']): Order[] {
+  const statusMap: Record<string, Order['status']> = {
+    PENDING: 'pending',
+    PAID: 'confirmed',
+    PROCESSING: 'confirmed',
+    SHIPPING: 'shipping',
+    DELIVERED: 'delivered',
+    CANCELLED: 'cancelled',
+    REFUNDED: 'cancelled',
+  }
+  return recent.map((o) => ({
+    id: o.orderId,
+    customerId: '',
+    customerName: o.customer,
+    items: [],
+    total: o.total,
+    status: statusMap[o.status] ?? 'pending',
+    rawStatus: o.status,
+    shippingAddress: '',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }))
 }
 
 export async function getSalesPerformance(): Promise<SalesPerformance> {

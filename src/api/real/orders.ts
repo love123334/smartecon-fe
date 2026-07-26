@@ -1,8 +1,10 @@
 import { http } from '@/api/http/client'
 import { apiPaths } from '@/api/http/paths'
+import type { BackendOrderStatus } from '@/utils/backendOrderStatus'
 import type { SpringPage } from '@/api/real/products'
 import type { Order, OrderItem, OrderStatus } from '@/types'
 
+export type { BackendOrderStatus }
 export type BackendPaymentMethod = 'COD' | 'BANK' | 'MOMO'
 
 export interface BackendOrderItem {
@@ -16,6 +18,8 @@ export interface BackendOrderItem {
 export interface BackendOrderResponse {
   id: number
   status: string
+  customerId?: number
+  customerName?: string
   subtotal?: number | string
   shippingFee?: number | string
   discount?: number | string
@@ -85,11 +89,12 @@ export function mapBackendOrder(
   const ts = formatTimestamp(o.createdAt)
   return {
     id: String(o.id),
-    customerId: extras?.customerId ?? '',
-    customerName: extras?.customerName ?? '',
+    customerId: extras?.customerId ?? (o.customerId != null ? String(o.customerId) : ''),
+    customerName: extras?.customerName ?? o.customerName ?? '',
     items: mapItems(o.items),
     total: num(o.total),
     status: mapStatus(o.status),
+    rawStatus: o.status,
     shippingAddress: extras?.shippingAddress ?? '',
     paymentMethod: mapPaymentToFrontend(extras?.paymentMethod),
     createdAt: ts,
@@ -132,4 +137,30 @@ export async function getOrderById(id: string): Promise<Order | null> {
 
 export async function cancelOrder(id: string): Promise<void> {
   await http.put<void>(`${apiPaths.orders.byId(id)}/cancel`)
+}
+
+export async function listSellerOrders(page = 0, size = 50): Promise<Order[]> {
+  const data = await http.get<SpringPage<BackendOrderResponse>>(
+    `${apiPaths.orders.seller}?page=${page}&size=${size}`,
+  )
+  return data.content.map((o) => mapBackendOrder(o))
+}
+
+export async function listManagedOrders(page = 0, size = 100): Promise<Order[]> {
+  const data = await http.get<SpringPage<BackendOrderResponse>>(
+    `${apiPaths.orders.manage}?page=${page}&size=${size}`,
+  )
+  return data.content.map((o) => mapBackendOrder(o))
+}
+
+export async function updateOrderStatus(
+  id: string,
+  status: BackendOrderStatus,
+  note?: string,
+): Promise<Order> {
+  const data = await http.put<BackendOrderResponse>(apiPaths.orders.status(id), {
+    status,
+    note: note ?? undefined,
+  })
+  return mapBackendOrder(data)
 }

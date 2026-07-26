@@ -99,6 +99,12 @@ const router = createRouter({
       meta: { roles: ['seller'], title: 'Quản lý SP' },
     },
     {
+      path: '/seller/orders',
+      name: 'seller-orders',
+      component: () => import('@/views/seller/SellerOrdersView.vue'),
+      meta: { roles: ['seller'], title: 'Đơn hàng' },
+    },
+    {
       path: '/seller/inventory',
       name: 'seller-inventory',
       component: () => import('@/views/seller/InventoryView.vue'),

@@ -28,6 +28,10 @@ export interface Product {
   category: string
   imageUrl: string
   sellerId: string
+  /** Email người bán — từ API product detail */
+  sellerEmail?: string
+  /** SĐT người bán — từ API product detail */
+  sellerPhone?: string
   shopName?: string
   shopLocation?: string
   rating: number
@@ -43,6 +47,9 @@ export type OrderStatus =
   | 'shipping'
   | 'delivered'
   | 'cancelled'
+
+/** Nguồn dữ liệu đơn hàng seller trên frontend */
+export type SellerOrdersSource = 'api' | 'dashboard' | 'mock'
 
 export interface OrderItem {
   productId: string
@@ -60,6 +67,8 @@ export interface Order {
   status: OrderStatus
   shippingAddress: string
   paymentMethod?: 'cod' | 'bank' | 'card'
+  /** Trạng thái gốc từ backend (PENDING, PROCESSING, …) */
+  rawStatus?: string
   createdAt: string
   updatedAt: string
 }

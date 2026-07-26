@@ -23,6 +23,7 @@ import { buildChatContext } from '@/api/chat/context'
 import { chatModeLabel, resolveChatReply } from '@/api/chat/responder'
 import { isLlmConfigured } from '@/api/chat/llm'
 import { applyAvatarToUser, saveUserAvatar } from '@/utils/avatar'
+import { categoryRevenueChart, monthlyRevenueChart } from '@/utils/orderAnalytics'
 import { STORAGE_KEYS, storageGet, storageSet } from '@/api/storage'
 import type {
   CartItem,
@@ -38,6 +39,7 @@ import type {
   SystemMetric,
   User,
   UserRole,
+  SellerOrdersSource,
 } from '@/types'
 
 type PasswordMap = Record<string, string>
@@ -892,18 +894,17 @@ const mockOrderApi = {
 }
 
 async function mergedAllOrders(): Promise<Order[]> {
-  const mock = await mockOrderApi.listAll()
-  if (!apiConfig.useRealOrders || !hasBackendToken()) return mock
-  try {
-    const real = await realOrders.listMyOrders(0, 100)
-    const byId = new Map<string, Order>()
-    for (const o of mock) byId.set(o.id, o)
-    for (const o of real) byId.set(o.id, o)
-    return [...byId.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-  } catch {
-    return mock
+  if (apiConfig.useRealOrders && hasBackendToken()) {
+    try {
+      return await realOrders.listManagedOrders(0, 100)
+    } catch {
+      /* backend hiện tại chưa có GET /orders/manage */
+    }
   }
+  return mockOrderApi.listAll()
 }
+
+export type { SellerOrdersSource }
 
 export const orderApi = {
   async listForCustomer(customerId: string): Promise<Order[]> {
@@ -911,6 +912,40 @@ export const orderApi = {
       return realOrders.listMyOrders()
     }
     return mockOrderApi.listForCustomer(customerId)
+  },
+
+  async listForSeller(): Promise<Order[]> {
+    const { orders } = await this.listForSellerWithMeta()
+    return orders
+  },
+
+  async listForSellerWithMeta(): Promise<{ orders: Order[]; source: SellerOrdersSource }> {
+    if (apiConfig.useRealOrders && hasBackendToken()) {
+      try {
+        const orders = await realOrders.listSellerOrders(0, 50)
+        return { orders, source: 'api' }
+      } catch {
+        try {
+          const dash = await realSeller.getDashboard()
+          if (dash.recentOrders.length) {
+            return {
+              orders: realSeller.ordersFromDashboardRecent(dash.recentOrders),
+              source: 'dashboard',
+            }
+          }
+        } catch {
+          /* fallback mock */
+        }
+      }
+    }
+    const sellerId = getUsers().find((u) => u.role === 'seller')?.id ?? 'u-seller'
+    const productIds = new Set(
+      getProducts().filter((p) => p.sellerId === sellerId).map((p) => p.id),
+    )
+    const orders = getOrders()
+      .filter((o) => o.items.some((i) => productIds.has(i.productId)))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    return { orders, source: 'mock' }
   },
 
   async listAll(): Promise<Order[]> {
@@ -950,6 +985,32 @@ export const orderApi = {
       throw new Error('Chỉ hỗ trợ hủy đơn qua API backend')
     }
     return mockOrderApi.updateStatus(id, status)
+  },
+
+  async updateBackendStatus(
+    id: string,
+    status: realOrders.BackendOrderStatus,
+    note?: string,
+  ): Promise<{ order: Order; persistedOnBackend: boolean }> {
+    if (apiConfig.useRealOrders && hasBackendToken()) {
+      try {
+        const order = await realOrders.updateOrderStatus(id, status, note)
+        return { order, persistedOnBackend: true }
+      } catch {
+        /* backend chưa có PUT /orders/{id}/status — lưu demo local */
+      }
+    }
+    const statusMap: Record<realOrders.BackendOrderStatus, Order['status']> = {
+      PENDING: 'pending',
+      PAID: 'confirmed',
+      PROCESSING: 'confirmed',
+      SHIPPING: 'shipping',
+      DELIVERED: 'delivered',
+      CANCELLED: 'cancelled',
+      REFUNDED: 'cancelled',
+    }
+    const order = await mockOrderApi.updateStatus(id, statusMap[status] ?? 'pending')
+    return { order: { ...order, rawStatus: status }, persistedOnBackend: false }
   },
 }
 
@@ -1114,11 +1175,13 @@ export const dssApi = {
     const orders = await mergedAllOrders()
     const revenue = orders.reduce((s, o) => s + o.total, 0)
     const pending = orders.filter((o) => o.status === 'pending').length
+    const delivered = orders.filter((o) => o.status === 'delivered').length
+    const source = apiConfig.useRealOrders && hasBackendToken() ? 'API backend' : 'dữ liệu demo'
     return [
       {
         id: 'm1',
         title: 'Tăng trưởng doanh thu',
-        description: `Doanh thu tích lũy ${formatVnd(revenue)} từ ${orders.length} đơn. Dự báo +12% tháng tới.`,
+        description: `Doanh thu tích lũy ${formatVnd(revenue)} từ ${orders.length} đơn (${source}).`,
         impact: 'high',
         category: 'revenue',
       },
@@ -1134,10 +1197,10 @@ export const dssApi = {
       },
       {
         id: 'm3',
-        title: 'What-if: giảm giá 10%',
-        description: 'Mô phỏng: đơn hàng +18%, biên lợi nhuận -3%.',
+        title: 'Đơn đã giao',
+        description: `${delivered} đơn hoàn tất — khách có thể đánh giá sản phẩm sau giao hàng.`,
         impact: 'medium',
-        category: 'whatif',
+        category: 'fulfillment',
       },
     ]
   },
@@ -1149,6 +1212,16 @@ export const dssApi = {
       try {
         const perf = await realSeller.getSalesPerformance()
         if (perf.monthlyRevenue.length) return perf.monthlyRevenue
+      } catch {
+        /* fallback below */
+      }
+    }
+
+    if (!sellerKey && apiConfig.useRealOrders && hasBackendToken()) {
+      try {
+        const orders = await realOrders.listManagedOrders(0, 200)
+        const chart = monthlyRevenueChart(orders)
+        if (chart.length) return chart
       } catch {
         /* fallback below */
       }
@@ -1195,6 +1268,18 @@ export const dssApi = {
 
   async categoryChart(): Promise<ChartPoint[]> {
     await delay()
+    if (apiConfig.useRealOrders && hasBackendToken()) {
+      try {
+        const [orders, products] = await Promise.all([
+          realOrders.listManagedOrders(0, 200),
+          listProductsHybrid(),
+        ])
+        const chart = categoryRevenueChart(orders, products)
+        if (chart.length) return chart
+      } catch {
+        /* fallback mock below */
+      }
+    }
     const map = new Map<string, number>()
     for (const p of getProducts()) {
       map.set(p.category, (map.get(p.category) ?? 0) + p.soldCount * p.price * 0.01)

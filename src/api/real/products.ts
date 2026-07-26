@@ -18,7 +18,10 @@ export interface BackendProductResponse {
   status: string
   categoryId?: number
   categoryName?: string
+  sellerId?: number
   sellerStoreName?: string
+  sellerEmail?: string
+  sellerPhone?: string
   createdAt?: string
 }
 
@@ -32,6 +35,9 @@ export interface BackendProductDetail extends BackendProductResponse {
   description?: string
   costPrice?: number | string
   sellerId?: number
+  sellerStoreName?: string
+  sellerEmail?: string
+  sellerPhone?: string
   updatedAt?: string
   images?: BackendProductImage[]
 }
@@ -50,7 +56,9 @@ export function mapProductSummary(p: BackendProductResponse): Product {
     stock: 50,
     category: p.categoryName ?? 'Khác',
     imageUrl: `https://picsum.photos/seed/prod-${p.id}/400/400`,
-    sellerId: '',
+    sellerId: p.sellerId != null ? String(p.sellerId) : '',
+    sellerEmail: p.sellerEmail,
+    sellerPhone: p.sellerPhone,
     shopName: p.sellerStoreName ?? 'SEDSP Official',
     shopLocation: 'TP.HCM',
     rating: 4.5,
@@ -66,6 +74,9 @@ export function mapProductDetail(p: BackendProductDetail): Product {
     description: p.description ?? '',
     imageUrl: primary?.imageUrl ?? `https://picsum.photos/seed/prod-${p.id}/400/400`,
     sellerId: p.sellerId != null ? String(p.sellerId) : '',
+    sellerEmail: p.sellerEmail,
+    sellerPhone: p.sellerPhone,
+    shopName: p.sellerStoreName ?? 'SEDSP Official',
     originalPrice: p.costPrice ? Math.round(num(p.price) * 1.12) : undefined,
   }
 }

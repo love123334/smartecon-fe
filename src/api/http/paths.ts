@@ -51,8 +51,11 @@ export const apiPaths = {
   },
   orders: {
     list: 'orders',
+    seller: 'orders/seller',
+    manage: 'orders/manage',
     byId: (id: string) => `orders/${id}`,
     cancel: (id: string) => `orders/${id}/cancel`,
+    status: (id: string) => `orders/${id}/status`,
   },
   payments: {
     list: 'payments',

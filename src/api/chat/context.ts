@@ -202,6 +202,7 @@ export async function buildChatContext(
       (async () => {
         const sellerCatalog = await loadProducts(sellerKey)
         ctx.sellerProducts = sellerCatalog.products
+        ctx.orders = await safe(() => orderApi.listForSeller(), [])
         if (apiConfig.useRealSeller) {
           ctx.salesPerformance = await safe(() => sellerApi.getSalesPerformance(), null)
           ctx.sellerDashboard = await safe(() => sellerApi.getDashboard(), null)
