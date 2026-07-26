@@ -1,18 +1,26 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { productApi, reviewApi, formatVnd, getDiscountPercent } from '@/api/services'
-import type { Product, ProductReview } from '@/types'
+import { orderApi, productApi, reviewApi, formatVnd, getDiscountPercent } from '@/api/services'
+import type { Order, Product, ProductReview } from '@/types'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
+import {
+  REVIEW_WINDOW_DAYS,
+  checkReviewEligibility,
+  type ReviewEligibility,
+} from '@/utils/reviewEligibility'
+import { sellerDisplayName } from '@/utils/sellerTag'
 import QuantityStepper from '@/components/QuantityStepper.vue'
 import ProductCard from '@/components/ProductCard.vue'
+import SellerShopTag from '@/components/SellerShopTag.vue'
 import NewsletterBanner from '@/components/NewsletterBanner.vue'
 
 const route = useRoute()
 const router = useRouter()
 const product = ref<Product | null>(null)
 const related = ref<Product[]>([])
+const myOrders = ref<Order[]>([])
 const qty = ref(1)
 const activeTab = ref<'info' | 'questions' | 'reviews'>('reviews')
 const auth = useAuthStore()
@@ -27,6 +35,7 @@ const reviewSaving = ref(false)
 
 const discount = computed(() => (product.value ? getDiscountPercent(product.value) : 0))
 const isNew = computed(() => (product.value ? product.value.soldCount < 40 : false))
+const shopLabel = computed(() => (product.value ? sellerDisplayName(product.value) : ''))
 
 const displayRating = computed(() => {
   if (reviews.value.length) {
@@ -35,20 +44,32 @@ const displayRating = computed(() => {
   return product.value?.rating ?? 5
 })
 
-const mockReviews = computed(() => {
-  if (reviews.value.length) {
-    return reviews.value.map((r) => ({
-      user: r.userName,
-      rating: r.rating,
-      text: r.comment,
-      date: new Date(r.createdAt).toLocaleDateString('vi-VN'),
-    }))
+const displayReviews = computed(() =>
+  reviews.value.map((r) => ({
+    id: r.id,
+    user: r.userName,
+    rating: r.rating,
+    text: r.comment,
+    date: new Date(r.createdAt).toLocaleDateString('vi-VN'),
+  })),
+)
+
+const eligibility = computed<ReviewEligibility>(() => {
+  if (!product.value) {
+    return {
+      canReview: false,
+      reason: 'not_purchased',
+      message: 'Đang tải thông tin sản phẩm…',
+    }
   }
-  if (!product.value) return []
-  return [
-    { user: 'Nguyễn A.', rating: 5, text: 'Sản phẩm đúng mô tả, giao nhanh.', date: '2 tuần trước' },
-    { user: 'Trần B.', rating: 4, text: 'Chất lượng tốt trong tầm giá.', date: '1 tháng trước' },
-  ]
+  return checkReviewEligibility({
+    isLoggedIn: auth.isLoggedIn,
+    isCustomer: auth.role === 'customer',
+    productId: product.value.id,
+    orders: myOrders.value,
+    existingReviews: reviews.value,
+    currentUserId: auth.user?.backendId ?? auth.user?.id,
+  })
 })
 
 function starDisplay(rating: number) {
@@ -56,12 +77,28 @@ function starDisplay(rating: number) {
   return '★'.repeat(full) + '☆'.repeat(5 - full)
 }
 
+async function loadOrdersForReview() {
+  if (auth.role !== 'customer' || !auth.user) {
+    myOrders.value = []
+    return
+  }
+  try {
+    myOrders.value = await orderApi.listForCustomer(auth.user.id)
+  } catch {
+    myOrders.value = []
+  }
+}
+
 onMounted(async () => {
   const id = route.params.id as string
+  if (route.hash === '#reviews') activeTab.value = 'reviews'
+
   const [p, all] = await Promise.all([productApi.getById(id), productApi.list()])
   if (!p) return
   product.value = p
-  related.value = all.filter((x) => x.category === p.category && x.id !== p.id).slice(0, 4)
+  related.value = all
+    .filter((x) => x.category === p.category && x.id !== p.id)
+    .slice(0, 4)
 
   const [list, summary] = await Promise.all([
     reviewApi.list(id),
@@ -70,13 +107,42 @@ onMounted(async () => {
   reviews.value = list
   reviewCount.value = summary?.totalReviews ?? list.length
   if (summary && summary.averageRating > 0) {
-    product.value = { ...product.value, rating: summary.averageRating, reviewCount: summary.totalReviews }
+    product.value = {
+      ...product.value,
+      rating: summary.averageRating,
+      reviewCount: summary.totalReviews,
+    }
   }
+
+  await loadOrdersForReview()
 })
 
+watch(
+  () => auth.user?.id,
+  () => {
+    void loadOrdersForReview()
+  },
+)
+
+function toggleReviewForm() {
+  if (!eligibility.value.canReview) {
+    if (eligibility.value.reason === 'login' || eligibility.value.reason === 'role') {
+      router.push({ name: 'login', query: { redirect: route.fullPath } })
+      return
+    }
+    reviewError.value = eligibility.value.message.replace(/\*\*/g, '')
+    showReviewForm.value = false
+    return
+  }
+  reviewError.value = ''
+  showReviewForm.value = !showReviewForm.value
+}
+
 async function submitReview() {
-  if (auth.role !== 'customer') {
-    router.push({ name: 'login', query: { redirect: route.fullPath } })
+  if (!eligibility.value.canReview) {
+    reviewError.value = !eligibility.value.canReview
+      ? eligibility.value.message.replace(/\*\*/g, '')
+      : 'Không đủ điều kiện đánh giá'
     return
   }
   if (!product.value || !reviewForm.value.comment.trim()) {
@@ -95,7 +161,13 @@ async function submitReview() {
     showReviewForm.value = false
     reviewForm.value = { rating: 5, comment: '' }
   } catch (e) {
-    reviewError.value = e instanceof Error ? e.message : 'Không gửi được đánh giá'
+    const msg = e instanceof Error ? e.message : 'Không gửi được đánh giá'
+    if (/purchased|delivered|already reviewed/i.test(msg)) {
+      reviewError.value =
+        'Chỉ đánh giá được sản phẩm đã mua và đã giao (trong 30 ngày), mỗi SP một lần.'
+    } else {
+      reviewError.value = msg
+    }
   } finally {
     reviewSaving.value = false
   }
@@ -124,6 +196,7 @@ async function addRelated(id: string) {
   cart.openDrawer()
 }
 </script>
+
 
 <template>
   <div v-if="product" class="elegant-page">
@@ -157,7 +230,7 @@ async function addRelated(id: string) {
         <div class="elegant-product__info">
           <p class="elegant-product__stars" :aria-label="`${displayRating} sao`">
             {{ starDisplay(displayRating) }}
-            <span class="elegant-product__review-count">({{ reviewCount || product.reviewCount || mockReviews.length }} đánh giá)</span>
+            <span class="elegant-product__review-count">({{ reviewCount || product.reviewCount || displayReviews.length }} đánh giá)</span>
           </p>
           <h1 class="elegant-product__title">{{ product.name }}</h1>
           <p class="elegant-product__desc">{{ product.description }}</p>
@@ -201,10 +274,16 @@ async function addRelated(id: string) {
           <p v-if="message" class="elegant-alert" :class="message.startsWith('Đã') ? 'elegant-alert--success' : 'elegant-alert--error'">{{ message }}</p>
 
           <div class="elegant-product__shop">
-            <div class="elegant-product__shop-avatar">{{ (product.shopName ?? 'S')[0] }}</div>
-            <div>
-              <strong>{{ product.shopName ?? 'SEDSP Official' }}</strong>
-              <p>{{ product.shopLocation ?? 'TP.HCM' }} · Phản hồi trong 1 giờ</p>
+            <div class="elegant-product__shop-avatar">{{ shopLabel[0] ?? 'S' }}</div>
+            <div class="elegant-product__shop-meta">
+              <div class="elegant-product__shop-row">
+                <strong>{{ shopLabel }}</strong>
+                <SellerShopTag :product="product" size="md" />
+              </div>
+              <p>{{ product.shopLocation ?? 'Việt Nam' }} · Phản hồi trong 1 giờ</p>
+              <p class="elegant-product__shop-note">
+                Tag cửa hàng giúp phân biệt sản phẩm giữa nhiều người bán trên SEDSP.
+              </p>
             </div>
           </div>
         </div>
@@ -257,13 +336,27 @@ async function addRelated(id: string) {
             <button
               type="button"
               class="btn-elegant-outline btn-interactive"
-              @click="showReviewForm = !showReviewForm"
+              :class="{ 'btn-elegant-outline--muted': !eligibility.canReview && eligibility.reason !== 'login' && eligibility.reason !== 'role' }"
+              @click="toggleReviewForm"
             >
-              Viết đánh giá
+              {{ eligibility.canReview ? (showReviewForm ? 'Đóng form' : 'Viết đánh giá') : 'Viết đánh giá' }}
             </button>
           </div>
 
-          <form v-if="showReviewForm" class="review-form card" @submit.prevent="submitReview">
+          <div class="review-eligibility-note" role="note">
+            <p>
+              Chỉ khách hàng đã mua và nhận hàng mới được đánh giá.
+              Thời hạn: <strong>{{ REVIEW_WINDOW_DAYS }} ngày</strong> kể từ khi đơn được giao.
+            </p>
+            <p v-if="!eligibility.canReview" class="review-eligibility-note__status">
+              {{ eligibility.message.replace(/\*\*/g, '') }}
+            </p>
+            <p v-else class="review-eligibility-note__ok">
+              Bạn đủ điều kiện đánh giá · còn {{ eligibility.daysLeft }} ngày.
+            </p>
+          </div>
+
+          <form v-if="showReviewForm && eligibility.canReview" class="review-form card" @submit.prevent="submitReview">
             <label>
               Số sao
               <select v-model.number="reviewForm.rating" class="input">
@@ -279,9 +372,10 @@ async function addRelated(id: string) {
               {{ reviewSaving ? 'Đang gửi...' : 'Gửi đánh giá' }}
             </button>
           </form>
+          <p v-else-if="reviewError" class="form-error">{{ reviewError }}</p>
 
-          <p v-if="!mockReviews.length" class="elegant-muted">Chưa có đánh giá nào.</p>
-          <article v-for="(r, i) in mockReviews" :key="i" class="elegant-review">
+          <p v-if="!displayReviews.length" class="elegant-muted">Chưa có đánh giá nào.</p>
+          <article v-for="r in displayReviews" :key="r.id" class="elegant-review">
             <div class="elegant-review__avatar">{{ r.user[0] }}</div>
             <div>
               <div class="elegant-review__top">

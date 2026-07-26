@@ -1409,6 +1409,14 @@
   z-index: 2;
 }
 
+.product-card__seller {
+  position: absolute;
+  bottom: 0.55rem;
+  left: 0.55rem;
+  z-index: 3;
+  max-width: min(72%, 10.5rem);
+}
+
 .product-card__new {
   background: var(--slate-900);
   color: #fff;
@@ -1936,7 +1944,7 @@
 
 .elegant-product__shop {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.85rem;
   padding-top: 1.25rem;
   margin-top: 1.25rem;
@@ -1953,12 +1961,52 @@
   justify-content: center;
   font-weight: 700;
   color: var(--slate-800);
+  flex-shrink: 0;
+}
+
+.elegant-product__shop-meta {
+  min-width: 0;
+}
+
+.elegant-product__shop-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .elegant-product__shop p {
   margin: 0.2rem 0 0;
   font-size: 0.8125rem;
   color: var(--slate-500);
+}
+
+.elegant-product__shop-note {
+  font-size: 0.75rem !important;
+  color: var(--slate-400) !important;
+}
+
+.review-eligibility-note {
+  margin: 0 0 1.25rem;
+  padding: 0.85rem 1rem;
+  background: var(--surface-muted, #f8fafc);
+  border-radius: 8px;
+  font-size: 0.875rem;
+  color: var(--slate-600, #475569);
+}
+
+.review-eligibility-note p {
+  margin: 0;
+}
+
+.review-eligibility-note__status {
+  margin-top: 0.45rem !important;
+  color: var(--slate-700, #334155);
+}
+
+.review-eligibility-note__ok {
+  margin-top: 0.45rem !important;
+  color: var(--primary-700, #0f766e);
 }
 
 /* ——— Tabs ——— */

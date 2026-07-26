@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import type { Product } from '@/types'
 import { formatVnd, getDiscountPercent } from '@/api/services'
+import SellerShopTag from '@/components/SellerShopTag.vue'
 
 const props = defineProps<{
   product: Product
@@ -36,6 +37,10 @@ function starDisplay(rating: number) {
         <span v-if="isNew" class="product-card__new">Mới</span>
         <span v-if="product.isFlashSale" class="product-card__sale">Sale</span>
         <span v-if="discount > 0" class="product-card__discount">-{{ discount }}%</span>
+      </div>
+
+      <div class="product-card__seller">
+        <SellerShopTag :product="product" size="sm" />
       </div>
 
       <button type="button" class="product-card__wish btn-interactive" aria-label="Thêm vào yêu thích">

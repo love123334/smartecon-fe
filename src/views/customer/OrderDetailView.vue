@@ -1,14 +1,24 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { formatVnd, orderApi, productApi } from '@/api/services'
-import type { Order, OrderStatus } from '@/types'
+import { formatVnd, orderApi, productApi, reviewApi } from '@/api/services'
+import type { Order, OrderStatus, Product, ProductReview } from '@/types'
+import { useAuthStore } from '@/stores/auth'
+import {
+  REVIEW_WINDOW_DAYS,
+  checkReviewEligibility,
+  reviewAnchorDate,
+} from '@/utils/reviewEligibility'
 import CheckoutStepper from '@/components/CheckoutStepper.vue'
 import NewsletterBanner from '@/components/NewsletterBanner.vue'
+import OrderTrackStepper from '@/components/OrderTrackStepper.vue'
+import SellerShopTag from '@/components/SellerShopTag.vue'
 
 const route = useRoute()
+const auth = useAuthStore()
 const order = ref<Order | null>(null)
-const productImages = ref<Record<string, string>>({})
+const productsById = ref<Record<string, Product>>({})
+const reviewsByProductId = ref<Record<string, ProductReview[]>>({})
 const cancelling = ref(false)
 
 const paymentLabel = computed(() => {
@@ -16,18 +26,6 @@ const paymentLabel = computed(() => {
   if (m === 'bank') return 'Chuyển khoản ngân hàng'
   if (m === 'card') return 'Ví MoMo / thẻ'
   return 'Thanh toán khi nhận hàng (COD)'
-})
-
-const statusSteps: { key: OrderStatus; label: string }[] = [
-  { key: 'pending', label: 'Chờ xác nhận' },
-  { key: 'confirmed', label: 'Đã xác nhận' },
-  { key: 'shipping', label: 'Đang giao' },
-  { key: 'delivered', label: 'Đã giao' },
-]
-
-const statusIndex = computed(() => {
-  if (!order.value || order.value.status === 'cancelled') return -1
-  return statusSteps.findIndex((s) => s.key === order.value!.status)
 })
 
 const statusLabel: Record<OrderStatus, string> = {
@@ -46,24 +44,64 @@ const isFreshOrder = computed(() => {
   return age < 1000 * 60 * 30
 })
 
-onMounted(async () => {
-  order.value = await orderApi.getById(route.params.id as string)
-  if (order.value) {
-    const products = await productApi.list()
-    const map: Record<string, string> = {}
-    for (const p of products) {
-      map[p.id] = p.imageUrl
-    }
-    productImages.value = map
-  }
+const reviewWindowNote = computed(() => {
+  if (!order.value || order.value.status !== 'delivered') return ''
+  const anchor = reviewAnchorDate(order.value)
+  const until = new Date(anchor)
+  until.setDate(until.getDate() + REVIEW_WINDOW_DAYS)
+  return `Bạn có thể đánh giá sản phẩm đến hết ${until.toLocaleDateString('vi-VN')} (${REVIEW_WINDOW_DAYS} ngày sau khi giao).`
 })
 
-function stepClass(i: number) {
-  if (statusIndex.value < 0) return ''
-  if (i < statusIndex.value) return 'mkt-status-step--done'
-  if (i === statusIndex.value) return 'mkt-status-step--active'
-  return ''
+function itemReviewState(productId: string) {
+  if (!order.value) {
+    return { canReview: false, label: '—', message: '' }
+  }
+  const result = checkReviewEligibility({
+    isLoggedIn: auth.isLoggedIn,
+    isCustomer: auth.role === 'customer',
+    productId,
+    orders: [order.value],
+    existingReviews: reviewsByProductId.value[productId] ?? [],
+    currentUserId: auth.user?.backendId ?? auth.user?.id,
+  })
+  if (result.canReview) {
+    return {
+      canReview: true,
+      label: `Đánh giá (còn ${result.daysLeft} ngày)`,
+      message: '',
+    }
+  }
+  if (result.reason === 'expired') {
+    return { canReview: false, label: 'Hết hạn đánh giá', message: result.message }
+  }
+  if (result.reason === 'already_reviewed') {
+    return { canReview: false, label: 'Đã đánh giá', message: result.message }
+  }
+  if (result.reason === 'not_delivered') {
+    return { canReview: false, label: 'Chờ giao xong', message: result.message }
+  }
+  return { canReview: false, label: 'Không đánh giá được', message: result.message }
 }
+
+onMounted(async () => {
+  order.value = await orderApi.getById(route.params.id as string)
+  if (!order.value) return
+
+  const products = await productApi.list()
+  const map: Record<string, Product> = {}
+  for (const p of products) map[p.id] = p
+  productsById.value = map
+
+  if (auth.role === 'customer' && order.value.status === 'delivered') {
+    const entries = await Promise.all(
+      order.value.items.map(async (item) => {
+        const list = await reviewApi.list(item.productId).catch(() => [] as ProductReview[])
+        return [item.productId, list] as const
+      }),
+    )
+    reviewsByProductId.value = Object.fromEntries(entries)
+  }
+})
 
 async function cancelOrder() {
   if (!order.value || !canCancel.value) return
@@ -88,8 +126,10 @@ async function cancelOrder() {
 
         <div class="elegant-complete">
           <div class="elegant-complete__card">
-            <p class="elegant-complete__emoji">Cảm ơn bạn! 🎉</p>
+            <p class="elegant-complete__emoji">Cảm ơn bạn!</p>
             <h2 class="elegant-complete__heading">Đơn hàng đã được tiếp nhận</h2>
+
+            <OrderTrackStepper :status="order.status" show-hint />
 
             <div class="elegant-complete__thumbs">
               <div
@@ -98,7 +138,7 @@ async function cancelOrder() {
                 class="elegant-complete__thumb"
               >
                 <img
-                  :src="productImages[item.productId] ?? 'https://placehold.co/80x80/f3f5f7/737373?text=SP'"
+                  :src="productsById[item.productId]?.imageUrl ?? 'https://placehold.co/80x80/f3f5f7/737373?text=SP'"
                   :alt="item.productName"
                 />
                 <span class="elegant-complete__qty">{{ item.quantity }}</span>
@@ -124,7 +164,10 @@ async function cancelOrder() {
               </div>
             </dl>
 
-            <RouterLink to="/orders" class="btn-elegant-primary btn-block btn-interactive">
+            <RouterLink :to="`/orders/${order.id}`" class="btn-elegant-primary btn-block btn-interactive">
+              Theo dõi đơn hàng
+            </RouterLink>
+            <RouterLink to="/orders" class="btn-elegant-outline btn-block btn-interactive" style="margin-top: 0.75rem">
               Lịch sử mua hàng
             </RouterLink>
           </div>
@@ -153,19 +196,13 @@ async function cancelOrder() {
             </span>
           </div>
 
-          <div v-if="order.status !== 'cancelled'" class="mkt-status-stepper">
-            <div
-              v-for="(step, i) in statusSteps"
-              :key="step.key"
-              class="mkt-status-step"
-              :class="stepClass(i)"
-            >
-              <span class="mkt-status-step__dot">{{ i + 1 }}</span>
-              <span>{{ step.label }}</span>
-            </div>
-          </div>
+          <section class="order-track-panel" aria-labelledby="track-heading">
+            <h2 id="track-heading" class="order-track-panel__title">Theo dõi đơn hàng</h2>
+            <OrderTrackStepper :status="order.status" show-hint />
+          </section>
 
-          <p><strong>Địa chỉ giao:</strong> {{ order.shippingAddress }}</p>
+          <p><strong>Địa chỉ giao:</strong> {{ order.shippingAddress || '—' }}</p>
+          <p><strong>Thanh toán:</strong> {{ paymentLabel }}</p>
 
           <div class="elegant-cart-table elegant-cart-table--order">
             <div class="elegant-cart-table__head">
@@ -177,18 +214,29 @@ async function cancelOrder() {
             <div v-for="item in order.items" :key="item.productId" class="elegant-cart-row">
               <div class="elegant-cart-row__product">
                 <img
-                  :src="productImages[item.productId] ?? 'https://placehold.co/80x80/f3f5f7/737373?text=SP'"
+                  :src="productsById[item.productId]?.imageUrl ?? 'https://placehold.co/80x80/f3f5f7/737373?text=SP'"
                   :alt="item.productName"
                 />
                 <div>
                   <div class="elegant-cart-row__name">{{ item.productName }}</div>
-                  <RouterLink
-                    v-if="order.status === 'delivered'"
-                    :to="`/products/${item.productId}#reviews`"
-                    class="review-link"
-                  >
-                    Đánh giá sản phẩm
-                  </RouterLink>
+                  <SellerShopTag
+                    v-if="productsById[item.productId]"
+                    :product="productsById[item.productId]"
+                    size="sm"
+                    class="order-item-seller-tag"
+                  />
+                  <template v-if="order.status === 'delivered'">
+                    <RouterLink
+                      v-if="itemReviewState(item.productId).canReview"
+                      :to="`/products/${item.productId}#reviews`"
+                      class="review-link"
+                    >
+                      {{ itemReviewState(item.productId).label }}
+                    </RouterLink>
+                    <span v-else class="review-link review-link--muted" :title="itemReviewState(item.productId).message">
+                      {{ itemReviewState(item.productId).label }}
+                    </span>
+                  </template>
                 </div>
               </div>
               <span>{{ item.quantity }}</span>
@@ -205,9 +253,7 @@ async function cancelOrder() {
           </div>
 
           <div v-if="order.status === 'delivered'" class="elegant-order-actions" style="margin-top: 1rem">
-            <p class="elegant-muted">
-              Đơn đã giao — bạn có thể đánh giá từng sản phẩm ở bảng trên hoặc mở trang chi tiết SP.
-            </p>
+            <p class="elegant-muted">{{ reviewWindowNote }}</p>
           </div>
 
           <div v-if="canCancel" class="elegant-order-actions" style="margin-top: 1.25rem">
@@ -232,3 +278,29 @@ async function cancelOrder() {
   </div>
   <p v-else class="empty container">Không tìm thấy đơn hàng</p>
 </template>
+
+<style scoped>
+.order-track-panel {
+  margin: 1.25rem 0 1.5rem;
+  padding: 1rem 1.15rem;
+  background: var(--surface-muted, #f8fafc);
+  border-radius: 10px;
+}
+
+.order-track-panel__title {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+}
+
+.order-item-seller-tag {
+  display: inline-flex;
+  margin: 0.35rem 0 0.25rem;
+}
+
+.review-link--muted {
+  color: var(--slate-400, #94a3b8);
+  cursor: default;
+  text-decoration: none;
+  font-size: 0.8125rem;
+}
+</style>
