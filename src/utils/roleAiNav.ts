@@ -39,6 +39,8 @@ export function roleAccountMenuLinks(role: UserRole): NavLink[] {
     case 'seller':
       return [
         { to: '/seller/dss', label: 'DSS — Kế hoạch bán hàng', highlight: true },
+        { to: '/seller/dss/demand', label: 'Demand Prediction' },
+        { to: '/seller/dss/price', label: 'Price Recommendation' },
         { to: '/seller/chatbot', label: 'Trợ lý AI người bán' },
         { to: '/seller/sales', label: 'Bảng doanh số' },
         { to: '/seller/inventory', label: 'Tồn kho' },

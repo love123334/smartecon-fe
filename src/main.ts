@@ -5,6 +5,7 @@ import router from '@/router'
 import '@/assets/main.css'
 import '@/assets/marketplace.css'
 import '@/assets/animations.css'
+import '@/assets/dss-dashboard.css'
 
 const app = createApp(App)
 app.use(createPinia())

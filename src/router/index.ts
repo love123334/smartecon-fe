@@ -129,6 +129,18 @@ const router = createRouter({
       meta: { roles: ['seller'], title: 'DSS Người bán' },
     },
     {
+      path: '/seller/dss/demand',
+      name: 'seller-dss-demand',
+      component: () => import('@/views/seller/DemandPredictionView.vue'),
+      meta: { roles: ['seller'], title: 'Demand Prediction' },
+    },
+    {
+      path: '/seller/dss/price',
+      name: 'seller-dss-price',
+      component: () => import('@/views/seller/PriceRecommendationView.vue'),
+      meta: { roles: ['seller'], title: 'Price Recommendation' },
+    },
+    {
       path: '/seller/chatbot',
       name: 'seller-chatbot',
       component: () => import('@/views/seller/SellerChatbotView.vue'),
