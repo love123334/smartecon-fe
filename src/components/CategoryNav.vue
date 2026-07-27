@@ -9,11 +9,26 @@ const categories = ref<string[]>([])
 
 const categoryIcons: Record<string, string> = {
   'Điện tử': '📱',
+  'Điện thoại': '📱',
+  Laptop: '💻',
+  'Máy tính bảng': '📲',
+  'Phụ kiện': '🎧',
   'Thời trang': '👕',
-  'Thể thao': '⚽',
-  Sách: '📚',
+  'Thời trang nam': '👔',
+  'Thời trang nữ': '👗',
+  'Giày dép': '👟',
+  'Làm đẹp': '💄',
+  'Chăm sóc da': '✨',
+  'Trang điểm': '💋',
+  'Nhà cửa & đời sống': '🏡',
+  'Nhà bếp': '🍳',
+  'Nội thất': '🛋️',
+  'Trang trí': '🖼️',
   'Gia dụng': '🏠',
-  'Phụ kiện': '🎒',
+  'Thể thao': '⚽',
+  'Thiết bị thể hình': '🏋️',
+  'Đồ dã ngoại': '🏕️',
+  Sách: '📚',
 }
 
 const aiLink = computed(() => roleCategoryAiLink(auth.role, auth.isLoggedIn))

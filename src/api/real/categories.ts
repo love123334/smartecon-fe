@@ -40,7 +40,7 @@ export async function createCategory(name: string, parentId?: number): Promise<C
 
 export async function categoryNames(): Promise<string[]> {
   const cats = await listCategories()
-  return cats.map((c) => c.name).sort()
+  return [...new Set(cats.map((c) => c.name))].sort((a, b) => a.localeCompare(b, 'vi'))
 }
 
 export function resolveCategoryId(
