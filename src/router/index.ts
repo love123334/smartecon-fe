@@ -147,6 +147,12 @@ const router = createRouter({
       meta: { roles: ['seller'], title: 'Khuyến nghị tồn kho' },
     },
     {
+      path: '/seller/dss/what-if',
+      name: 'seller-dss-what-if',
+      component: () => import('@/views/seller/WhatIfDiscountView.vue'),
+      meta: { roles: ['seller'], title: 'What-if giảm giá' },
+    },
+    {
       path: '/seller/chatbot',
       name: 'seller-chatbot',
       component: () => import('@/views/seller/SellerChatbotView.vue'),
@@ -169,6 +175,12 @@ const router = createRouter({
       name: 'manager-dss',
       component: () => import('@/views/manager/ManagerDssView.vue'),
       meta: { roles: ['manager'], title: 'DSS Quản lý' },
+    },
+    {
+      path: '/manager/dss/what-if',
+      name: 'manager-dss-what-if',
+      component: () => import('@/views/manager/WhatIfPromotionView.vue'),
+      meta: { roles: ['manager'], title: 'What-if khuyến mãi' },
     },
     {
       path: '/manager/orders',

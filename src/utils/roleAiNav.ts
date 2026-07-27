@@ -46,6 +46,7 @@ export function roleAccountMenuLinks(role: UserRole): NavLink[] {
         { to: '/seller/dss/demand', label: 'Dự báo nhu cầu' },
         { to: '/seller/dss/price', label: 'Gợi ý giá' },
         { to: '/seller/dss/inventory', label: 'Khuyến nghị tồn kho' },
+        { to: '/seller/dss/what-if', label: 'What-if giảm giá' },
         { to: '/seller/chatbot', label: 'Trợ lý AI người bán' },
         { to: '/seller/sales', label: 'Bảng doanh số' },
         { to: '/seller/orders', label: 'Đơn bán' },
@@ -56,6 +57,7 @@ export function roleAccountMenuLinks(role: UserRole): NavLink[] {
       return [
         { to: '/manager/dashboard', label: 'Dashboard KPI' },
         { to: '/manager/dss', label: 'DSS & what-if', highlight: true },
+        { to: '/manager/dss/what-if', label: 'What-if khuyến mãi' },
         { to: '/manager/analytics', label: 'Phân tích danh mục' },
         { to: '/chatbot', label: 'Trợ lý AI quản lý' },
       ]
@@ -84,12 +86,14 @@ export function roleChatShortcuts(role: UserRole): NavLink[] {
         { to: '/search', label: 'Mua hàng' },
         { to: '/orders', label: 'Đơn mua' },
         { to: '/seller/dss', label: 'DSS bán hàng' },
+        { to: '/seller/dss/what-if', label: 'What-if giảm giá' },
         { to: '/seller/sales', label: 'Doanh số' },
         { to: '/seller/inventory', label: 'Tồn kho' },
       ]
     case 'manager':
       return [
         { to: '/manager/dss', label: 'DSS quản lý' },
+        { to: '/manager/dss/what-if', label: 'What-if khuyến mãi' },
         { to: '/manager/dashboard', label: 'Dashboard' },
         { to: '/manager/analytics', label: 'Phân tích' },
       ]

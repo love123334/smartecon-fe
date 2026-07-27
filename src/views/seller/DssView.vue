@@ -31,12 +31,13 @@ onMounted(async () => {
         { to: '/seller/dss/demand', label: 'Dự báo nhu cầu', highlight: true },
         { to: '/seller/dss/price', label: 'Gợi ý giá', highlight: true },
         { to: '/seller/dss/inventory', label: 'Khuyến nghị tồn kho', highlight: true },
+        { to: '/seller/dss/what-if', label: 'What-if giảm giá', highlight: true },
         { to: '/seller/chatbot', label: 'Trợ lý AI' },
         { to: '/seller/sales', label: 'Bảng doanh số' },
       ]"
     />
     <HybridDataNotice
-      message="Các trang DSS (nhu cầu, giá, tồn kho) đang dùng dữ liệu demo trên frontend. Khi đăng nhập seller, insight tồn kho có thể lấy thêm từ API."
+      message="Các trang DSS (nhu cầu, giá, tồn kho, what-if) đang dùng dữ liệu demo trên frontend. Khi đăng nhập seller, insight tồn kho có thể lấy thêm từ API."
     />
 
     <div class="dss-hub">
@@ -58,6 +59,12 @@ onMounted(async () => {
         <p>ROP · số lượng nhập đề xuất · biểu đồ cột/đường · trạng thái bổ sung.</p>
         <span class="dss-hub__cta">Mở →</span>
       </RouterLink>
+      <RouterLink class="dss-hub__card" to="/seller/dss/what-if">
+        <span class="dss-hub__tag">What-if</span>
+        <h2>Giảm giá & lợi nhuận</h2>
+        <p>Mô phỏng giảm giá · điểm hòa vốn · so sánh nhu cầu/lợi nhuận.</p>
+        <span class="dss-hub__cta">Mở →</span>
+      </RouterLink>
     </div>
 
     <h3 class="dss-hub__section">Gợi ý nhanh</h3>
@@ -75,7 +82,7 @@ onMounted(async () => {
 <style scoped>
 .dss-hub {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
   margin-bottom: 1.5rem;
 }

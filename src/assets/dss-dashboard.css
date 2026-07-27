@@ -164,6 +164,10 @@
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
+.dss-kpi-grid--6 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .dss-kpi {
   background: #fff;
   border: 1px solid var(--dss-border);
@@ -387,6 +391,76 @@
   color: #2e7d32;
 }
 
+.dss-badge--warn {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.dss-field--span2 {
+  grid-column: span 2;
+}
+
+.dss-slider {
+  width: 100%;
+  accent-color: #1976d2;
+  height: 0.4rem;
+  cursor: pointer;
+}
+
+.dss-readonly-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 1rem 0 1.1rem;
+}
+
+.dss-readonly {
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  background: #f5f9fc;
+  border: 1px solid var(--dss-border);
+}
+
+.dss-readonly span {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--dss-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 0.3rem;
+}
+
+.dss-readonly strong {
+  font-size: 1.05rem;
+  color: #1565c0;
+}
+
+.dss-insight--warn {
+  border-color: #ffcc80;
+  background: linear-gradient(180deg, #fff8e1, #fff);
+}
+
+.dss-recommend-card {
+  border-color: #90caf9;
+  background: linear-gradient(180deg, #e3f2fd, #fff);
+}
+
+.dss-recommend-card__value {
+  margin: 0.25rem 0 0;
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: #0d47a1;
+  line-height: 1.1;
+}
+
+.dss-recommend-card__label {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--dss-muted);
+}
+
 .dss-status-panel--need {
   border-left: 4px solid #c62828;
 }
@@ -471,9 +545,15 @@
   .dss-form-grid--4,
   .dss-kpi-grid,
   .dss-kpi-grid--5,
+  .dss-kpi-grid--6,
+  .dss-readonly-grid,
   .dss-result-grid,
   .dss-two-col {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .dss-field--span2 {
+    grid-column: span 2;
   }
 }
 
@@ -482,8 +562,14 @@
   .dss-form-grid--4,
   .dss-kpi-grid,
   .dss-kpi-grid--5,
+  .dss-kpi-grid--6,
+  .dss-readonly-grid,
   .dss-result-grid,
   .dss-two-col {
     grid-template-columns: 1fr;
+  }
+
+  .dss-field--span2 {
+    grid-column: span 1;
   }
 }
