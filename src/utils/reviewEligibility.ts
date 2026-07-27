@@ -45,6 +45,7 @@ export function reviewAnchorDate(order: Order): Date {
  */
 export function checkReviewEligibility(opts: {
   isLoggedIn: boolean
+  /** Customer hoặc seller mua hàng đều được đánh giá sau khi nhận hàng */
   isCustomer: boolean
   productId: string
   orders: Order[]
@@ -58,14 +59,14 @@ export function checkReviewEligibility(opts: {
     return {
       canReview: false,
       reason: 'login',
-      message: 'Đăng nhập tài khoản khách hàng để đánh giá sản phẩm đã mua.',
+      message: 'Đăng nhập để đánh giá sản phẩm đã mua.',
     }
   }
   if (!opts.isCustomer) {
     return {
       canReview: false,
       reason: 'role',
-      message: 'Chỉ tài khoản khách hàng mới được đánh giá sản phẩm.',
+      message: 'Chỉ tài khoản khách hàng hoặc người bán (khi mua hàng) mới được đánh giá.',
     }
   }
 

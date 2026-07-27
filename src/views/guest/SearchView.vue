@@ -6,6 +6,7 @@ import type { Product } from '@/types'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
 import { matchesPriceRange } from '@/utils/priceFilter'
+import { canShopAsBuyer } from '@/utils/roleNav'
 import ShopHero from '@/components/ShopHero.vue'
 import ShopSidebar from '@/components/ShopSidebar.vue'
 import ProductCard from '@/components/ProductCard.vue'
@@ -72,7 +73,7 @@ productApi.categories().then((c) => {
 })
 
 async function addToCart(id: string) {
-  if (!auth.isLoggedIn || auth.role !== 'customer') {
+  if (!auth.isLoggedIn || !canShopAsBuyer(auth.role)) {
     router.push({ name: 'login', query: { redirect: route.fullPath } })
     return
   }
@@ -144,7 +145,7 @@ function showMore() {
               v-for="p in visibleProducts"
               :key="p.id"
               :product="p"
-              :show-add="auth.role === 'guest' || auth.role === 'customer'"
+              :show-add="auth.role === 'guest' || canShopAsBuyer(auth.role)"
               @add="addToCart"
             />
           </div>

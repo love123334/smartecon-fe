@@ -38,12 +38,17 @@ export function roleAccountMenuLinks(role: UserRole): NavLink[] {
       ]
     case 'seller':
       return [
+        { to: '/profile', label: 'Hồ sơ & avatar' },
+        { to: '/cart', label: 'Giỏ hàng' },
+        { to: '/orders', label: 'Đơn mua của tôi' },
+        { to: '/recommendations', label: 'Gợi ý AI sản phẩm', highlight: true },
         { to: '/seller/dss', label: 'DSS — Kế hoạch bán hàng', highlight: true },
         { to: '/seller/dss/demand', label: 'Dự báo nhu cầu' },
         { to: '/seller/dss/price', label: 'Gợi ý giá' },
         { to: '/seller/dss/inventory', label: 'Khuyến nghị tồn kho' },
         { to: '/seller/chatbot', label: 'Trợ lý AI người bán' },
         { to: '/seller/sales', label: 'Bảng doanh số' },
+        { to: '/seller/orders', label: 'Đơn bán' },
         { to: '/seller/inventory', label: 'Tồn kho' },
         { to: '/seller/products', label: 'Quản lý sản phẩm' },
       ]
@@ -76,6 +81,8 @@ export function roleChatShortcuts(role: UserRole): NavLink[] {
       ]
     case 'seller':
       return [
+        { to: '/search', label: 'Mua hàng' },
+        { to: '/orders', label: 'Đơn mua' },
         { to: '/seller/dss', label: 'DSS bán hàng' },
         { to: '/seller/sales', label: 'Doanh số' },
         { to: '/seller/inventory', label: 'Tồn kho' },

@@ -48,7 +48,7 @@ async function submit() {
   localError.value = ''
   try {
     await auth.login(email.value, password.value)
-    if (auth.user?.role === 'customer') await cart.refresh()
+    if (auth.user?.role === 'customer' || auth.user?.role === 'seller') await cart.refresh()
     const redirect = (route.query.redirect as string) || undefined
     await router.push(resolvePostLoginPath(auth.user?.role ?? 'guest', redirect))
   } catch {

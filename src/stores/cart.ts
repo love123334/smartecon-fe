@@ -7,6 +7,7 @@ import {
 } from '@/api/services'
 import { useAuthStore } from '@/stores/auth'
 import { isOutOfStockError, useNoticeStore } from '@/stores/notice'
+import { canShopAsBuyer } from '@/utils/roleNav'
 
 export const useCartStore = defineStore('cart', () => {
   const lines = ref<CartLine[]>([])
@@ -23,7 +24,7 @@ export const useCartStore = defineStore('cart', () => {
 
   async function refresh() {
     const auth = useAuthStore()
-    if (!auth.user || auth.role !== 'customer') {
+    if (!auth.user || !canShopAsBuyer(auth.role)) {
       lines.value = []
       return
     }
@@ -41,8 +42,8 @@ export const useCartStore = defineStore('cart', () => {
   async function add(productId: string, qty = 1) {
     const auth = useAuthStore()
     if (!auth.user) throw new Error('Vui lòng đăng nhập')
-    if (auth.role !== 'customer') {
-      throw new Error('Chỉ tài khoản khách hàng mới thêm được giỏ hàng')
+    if (!canShopAsBuyer(auth.role)) {
+      throw new Error('Tài khoản hiện tại không thể mua hàng')
     }
     loading.value = true
     error.value = null

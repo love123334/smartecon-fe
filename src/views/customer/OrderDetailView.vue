@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import { formatVnd, orderApi, productApi, reviewApi } from '@/api/services'
 import type { Order, OrderStatus, Product, ProductReview } from '@/types'
 import { useAuthStore } from '@/stores/auth'
+import { canShopAsBuyer } from '@/utils/roleNav'
 import {
   REVIEW_WINDOW_DAYS,
   checkReviewEligibility,
@@ -65,7 +66,7 @@ function itemReviewState(productId: string) {
   }
   const result = checkReviewEligibility({
     isLoggedIn: auth.isLoggedIn,
-    isCustomer: auth.role === 'customer',
+    isCustomer: canShopAsBuyer(auth.role),
     productId,
     orders: [order.value],
     existingReviews: reviewsByProductId.value[productId] ?? [],
@@ -99,7 +100,7 @@ onMounted(async () => {
   for (const p of products) map[p.id] = p
   productsById.value = map
 
-  if (auth.role === 'customer' && order.value.status === 'delivered') {
+  if (canShopAsBuyer(auth.role) && order.value.status === 'delivered') {
     const entries = await Promise.all(
       order.value.items.map(async (item) => {
         const list = await reviewApi.list(item.productId).catch(() => [] as ProductReview[])

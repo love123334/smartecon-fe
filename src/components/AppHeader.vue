@@ -5,7 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
 import AccountHoverMenu from '@/components/AccountHoverMenu.vue'
 import CategoryNav from '@/components/CategoryNav.vue'
-import { isShopBrowsePath, roleContactPath, roleOpsHome, roleOpsHomeLabel } from '@/utils/roleNav'
+import { isShopBrowsePath, roleContactPath, roleOpsHome, roleOpsHomeLabel, canShopAsBuyer } from '@/utils/roleNav'
 
 const auth = useAuthStore()
 const cart = useCartStore()
@@ -67,7 +67,7 @@ const opsNavLinks = computed(() => {
 const opsHome = computed(() => roleOpsHome(auth.role))
 const opsHomeLabel = computed(() => roleOpsHomeLabel(auth.role))
 const contactTo = computed(() => roleContactPath(auth.role))
-const showCart = computed(() => auth.role === 'guest' || auth.role === 'customer')
+const showCart = computed(() => auth.role === 'guest' || canShopAsBuyer(auth.role))
 
 function onOpenCart() {
   cart.openDrawer()
@@ -116,7 +116,7 @@ function onOpenCart() {
               Cửa hàng
             </RouterLink>
             <RouterLink
-              v-if="auth.role === 'customer'"
+              v-if="canShopAsBuyer(auth.role)"
               to="/recommendations"
               class="shop-nav__link shop-nav__link--ai"
               active-class="shop-nav__link--active"
@@ -124,12 +124,12 @@ function onOpenCart() {
               Gợi ý AI
             </RouterLink>
             <RouterLink
-              v-if="auth.role === 'customer'"
+              v-if="canShopAsBuyer(auth.role)"
               to="/orders"
               class="shop-nav__link"
               active-class="shop-nav__link--active"
             >
-              Đơn hàng / lịch sử
+              {{ auth.role === 'seller' ? 'Đơn mua' : 'Đơn hàng / lịch sử' }}
             </RouterLink>
             <RouterLink :to="contactTo" class="shop-nav__link" active-class="shop-nav__link--active">
               Liên hệ
@@ -182,6 +182,15 @@ function onOpenCart() {
             {{ link.label }}
           </RouterLink>
           <RouterLink to="/" class="nav-link">← Cửa hàng</RouterLink>
+          <button
+            v-if="auth.role === 'seller'"
+            type="button"
+            class="nav-link nav-link--cart"
+            @click="onOpenCart"
+          >
+            Giỏ hàng
+            <span v-if="cart.itemCount" class="ops-cart-badge">{{ cart.itemCount }}</span>
+          </button>
         </nav>
 
         <div class="mkt-user-menu ops-account">
@@ -238,6 +247,28 @@ function onOpenCart() {
 .nav-link.router-link-active {
   background: var(--primary-50);
   color: var(--primary-800);
+}
+
+.nav-link--cart {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  gap: 0.35rem;
+}
+
+.ops-cart-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: var(--primary-600, #2563eb);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
 }
 
 .ops-account {

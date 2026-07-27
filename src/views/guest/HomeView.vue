@@ -5,6 +5,7 @@ import { productApi } from '@/api/services'
 import type { Product } from '@/types'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
+import { canShopAsBuyer } from '@/utils/roleNav'
 import HomeHero from '@/components/home/HomeHero.vue'
 import HomeCategories from '@/components/home/HomeCategories.vue'
 import HomeFeatures from '@/components/home/HomeFeatures.vue'
@@ -32,7 +33,7 @@ onMounted(async () => {
 })
 
 async function addToCart(id: string) {
-  if (!auth.isLoggedIn || auth.role !== 'customer') {
+  if (!auth.isLoggedIn || !canShopAsBuyer(auth.role)) {
     router.push({ name: 'login', query: { redirect: '/' } })
     return
   }
@@ -66,7 +67,7 @@ async function addToCart(id: string) {
           <div v-for="p in flashSale" :key="p.id" class="home-flash__card reveal-up">
             <ProductCard
               :product="p"
-              :show-add="auth.role === 'guest' || auth.role === 'customer'"
+              :show-add="auth.role === 'guest' || canShopAsBuyer(auth.role)"
               @add="addToCart"
             />
           </div>
@@ -89,7 +90,7 @@ async function addToCart(id: string) {
             v-for="p in bestSellers"
             :key="p.id"
             :product="p"
-            :show-add="auth.role === 'guest' || auth.role === 'customer'"
+            :show-add="auth.role === 'guest' || canShopAsBuyer(auth.role)"
             @add="addToCart"
           />
         </div>

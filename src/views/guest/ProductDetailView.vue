@@ -12,6 +12,7 @@ import {
   type ReviewEligibility,
 } from '@/utils/reviewEligibility'
 import { sellerDisplayName } from '@/utils/sellerTag'
+import { canShopAsBuyer } from '@/utils/roleNav'
 import QuantityStepper from '@/components/QuantityStepper.vue'
 import ProductCard from '@/components/ProductCard.vue'
 import SellerShopTag from '@/components/SellerShopTag.vue'
@@ -65,7 +66,7 @@ const eligibility = computed<ReviewEligibility>(() => {
   }
   return checkReviewEligibility({
     isLoggedIn: auth.isLoggedIn,
-    isCustomer: auth.role === 'customer',
+    isCustomer: canShopAsBuyer(auth.role),
     productId: product.value.id,
     orders: myOrders.value,
     existingReviews: reviews.value,
@@ -79,7 +80,7 @@ function starDisplay(rating: number) {
 }
 
 async function loadOrdersForReview() {
-  if (auth.role !== 'customer' || !auth.user) {
+  if (!canShopAsBuyer(auth.role) || !auth.user) {
     myOrders.value = []
     return
   }
@@ -175,7 +176,7 @@ async function submitReview() {
 }
 
 async function addToCart() {
-  if (auth.role !== 'customer') {
+  if (!canShopAsBuyer(auth.role)) {
     router.push({ name: 'login', query: { redirect: route.fullPath } })
     return
   }
@@ -198,7 +199,7 @@ async function addToCart() {
 }
 
 async function addRelated(id: string) {
-  if (auth.role !== 'customer') {
+  if (!canShopAsBuyer(auth.role)) {
     router.push({ name: 'login', query: { redirect: route.fullPath } })
     return
   }
@@ -263,7 +264,7 @@ async function addRelated(id: string) {
             {{ product.stock > 0 ? `Còn ${product.stock} sản phẩm` : 'Hết hàng' }}
           </p>
 
-          <div v-if="(auth.role === 'customer' || auth.role === 'guest') && product.stock > 0" class="elegant-product__qty">
+          <div v-if="(canShopAsBuyer(auth.role) || auth.role === 'guest') && product.stock > 0" class="elegant-product__qty">
             <span class="elegant-product__qty-label">Số lượng</span>
             <QuantityStepper v-model="qty" variant="pill" :min="1" :max="Math.max(product.stock, 1)" />
           </div>
@@ -408,7 +409,7 @@ async function addRelated(id: string) {
             v-for="p in related"
             :key="p.id"
             :product="p"
-            :show-add="auth.role === 'guest' || auth.role === 'customer'"
+            :show-add="auth.role === 'guest' || canShopAsBuyer(auth.role)"
             @add="addRelated"
           />
         </div>

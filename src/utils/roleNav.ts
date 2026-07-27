@@ -1,5 +1,10 @@
 import type { UserRole } from '@/types'
 
+/** Customer + seller đều được mua hàng (giỏ, checkout, đơn mua, đánh giá). */
+export function canShopAsBuyer(role: UserRole | null | undefined): boolean {
+  return role === 'customer' || role === 'seller'
+}
+
 /** Trang chủ chế độ vận hành theo role (seller/manager/admin) */
 export function roleOpsHome(role: UserRole): string | null {
   switch (role) {
@@ -41,7 +46,14 @@ const PUBLIC_PREFIXES = ['/', '/search', '/products', '/login', '/register']
 
 const ROLE_PREFIXES: Record<Exclude<UserRole, 'guest'>, string[]> = {
   customer: ['/profile', '/role-upgrade', '/cart', '/checkout', '/orders', '/recommendations', '/chatbot'],
-  seller: ['/seller'],
+  seller: [
+    '/seller',
+    '/profile',
+    '/cart',
+    '/checkout',
+    '/orders',
+    '/recommendations',
+  ],
   manager: ['/manager', '/chatbot'],
   admin: ['/admin', '/chatbot'],
 }
@@ -77,8 +89,10 @@ export function footerLinksForRole(role: UserRole): FooterLink[] {
     links.push({ to: '/orders', label: 'Đơn hàng' })
   }
   if (role === 'seller') {
+    links.push({ to: '/cart', label: 'Giỏ hàng' })
+    links.push({ to: '/orders', label: 'Đơn mua' })
     links.push({ to: '/seller/products', label: 'Quản lý SP' })
-    links.push({ to: '/seller/orders', label: 'Đơn hàng' })
+    links.push({ to: '/seller/orders', label: 'Đơn bán' })
   }
   if (role === 'manager') {
     links.push({ to: '/manager/dashboard', label: 'Dashboard' })

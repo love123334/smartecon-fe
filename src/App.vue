@@ -7,7 +7,7 @@ import CenterNotice from '@/components/CenterNotice.vue'
 import ChatSupportFab from '@/components/ChatSupportFab.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
-import { footerLinksForRole } from '@/utils/roleNav'
+import { canShopAsBuyer, footerLinksForRole } from '@/utils/roleNav'
 import { roleAiFooterLinks } from '@/utils/roleAiNav'
 
 const auth = useAuthStore()
@@ -33,7 +33,7 @@ const isShopPage = computed(() => {
 
 onMounted(async () => {
   await auth.hydrate()
-  if (auth.role === 'customer') {
+  if (canShopAsBuyer(auth.role)) {
     await cart.refresh()
   }
 })
