@@ -19,15 +19,15 @@ export type ForecastPeriodKey = '7' | '30' | '90'
 export type HistoricalWindowKey = '30' | '90' | '180'
 
 export const FORECAST_PERIOD_OPTIONS = [
-  { value: '7' as const, label: 'Next 7 Days', days: 7 },
-  { value: '30' as const, label: 'Next 30 Days', days: 30 },
-  { value: '90' as const, label: 'Next 90 Days', days: 90 },
+  { value: '7' as const, label: '7 ngày tới', days: 7 },
+  { value: '30' as const, label: '30 ngày tới', days: 30 },
+  { value: '90' as const, label: '90 ngày tới', days: 90 },
 ]
 
 export const HISTORICAL_WINDOW_OPTIONS = [
-  { value: '30' as const, label: 'Last 30 Days', days: 30 },
-  { value: '90' as const, label: 'Last 90 Days', days: 90 },
-  { value: '180' as const, label: 'Last 180 Days', days: 180 },
+  { value: '30' as const, label: '30 ngày gần nhất', days: 30 },
+  { value: '90' as const, label: '90 ngày gần nhất', days: 90 },
+  { value: '180' as const, label: '180 ngày gần nhất', days: 180 },
 ]
 
 export interface DemandForecastResult {

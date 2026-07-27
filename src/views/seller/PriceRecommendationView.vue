@@ -9,7 +9,7 @@ import {
   type PriceRecommendationResult,
 } from '@/utils/dssPriceMock'
 
-const productId = ref(PRICE_PRODUCTS.find((p) => p.id === 'p100')?.id ?? PRICE_PRODUCTS[0].id)
+const productId = ref(PRICE_PRODUCTS.find((p) => p.id === '1')?.id ?? PRICE_PRODUCTS[0].id)
 const fromDate = ref('')
 const toDate = ref('')
 const result = ref<PriceRecommendationResult | null>(null)
@@ -49,119 +49,113 @@ onMounted(() => {
   <div class="dss-page">
     <header class="dss-page__header">
       <nav class="dss-crumb">
-        <RouterLink to="/seller/products">Seller Dashboard</RouterLink>
+        <RouterLink to="/seller/products">Bảng điều khiển người bán</RouterLink>
         <span>/</span>
         <RouterLink to="/seller/dss">DSS</RouterLink>
         <span>/</span>
-        <span>Price Recommendation</span>
+        <span>Gợi ý giá</span>
       </nav>
-      <h1>Generate Price Recommendation</h1>
+      <h1>Tạo gợi ý giá bán</h1>
       <p class="dss-page__sub">
-        Analyze price elasticity and recommend an optimal selling price from historical sales.
+        Phân tích độ co giãn giá và đề xuất mức giá tối ưu từ doanh số lịch sử.
       </p>
     </header>
 
-    <!-- Filters -->
     <section class="dss-card">
-      <h2 class="dss-card__title">Filters</h2>
+      <h2 class="dss-card__title">Bộ lọc</h2>
       <div class="dss-form-grid dss-form-grid--4">
         <label class="dss-field">
-          <span>Product</span>
+          <span>Sản phẩm</span>
           <select v-model="productId" class="dss-input">
             <option v-for="p in PRICE_PRODUCTS" :key="p.id" :value="p.id">{{ p.name }}</option>
           </select>
         </label>
         <label class="dss-field">
-          <span>From Date</span>
+          <span>Từ ngày</span>
           <input v-model="fromDate" type="date" class="dss-input" />
         </label>
         <label class="dss-field">
-          <span>To Date</span>
+          <span>Đến ngày</span>
           <input v-model="toDate" type="date" class="dss-input" />
         </label>
         <div class="dss-field dss-field--action">
           <span>&nbsp;</span>
           <button type="button" class="dss-btn dss-btn--primary" @click="generate">
-            Generate Recommendation
+            Tạo gợi ý giá
           </button>
         </div>
       </div>
     </section>
 
     <template v-if="result">
-      <!-- KPI -->
       <section class="dss-kpi-grid dss-kpi-grid--5">
         <article class="dss-kpi">
-          <span class="dss-kpi__label">Current Price</span>
+          <span class="dss-kpi__label">Giá hiện tại</span>
           <strong>{{ money(result.currentPrice) }}</strong>
         </article>
         <article class="dss-kpi dss-kpi--accent">
-          <span class="dss-kpi__label">Recommended Price</span>
+          <span class="dss-kpi__label">Giá đề xuất</span>
           <strong>{{ money(result.recommendedPrice) }}</strong>
         </article>
         <article class="dss-kpi">
-          <span class="dss-kpi__label">Price Change (%)</span>
+          <span class="dss-kpi__label">Thay đổi giá (%)</span>
           <strong class="dss-pos">+{{ result.priceChangePct }}%</strong>
         </article>
         <article class="dss-kpi">
-          <span class="dss-kpi__label">Price Elasticity</span>
+          <span class="dss-kpi__label">Độ co giãn giá</span>
           <strong>{{ result.priceElasticity }}</strong>
         </article>
         <article class="dss-kpi">
-          <span class="dss-kpi__label">Expected Revenue</span>
+          <span class="dss-kpi__label">Doanh thu kỳ vọng</span>
           <strong>{{ money(result.expectedRevenue) }}</strong>
         </article>
       </section>
 
       <div class="dss-two-col">
-        <!-- Result -->
         <section class="dss-card">
-          <h2 class="dss-card__title">Recommendation Result</h2>
-          <p class="dss-meta"><span>Current Price</span>{{ money(result.currentPrice) }}</p>
-          <p class="dss-meta"><span>Recommended Price</span>{{ money(result.recommendedPrice) }}</p>
-          <p class="dss-meta"><span>Estimated Demand</span>{{ result.predictedDemand }} units</p>
-          <p class="dss-meta"><span>Current Demand</span>{{ result.currentDemand }} units</p>
-          <p class="dss-meta"><span>Expected Revenue</span>{{ money(result.expectedRevenue) }}</p>
-          <p class="dss-meta"><span>Price Elasticity</span>{{ result.priceElasticity }}</p>
+          <h2 class="dss-card__title">Kết quả gợi ý</h2>
+          <p class="dss-meta"><span>Giá hiện tại</span>{{ money(result.currentPrice) }}</p>
+          <p class="dss-meta"><span>Giá đề xuất</span>{{ money(result.recommendedPrice) }}</p>
+          <p class="dss-meta"><span>Nhu cầu ước tính</span>{{ result.predictedDemand }} đơn vị</p>
+          <p class="dss-meta"><span>Nhu cầu hiện tại</span>{{ result.currentDemand }} đơn vị</p>
+          <p class="dss-meta"><span>Doanh thu kỳ vọng</span>{{ money(result.expectedRevenue) }}</p>
+          <p class="dss-meta"><span>Độ co giãn giá</span>{{ result.priceElasticity }}</p>
           <div class="dss-msg">
-            <strong>Recommendation Message</strong>
+            <strong>Thông điệp gợi ý</strong>
             <p>{{ result.recommendationMessage }}</p>
           </div>
         </section>
 
-        <!-- Insight -->
         <section class="dss-card dss-insight" :class="`dss-insight--${result.recommendationAction}`">
-          <h2 class="dss-card__title">Recommendation Insight</h2>
+          <h2 class="dss-card__title">Nhận định</h2>
           <p class="dss-insight__badge">{{ result.insightTitle }}</p>
           <p>{{ result.insightBody }}</p>
           <ul>
-            <li>Demand: {{ result.currentDemand }} → {{ result.predictedDemand }} units</li>
-            <li>Revenue impact prioritized over volume</li>
-            <li>Elasticity {{ result.priceElasticity }} (relatively inelastic)</li>
+            <li>Nhu cầu: {{ result.currentDemand }} → {{ result.predictedDemand }} đơn vị</li>
+            <li>Ưu tiên doanh thu hơn sản lượng</li>
+            <li>Độ co giãn {{ result.priceElasticity }} (tương đối kém co giãn)</li>
           </ul>
         </section>
       </div>
 
-      <!-- Chart -->
       <section class="dss-card">
-        <h2 class="dss-card__title">Price vs Quantity Sold</h2>
+        <h2 class="dss-card__title">Giá bán trung bình vs Số lượng bán</h2>
         <p class="dss-hint">
-          Dual-axis chart: when price rises, quantity sold tends to fall — basis for elasticity.
+          Biểu đồ 2 trục: khi giá tăng, số lượng bán thường giảm — cơ sở tính độ co giãn.
         </p>
         <PriceQuantityChart :data="result.chart" />
       </section>
 
-      <!-- History -->
       <section class="dss-card">
-        <h2 class="dss-card__title">History Data</h2>
+        <h2 class="dss-card__title">Dữ liệu lịch sử</h2>
         <div class="dss-table-wrap">
           <table class="dss-table">
             <thead>
               <tr>
-                <th>Date</th>
-                <th>Average Price</th>
-                <th>Quantity Sold</th>
-                <th>Elasticity</th>
+                <th>Ngày</th>
+                <th>Giá TB</th>
+                <th>Số lượng bán</th>
+                <th>Độ co giãn</th>
               </tr>
             </thead>
             <tbody>

@@ -132,13 +132,19 @@ const router = createRouter({
       path: '/seller/dss/demand',
       name: 'seller-dss-demand',
       component: () => import('@/views/seller/DemandPredictionView.vue'),
-      meta: { roles: ['seller'], title: 'Demand Prediction' },
+      meta: { roles: ['seller'], title: 'Dự báo nhu cầu' },
     },
     {
       path: '/seller/dss/price',
       name: 'seller-dss-price',
       component: () => import('@/views/seller/PriceRecommendationView.vue'),
-      meta: { roles: ['seller'], title: 'Price Recommendation' },
+      meta: { roles: ['seller'], title: 'Gợi ý giá' },
+    },
+    {
+      path: '/seller/dss/inventory',
+      name: 'seller-dss-inventory',
+      component: () => import('@/views/seller/InventoryRecommendationView.vue'),
+      meta: { roles: ['seller'], title: 'Khuyến nghị tồn kho' },
     },
     {
       path: '/seller/chatbot',

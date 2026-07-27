@@ -82,7 +82,7 @@ export function generatePriceRecommendation(input: {
   }
 
   const recommendationMessage = isUsdDemo
-    ? `The product shows relatively inelastic demand (Elasticity = ${elasticity}). Increasing the price by ${priceChangePct}% is expected to slightly reduce demand while increasing total revenue. Therefore, the DSS recommends increasing the selling price to $${recommended}.`
+    ? `Sản phẩm có nhu cầu tương đối kém co giãn (Elasticity = ${elasticity}). Tăng giá ${priceChangePct}% dự kiến giảm nhẹ nhu cầu nhưng tăng tổng doanh thu. DSS khuyến nghị điều chỉnh giá bán lên $${recommended}.`
     : `Sản phẩm có nhu cầu tương đối kém co giãn (Elasticity = ${elasticity}). Tăng giá ${priceChangePct}% dự kiến giảm nhẹ nhu cầu nhưng tăng tổng doanh thu. DSS khuyến nghị điều chỉnh giá bán lên ${formatVnd(recommended)}.`
 
   return {
@@ -96,9 +96,9 @@ export function generatePriceRecommendation(input: {
     expectedRevenue,
     recommendationAction: 'increase',
     recommendationMessage,
-    insightTitle: 'Increase selling price',
+    insightTitle: 'Nên tăng giá bán',
     insightBody: isUsdDemo
-      ? `Increase the selling price by ${priceChangePct}% because the expected revenue increases while the demand reduction is acceptable.`
+      ? `Nên tăng giá ${priceChangePct}% vì doanh thu kỳ vọng tăng trong khi mức giảm nhu cầu vẫn chấp nhận được.`
       : `Nên tăng giá ${priceChangePct}% vì doanh thu kỳ vọng tăng trong khi mức giảm nhu cầu vẫn chấp nhận được.`,
     history: history.reverse(),
     chart,
@@ -107,7 +107,7 @@ export function generatePriceRecommendation(input: {
 
 /** Preload sample so dashboard never looks empty */
 export function defaultPriceRecommendation(): PriceRecommendationResult {
-  const product = PRICE_PRODUCTS.find((p) => p.id === 'p100') ?? PRICE_PRODUCTS[0]
+  const product = PRICE_PRODUCTS.find((p) => p.id === '1') ?? PRICE_PRODUCTS[0]
   const to = new Date()
   const from = new Date()
   from.setDate(from.getDate() - 30)

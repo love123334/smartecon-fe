@@ -367,6 +367,105 @@
   line-height: 1.5;
 }
 
+.dss-badge {
+  display: inline-block;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.dss-badge--danger {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.dss-badge--success {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.dss-status-panel--need {
+  border-left: 4px solid #c62828;
+}
+
+.dss-status-panel--sufficient {
+  border-left: 4px solid #2e7d32;
+}
+
+.dss-status-panel__msg {
+  margin: 0.75rem 0 0.35rem;
+  line-height: 1.55;
+  color: #37474f;
+}
+
+.dss-kpi__icon {
+  display: block;
+  font-size: 1.15rem;
+  margin-bottom: 0.25rem;
+}
+
+.dss-empty {
+  text-align: center;
+  padding: 3rem 1.5rem;
+  background: #fff;
+  border: 1px dashed #cfd8dc;
+  border-radius: 14px;
+  margin-bottom: 1rem;
+}
+
+.dss-empty__art {
+  font-size: 3rem;
+  margin-bottom: 0.5rem;
+}
+
+.dss-empty h2 {
+  margin: 0 0 0.4rem;
+  font-size: 1.15rem;
+  color: #455a64;
+}
+
+.dss-empty p {
+  margin: 0;
+  color: var(--dss-muted);
+}
+
+.dss-skel {
+  background: linear-gradient(90deg, #eceff1 25%, #f5f7fa 37%, #eceff1 63%);
+  background-size: 400% 100%;
+  animation: dss-skel 1.2s ease infinite;
+  border-radius: 12px;
+  margin-bottom: 1rem;
+}
+
+.dss-skel--kpi {
+  height: 96px;
+}
+
+.dss-skel--panel {
+  height: 120px;
+}
+
+.dss-skel--table {
+  height: 200px;
+}
+
+.dss-skel--chart {
+  height: 300px;
+  margin-bottom: 0;
+}
+
+@keyframes dss-skel {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: 0 0;
+  }
+}
+
 @media (max-width: 960px) {
   .dss-form-grid,
   .dss-form-grid--4,

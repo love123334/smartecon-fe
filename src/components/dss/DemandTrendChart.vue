@@ -29,10 +29,10 @@ const chartData = computed(() => {
   const fcMap = new Map(props.forecast.map((f) => [f.day, f.qty]))
 
   return {
-    labels: labels.map((d) => `Day ${d}`),
+    labels: labels.map((d) => `Ngày ${d}`),
     datasets: [
       {
-        label: 'Historical Sales',
+        label: 'Doanh số lịch sử',
         data: labels.map((d) => histMap.get(d) ?? null),
         borderColor: '#1976d2',
         backgroundColor: 'rgba(25, 118, 210, 0.12)',
@@ -43,7 +43,7 @@ const chartData = computed(() => {
         spanGaps: false,
       },
       {
-        label: 'Forecast',
+        label: 'Dự báo',
         data: labels.map((d) => fcMap.get(d) ?? null),
         borderColor: '#f57c00',
         backgroundColor: 'transparent',
@@ -67,11 +67,11 @@ const options = {
   },
   scales: {
     x: {
-      title: { display: true, text: 'Historical Days' },
+      title: { display: true, text: 'Ngày lịch sử' },
       grid: { color: 'rgba(0,0,0,0.04)' },
     },
     y: {
-      title: { display: true, text: 'Quantity Sold' },
+      title: { display: true, text: 'Số lượng bán' },
       beginAtZero: true,
       grid: { color: 'rgba(0,0,0,0.06)' },
     },

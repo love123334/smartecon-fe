@@ -23,37 +23,44 @@ onMounted(async () => {
     <PageHeader
       eyebrow="Người bán"
       title="Hỗ trợ quyết định (DSS)"
-      lead="Dự báo nhu cầu (Moving Average) và gợi ý giá dựa trên độ co giãn — dashboard analytics."
+      lead="Dự báo nhu cầu, gợi ý giá và khuyến nghị bổ sung tồn kho — dashboard phân tích cho người bán."
     />
     <AiShortcutBar
       title="Tiếp theo:"
       :links="[
-        { to: '/seller/dss/demand', label: 'Demand Prediction', highlight: true },
-        { to: '/seller/dss/price', label: 'Price Recommendation', highlight: true },
+        { to: '/seller/dss/demand', label: 'Dự báo nhu cầu', highlight: true },
+        { to: '/seller/dss/price', label: 'Gợi ý giá', highlight: true },
+        { to: '/seller/dss/inventory', label: 'Khuyến nghị tồn kho', highlight: true },
         { to: '/seller/chatbot', label: 'Trợ lý AI' },
         { to: '/seller/sales', label: 'Bảng doanh số' },
       ]"
     />
     <HybridDataNotice
-      message="Demand Prediction & Price Recommendation đang dùng mock DSS (FE). Tồn kho / insights khác có thể lấy từ API seller khi đăng nhập."
+      message="Các trang DSS (nhu cầu, giá, tồn kho) đang dùng dữ liệu demo trên frontend. Khi đăng nhập seller, insight tồn kho có thể lấy thêm từ API."
     />
 
     <div class="dss-hub">
       <RouterLink class="dss-hub__card" to="/seller/dss/demand">
-        <span class="dss-hub__tag">Forecast</span>
-        <h2>Demand Prediction</h2>
-        <p>Moving Average · Next 7/30/90 days · trend chart + KPI cards.</p>
-        <span class="dss-hub__cta">Open →</span>
+        <span class="dss-hub__tag">Dự báo</span>
+        <h2>Dự báo nhu cầu</h2>
+        <p>Moving Average · 7/30/90 ngày · biểu đồ xu hướng và thẻ KPI.</p>
+        <span class="dss-hub__cta">Mở →</span>
       </RouterLink>
       <RouterLink class="dss-hub__card" to="/seller/dss/price">
-        <span class="dss-hub__tag">Pricing</span>
-        <h2>Price Recommendation</h2>
-        <p>Elasticity · dual-axis price/qty chart · history table · revenue impact.</p>
-        <span class="dss-hub__cta">Open →</span>
+        <span class="dss-hub__tag">Giá bán</span>
+        <h2>Gợi ý giá</h2>
+        <p>Hệ số co giãn · biểu đồ giá/số lượng · bảng lịch sử · tác động doanh thu.</p>
+        <span class="dss-hub__cta">Mở →</span>
+      </RouterLink>
+      <RouterLink class="dss-hub__card" to="/seller/dss/inventory">
+        <span class="dss-hub__tag">Tồn kho</span>
+        <h2>Khuyến nghị tồn kho</h2>
+        <p>ROP · số lượng nhập đề xuất · biểu đồ cột/đường · trạng thái bổ sung.</p>
+        <span class="dss-hub__cta">Mở →</span>
       </RouterLink>
     </div>
 
-    <h3 class="dss-hub__section">Quick insights</h3>
+    <h3 class="dss-hub__section">Gợi ý nhanh</h3>
     <div class="grid grid-2">
       <article v-for="i in insights" :key="i.id" class="card insight">
         <span :class="['impact', i.impact]">{{ i.impact }}</span>
@@ -68,7 +75,7 @@ onMounted(async () => {
 <style scoped>
 .dss-hub {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1rem;
   margin-bottom: 1.5rem;
 }
@@ -100,7 +107,7 @@ onMounted(async () => {
 }
 .dss-hub__card h2 {
   margin: 0.6rem 0 0.35rem;
-  font-size: 1.2rem;
+  font-size: 1.15rem;
   color: #0d47a1;
 }
 .dss-hub__card p {
@@ -142,7 +149,7 @@ onMounted(async () => {
   background: #d1fae5;
   color: #065f46;
 }
-@media (max-width: 720px) {
+@media (max-width: 900px) {
   .dss-hub {
     grid-template-columns: 1fr;
   }

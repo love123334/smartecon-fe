@@ -63,45 +63,43 @@ function backFromError() {
   <div class="dss-page">
     <header class="dss-page__header">
       <nav class="dss-crumb">
-        <RouterLink to="/seller/products">Seller Dashboard</RouterLink>
+        <RouterLink to="/seller/products">Bảng điều khiển người bán</RouterLink>
         <span>/</span>
         <RouterLink to="/seller/dss">DSS</RouterLink>
         <span>/</span>
-        <span>Demand Prediction</span>
+        <span>Dự báo nhu cầu</span>
       </nav>
-      <h1>Demand Prediction</h1>
+      <h1>Dự báo nhu cầu</h1>
       <p class="dss-page__sub">
-        Forecast future product demand based on historical sales using Moving Average.
+        Dự báo nhu cầu sản phẩm dựa trên doanh số lịch sử bằng phương pháp Moving Average.
       </p>
     </header>
 
-    <!-- Error state -->
     <section v-if="insufficient" class="dss-warn-card">
       <div class="dss-warn-card__icon" aria-hidden="true">⚠</div>
       <h2>Không đủ dữ liệu để tạo dự báo.</h2>
-      <p>Historical window quá dài hoặc sản phẩm chưa có đủ đơn hàng mẫu. Hãy chọn cửa sổ ngắn hơn.</p>
-      <button type="button" class="dss-btn dss-btn--outline" @click="backFromError">Back</button>
+      <p>Cửa sổ lịch sử quá dài hoặc sản phẩm chưa có đủ đơn hàng mẫu. Hãy chọn cửa sổ ngắn hơn.</p>
+      <button type="button" class="dss-btn dss-btn--outline" @click="backFromError">Quay lại</button>
     </section>
 
     <template v-else>
-      <!-- Config -->
       <section class="dss-card">
-        <h2 class="dss-card__title">Prediction Configuration</h2>
+        <h2 class="dss-card__title">Cấu hình dự báo</h2>
         <div class="dss-form-grid">
           <label class="dss-field">
-            <span>Product</span>
+            <span>Sản phẩm</span>
             <input
               v-model="productQuery"
               type="search"
               class="dss-input"
-              placeholder="Search product…"
+              placeholder="Tìm sản phẩm…"
             />
             <select v-model="productId" class="dss-input">
               <option v-for="p in filteredProducts" :key="p.id" :value="p.id">{{ p.name }}</option>
             </select>
           </label>
           <label class="dss-field">
-            <span>Forecast Period</span>
+            <span>Kỳ dự báo</span>
             <select v-model="forecastKey" class="dss-input">
               <option v-for="o in FORECAST_PERIOD_OPTIONS" :key="o.value" :value="o.value">
                 {{ o.label }}
@@ -109,7 +107,7 @@ function backFromError() {
             </select>
           </label>
           <label class="dss-field">
-            <span>Historical Data</span>
+            <span>Dữ liệu lịch sử</span>
             <select v-model="historicalKey" class="dss-input">
               <option v-for="o in HISTORICAL_WINDOW_OPTIONS" :key="o.value" :value="o.value">
                 {{ o.label }}
@@ -118,7 +116,7 @@ function backFromError() {
           </label>
         </div>
         <button type="button" class="dss-btn dss-btn--primary" @click="generate">
-          Generate Prediction
+          Tạo dự báo
         </button>
       </section>
 
@@ -127,48 +125,45 @@ function backFromError() {
       </div>
 
       <template v-if="result">
-        <!-- KPI -->
         <section class="dss-kpi-grid">
           <article class="dss-kpi">
-            <span class="dss-kpi__label">Average Daily Demand</span>
-            <strong>{{ result.averageDailyDemand }} Units</strong>
+            <span class="dss-kpi__label">Nhu cầu TB / ngày</span>
+            <strong>{{ result.averageDailyDemand }} đơn vị</strong>
           </article>
           <article class="dss-kpi">
-            <span class="dss-kpi__label">Forecast Demand</span>
-            <strong>{{ result.predictedDemand }} Units</strong>
+            <span class="dss-kpi__label">Nhu cầu dự báo</span>
+            <strong>{{ result.predictedDemand }} đơn vị</strong>
           </article>
           <article class="dss-kpi">
-            <span class="dss-kpi__label">Historical Days</span>
+            <span class="dss-kpi__label">Số ngày lịch sử</span>
             <strong>{{ result.historicalDays }}</strong>
           </article>
           <article class="dss-kpi">
-            <span class="dss-kpi__label">Forecast Days</span>
+            <span class="dss-kpi__label">Số ngày dự báo</span>
             <strong>{{ result.forecastDays }}</strong>
           </article>
         </section>
 
-        <!-- Result -->
         <section class="dss-card">
-          <h2 class="dss-card__title">Prediction Result</h2>
+          <h2 class="dss-card__title">Kết quả dự báo</h2>
           <div class="dss-result-grid">
             <div>
-              <p class="dss-meta"><span>Product Name</span>{{ result.productName }}</p>
-              <p class="dss-meta"><span>Historical Window</span>{{ result.historicalWindowLabel }}</p>
-              <p class="dss-meta"><span>Forecast Period</span>{{ result.forecastPeriodLabel }}</p>
-              <p class="dss-meta"><span>Average Daily Demand</span>{{ result.averageDailyDemand }} Units</p>
-              <p class="dss-meta"><span>Generated Time</span>{{ result.generatedAt }}</p>
+              <p class="dss-meta"><span>Tên sản phẩm</span>{{ result.productName }}</p>
+              <p class="dss-meta"><span>Cửa sổ lịch sử</span>{{ result.historicalWindowLabel }}</p>
+              <p class="dss-meta"><span>Kỳ dự báo</span>{{ result.forecastPeriodLabel }}</p>
+              <p class="dss-meta"><span>Nhu cầu TB / ngày</span>{{ result.averageDailyDemand }} đơn vị</p>
+              <p class="dss-meta"><span>Thời điểm tạo</span>{{ result.generatedAt }}</p>
             </div>
             <div class="dss-highlight">
-              <span>Predicted Demand</span>
+              <span>Nhu cầu dự báo</span>
               <strong>{{ result.predictedDemand }}</strong>
-              <em>Units</em>
+              <em>đơn vị</em>
             </div>
           </div>
         </section>
 
-        <!-- Chart -->
         <section class="dss-card">
-          <h2 class="dss-card__title">Demand Trend Chart</h2>
+          <h2 class="dss-card__title">Biểu đồ xu hướng nhu cầu</h2>
           <DemandTrendChart
             :historical="result.historicalSales"
             :forecast="result.forecastSales"
