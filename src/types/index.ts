@@ -27,6 +27,8 @@ export interface Product {
   stock: number
   category: string
   imageUrl: string
+  /** Gallery URLs (primary first) — always prefer ≥3 for PDP thumbs */
+  imageUrls?: string[]
   sellerId: string
   /** Email người bán — từ API product detail */
   sellerEmail?: string

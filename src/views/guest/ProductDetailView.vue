@@ -24,6 +24,7 @@ const product = ref<Product | null>(null)
 const related = ref<Product[]>([])
 const myOrders = ref<Order[]>([])
 const qty = ref(1)
+const activeImage = ref(0)
 const activeTab = ref<'info' | 'questions' | 'reviews'>('reviews')
 const auth = useAuthStore()
 const cart = useCartStore()
@@ -34,6 +35,16 @@ const showReviewForm = ref(false)
 const reviewForm = ref({ rating: 5, comment: '' })
 const reviewError = ref('')
 const reviewSaving = ref(false)
+
+const gallery = computed(() => {
+  if (!product.value) return []
+  const urls = product.value.imageUrls?.length
+    ? product.value.imageUrls
+    : [product.value.imageUrl]
+  return urls.filter(Boolean).slice(0, 5)
+})
+
+const mainImage = computed(() => gallery.value[activeImage.value] ?? product.value?.imageUrl ?? '')
 
 const discount = computed(() => (product.value ? getDiscountPercent(product.value) : 0))
 const isNew = computed(() => (product.value ? product.value.soldCount < 40 : false))
@@ -98,6 +109,7 @@ onMounted(async () => {
   const [p, all] = await Promise.all([productApi.getById(id), productApi.list()])
   if (!p) return
   product.value = p
+  activeImage.value = 0
   related.value = all
     .filter((x) => x.category === p.category && x.id !== p.id)
     .slice(0, 4)
@@ -233,11 +245,19 @@ async function addRelated(id: string) {
               <span v-if="isNew" class="elegant-badge elegant-badge--dark">Mới</span>
               <span v-if="discount > 0" class="elegant-badge elegant-badge--green">-{{ discount }}%</span>
             </div>
-            <img :src="product.imageUrl" :alt="product.name" />
+            <img :src="mainImage" :alt="product.name" />
           </div>
           <div class="elegant-product__thumbs">
-            <button type="button" class="elegant-product__thumb elegant-product__thumb--active" aria-label="Ảnh 1">
-              <img :src="product.imageUrl" :alt="product.name" />
+            <button
+              v-for="(url, idx) in gallery"
+              :key="`${url}-${idx}`"
+              type="button"
+              class="elegant-product__thumb"
+              :class="{ 'elegant-product__thumb--active': idx === activeImage }"
+              :aria-label="`Ảnh ${idx + 1}`"
+              @click="activeImage = idx"
+            >
+              <img :src="url" :alt="`${product.name} ${idx + 1}`" />
             </button>
           </div>
         </div>

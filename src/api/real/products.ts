@@ -22,6 +22,7 @@ export interface BackendProductResponse {
   sellerStoreName?: string
   sellerEmail?: string
   sellerPhone?: string
+  primaryImageUrl?: string | null
   createdAt?: string
 }
 
@@ -47,7 +48,34 @@ function num(v: number | string | undefined, fallback = 0): number {
   return typeof v === 'number' ? v : Number(v)
 }
 
+/** Stable placeholder set (3) when a product has no/insufficient images */
+export function placeholderImages(seed: string | number): string[] {
+  const s = encodeURIComponent(String(seed))
+  return [
+    `https://picsum.photos/seed/${s}-a/800/800`,
+    `https://picsum.photos/seed/${s}-b/800/800`,
+    `https://picsum.photos/seed/${s}-c/800/800`,
+  ]
+}
+
+export function ensureThreeImages(urls: string[], seed: string | number): string[] {
+  const cleaned = urls.map((u) => u.trim()).filter(Boolean)
+  if (cleaned.length >= 3) return cleaned.slice(0, 5)
+  const pads = placeholderImages(seed)
+  const out = [...cleaned]
+  for (const p of pads) {
+    if (out.length >= 3) break
+    if (!out.includes(p)) out.push(p)
+  }
+  while (out.length < 3) {
+    out.push(pads[out.length % pads.length])
+  }
+  return out
+}
+
 export function mapProductSummary(p: BackendProductResponse): Product {
+  const placeholders = placeholderImages(p.id)
+  const imageUrl = (p.primaryImageUrl && p.primaryImageUrl.trim()) || placeholders[0]
   return {
     id: String(p.id),
     name: p.name,
@@ -55,7 +83,8 @@ export function mapProductSummary(p: BackendProductResponse): Product {
     price: num(p.price),
     stock: 0,
     category: p.categoryName ?? 'Khác',
-    imageUrl: `https://picsum.photos/seed/prod-${p.id}/400/400`,
+    imageUrl,
+    imageUrls: ensureThreeImages([imageUrl], p.id),
     sellerId: p.sellerId != null ? String(p.sellerId) : '',
     sellerEmail: p.sellerEmail,
     sellerPhone: p.sellerPhone,
@@ -68,11 +97,17 @@ export function mapProductSummary(p: BackendProductResponse): Product {
 }
 
 export function mapProductDetail(p: BackendProductDetail): Product {
-  const primary = p.images?.find((i) => i.isPrimary) ?? p.images?.[0]
+  const ordered = [...(p.images ?? [])].sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary))
+  const urls = ensureThreeImages(
+    ordered.map((i) => i.imageUrl),
+    p.id,
+  )
+  const primary = urls[0]
   return {
     ...mapProductSummary(p),
     description: p.description ?? '',
-    imageUrl: primary?.imageUrl ?? `https://picsum.photos/seed/prod-${p.id}/400/400`,
+    imageUrl: primary,
+    imageUrls: urls,
     sellerId: p.sellerId != null ? String(p.sellerId) : '',
     sellerEmail: p.sellerEmail,
     sellerPhone: p.sellerPhone,
@@ -127,17 +162,16 @@ export async function createProduct(input: ProductWriteInput): Promise<Product> 
     status: 'ACTIVE',
   }
   if (input.categoryId) body.categoryId = input.categoryId
-  if (input.imageUrl) {
-    body.images = [
-      {
-        imageUrl: input.imageUrl,
-        publicId: input.imagePublicId || `ext-${Date.now()}`,
-        isPrimary: true,
-      },
-    ]
-  }
+  const pads = placeholderImages(input.name || Date.now())
+  const primaryUrl = input.imageUrl || pads[0]
+  const primaryId = input.imagePublicId || `ext-${Date.now()}`
+  body.images = [
+    { imageUrl: primaryUrl, publicId: primaryId, isPrimary: true },
+    { imageUrl: pads[1], publicId: `${primaryId}-2`, isPrimary: false },
+    { imageUrl: pads[2], publicId: `${primaryId}-3`, isPrimary: false },
+  ]
   const data = await http.post<BackendProductResponse>(apiPaths.products.list, body)
-  return mapProductSummary(data)
+  return mapProductSummary({ ...data, primaryImageUrl: primaryUrl })
 }
 
 export async function updateProduct(
@@ -149,8 +183,20 @@ export async function updateProduct(
   if (input.description != null) body.description = input.description
   if (input.price != null) body.price = input.price
   if (input.categoryId != null) body.categoryId = input.categoryId
+  if (input.imageUrl) {
+    const pads = placeholderImages(id)
+    const publicId = input.imagePublicId || `ext-${Date.now()}`
+    body.images = [
+      { imageUrl: input.imageUrl, publicId, isPrimary: true },
+      { imageUrl: pads[1], publicId: `${publicId}-2`, isPrimary: false },
+      { imageUrl: pads[2], publicId: `${publicId}-3`, isPrimary: false },
+    ]
+  }
   const data = await http.put<BackendProductResponse>(apiPaths.products.byId(id), body)
-  return mapProductSummary(data)
+  return mapProductSummary({
+    ...data,
+    primaryImageUrl: input.imageUrl ?? data.primaryImageUrl,
+  })
 }
 
 export async function deleteProduct(id: string): Promise<void> {
