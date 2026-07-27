@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { formatVnd, orderApi } from '@/api/services'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
+import { trySiteFx } from '@/utils/siteFx'
 import QuantityStepper from '@/components/QuantityStepper.vue'
 import CheckoutStepper from '@/components/CheckoutStepper.vue'
 import NewsletterBanner from '@/components/NewsletterBanner.vue'
@@ -43,6 +44,10 @@ onMounted(async () => {
 })
 
 function applyCoupon() {
+  if (trySiteFx(coupon.value)) {
+    coupon.value = ''
+    return
+  }
   if (coupon.value.trim().toUpperCase() === 'SEDSP30') {
     couponApplied.value = true
   }
@@ -193,7 +198,12 @@ async function placeOrder() {
           </ul>
 
           <div class="elegant-coupon__form elegant-coupon__form--compact">
-            <input v-model="coupon" type="text" placeholder="Mã giảm giá" />
+            <input
+              v-model="coupon"
+              type="text"
+              placeholder="Mã giảm giá"
+              @keyup.enter="applyCoupon"
+            />
             <button type="button" class="btn-elegant-primary btn-interactive" @click="applyCoupon">Áp dụng</button>
           </div>
           <p v-if="couponApplied" class="elegant-coupon-applied">
