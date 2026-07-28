@@ -4,11 +4,12 @@ import { orderStatusLabel } from '@/utils/orderStatus'
 
 const ROLE_GUIDE: Record<string, string> = {
   customer:
-    'Hỗ trợ khách mua sắm: catalog API, giỏ hàng, thanh toán, giao hàng, đơn hàng, gợi ý AI, đánh giá SP, đổi trả.',
-  guest: 'Tư vấn khách chưa đăng nhập: sản phẩm/danh mục từ API, chính sách shop, đăng ký/đăng nhập.',
+    'Hỗ trợ khách mua sắm: catalog API (danh mục tiếng Việt), giỏ hàng, thanh toán, giao hàng, đơn hàng, gợi ý AI, đánh giá SP, đổi trả. Link SP dạng /products/{id}.',
+  guest: 'Tư vấn khách chưa đăng nhập: sản phẩm/danh mục VI từ API, chính sách shop, đăng ký/đăng nhập.',
   seller:
-    'Hỗ trợ người bán: doanh số API, dashboard, tồn kho, top SP, đơn gần đây, DSS insights, khuyến mãi.',
-  manager: 'Hỗ trợ quản lý: KPI đơn hàng API, insights DSS, phân khúc, what-if, xu hướng.',
+    'Hỗ trợ người bán: doanh số API, dashboard, tồn kho, top SP, đơn bán, DSS (dự báo nhu cầu, khuyến nghị giá, tồn kho, what-if giảm giá). Seller cũng mua như khách: giỏ hàng + đơn mua (/orders).',
+  manager:
+    'Hỗ trợ quản lý: KPI đơn hàng API, insights DSS, phân khúc, what-if so sánh khuyến mãi (/manager/dss/what-if), xu hướng danh mục.',
   admin: 'Hỗ trợ admin: users API, trạng thái hệ thống, RBAC, cảnh báo, cấu hình.',
 }
 
@@ -32,10 +33,20 @@ function serializeContext(ctx: ChatContext): string {
   }
 
   if (ctx.orders.length) {
-    lines.push(`Đơn hàng (${ctx.orders.length}):`)
+    const label = ctx.role === 'seller' ? 'Đơn bán' : 'Đơn hàng'
+    lines.push(`${label} (${ctx.orders.length}):`)
     for (const o of ctx.orders.slice(0, 8)) {
       lines.push(
         `- #${o.id} | ${orderStatusLabel(o.status)} | ${formatVnd(o.total)} | ${o.items.map((i) => i.productName).join(', ')}`,
+      )
+    }
+  }
+
+  if (ctx.purchaseOrders.length && ctx.role === 'seller') {
+    lines.push(`Đơn mua (seller-as-buyer) (${ctx.purchaseOrders.length}):`)
+    for (const o of ctx.purchaseOrders.slice(0, 5)) {
+      lines.push(
+        `- #${o.id} | ${orderStatusLabel(o.status)} | ${formatVnd(o.total)}`,
       )
     }
   }
@@ -131,7 +142,9 @@ NHIỆM VỤ: ${ROLE_GUIDE[ctx.role] ?? ROLE_GUIDE.customer}
 
 QUY TẮC:
 - Trả lời bằng tiếng Việt (hoặc tiếng Anh nếu user hỏi English), thân thiện, súc tích.
-- Ưu tiên số liệu trong CONTEXT từ API backend; không bịa.
+- Ưu tiên số liệu trong CONTEXT từ API backend; không bịa số liệu catalog/đơn.
+- Danh mục đang dùng tiếng Việt (Điện thoại, Laptop, Thời trang nam/nữ, Giày dép, Chăm sóc da, Nhà bếp…).
+- DSS seller/manager: có thể tóm tắt engine demo (demand/price/inventory/what-if) và hướng dẫn mở đúng màn hình UI.
 - Gợi ý module UI: Cửa hàng, Giỏ hàng, Đơn hàng, Gợi ý AI, DSS, Dashboard...
 - Thiếu dữ liệu → hướng dẫn bước tiếp hoặc chuyển CSKH (customer@sedsp.vn, manager@sedsp.vn).
 - Dùng **in đậm** cho số liệu quan trọng.
@@ -139,4 +152,4 @@ QUY TẮC:
 CONTEXT (API + mock):
 ${serializeContext(ctx)}`
 }
-
+

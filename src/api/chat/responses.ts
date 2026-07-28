@@ -1,6 +1,14 @@
 import type { ChatContext } from '@/api/chat/context'
 import type { ChatIntent } from '@/api/chat/intents'
 import { apiConfig } from '@/api/config'
+import {
+  demandBrief,
+  extractDiscountPct,
+  inventoryDssBrief,
+  managerWhatIfBrief,
+  priceBrief,
+  sellerWhatIfBrief,
+} from '@/api/chat/dssBrief'
 import { formatVnd, normalizeText } from '@/api/chat/match'
 import {
   cheapestProducts,
@@ -8,6 +16,7 @@ import {
   findProductsByQuery,
   productsUnderBudget,
 } from '@/api/chat/products'
+import { matchCategoryFromText } from '@/api/chat/synonyms'
 import type { Order, Product } from '@/types'
 import { orderStatusLabel } from '@/utils/orderStatus'
 
@@ -23,7 +32,8 @@ export function productLines(products: Product[], limit = 4): string {
     .map((p) => {
       const shop = p.shopName ? ` (${p.shopName})` : ''
       const stockNote = p.stock <= 0 ? ' (hết hàng)' : p.stock < 10 ? ` (còn ${p.stock})` : ''
-      return `• ${p.name}${shop} — ${formatVnd(p.price)}${stockNote}`
+      const link = p.id ? ` → /products/${p.id}` : ''
+      return `• **${p.name}**${shop} — ${formatVnd(p.price)}${stockNote}${link}`
     })
     .join('\n')
 }
@@ -51,13 +61,13 @@ function formatOrderSummary(orders: Order[], limit = 3): string {
 export function roleHelpHints(role: ChatContext['role']): string {
   switch (role) {
     case 'seller':
-      return 'Gợi ý: "doanh thu tháng này", "SKU sắp hết", "kế hoạch khuyến mãi", "giá cạnh tranh".'
+      return 'Gợi ý: "doanh thu", "dự báo nhu cầu", "khuyến nghị giá", "what-if giảm 10%", "đơn mua của tôi", "SKU sắp hết".'
     case 'manager':
-      return 'Gợi ý: "KPI tháng này", "đơn chờ xử lý", "what-if giảm 10%", "danh mục tăng trưởng".'
+      return 'Gợi ý: "KPI tháng này", "đơn chờ", "what-if khuyến mãi 10%", "danh mục tăng trưởng".'
     case 'admin':
       return 'Gợi ý: "trạng thái hệ thống", "bao nhiêu user", "cảnh báo vận hành", "bảo mật JWT".'
     default:
-      return 'Gợi ý: "web bán gì", "lien he nguoi ban mon X", "giao hàng", "đơn của tôi", "tai nghe giá bao nhiêu".'
+      return 'Gợi ý: "web bán gì", "điện thoại có gì", "dưới 2 triệu", "giỏ hàng", "tai nghe giá bao nhiêu".'
   }
 }
 
@@ -76,7 +86,7 @@ function categoryOverview(ctx: ChatContext): string {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 8)
     .map(([c, n]) => `• **${c}** (${n} SP)`)
-    .join('\n') || '• Điện tử · Thời trang · Sách · Phụ kiện'
+    .join('\n') || '• Điện thoại · Laptop · Thời trang · Nhà bếp · Chăm sóc da'
 }
 
 function shopOverviewReply(ctx: ChatContext): string {
@@ -86,14 +96,14 @@ function shopOverviewReply(ctx: ChatContext): string {
   const catCount = ctx.categories.length || new Set(ctx.products.map((p) => p.category)).size
   const offlineHint =
     !ctx.backendOnline && !apiConfig.useMock
-      ? '\n\n⚠ **Backend chưa kết nối** — chat đang dùng catalog mock (10 SP). Chạy `backend/` → `docker compose up -d` + `gradlew bootRun` để lấy **4 SP seed** từ Postgres.'
+      ? '\n\n⚠ **Backend chưa kết nối** — đang dùng catalog mock. Chạy Postgres + `gradlew bootRun` để lấy catalog thật (≈55 SP, danh mục tiếng Việt).'
       : ''
-  return `${name}**SEDSP** — sàn TMĐT + DSS & AI${apiNote(ctx)}.\n• **${total}** sản phẩm · **${catCount}** danh mục\n\n**Danh mục:**\n${categoryOverview(ctx)}\n\n**Nổi bật / bán chạy:**\n${top.length ? productLines(top, 5) : '• Xem **Cửa hàng**.'}\n\nHỏi tên SP, "giỏ hàng", "đơn của tôi" hoặc **what do you sell**.${offlineHint}`
+  return `${name}**SEDSP** — sàn TMĐT + DSS & AI${apiNote(ctx)}.\n• **${total}** sản phẩm · **${catCount}** danh mục\n\n**Danh mục:**\n${categoryOverview(ctx)}\n\n**Nổi bật / bán chạy:**\n${top.length ? productLines(top, 5) : '• Xem **Cửa hàng**.'}\n\nHỏi tên SP, "điện thoại có gì", "giỏ hàng", "đơn của tôi".${offlineHint}`
 }
 
 function categoriesReply(ctx: ChatContext): string {
   const name = greet(ctx.userName ?? '')
-  return `${name}**Danh mục${apiNote(ctx)}:**\n${categoryOverview(ctx)}\n\nLọc tại **Cửa hàng** hoặc hỏi "điện tử có gì".`
+  return `${name}**Danh mục tiếng Việt${apiNote(ctx)}:**\n${categoryOverview(ctx)}\n\nLọc tại **Cửa hàng** hoặc hỏi vd: "laptop có gì", "thời trang nữ", "nhà bếp có gì".`
 }
 
 function cartSummaryReply(ctx: ChatContext): string {
@@ -127,22 +137,20 @@ function orderDetailReply(ctx: ChatContext): string {
 function categoryBrowseReply(ctx: ChatContext, raw: string): string {
   const name = greet(ctx.userName ?? '')
   const fromApi = ctx.enrichment?.categoryProducts
-  const n = normalizeText(raw)
-  const cat = ctx.categories.find((c) =>
-    normalizeText(c.name)
-      .split(/\s+/)
-      .some((w: string) => w.length > 3 && n.includes(w)),
-  )
+  const matched = matchCategoryFromText(raw, ctx.categories)
+  const cat = matched
+    ? ctx.categories.find((c) => c.name === matched.name)
+    : undefined
   const products = fromApi?.length
     ? fromApi
     : cat
       ? ctx.products.filter((p) => p.category === cat.name)
       : findProductsByQuery(ctx.products, raw)
   if (!products.length) {
-    return `${name}Chưa tìm thấy SP theo danh mục — thử **Cửa hàng** hoặc hỏi "web bán gì".`
+    return `${name}Chưa tìm thấy SP theo danh mục — thử **Cửa hàng** hoặc hỏi "web bán gì" / "danh mục".`
   }
   const label = cat?.name ?? products[0]?.category ?? 'Danh mục'
-  return `${name}**${label}**${apiNote(ctx)}:\n${productLines(products.slice(0, 6), 6)}\n\nXem thêm **Cửa hàng**.`
+  return `${name}**${label}**${apiNote(ctx)}:\n${productLines(products.slice(0, 6), 6)}\n\nXem thêm **Cửa hàng** · hỏi danh mục khác (Điện thoại, Laptop, Giày dép…).`
 }
 
 function productSearchReply(ctx: ChatContext, raw: string): string {
@@ -306,7 +314,8 @@ function productInfoReply(ctx: ChatContext, raw: string): string {
     const desc = p.description
       ? p.description.slice(0, 160) + (p.description.length > 160 ? '…' : '')
       : 'Xem mô tả đầy đủ trên trang SP.'
-    return `${name}**${p.name}**${apiNote(ctx)}\n• Danh mục: **${p.category}**\n• Giá: **${formatVnd(p.price)}**${p.originalPrice && p.originalPrice > p.price ? ` (gốc ${formatVnd(p.originalPrice)})` : ''}\n• Tồn${inv ? ' (API inventory)' : ''}: **${stock <= 0 ? 'hết hàng' : stock}**\n• Shop: **${p.shopName ?? 'SEDSP Official'}**\n• ${desc}`
+    const img = p.imageUrl ? `\n• Ảnh: có (xem trang SP)` : ''
+    return `${name}**${p.name}**${apiNote(ctx)}\n• Danh mục: **${p.category}**\n• Giá: **${formatVnd(p.price)}**${p.originalPrice && p.originalPrice > p.price ? ` (gốc ${formatVnd(p.originalPrice)})` : ''}\n• Tồn${inv ? ' (API inventory)' : ''}: **${stock <= 0 ? 'hết hàng' : stock}**\n• Shop: **${p.shopName ?? 'SEDSP Official'}**${img}\n• ${desc}\n\n→ Chi tiết **/products/${p.id}**`
   }
   return `${name}Bạn muốn biết SP nào? Hỏi tên cụ thể, vd: "thong tin tai nghe bluetooth".`
 }
@@ -395,7 +404,7 @@ function buildCustomerIntent(ctx: ChatContext, intent: ChatIntent, raw: string):
   return null
 }
 
-function buildSellerIntent(ctx: ChatContext, intent: ChatIntent): string | null {
+function buildSellerIntent(ctx: ChatContext, intent: ChatIntent, raw: string): string | null {
   const name = greet(ctx.userName ?? '')
   const catalog = ctx.sellerProducts.length ? ctx.sellerProducts : ctx.products
 
@@ -414,7 +423,7 @@ function buildSellerIntent(ctx: ChatContext, intent: ChatIntent): string | null 
       const dash = ctx.sellerDashboard
       if (dash?.lowStockProducts.length) {
         const lines = dash.lowStockProducts.slice(0, 6).map((p) => `• ${p.productName} — còn **${p.quantity}** (API)`).join('\n')
-        return `${name}**Tồn kho thấp${apiNote(ctx)}:**\n${lines}\n\nCập nhật **Tồn kho** / **Quản lý SP**.`
+        return `${name}**Tồn kho thấp${apiNote(ctx)}:**\n${lines}\n\nCập nhật **Tồn kho** · hoặc hỏi **"khuyến nghị tồn kho"** (DSS).`
       }
       const low = catalog.filter((p) => p.stock > 0 && p.stock < 20).sort((a, b) => a.stock - b.stock)
       const out = catalog.filter((p) => p.stock <= 0)
@@ -422,7 +431,7 @@ function buildSellerIntent(ctx: ChatContext, intent: ChatIntent): string | null 
         let msg = `${name}**Cảnh báo tồn kho:**\n`
         if (low.length) msg += `Sắp hết:\n${productLines(low.slice(0, 4))}\n`
         if (out.length) msg += `\nHết hàng:\n${productLines(out.slice(0, 3))}\n`
-        return msg + `\n**Tồn kho** / **Quản lý SP**.`
+        return msg + `\n**Tồn kho** / **DSS → Khuyến nghị tồn kho**.`
       }
       if (ctx.sellerInsights.length) {
         const inv = ctx.sellerInsights.filter((i) => i.category === 'inventory').slice(0, 3)
@@ -430,27 +439,39 @@ function buildSellerIntent(ctx: ChatContext, intent: ChatIntent): string | null 
           return `${name}**DSS tồn kho:**\n${inv.map((i) => `• ${i.title}: ${i.description}`).join('\n')}`
         }
       }
-      return `${name}Tồn kho **ổn định**. Theo dõi **Tồn kho**.`
+      return `${name}Tồn kho **ổn định**. Theo dõi **Tồn kho** hoặc hỏi **"khuyến nghị tồn kho"**.`
     }
-    case 'seller_pricing': {
-      const slow = [...catalog].sort((a, b) => a.soldCount - b.soldCount).slice(0, 3)
-      if (slow.length) {
-        return `${name}**SKU bán chậm:**\n${productLines(slow)}\n\nGiảm **3–5%** hoặc bundle — **DSS Người bán**.`
+    case 'seller_pricing':
+      return `${name}**Khuyến nghị giá (DSS)**${apiNote(ctx)}:\n${priceBrief(catalog)}`
+    case 'seller_dss_demand':
+      return `${name}**Dự báo nhu cầu (Moving Average)**${apiNote(ctx)}:\n${demandBrief(catalog)}`
+    case 'seller_dss_price':
+      return `${name}**Khuyến nghị giá**${apiNote(ctx)}:\n${priceBrief(catalog)}`
+    case 'seller_dss_inventory':
+      return `${name}**Khuyến nghị tồn kho**${apiNote(ctx)}:\n${inventoryDssBrief(catalog)}`
+    case 'seller_whatif': {
+      const pct = extractDiscountPct(raw, 10)
+      return `${name}**What-if giảm giá ${pct}%**${apiNote(ctx)}:\n${sellerWhatIfBrief(pct)}`
+    }
+    case 'seller_purchase_orders': {
+      const buys = ctx.purchaseOrders
+      if (!buys.length) {
+        return `${name}Bạn chưa có **đơn mua** (mua như khách). Thêm SP từ **Cửa hàng** → **Giỏ hàng** → **Thanh toán**. Đơn bán xem bằng "đơn cần xử lý".`
       }
-      return `${name}Xem **DSS Người bán** → Giá cạnh tranh.`
+      return `${name}**Đơn mua của bạn** (${buys.length} đơn)${apiNote(ctx)}:\n${formatOrderSummary(buys, 5)}\n\n→ **/orders** (đơn mua) · **/seller/orders** (đơn bán).`
     }
     case 'seller_promo': {
       const highStock = catalog.filter((p) => p.stock > 25).slice(0, 2)
       const top = [...catalog].sort((a, b) => b.soldCount - a.soldCount)[0]
-      return `${name}**Kế hoạch tuần:**\n• Flash sale SKU tồn cao${highStock.length ? `: ${highStock.map((p) => p.name).join(', ')}` : ''}\n• Bundle + ${top?.name ?? 'SP chủ lực'}\n• Trả review <24h\n\n**DSS** + **Bảng doanh số**.`
+      return `${name}**Kế hoạch tuần:**\n• Flash sale SKU tồn cao${highStock.length ? `: ${highStock.map((p) => p.name).join(', ')}` : ''}\n• Bundle + ${top?.name ?? 'SP chủ lực'}\n• Mô phỏng giảm giá: hỏi **"what-if giảm 10%"**\n• Trả review <24h\n\n**DSS** + **Bảng doanh số**.`
     }
     case 'seller_add_product':
-      return `${name}**Thêm SP:**\n1. **Quản lý SP** → **+ Thêm SP**\n2. Danh mục, giá, tồn\n3. Upload ảnh Cloudinary\n4. Lưu — hiện cửa hàng ngay.`
+      return `${name}**Thêm SP:**\n1. **Quản lý SP** → **+ Thêm SP**\n2. Chọn danh mục VI (Điện thoại, Laptop, Nhà bếp…)\n3. Giá, tồn · upload **3 ảnh** (gallery)\n4. Lưu — hiện cửa hàng ngay.`
     case 'seller_orders': {
       if (ctx.orders.length) {
-        return `${name}**${ctx.orders.length} đơn cần xử lý${apiNote(ctx)}:**\n${formatOrderSummary(ctx.orders, 5)}\n\n👉 **Quản lý đơn hàng** (/seller/orders) để cập nhật trạng thái.`
+        return `${name}**${ctx.orders.length} đơn bán cần xử lý${apiNote(ctx)}:**\n${formatOrderSummary(ctx.orders, 5)}\n\n👉 **Quản lý đơn hàng** (/seller/orders). Đơn mua: hỏi **"đơn mua của tôi"**.`
       }
-      return `${name}Chưa có đơn từ API. Xem **Quản lý đơn hàng** khi có khách đặt.`
+      return `${name}Chưa có đơn bán từ API. Xem **Quản lý đơn hàng** khi có khách đặt.`
     }
     case 'seller_recent_orders': {
       const recent = ctx.sellerDashboard?.recentOrders ?? []
@@ -470,12 +491,17 @@ function buildSellerIntent(ctx: ChatContext, intent: ChatIntent): string | null 
     }
     case 'seller_rating':
       return sellerRatingReply(ctx)
+    case 'orders':
+      return buildSellerIntent(ctx, 'seller_orders', raw)
+    case 'cart':
+    case 'cart_summary':
+      return cartSummaryReply(ctx)
     default:
       return null
   }
 }
 
-function buildManagerIntent(ctx: ChatContext, intent: ChatIntent): string | null {
+function buildManagerIntent(ctx: ChatContext, intent: ChatIntent, raw: string): string | null {
   const name = greet(ctx.userName ?? '')
   const orders = ctx.orders
   const revenue = orders.reduce((s, o) => s + o.total, 0)
@@ -502,8 +528,10 @@ function buildManagerIntent(ctx: ChatContext, intent: ChatIntent): string | null
       const lines = [...cats.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([c, v]) => `• ${c}: ${formatVnd(v)}`).join('\n')
       return `${name}**Phân khúc doanh thu:**\n${lines || '• Chưa đủ dữ liệu'}\n\n**Phân tích**.`
     }
-    case 'manager_whatif':
-      return `${name}**What-if giảm 10%:**\n• Đơn: **+18%**\n• Biên LN: **-3%**\n• GMV ròng: **+9%**\n\n**DSS Quản lý** → What-if.`
+    case 'manager_whatif': {
+      const pct = extractDiscountPct(raw, 10)
+      return `${name}**What-if khuyến mãi (DSS Quản lý)**${apiNote(ctx)}:\n${managerWhatIfBrief(pct)}`
+    }
     case 'manager_trend': {
       const cats = new Map<string, number>()
       for (const p of ctx.products) cats.set(p.category, (cats.get(p.category) ?? 0) + p.soldCount)
@@ -545,7 +573,7 @@ function buildAdminIntent(ctx: ChatContext, intent: ChatIntent): string | null {
       if (users.length) {
         return `${name}**Users** (${users.length}):\n• Active: **${active}**\n• Customer ${byRole('customer')} · Seller ${byRole('seller')} · Manager ${byRole('manager')} · Admin ${byRole('admin')}\n\n**Người dùng**.`
       }
-      return `${name}RBAC tại **Người dùng**. Demo seed 4 account.`
+      return `${name}RBAC tại **Người dùng**. Demo seed nhiều tài khoản (customer/seller/manager/admin).`
     case 'admin_security':
       return `${name}**Bảo mật:** JWT + RBAC · Error 1h **0.02%** · OAuth2 Google optional · Đổi JWT_SECRET production.`
     case 'admin_alerts': {
@@ -573,7 +601,7 @@ export function buildIntentReply(ctx: ChatContext, intent: ChatIntent, raw: stri
     case 'help':
       return `${name}**Tôi có thể giúp:**\n${roleHelpHints(ctx.role)}\n\nDùng **gợi ý nhanh** phía trên.`
     case 'platform':
-      return `${name}**SEDSP** — Smart E-Commerce Decision Support Platform: mua sắm, bán hàng, DSS & AI hỗ trợ quyết định.`
+      return `${name}**SEDSP** — Smart E-Commerce Decision Support Platform: mua sắm (catalog VI ~55 SP), bán hàng, DSS (nhu cầu / giá / tồn / what-if) & AI hỗ trợ quyết định.`
     case 'shop_overview':
       return shopOverviewReply(ctx)
     case 'categories':
@@ -627,8 +655,8 @@ export function buildIntentReply(ctx: ChatContext, intent: ChatIntent, raw: stri
     }
     return null
   }
-  if (ctx.role === 'seller') return buildSellerIntent(ctx, intent)
-  if (ctx.role === 'manager') return buildManagerIntent(ctx, intent)
+  if (ctx.role === 'seller') return buildSellerIntent(ctx, intent, raw)
+  if (ctx.role === 'manager') return buildManagerIntent(ctx, intent, raw)
   if (ctx.role === 'admin') return buildAdminIntent(ctx, intent)
 
   return null

@@ -10,16 +10,17 @@ export function quickPromptsForRole(role: UserRole): QuickPrompt[] {
     case 'seller':
       return [
         { label: 'Doanh thu', text: 'Doanh thu tháng này thế nào?' },
-        { label: 'Tồn kho', text: 'SKU nào sắp hết hàng?' },
-        { label: 'Đơn hàng', text: 'Đơn gần đây cần xử lý?' },
-        { label: 'Bán chạy', text: 'Sản phẩm nào bán chạy nhất?' },
-        { label: 'Thêm SP', text: 'Làm sao để thêm sản phẩm mới?' },
+        { label: 'Dự báo cầu', text: 'Dự báo nhu cầu 30 ngày tới?' },
+        { label: 'Giá DSS', text: 'Khuyến nghị giá cho SP bán chạy?' },
+        { label: 'What-if', text: 'What-if giảm giá 10% thì lợi nhuận ra sao?' },
+        { label: 'Tồn kho', text: 'Khuyến nghị tồn kho SKU nào cần nhập?' },
+        { label: 'Đơn mua', text: 'Đơn mua của tôi thế nào?' },
       ]
     case 'manager':
       return [
         { label: 'KPI', text: 'Tóm tắt KPI tháng này' },
         { label: 'Đơn chờ', text: 'Có bao nhiêu đơn chờ xử lý?' },
-        { label: 'What-if', text: 'Mô phỏng giảm giá 10% thì sao?' },
+        { label: 'What-if', text: 'Mô phỏng khuyến mãi giảm 10% thì sao?' },
         { label: 'Xu hướng', text: 'Danh mục nào đang tăng trưởng?' },
         { label: 'Doanh thu', text: 'Doanh thu GMV hiện tại?' },
       ]
@@ -34,11 +35,11 @@ export function quickPromptsForRole(role: UserRole): QuickPrompt[] {
     default:
       return [
         { label: 'Web bán gì', text: 'Web bán gì vậy?' },
+        { label: 'Điện thoại', text: 'Điện thoại có gì?' },
         { label: 'Rẻ nhất', text: 'Sản phẩm nào rẻ nhất?' },
         { label: 'Dưới 2tr', text: 'Có gì dưới 2 triệu không?' },
         { label: 'Giỏ hàng', text: 'Giỏ hàng của tôi có gì?' },
         { label: 'Đơn hàng', text: 'Đơn hàng của tôi thế nào?' },
-        { label: 'Người bán', text: 'Liên hệ người bán món tai nghe' },
       ]
   }
 }
@@ -46,14 +47,14 @@ export function quickPromptsForRole(role: UserRole): QuickPrompt[] {
 export function welcomeMessage(role: UserRole): string {
   switch (role) {
     case 'seller':
-      return 'Xin chào! Hỏi doanh thu, tồn kho, đơn cần xử lý, SP bán chạy — tôi trả lời từ dữ liệu shop của bạn.'
+      return 'Xin chào! Hỏi doanh thu, DSS (nhu cầu / giá / tồn / what-if), đơn bán hoặc **đơn mua** khi bạn mua như khách.'
     case 'manager':
-      return 'Xin chào! Hỏi KPI, đơn chờ, phân khúc, what-if hoặc xu hướng — tổng hợp từ đơn hàng.'
+      return 'Xin chào! Hỏi KPI, đơn chờ, phân khúc, what-if khuyến mãi hoặc xu hướng danh mục.'
     case 'admin':
       return 'Xin chào! Hỏi trạng thái hệ thống, số user, cảnh báo, bảo mật hoặc cấu hình.'
     case 'guest':
-      return 'Xin chào! Thử "web bán gì", "sp rẻ nhất", "dưới 2 triệu", tên SP + "giá bao nhiêu". Đăng nhập để xem đơn & giỏ.'
+      return 'Xin chào! Thử "web bán gì", "điện thoại có gì", "sp rẻ nhất", "dưới 2 triệu". Đăng nhập để xem đơn & giỏ.'
     default:
-      return 'Xin chào! Hỏi catalog, giá, tồn kho, đơn hàng, giao hàng — hoặc "what do you sell" / "cheapest product".'
+      return 'Xin chào! Hỏi catalog (danh mục VI), giá, tồn kho, đơn hàng, giao hàng — hoặc tên SP + "giá bao nhiêu".'
   }
 }

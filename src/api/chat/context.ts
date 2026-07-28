@@ -57,6 +57,8 @@ export interface ChatContext {
   userId?: string
   products: Product[]
   orders: Order[]
+  /** Đơn mua (buyer) — dùng cho customer và seller-as-buyer */
+  purchaseOrders: Order[]
   cartLines: ChatCartLine[]
   cartTotal: number
   cartItemCount: number
@@ -108,7 +110,9 @@ function countProductsByCategory(products: Product[], cats: Category[]): ChatCat
     slug: c.slug,
     productCount: counts.get(c.name) ?? 0,
   }))
-  if (fromApi.length) return fromApi.sort((a, b) => b.productCount - a.productCount)
+  if (fromApi.length) {
+    return fromApi.sort((a, b) => b.productCount - a.productCount || a.name.localeCompare(b.name, 'vi'))
+  }
 
   return [...counts.entries()]
     .map(([name, productCount], i) => ({
@@ -156,7 +160,7 @@ export async function buildChatContext(
 
   const [catalog, rawCategories, cartData] = await Promise.all([
     loadProducts(),
-    safe(() => categoryApi.list(), [] as Category[]),
+    safe(() => categoryApi.list(true), [] as Category[]),
     loadCart(opts?.userId),
   ])
 
@@ -166,6 +170,7 @@ export async function buildChatContext(
     userId: opts?.userId,
     products: catalog.products,
     orders: [],
+    purchaseOrders: [],
     cartLines: cartData.lines,
     cartTotal: cartData.total,
     cartItemCount: cartData.lines.reduce((s, l) => s + l.quantity, 0),
@@ -187,7 +192,9 @@ export async function buildChatContext(
   if (role === 'customer' && opts?.userId) {
     roleTasks.push(
       (async () => {
-        ctx.orders = await safe(() => orderApi.listForCustomer(opts.userId!), [])
+        const orders = await safe(() => orderApi.listForCustomer(opts.userId!), [])
+        ctx.orders = orders
+        ctx.purchaseOrders = orders
         ctx.recommendations = await safe(() => dssApi.recommendations(opts.userId!), [])
       })(),
     )
@@ -203,6 +210,11 @@ export async function buildChatContext(
         const sellerCatalog = await loadProducts(sellerKey)
         ctx.sellerProducts = sellerCatalog.products
         ctx.orders = await safe(() => orderApi.listForSeller(), [])
+        // Seller cũng mua như khách — load đơn mua + gợi ý
+        if (opts?.userId) {
+          ctx.purchaseOrders = await safe(() => orderApi.listForCustomer(opts.userId!), [])
+          ctx.recommendations = await safe(() => dssApi.recommendations(opts.userId!), [])
+        }
         if (apiConfig.useRealSeller) {
           ctx.salesPerformance = await safe(() => sellerApi.getSalesPerformance(), null)
           ctx.sellerDashboard = await safe(() => sellerApi.getDashboard(), null)

@@ -30,12 +30,16 @@ function apiTag(ctx: ChatContext): string {
 
 function followUps(intent: ChatIntent | null, role: ChatContext['role']): string {
   const tips: Partial<Record<ChatIntent, string>> = {
-    shop_overview: '\n\n👉 Thử: "tai nghe giá bao nhiêu" · "điện tử có gì" · "sp rẻ nhất"',
+    shop_overview: '\n\n👉 Thử: "điện thoại có gì" · "laptop có gì" · "sp rẻ nhất"',
     product_price: '\n\n👉 Thử: "còn hàng không" · "review" · "liên hệ người bán"',
     product_stock: '\n\n👉 Thử: "thêm vào giỏ" tại trang SP · "cách đặt hàng"',
     cart_summary: '\n\n👉 Tiếp: **Thanh toán** hoặc hỏi "chính sách giao hàng"',
     orders: '\n\n👉 Hỏi "chi tiết đơn #…" hoặc "hủy đơn"',
     contact_seller: '\n\n👉 Hoặc hỏi CSKH: "liên hệ hỗ trợ"',
+    seller_dss_demand: '\n\n👉 Thử thêm: "khuyến nghị giá" · "what-if giảm 10%"',
+    seller_whatif: '\n\n👉 Mở **/seller/dss/what-if** để chỉnh % và kỳ.',
+    manager_whatif: '\n\n👉 Mở **/manager/dss/what-if** để so sánh scenario.',
+    seller_purchase_orders: '\n\n👉 Đơn bán: hỏi "đơn cần xử lý". Giỏ: "giỏ hàng của tôi".',
   }
   if (intent && tips[intent]) return tips[intent]
   if (role === 'guest') return '\n\n👉 **Đăng nhập** để xem giỏ & đơn cá nhân.'
@@ -129,4 +133,8 @@ export function formatChatHtml(content: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(
+      /(\/(?:products|orders|seller\/orders|seller\/dss\/[\w-]+|manager\/dss\/[\w-]+)(?:\/[\w-]+)?)/g,
+      '<a href="$1">$1</a>',
+    )
 }

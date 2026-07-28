@@ -2,6 +2,7 @@ import type { ChatContext, ChatEnrichment } from '@/api/chat/context'
 import type { ChatIntent } from '@/api/chat/intents'
 import { normalizeText } from '@/api/chat/match'
 import { findProductsByQuery } from '@/api/chat/products'
+import { matchCategoryFromText } from '@/api/chat/synonyms'
 import { inventoryApi, orderApi, productApi, reviewApi } from '@/api/services'
 import type { Product } from '@/types'
 
@@ -36,17 +37,6 @@ function extractSearchQuery(raw: string): string | null {
   for (const p of patterns) {
     const m = n.match(p)
     if (m?.[1] && m[1].length > 2) return m[1].trim()
-  }
-  return null
-}
-
-function matchCategoryName(ctx: ChatContext, raw: string): string | null {
-  const n = normalizeText(raw)
-  for (const c of ctx.categories) {
-    const cn = normalizeText(c.name)
-    if (n.includes(cn) || cn.split(/\s+/).some((w: string) => w.length > 3 && n.includes(w))) {
-      return c.name
-    }
   }
   return null
 }
@@ -102,7 +92,13 @@ export async function enrichChatContext(
   const tasks: Promise<void>[] = []
 
   const orderId = extractOrderId(raw)
-  if (orderId && (intent === 'orders' || intent === 'order_cancel' || /don|order|#/i.test(raw))) {
+  if (
+    orderId &&
+    (intent === 'orders' ||
+      intent === 'order_cancel' ||
+      intent === 'seller_purchase_orders' ||
+      /don|order|#/i.test(raw))
+  ) {
     tasks.push(
       (async () => {
         enrichment.focusedOrder = await orderApi.getById(orderId)
@@ -120,19 +116,23 @@ export async function enrichChatContext(
     )
   }
 
-  const categoryName = matchCategoryName(ctx, raw)
-  if (categoryName && (intent === 'categories' || intent === 'category_browse' || (intent && SEARCH_INTENTS.has(intent)))) {
+  const matchedCat = matchCategoryFromText(raw, ctx.categories)
+  if (
+    matchedCat &&
+    (intent === 'categories' || intent === 'category_browse' || (intent && SEARCH_INTENTS.has(intent)))
+  ) {
     tasks.push(
       (async () => {
         enrichment.categoryProducts = await productApi.list({
-          category: categoryName,
+          category: matchedCat.name,
           withStock: true,
         })
       })(),
     )
   }
 
-  const catalog = ctx.sellerProducts.length ? ctx.sellerProducts : ctx.products
+  const catalog =
+    ctx.role === 'seller' && ctx.sellerProducts.length ? ctx.sellerProducts : ctx.products
   const matched = findProductsByQuery(catalog, raw)
   const topProduct = matched[0]
 

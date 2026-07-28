@@ -42,6 +42,11 @@ export type ChatIntent =
   | 'seller_add_product'
   | 'seller_orders'
   | 'seller_rating'
+  | 'seller_dss_demand'
+  | 'seller_dss_price'
+  | 'seller_dss_inventory'
+  | 'seller_whatif'
+  | 'seller_purchase_orders'
   | 'manager_kpi'
   | 'manager_pending'
   | 'manager_segment'
@@ -124,9 +129,17 @@ const COMMON: IntentRule[] = [
     intent: 'category_browse',
     keywords: [
       'dien tu co gi', 'thoi trang co gi', 'the thao co gi', 'gia dung co gi',
+      'dien thoai co gi', 'laptop co gi', 'giay dep co gi', 'nha bep co gi',
+      'cham soc da', 'trang diem', 'phu kien co gi', 'noi that co gi',
       'san pham dien tu', 'hang dien tu', 'browse category', 'xem danh muc',
+      'thoi trang nam', 'thoi trang nu', 'may tinh bang', 'do da ngoai',
+      'thiet bi the hinh',
     ],
-    phrases: ['dien tu co gi', 'thoi trang co gi', 'the thao co gi', 'gia dung co gi'],
+    phrases: [
+      'dien tu co gi', 'thoi trang co gi', 'the thao co gi', 'gia dung co gi',
+      'dien thoai co gi', 'laptop co gi', 'giay dep co gi', 'nha bep co gi',
+      'thoi trang nam', 'thoi trang nu', 'cham soc da',
+    ],
     minScore: 3,
     priority: 8,
   },
@@ -365,7 +378,8 @@ const SELLER: IntentRule[] = [
   },
   {
     intent: 'seller_pricing',
-    keywords: ['gia ca', 'pricing', 'dieu chinh gia', 'canh tranh'],
+    keywords: ['gia ca', 'pricing', 'dieu chinh gia', 'canh tranh', 'khuyen nghi gia'],
+    phrases: ['khuyen nghi gia', 'dieu chinh gia'],
     roles: ['seller'],
     priority: 6,
   },
@@ -384,8 +398,8 @@ const SELLER: IntentRule[] = [
   },
   {
     intent: 'seller_orders',
-    keywords: ['xu ly don', 'don hang seller', 'process order', 'ship don', 'quan ly don'],
-    phrases: ['xu ly don', 'quan ly don hang'],
+    keywords: ['xu ly don', 'don hang seller', 'process order', 'ship don', 'quan ly don', 'don ban'],
+    phrases: ['xu ly don', 'quan ly don hang', 'don ban'],
     roles: ['seller'],
     priority: 8,
   },
@@ -408,13 +422,68 @@ const SELLER: IntentRule[] = [
     roles: ['seller'],
     priority: 7,
   },
+  {
+    intent: 'seller_dss_demand',
+    keywords: [
+      'du bao nhu cau', 'demand forecast', 'du bao ban', 'moving average',
+      'nhu cau 30 ngay', 'du bao 7 ngay',
+    ],
+    phrases: ['du bao nhu cau', 'demand forecast', 'du bao ban'],
+    roles: ['seller'],
+    minScore: 4,
+    priority: 10,
+  },
+  {
+    intent: 'seller_dss_price',
+    keywords: [
+      'khuyen nghi gia', 'price recommendation', 'elasticity', 'nen tang gia',
+      'nen giam gia', 'goi y gia',
+    ],
+    phrases: ['khuyen nghi gia', 'price recommendation', 'nen tang gia'],
+    roles: ['seller'],
+    minScore: 4,
+    priority: 10,
+  },
+  {
+    intent: 'seller_dss_inventory',
+    keywords: [
+      'khuyen nghi ton kho', 'reorder point', 'rop', 'bo sung hang',
+      'inventory recommendation', 'nhap bao nhieu',
+    ],
+    phrases: ['khuyen nghi ton kho', 'bo sung hang', 'reorder point'],
+    roles: ['seller'],
+    minScore: 4,
+    priority: 10,
+  },
+  {
+    intent: 'seller_whatif',
+    keywords: [
+      'what if', 'whatif', 'mo phong giam gia', 'giam gia bao nhieu loi nhuan',
+      'discount profit', 'break-even', 'diem hoa von',
+    ],
+    phrases: ['what if', 'mo phong giam gia', 'diem hoa von'],
+    roles: ['seller'],
+    minScore: 3,
+    priority: 11,
+  },
+  {
+    intent: 'seller_purchase_orders',
+    keywords: [
+      'don mua', 'don mua cua toi', 'toi da mua', 'lich su mua',
+      'buyer order', 'mua nhu khach',
+    ],
+    phrases: ['don mua', 'don mua cua toi', 'mua nhu khach'],
+    roles: ['seller'],
+    minScore: 3,
+    priority: 11,
+  },
 ]
 
 const MANAGER: IntentRule[] = [
   { intent: 'manager_kpi', keywords: ['kpi', 'dashboard', 'tom tat', 'bao cao', 'chi so'], phrases: ['kpi', 'tom tat'], roles: ['manager'], priority: 8 },
   { intent: 'manager_pending', keywords: ['don cho', 'pending', 'cho xu ly', 'backlog'], phrases: ['don cho', 'cho xu ly'], roles: ['manager'], priority: 8 },
   { intent: 'manager_segment', keywords: ['phan khuc', 'segment', 'danh muc doanh thu'], roles: ['manager'], priority: 7 },
-  { intent: 'manager_whatif', keywords: ['what if', 'whatif', 'mo phong', 'scenario', 'giam 10'], phrases: ['what if', 'mo phong'], roles: ['manager'], priority: 9 },
+  { intent: 'manager_whatif', keywords: ['what if', 'whatif', 'mo phong', 'scenario', 'giam 10', 'so sanh khuyen mai', 'promotion scenario'], phrases: ['what if', 'mo phong', 'so sanh khuyen mai'], roles: ['manager'], priority: 9 },
   { intent: 'manager_trend', keywords: ['xu huong', 'trend', 'tang truong', 'forecast', 'du bao'], roles: ['manager'], priority: 7 },
   { intent: 'manager_revenue', keywords: ['doanh thu', 'gmv', 'revenue total'], roles: ['manager'], priority: 7 },
   { intent: 'manager_insights', keywords: ['goi y quan ly', 'insights', 'dss quan ly', 'de xuat'], roles: ['manager'], priority: 7 },
@@ -433,6 +502,7 @@ const ALL_RULES = [...COMMON, ...SELLER, ...MANAGER, ...ADMIN]
 function refineIntent(
   normalized: string,
   detected: { intent: ChatIntent; score: number },
+  role: UserRole,
 ): ChatIntent {
   // seller contact ưu tiên hơn escalate chung
   if (
@@ -454,6 +524,23 @@ function refineIntent(
     /duoi\s+\d|under\s+\d|budget|ngan sach|toi da\s+\d/.test(normalized)
   ) {
     return 'product_budget'
+  }
+  if (role === 'seller') {
+    if (/don mua|mua nhu khach|lich su mua cua toi/.test(normalized)) {
+      return 'seller_purchase_orders'
+    }
+    if (/du bao nhu cau|demand forecast/.test(normalized)) {
+      return 'seller_dss_demand'
+    }
+    if (/khuyen nghi ton|bo sung hang|reorder/.test(normalized)) {
+      return 'seller_dss_inventory'
+    }
+    if (/khuyen nghi gia|elasticity|nen tang gia/.test(normalized)) {
+      return 'seller_dss_price'
+    }
+    if (/mo phong giam|what\s*if|diem hoa von|break.?even/.test(normalized)) {
+      return 'seller_whatif'
+    }
   }
   return detected.intent
 }
@@ -492,7 +579,7 @@ export function detectIntent(
 
   if (!best) return null
 
-  const intent = refineIntent(normalized, best)
+  const intent = refineIntent(normalized, best, role)
   return { intent, score: best.score }
 }
 
