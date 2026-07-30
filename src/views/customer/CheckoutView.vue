@@ -21,7 +21,7 @@ const address = ref('')
 const city = ref('')
 const state = ref('')
 const zip = ref('')
-const payment = ref<'momo' | 'vnpay'>('momo')
+const payment = ref<'momo' | 'vnpay' | 'cod'>('cod')
 const coupon = ref('')
 const couponApplied = ref(false)
 const error = ref('')
@@ -65,6 +65,12 @@ async function placeOrder() {
     const fullAddress = [address.value, city.value, state.value, zip.value].filter(Boolean).join(', ')
     const order = await orderApi.placeOrder(auth.user.id, fullAddress || address.value, payment.value)
     await cart.refresh()
+
+    // COD: thanh toán khi nhận hàng — không mở cổng
+    if (payment.value === 'cod') {
+      await router.push(`/orders/${order.id}`)
+      return
+    }
 
     const pay = await orderApi.initiatePayment(order.id, payment.value)
     if (pay.redirectUrl) {
@@ -148,8 +154,12 @@ async function placeOrder() {
           <section class="elegant-form-section">
             <h2>Phương thức thanh toán</h2>
             <p class="elegant-muted" style="margin-bottom: 0.75rem; font-size: 0.9rem">
-              SEDSP hỗ trợ cổng thanh toán <strong>MoMo</strong> và <strong>VNPay</strong> (sandbox khi cấu hình env).
+              Chọn <strong>COD</strong> (trả khi nhận hàng) hoặc cổng <strong>MoMo</strong> / <strong>VNPay</strong>.
             </p>
+            <label class="elegant-payment" :class="{ 'elegant-payment--active': payment === 'cod' }">
+              <input v-model="payment" type="radio" value="cod" name="pay" />
+              <span>Thanh toán khi nhận hàng (COD)</span>
+            </label>
             <label class="elegant-payment" :class="{ 'elegant-payment--active': payment === 'momo' }">
               <input v-model="payment" type="radio" value="momo" name="pay" />
               <span>Ví MoMo</span>
@@ -166,7 +176,15 @@ async function placeOrder() {
             :disabled="loading"
             @click="placeOrder"
           >
-            {{ loading ? 'Đang chuyển cổng thanh toán...' : 'Đặt hàng & thanh toán' }}
+            {{
+              loading
+                ? payment === 'cod'
+                  ? 'Đang đặt hàng...'
+                  : 'Đang chuyển cổng thanh toán...'
+                : payment === 'cod'
+                  ? 'Đặt hàng (COD)'
+                  : 'Đặt hàng & thanh toán'
+            }}
           </button>
         </div>
 

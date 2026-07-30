@@ -254,7 +254,7 @@ function passwordReply(ctx: ChatContext): string {
 function checkoutReply(ctx: ChatContext): string {
   const name = greet(ctx.userName ?? '')
   const loginNote = ctx.role === 'guest' ? '\n\n👉 **Đăng nhập** trước khi checkout.' : ''
-  return `${name}**Cách đặt hàng:**\n1. Chọn SP → **Thêm vào giỏ**\n2. **Giỏ hàng** → kiểm tra số lượng\n3. **Thanh toán** → điền địa chỉ & phương thức (COD / chuyển khoản / MoMo)\n4. Xác nhận — theo dõi tại **Đơn hàng của tôi**${loginNote}`
+  return `${name}**Cách đặt hàng:**\n1. Chọn SP → **Thêm vào giỏ**\n2. **Giỏ hàng** → kiểm tra số lượng\n3. **Thanh toán** → điền địa chỉ & phương thức (COD / MoMo / VNPay)\n4. Xác nhận — theo dõi tại **Đơn hàng của tôi**${loginNote}`
 }
 
 function productReviewReply(ctx: ChatContext, raw: string): string {
@@ -328,7 +328,7 @@ function buildCustomerIntent(ctx: ChatContext, intent: ChatIntent, raw: string):
     case 'shipping':
       return `${name}**Chính sách giao hàng SEDSP:**\n• Nội thành: 1–2 ngày\n• Ngoại tỉnh: 3–5 ngày\n• Miễn phí ship đơn từ **500.000₫**\n• Theo dõi tại **Đơn hàng của tôi** sau khi đặt.`
     case 'payment':
-      return `${name}**Hình thức thanh toán:**\n• COD — trả khi nhận hàng\n• Chuyển khoản ngân hàng\n• Ví MoMo / thẻ\nGiá đã gồm VAT. Chọn ở bước **Thanh toán**.`
+      return `${name}**Hình thức thanh toán:**\n• **COD** — trả khi nhận hàng\n• **MoMo** — ví điện tử\n• **VNPay** — ATM / QR / thẻ\nGiá đã gồm VAT. Chọn ở bước **Thanh toán**.`
     case 'orders': {
       const detail = orderDetailReply(ctx)
       if (ctx.enrichment?.focusedOrder) return detail
