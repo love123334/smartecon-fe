@@ -1,52 +1,77 @@
 import { http } from '@/api/http/client'
 import { apiPaths } from '@/api/http/paths'
 
-export type BackendPaymentMethod = 'COD' | 'BANK' | 'MOMO'
+export type BackendPaymentMethod = 'MOMO' | 'VNPAY'
+/** Legacy values still may appear in older mock overlays */
+export type LegacyBackendPaymentMethod = BackendPaymentMethod | 'COD' | 'BANK'
+
 export type BackendPaymentStatus = 'PENDING' | 'SUCCESS' | 'FAILED'
 
 export interface PaymentInfo {
   id: string
   orderId: string
-  paymentMethod: BackendPaymentMethod
+  paymentMethod: LegacyBackendPaymentMethod
   amount: number
   status: BackendPaymentStatus
   transactionId?: string
   currency?: string
+  redirectUrl?: string
+  gatewayName?: string
 }
 
 interface BackendPayment {
   id: number
   orderId?: number
-  paymentMethod: BackendPaymentMethod
+  paymentMethod: LegacyBackendPaymentMethod
   amount: number | string
   status: BackendPaymentStatus
   transactionId?: string
   currency?: string
+  redirectUrl?: string
+  gatewayName?: string
 }
 
 function num(v: number | string): number {
   return typeof v === 'number' ? v : Number(v)
 }
 
-export function mapPaymentMethodLabel(method?: BackendPaymentMethod): string {
-  if (method === 'BANK') return 'Chuyển khoản ngân hàng'
-  if (method === 'MOMO') return 'Ví MoMo / thẻ'
-  return 'Thanh toán khi nhận hàng (COD)'
+function mapPayment(data: BackendPayment, orderIdFallback?: string): PaymentInfo {
+  return {
+    id: String(data.id),
+    orderId: String(data.orderId ?? orderIdFallback ?? ''),
+    paymentMethod: data.paymentMethod,
+    amount: num(data.amount),
+    status: data.status,
+    transactionId: data.transactionId,
+    currency: data.currency,
+    redirectUrl: data.redirectUrl,
+    gatewayName: data.gatewayName,
+  }
+}
+
+export function mapPaymentMethodLabel(method?: LegacyBackendPaymentMethod | string): string {
+  if (method === 'VNPAY' || method === 'BANK') return 'VNPay'
+  if (method === 'MOMO') return 'Ví MoMo'
+  if (method === 'COD') return 'Thanh toán khi nhận hàng (COD)'
+  return '—'
 }
 
 export async function getPaymentByOrder(orderId: string): Promise<PaymentInfo | null> {
   try {
     const data = await http.get<BackendPayment>(apiPaths.payments.byOrder(orderId))
-    return {
-      id: String(data.id),
-      orderId: String(data.orderId ?? orderId),
-      paymentMethod: data.paymentMethod,
-      amount: num(data.amount),
-      status: data.status,
-      transactionId: data.transactionId,
-      currency: data.currency,
-    }
+    return mapPayment(data, orderId)
   } catch {
     return null
   }
+}
+
+/** Initiate MoMo / VNPay — returns redirectUrl to open gateway */
+export async function payOrder(
+  orderId: string,
+  paymentMethod: BackendPaymentMethod,
+): Promise<PaymentInfo> {
+  const data = await http.post<BackendPayment>(apiPaths.payments.payOrder(orderId), {
+    paymentMethod,
+  })
+  return mapPayment(data, orderId)
 }

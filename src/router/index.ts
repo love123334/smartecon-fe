@@ -75,6 +75,12 @@ const router = createRouter({
       meta: { roles: ['customer', 'seller'], title: 'Thanh toán' },
     },
     {
+      path: '/payment/result',
+      name: 'payment-result',
+      component: () => import('@/views/customer/PaymentResultView.vue'),
+      meta: { roles: ['customer', 'seller'], title: 'Kết quả thanh toán' },
+    },
+    {
       path: '/orders',
       name: 'orders',
       component: () => import('@/views/customer/OrdersView.vue'),

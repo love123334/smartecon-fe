@@ -5,7 +5,7 @@ import type { SpringPage } from '@/api/real/products'
 import type { Order, OrderItem, OrderStatus } from '@/types'
 
 export type { BackendOrderStatus }
-export type BackendPaymentMethod = 'COD' | 'BANK' | 'MOMO'
+export type BackendPaymentMethod = 'MOMO' | 'VNPAY' | 'COD' | 'BANK'
 
 export interface BackendOrderItem {
   productId: number
@@ -63,8 +63,8 @@ function mapItems(items: BackendOrderItem[] | undefined): OrderItem[] {
 }
 
 function mapPaymentToFrontend(method?: BackendPaymentMethod): Order['paymentMethod'] {
-  if (method === 'BANK') return 'bank'
-  if (method === 'MOMO') return 'card'
+  if (method === 'VNPAY' || method === 'BANK') return 'vnpay'
+  if (method === 'MOMO') return 'momo'
   if (method === 'COD') return 'cod'
   return undefined
 }
@@ -102,15 +102,16 @@ export function mapBackendOrder(
   }
 }
 
-export function toBackendPayment(method: 'cod' | 'bank' | 'card'): BackendPaymentMethod {
-  if (method === 'bank') return 'BANK'
-  if (method === 'card') return 'MOMO'
-  return 'COD'
+export function toBackendPayment(
+  method: 'momo' | 'vnpay' | 'cod' | 'bank' | 'card',
+): 'MOMO' | 'VNPAY' {
+  if (method === 'vnpay' || method === 'bank') return 'VNPAY'
+  return 'MOMO'
 }
 
 export async function createOrder(
   shippingAddress: string,
-  paymentMethod: BackendPaymentMethod,
+  paymentMethod: 'MOMO' | 'VNPAY',
 ): Promise<Order> {
   const data = await http.post<BackendOrderResponse>(apiPaths.orders.list, {
     shippingAddress,

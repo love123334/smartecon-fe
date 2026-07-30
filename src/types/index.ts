@@ -68,7 +68,7 @@ export interface Order {
   total: number
   status: OrderStatus
   shippingAddress: string
-  paymentMethod?: 'cod' | 'bank' | 'card'
+  paymentMethod?: 'momo' | 'vnpay' | 'cod' | 'bank' | 'card'
   /** Trạng thái gốc từ backend (PENDING, PROCESSING, …) */
   rawStatus?: string
   createdAt: string

@@ -45,12 +45,13 @@ export function roleContactPath(role: UserRole): string {
 const PUBLIC_PREFIXES = ['/', '/search', '/products', '/login', '/register']
 
 const ROLE_PREFIXES: Record<Exclude<UserRole, 'guest'>, string[]> = {
-  customer: ['/profile', '/role-upgrade', '/cart', '/checkout', '/orders', '/recommendations', '/chatbot'],
+  customer: ['/profile', '/role-upgrade', '/cart', '/checkout', '/payment', '/orders', '/recommendations', '/chatbot'],
   seller: [
     '/seller',
     '/profile',
     '/cart',
     '/checkout',
+    '/payment',
     '/orders',
     '/recommendations',
   ],

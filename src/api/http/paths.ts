@@ -62,6 +62,7 @@ export const apiPaths = {
   payments: {
     list: 'payments',
     byOrder: (orderId: string) => `payments/orders/${orderId}`,
+    payOrder: (orderId: string) => `payments/orders/${orderId}`,
     status: (paymentId: string) => `payments/${paymentId}/status`,
   },
   analytics: {

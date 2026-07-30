@@ -21,7 +21,7 @@ const address = ref('')
 const city = ref('')
 const state = ref('')
 const zip = ref('')
-const payment = ref<'card' | 'cod' | 'bank'>('cod')
+const payment = ref<'momo' | 'vnpay'>('momo')
 const coupon = ref('')
 const couponApplied = ref(false)
 const error = ref('')
@@ -65,9 +65,20 @@ async function placeOrder() {
     const fullAddress = [address.value, city.value, state.value, zip.value].filter(Boolean).join(', ')
     const order = await orderApi.placeOrder(auth.user.id, fullAddress || address.value, payment.value)
     await cart.refresh()
-    router.push(`/orders/${order.id}`)
+
+    const pay = await orderApi.initiatePayment(order.id, payment.value)
+    if (pay.redirectUrl) {
+      if (pay.redirectUrl.startsWith('http')) {
+        window.location.href = pay.redirectUrl
+        return
+      }
+      await router.push(pay.redirectUrl)
+      return
+    }
+
+    await router.push(`/orders/${order.id}`)
   } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Đặt hàng thất bại'
+    error.value = e instanceof Error ? e.message : 'Đặt hàng / thanh toán thất bại'
   } finally {
     loading.value = false
   }
@@ -136,33 +147,16 @@ async function placeOrder() {
 
           <section class="elegant-form-section">
             <h2>Phương thức thanh toán</h2>
-            <label class="elegant-payment" :class="{ 'elegant-payment--active': payment === 'card' }">
-              <input v-model="payment" type="radio" value="card" name="pay" />
-              <span>Thẻ tín dụng / ghi nợ</span>
+            <p class="elegant-muted" style="margin-bottom: 0.75rem; font-size: 0.9rem">
+              SEDSP hỗ trợ cổng thanh toán <strong>MoMo</strong> và <strong>VNPay</strong> (sandbox khi cấu hình env).
+            </p>
+            <label class="elegant-payment" :class="{ 'elegant-payment--active': payment === 'momo' }">
+              <input v-model="payment" type="radio" value="momo" name="pay" />
+              <span>Ví MoMo</span>
             </label>
-            <div v-if="payment === 'card'" class="elegant-payment-fields">
-              <div class="elegant-field">
-                <label for="card">Số thẻ</label>
-                <input id="card" type="text" placeholder="1234 5678 9012 3456" />
-              </div>
-              <div class="elegant-form-grid elegant-form-grid--2">
-                <div class="elegant-field">
-                  <label for="exp">Hết hạn (MM/YY)</label>
-                  <input id="exp" type="text" placeholder="12/28" />
-                </div>
-                <div class="elegant-field">
-                  <label for="cvc">CVC</label>
-                  <input id="cvc" type="text" placeholder="123" />
-                </div>
-              </div>
-            </div>
-            <label class="elegant-payment" :class="{ 'elegant-payment--active': payment === 'cod' }">
-              <input v-model="payment" type="radio" value="cod" name="pay" />
-              <span>Thanh toán khi nhận hàng (COD)</span>
-            </label>
-            <label class="elegant-payment" :class="{ 'elegant-payment--active': payment === 'bank' }">
-              <input v-model="payment" type="radio" value="bank" name="pay" />
-              <span>Chuyển khoản ngân hàng</span>
+            <label class="elegant-payment" :class="{ 'elegant-payment--active': payment === 'vnpay' }">
+              <input v-model="payment" type="radio" value="vnpay" name="pay" />
+              <span>VNPay (ATM / QR / thẻ)</span>
             </label>
           </section>
 
@@ -172,7 +166,7 @@ async function placeOrder() {
             :disabled="loading"
             @click="placeOrder"
           >
-            {{ loading ? 'Đang xử lý...' : 'Đặt hàng' }}
+            {{ loading ? 'Đang chuyển cổng thanh toán...' : 'Đặt hàng & thanh toán' }}
           </button>
         </div>
 

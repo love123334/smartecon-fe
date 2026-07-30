@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { formatVnd, orderApi, productApi, reviewApi } from '@/api/services'
 import type { Order, OrderStatus, Product, ProductReview } from '@/types'
 import { useAuthStore } from '@/stores/auth'
@@ -18,6 +18,7 @@ import OrderProductReview from '@/components/OrderProductReview.vue'
 import { getOrderOverlay } from '@/utils/orderStatusOverlay'
 
 const route = useRoute()
+const router = useRouter()
 const auth = useAuthStore()
 const order = ref<Order | null>(null)
 const productsById = ref<Record<string, Product>>({})
@@ -31,10 +32,35 @@ const statusNote = computed(() => {
 
 const paymentLabel = computed(() => {
   const m = order.value?.paymentMethod
-  if (m === 'bank') return 'Chuyển khoản ngân hàng'
-  if (m === 'card') return 'Ví MoMo / thẻ'
-  return 'Thanh toán khi nhận hàng (COD)'
+  if (m === 'vnpay' || m === 'bank') return 'VNPay'
+  if (m === 'momo' || m === 'card') return 'Ví MoMo'
+  if (m === 'cod') return 'Thanh toán khi nhận hàng (COD)'
+  return '—'
 })
+
+const paying = ref(false)
+const payError = ref('')
+
+async function payAgain() {
+  if (!order.value) return
+  const method = order.value.paymentMethod === 'vnpay' || order.value.paymentMethod === 'bank' ? 'vnpay' : 'momo'
+  paying.value = true
+  payError.value = ''
+  try {
+    const pay = await orderApi.initiatePayment(order.value.id, method)
+    if (pay.redirectUrl?.startsWith('http')) {
+      window.location.href = pay.redirectUrl
+      return
+    }
+    if (pay.redirectUrl) {
+      await router.push(pay.redirectUrl)
+    }
+  } catch (e) {
+    payError.value = e instanceof Error ? e.message : 'Không thể thanh toán'
+  } finally {
+    paying.value = false
+  }
+}
 
 const statusLabel: Record<OrderStatus, string> = {
   pending: 'Chờ xác nhận',
@@ -226,6 +252,17 @@ async function onReviewSubmitted(productId: string) {
 
           <p><strong>Địa chỉ giao:</strong> {{ order.shippingAddress || '—' }}</p>
           <p><strong>Thanh toán:</strong> {{ paymentLabel }}</p>
+          <p v-if="payError" class="elegant-alert elegant-alert--error">{{ payError }}</p>
+          <button
+            v-if="order.rawStatus === 'PENDING' || order.status === 'pending'"
+            type="button"
+            class="btn-elegant-primary btn-interactive"
+            style="margin: 0.75rem 0"
+            :disabled="paying"
+            @click="payAgain"
+          >
+            {{ paying ? 'Đang mở cổng...' : 'Thanh toán MoMo / VNPay' }}
+          </button>
 
           <div class="elegant-cart-table elegant-cart-table--order">
             <div class="elegant-cart-table__head">
