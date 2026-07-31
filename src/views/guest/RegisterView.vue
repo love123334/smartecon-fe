@@ -44,7 +44,7 @@ async function submit() {
     pendingEmail.value = result.email
     successMessage.value =
       result.message ||
-      'Đã gửi mã OTP tới email của bạn. Nhập mã bên dưới để kích hoạt tài khoản.'
+      'Đã gửi mã OTP tới email của bạn. Kiểm tra Hộp thư đến và Spam, rồi nhập mã bên dưới.'
   } catch {
     localError.value = auth.error ?? 'Đăng ký thất bại'
   }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
@@ -19,6 +19,7 @@ const email = ref('')
 const password = ref('')
 const localError = ref('')
 const backendOnline = ref(true)
+const backendChecked = ref(false)
 
 const demoPassword = computed(() =>
   apiConfig.useRealAuth ? DEMO_PASSWORD_BACKEND : DEMO_PASSWORD,
@@ -32,17 +33,41 @@ function fillDemo(accountEmail: string) {
 async function checkBackend() {
   if (!apiConfig.useRealAuth) {
     backendOnline.value = true
+    backendChecked.value = true
     return
   }
   try {
-    const res = await fetch('/api/v1/products?page=0&size=1')
-    backendOnline.value = res.ok
+    // Prefer actuator health (public). Fallback to catalog — never use relative /api (hits Vercel).
+    const origin = apiConfig.backendOrigin.replace(/\/$/, '')
+    const base = apiConfig.baseUrl.replace(/\/$/, '')
+    const candidates = [`${origin}/actuator/health`, `${base}/products?page=0&size=1`]
+    let ok = false
+    for (const url of candidates) {
+      try {
+        const res = await fetch(url, {
+          method: 'GET',
+          headers: { Accept: 'application/json' },
+        })
+        // Any HTTP response means API host reachable (not a DB/CORS config banner).
+        if (res.status > 0) {
+          ok = true
+          break
+        }
+      } catch {
+        /* try next */
+      }
+    }
+    backendOnline.value = ok
   } catch {
     backendOnline.value = false
+  } finally {
+    backendChecked.value = true
   }
 }
 
-void checkBackend()
+onMounted(() => {
+  void checkBackend()
+})
 
 async function submit() {
   localError.value = ''
@@ -63,7 +88,7 @@ async function submit() {
       <p class="brand-tag">SEDSP Platform</p>
       <h1>Đăng nhập để tiếp tục</h1>
       <p>
-        Hệ thố hỗ trợ quyết định kinh doanh tích hợp AI — kết nối backend Spring Boot khi
+        Hệ thống hỗ trợ quyết định kinh doanh tích hợp AI — kết nối backend Spring Boot khi
         API sẵn sàng.
       </p>
       <ul class="features">
@@ -78,8 +103,12 @@ async function submit() {
         <h2 class="page-title" style="font-size: 1.35rem">Chào mừng trở lại</h2>
         <p class="page-lead" style="margin-bottom: 1.25rem">Nhập email và mật khẩu tài khoản của bạn.</p>
 
-        <p v-if="apiConfig.useRealAuth && !backendOnline" class="login-offline-hint">
-          Backend chưa chạy — vẫn đăng nhập được bằng tài khoản demo (chế độ offline).
+        <p
+          v-if="apiConfig.useRealAuth && backendChecked && !backendOnline"
+          class="login-offline-hint"
+        >
+          Không gọi được API (<code>{{ apiConfig.backendOrigin }}</code>). Kiểm tra
+          <code>VITE_BACKEND_ORIGIN</code> / <code>VITE_API_BASE_URL</code> trên Vercel rồi redeploy FE.
         </p>
 
         <div class="border-glow">
