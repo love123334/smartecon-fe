@@ -37,27 +37,20 @@ async function checkBackend() {
     return
   }
   try {
-    // Prefer actuator health (public). Fallback to catalog — never use relative /api (hits Vercel).
-    const origin = apiConfig.backendOrigin.replace(/\/$/, '')
+    // Prefer catalog (fast). Avoid /actuator/health — mail indicator used to hang SMTP.
     const base = apiConfig.baseUrl.replace(/\/$/, '')
-    const candidates = [`${origin}/actuator/health`, `${base}/products?page=0&size=1`]
-    let ok = false
-    for (const url of candidates) {
-      try {
-        const res = await fetch(url, {
-          method: 'GET',
-          headers: { Accept: 'application/json' },
-        })
-        // Any HTTP response means API host reachable (not a DB/CORS config banner).
-        if (res.status > 0) {
-          ok = true
-          break
-        }
-      } catch {
-        /* try next */
-      }
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 8000)
+    try {
+      const res = await fetch(`${base}/products?page=0&size=1`, {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+        signal: controller.signal,
+      })
+      backendOnline.value = res.status > 0
+    } finally {
+      clearTimeout(timer)
     }
-    backendOnline.value = ok
   } catch {
     backendOnline.value = false
   } finally {
