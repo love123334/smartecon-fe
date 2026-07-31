@@ -259,15 +259,9 @@ export const authApi = apiConfig.useRealAuth
         fullName: string
         phone?: string
       }) => {
-        try {
-          return await realAuth.register(data)
-        } catch (e) {
-          if (isBackendUnreachableError(e)) {
-            const user = applyRoleOverride(await mockAuthApi.register(data))
-            return { status: 'active' as const, user }
-          }
-          throw e
-        }
+        // Never fall back to mock register — that skips OTP and "auto-logs in" on Vercel
+        // when Railway times out. Local mock mode uses the branch below (useRealAuth=false).
+        return await realAuth.register(data)
       },
       logout: realAuth.logout,
       getCurrentUser: async () => {

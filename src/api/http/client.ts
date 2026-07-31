@@ -28,7 +28,7 @@ function authHeaders(): HeadersInit {
   return headers
 }
 
-const DEFAULT_TIMEOUT_MS = 45_000
+const DEFAULT_TIMEOUT_MS = 25_000
 
 export async function apiRequest<T>(
   path: string,

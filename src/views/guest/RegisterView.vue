@@ -38,7 +38,8 @@ async function submit() {
       phone: phone.value || undefined,
     })
     if (result.status === 'active') {
-      router.push('/')
+      // Chỉ xảy ra ở mock mode — real register luôn pending OTP
+      await router.push('/')
       return
     }
     pendingEmail.value = result.email
@@ -46,7 +47,9 @@ async function submit() {
       result.message ||
       'Đã gửi mã OTP tới email của bạn. Kiểm tra Hộp thư đến và Spam, rồi nhập mã bên dưới.'
   } catch {
-    localError.value = auth.error ?? 'Đăng ký thất bại'
+    localError.value =
+      auth.error ??
+      'Đăng ký thất bại. Nếu đợi lâu rồi lỗi — backend Railway có thể đang down; thử lại sau.'
   }
 }
 
