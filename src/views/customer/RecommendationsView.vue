@@ -4,7 +4,6 @@ import { dssApi, productApi, formatVnd } from '@/api/services'
 import type { Product, Recommendation } from '@/types'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
-import HybridDataNotice from '@/components/HybridDataNotice.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import ProductCard from '@/components/ProductCard.vue'
 import AiShortcutBar from '@/components/AiShortcutBar.vue'
@@ -67,9 +66,6 @@ async function addToCart(productId: string) {
         { to: '/search', label: 'Cửa hàng' },
         { to: '/orders', label: 'Đơn hàng' },
       ]"
-    />
-    <HybridDataNotice
-      message="Engine gợi ý local (DSS demo) — kết hợp đơn hàng thật + mock khi có backend."
     />
 
     <p v-if="loading" class="muted">Đang phân tích sở thích của bạn...</p>

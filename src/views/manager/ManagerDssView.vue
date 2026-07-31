@@ -1,16 +1,28 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { dssApi } from '@/api/services'
 import type { DssInsight } from '@/types'
-import HybridDataNotice from '@/components/HybridDataNotice.vue'
+import type { DssInsightPlanApi } from '@/api/real/dss'
 import PageHeader from '@/components/PageHeader.vue'
 import AiShortcutBar from '@/components/AiShortcutBar.vue'
 
 const insights = ref<DssInsight[]>([])
+const plan = ref<DssInsightPlanApi | null>(null)
+const planError = ref('')
+const planLoading = ref(false)
+const embedUrl = computed(() => plan.value?.powerBiEmbedUrl?.trim() || '')
 
 onMounted(async () => {
   insights.value = await dssApi.managerInsights()
+  planLoading.value = true
+  try {
+    plan.value = await dssApi.insightPlan()
+  } catch (e) {
+    planError.value = e instanceof Error ? e.message : 'Không tải được kế hoạch DSS'
+  } finally {
+    planLoading.value = false
+  }
 })
 </script>
 
@@ -30,9 +42,24 @@ onMounted(async () => {
         { to: '/manager/analytics', label: 'Phân tích' },
       ]"
     />
-    <HybridDataNotice
-      message="KPI đơn hàng từ dữ liệu gộp; what-if khuyến mãi & phân khúc đang dùng mock demo trên frontend."
-    />
+    <section class="dss-brain">
+      <div class="dss-brain__head">
+        <h3>Nhận xét & kế hoạch</h3>
+        <small v-if="plan">{{ plan.generatedAt }}</small>
+      </div>
+      <p v-if="planLoading">Đang tổng hợp số liệu…</p>
+      <p v-else-if="planError" class="dss-brain__err">{{ planError }}</p>
+      <div v-else-if="plan">
+        <pre class="dss-brain__md">{{ plan.commentary }}</pre>
+        <iframe
+          v-if="embedUrl"
+          class="dss-brain__embed"
+          :src="embedUrl"
+          :title="plan.powerBiReportTitle || 'Power BI'"
+          allowfullscreen
+        />
+      </div>
+    </section>
 
     <div class="dss-hub">
       <RouterLink class="dss-hub__card" to="/manager/dss/what-if">
@@ -63,13 +90,49 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.dss-brain {
+  margin-bottom: 1.5rem;
+  padding: 1.15rem 1.25rem;
+  border: 1px solid #dbeafe;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #f8fbff 0%, #fff 100%);
+}
+.dss-brain__head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+.dss-brain__head h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: #0d47a1;
+}
+.dss-brain__md {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: inherit;
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+.dss-brain__embed {
+  width: 100%;
+  min-height: 420px;
+  margin-top: 1rem;
+  border: 0;
+  border-radius: 8px;
+  background: #f1f5f9;
+}
+.dss-brain__err {
+  color: #b91c1c;
+}
 .dss-hub {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
   margin-bottom: 1.5rem;
 }
-
 .dss-hub__card {
   display: block;
   padding: 1.25rem 1.35rem;
@@ -79,41 +142,31 @@ onMounted(async () => {
   text-decoration: none;
   color: inherit;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
-
 .dss-hub__card:hover {
   border-color: #90caf9;
-  box-shadow: 0 8px 24px rgba(25, 118, 210, 0.1);
-  transform: translateY(-1px);
   text-decoration: none;
 }
-
 .dss-hub__tag {
   display: inline-block;
   font-size: 0.7rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
   color: #1565c0;
   background: #e3f2fd;
   padding: 0.2rem 0.5rem;
   border-radius: 999px;
   margin-bottom: 0.65rem;
 }
-
 .dss-hub__card h2 {
   margin: 0 0 0.4rem;
   font-size: 1.1rem;
 }
-
 .dss-hub__card p {
   margin: 0;
   color: #64748b;
   font-size: 0.9rem;
-  line-height: 1.45;
 }
-
 .dss-hub__cta {
   display: inline-block;
   margin-top: 0.85rem;
@@ -121,16 +174,9 @@ onMounted(async () => {
   font-weight: 700;
   color: #1565c0;
 }
-
 .dss-hub__section {
   margin: 0 0 0.75rem;
-  font-size: 1rem;
 }
-
-h3 {
-  margin: 0 0 0.5rem;
-}
-
 @media (max-width: 720px) {
   .dss-hub {
     grid-template-columns: 1fr;

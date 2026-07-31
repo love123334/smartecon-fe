@@ -10,7 +10,7 @@ import { canShopAsBuyer } from '@/utils/roleNav'
 import ShopHero from '@/components/ShopHero.vue'
 import ShopSidebar from '@/components/ShopSidebar.vue'
 import ProductCard from '@/components/ProductCard.vue'
-import LoadingSpinner from '@/components/LoadingSpinner.vue'
+import ProductSkeletonGrid from '@/components/ProductSkeletonGrid.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import NewsletterBanner from '@/components/NewsletterBanner.vue'
 
@@ -45,6 +45,7 @@ async function search() {
   results.value = await productApi.list({
     q: q.value || undefined,
     category: category.value || undefined,
+    size: 48,
   })
   loading.value = false
   visibleCount.value = 12
@@ -131,10 +132,9 @@ function showMore() {
           </label>
         </div>
 
-        <LoadingSpinner v-if="loading" label="Đang tìm..." />
+        <ProductSkeletonGrid v-if="loading" :count="8" />
         <EmptyState
           v-else-if="!filtered.length"
-          icon="🔎"
           title="Không có kết quả"
           :description="q ? `Không tìm thấy «${q}»` : 'Thử đổi bộ lọc khác'"
         />

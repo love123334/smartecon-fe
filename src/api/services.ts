@@ -19,9 +19,10 @@ import * as realUsers from '@/api/real/users'
 import * as realSeller from '@/api/real/seller'
 import * as realReviews from '@/api/real/reviews'
 import * as realProductImages from '@/api/real/productImages'
+import * as realDss from '@/api/real/dss'
 import { typingDelay } from '@/api/chat/engine'
 import { buildChatContext } from '@/api/chat/context'
-import { chatModeLabel, resolveChatReply } from '@/api/chat/responder'
+import { chatModeLabel, resolveChatReply, refreshBeAiStatus } from '@/api/chat/responder'
 import { isLlmConfigured } from '@/api/chat/llm'
 import { applyAvatarToUser, saveUserAvatar } from '@/utils/avatar'
 import { categoryRevenueChart, monthlyRevenueChart } from '@/utils/orderAnalytics'
@@ -483,6 +484,9 @@ async function mockLoginAcceptingDemoPassword(
 
 export type CatalogSource = 'backend' | 'mock'
 
+const CATALOG_CACHE_MS = 45_000
+const catalogListCache = new Map<string, { at: number; products: Product[] }>()
+
 export interface ProductListResult {
   products: Product[]
   catalogSource: CatalogSource
@@ -496,6 +500,7 @@ async function listProductsHybridInternal(
     category?: string
     sellerId?: string
     withStock?: boolean
+    size?: number
   },
 ): Promise<ProductListResult> {
   if (!apiConfig.useRealProducts) {
@@ -520,7 +525,7 @@ async function listProductsHybridInternal(
       q: params?.q,
       sellerId: sellerNum,
       categoryId,
-      size: 100,
+      size: params?.size ?? 48,
     })
 
     if (params?.category && !categoryId) {
@@ -533,7 +538,8 @@ async function listProductsHybridInternal(
     }
 
     let enriched = list.map(enrichProduct)
-    if (apiConfig.useRealInventory && (params?.withStock ?? true) && hasBackendToken()) {
+    // Catalog browse: skip per-SKU inventory (N+1). Opt-in withStock only when needed.
+    if (apiConfig.useRealInventory && params?.withStock === true && hasBackendToken()) {
       enriched = await realInventory.attachStockToProducts(enriched)
     }
     return { products: enriched, catalogSource: 'backend' }
@@ -551,8 +557,15 @@ async function listProductsHybrid(params?: {
   category?: string
   sellerId?: string
   withStock?: boolean
+  size?: number
 }): Promise<Product[]> {
+  const cacheKey = JSON.stringify(params ?? {})
+  const hit = catalogListCache.get(cacheKey)
+  if (hit && Date.now() - hit.at < CATALOG_CACHE_MS) {
+    return hit.products
+  }
   const { products } = await listProductsHybridInternal(params)
+  catalogListCache.set(cacheKey, { at: Date.now(), products })
   return products
 }
 
@@ -560,13 +573,17 @@ export const productApi = {
   list: listProductsHybrid,
   listWithMeta: listProductsHybridInternal,
 
-  async getById(id: string): Promise<Product | null> {
+  async getById(id: string, opts?: { withStock?: boolean }): Promise<Product | null> {
     if (apiConfig.useRealProducts) {
       try {
         let p = await realProducts.getProductById(id)
         if (!p) return null
         p = enrichProduct(p)
-        if (apiConfig.useRealInventory && hasBackendToken()) {
+        if (
+          apiConfig.useRealInventory &&
+          opts?.withStock !== false &&
+          hasBackendToken()
+        ) {
           const [withStock] = await realInventory.attachStockToProducts([p])
           return withStock
         }
@@ -1567,6 +1584,26 @@ export const dssApi = {
 
     return ranked.slice(0, 6)
   },
+
+  async forecastDemand(input: {
+    productId: string
+    historyDays: number
+    forecastDays: number
+  }) {
+    return realDss.forecastDemand(input.productId, input.historyDays, input.forecastDays)
+  },
+
+  async recommendPrice(productId: string, lookbackDays = 30) {
+    return realDss.recommendPrice(productId, lookbackDays)
+  },
+
+  async recommendInventory(planningDays: number, productId?: string) {
+    return realDss.recommendInventory(planningDays, productId)
+  },
+
+  async insightPlan() {
+    return realDss.insightPlan()
+  },
 }
 
 // ——— Admin ———
@@ -1667,6 +1704,10 @@ export const adminApi = {
 export const chatApi = {
   isLlmEnabled: isLlmConfigured,
   modeLabel: chatModeLabel,
+
+  async ensureAiReady() {
+    await refreshBeAiStatus()
+  },
 
   async getHistory(userId: string): Promise<ChatMessage[]> {
     await delay(30)

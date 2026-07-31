@@ -1,4 +1,5 @@
 import { apiConfig } from '@/api/config'
+import * as realAi from '@/api/real/ai'
 import type { ChatMessage } from '@/types'
 
 export interface LlmMessage {
@@ -11,20 +12,52 @@ interface ChatCompletionResponse {
   error?: { message?: string }
 }
 
-/** Pattern giống Bedrock/Claude demo: history + user message → LLM */
-export function isLlmConfigured(): boolean {
+/** Cached BE Hugging Face status (token stays on server — easy Vercel/Railway deploy). */
+let beAiConfigured: boolean | null = null
+
+function hasBackendToken(): boolean {
+  return Boolean(localStorage.getItem('sedsp_access_token')?.trim())
+}
+
+function isDirectLlmConfigured(): boolean {
   return apiConfig.aiEnabled && Boolean(apiConfig.aiApiKey?.trim())
 }
 
+export async function refreshBeAiStatus(): Promise<boolean> {
+  if (!hasBackendToken()) {
+    beAiConfigured = false
+    return false
+  }
+  try {
+    const status = await realAi.getAiStatus()
+    beAiConfigured = Boolean(status.configured)
+  } catch {
+    beAiConfigured = false
+  }
+  return beAiConfigured
+}
+
+/** true if BE HF proxy ready, or optional browser Groq key */
+export function isLlmConfigured(): boolean {
+  if (beAiConfigured === true) return true
+  if (isDirectLlmConfigured()) return true
+  // Optimistic: authenticated users may use BE proxy — callChatLlm will verify
+  return hasBackendToken() && beAiConfigured !== false
+}
+
+export function llmProviderLabel(): string {
+  if (beAiConfigured === true) return 'OpenRouter/AI (via backend)'
+  if (isDirectLlmConfigured()) return 'Groq/OpenAI (browser)'
+  if (hasBackendToken()) return 'Backend AI (checking…)'
+  return 'Local'
+}
+
+/** Pattern: history + user message → BE HF proxy, else optional direct Groq */
 export async function callChatLlm(
   systemPrompt: string,
   history: ChatMessage[],
   userMessage: string,
 ): Promise<string> {
-  if (!isLlmConfigured()) {
-    throw new Error('LLM chưa cấu hình')
-  }
-
   const recent = history.slice(-12).map((m) => ({
     role: m.role as 'user' | 'assistant',
     content: m.content,
@@ -35,6 +68,24 @@ export async function callChatLlm(
     ...recent,
     { role: 'user', content: userMessage },
   ]
+
+  if (hasBackendToken() && beAiConfigured !== false) {
+    try {
+      if (beAiConfigured === null) {
+        await refreshBeAiStatus()
+      }
+      if (beAiConfigured) {
+        const res = await realAi.chat(messages)
+        if (res.content?.trim()) return res.content.trim()
+      }
+    } catch {
+      /* fall through to direct LLM or throw */
+    }
+  }
+
+  if (!isDirectLlmConfigured()) {
+    throw new Error('LLM chưa cấu hình')
+  }
 
   const url = `${apiConfig.aiBaseUrl.replace(/\/$/, '')}/chat/completions`
   const res = await fetch(url, {

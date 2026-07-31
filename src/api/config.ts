@@ -20,7 +20,7 @@ export const apiConfig = {
   useRealSeller: import.meta.env.VITE_USE_MOCK !== 'true',
   /** Đánh giá sản phẩm từ /api/v1/products/{id}/reviews */
   useRealReviews: import.meta.env.VITE_USE_MOCK !== 'true',
-  /** Bật LLM Groq/OpenAI-compatible (cần VITE_AI_API_KEY) */
+  /** Bật LLM trực tiếp từ trình duyệt (tùy chọn). Deploy production nên dùng HF token trên BE. */
   aiEnabled: import.meta.env.VITE_AI_ENABLED === 'true',
   aiApiKey: import.meta.env.VITE_AI_API_KEY ?? '',
   aiBaseUrl: import.meta.env.VITE_AI_API_BASE_URL ?? 'https://api.groq.com/openai/v1',

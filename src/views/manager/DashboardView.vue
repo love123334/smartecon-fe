@@ -1,10 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { apiConfig } from '@/api/config'
 import { dssApi, orderApi, formatVnd } from '@/api/services'
 import { monthlyRevenueChart, totalRevenue } from '@/utils/orderAnalytics'
 import type { ChartPoint, Order } from '@/types'
-import HybridDataNotice from '@/components/HybridDataNotice.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import LineChart from '@/components/LineChart.vue'
 import { orderStatusLabel } from '@/utils/orderStatus'
@@ -12,7 +10,6 @@ import { orderStatusLabel } from '@/utils/orderStatus'
 const sales = ref<ChartPoint[]>([])
 const orders = ref<Order[]>([])
 const loading = ref(true)
-const ordersFromApi = ref(false)
 
 const totalRev = computed(() => totalRevenue(orders.value))
 const recentOrders = computed(() => orders.value.slice(0, 8))
@@ -20,18 +17,7 @@ const recentOrders = computed(() => orders.value.slice(0, 8))
 onMounted(async () => {
   loading.value = true
   try {
-    if (apiConfig.useRealOrders) {
-      try {
-        const real = await orderApi.listAll()
-        const mockOnly = real.length > 0 && real[0]?.id.startsWith('o-')
-        ordersFromApi.value = !mockOnly && real.length > 0
-        orders.value = real
-      } catch {
-        orders.value = await orderApi.listAll()
-      }
-    } else {
-      orders.value = await orderApi.listAll()
-    }
+    orders.value = await orderApi.listAll()
     sales.value = await dssApi.salesChart()
     if (!sales.value.length && orders.value.length) {
       sales.value = monthlyRevenueChart(orders.value)
@@ -55,10 +41,6 @@ onMounted(async () => {
       <RouterLink to="/manager/orders" class="btn btn-primary btn-sm">Quản lý đơn hàng</RouterLink>
       <RouterLink to="/manager/approvals" class="btn btn-outline btn-sm">Duyệt nâng quyền</RouterLink>
     </p>
-    <HybridDataNotice
-      v-if="!ordersFromApi && apiConfig.useRealOrders"
-      message="Backend hiện chưa có GET /orders/manage — bảng đơn & một số KPI dùng dữ liệu demo. Biểu đồ seller/manager lấy từ sales-performance hoặc catalog khi có."
-    />
 
     <div class="stat-grid grid-stagger">
       <div class="card stat-card stat-card--hover">

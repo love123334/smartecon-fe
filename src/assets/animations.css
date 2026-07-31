@@ -609,7 +609,6 @@
 
 .home-hero__cta:hover,
 .home-cat-card:hover,
-.home-promo__btn:hover,
 .home-hero__nav:hover {
   transform: translateY(-5px) scale(1.04);
 }

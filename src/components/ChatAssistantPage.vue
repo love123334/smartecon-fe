@@ -29,7 +29,6 @@ const effectiveRole = computed<UserRole>(() => props.role ?? auth.role ?? 'guest
 const chatUserId = computed(() => props.storageKey ?? auth.user?.id ?? 'guest')
 const quickPrompts = computed(() => quickPromptsForRole(effectiveRole.value))
 const shortcuts = computed(() => roleChatShortcuts(effectiveRole.value))
-const chatMode = computed(() => chatApi.modeLabel())
 
 const header = computed(() => {
   if (props.pageCopy) return props.pageCopy
@@ -67,6 +66,7 @@ const header = computed(() => {
 })
 
 onMounted(async () => {
+  await chatApi.ensureAiReady()
   messages.value = await chatApi.getHistory(chatUserId.value)
 })
 
@@ -100,12 +100,6 @@ async function onClear() {
       :lead="header.lead"
     />
     <AiShortcutBar title="Module liên quan:" :links="shortcuts" />
-    <p class="chat-mode-badge" :class="{ 'chat-mode-badge--llm': chatApi.isLlmEnabled() }">
-      Chế độ: {{ chatMode }}
-      <span v-if="!chatApi.isLlmEnabled()" class="chat-mode-badge__hint">
-        — thêm <code>VITE_AI_API_KEY</code> trong .env để bật LLM (Groq)
-      </span>
-    </p>
     <p v-if="chatError" class="chat-error">{{ chatError }}</p>
     <ChatPanel
       :messages="messages"
@@ -123,30 +117,6 @@ async function onClear() {
 .chat-page {
   max-width: 720px;
   margin: 0 auto;
-}
-
-.chat-mode-badge {
-  margin: 0 0 0.75rem;
-  padding: 0.45rem 0.65rem;
-  font-size: 0.75rem;
-  color: var(--slate-600);
-  background: var(--slate-50);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-}
-
-.chat-mode-badge--llm {
-  background: #ecfdf5;
-  border-color: #a7f3d0;
-  color: #065f46;
-}
-
-.chat-mode-badge__hint {
-  color: var(--slate-500);
-}
-
-.chat-mode-badge code {
-  font-size: 0.6875rem;
 }
 
 .chat-error {

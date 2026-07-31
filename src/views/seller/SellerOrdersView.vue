@@ -1,14 +1,13 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { formatVnd, orderApi } from '@/api/services'
-import type { Order, SellerOrdersSource } from '@/types'
+import type { Order } from '@/types'
 import type { BackendOrderStatus } from '@/utils/backendOrderStatus'
 import {
   BACKEND_STATUS_LABEL,
   backendStatusLabel,
   nextBackendStatuses,
 } from '@/utils/backendOrderStatus'
-import HybridDataNotice from '@/components/HybridDataNotice.vue'
 import OrderTrackStepper from '@/components/OrderTrackStepper.vue'
 import PageHeader from '@/components/PageHeader.vue'
 
@@ -18,8 +17,6 @@ const updatingId = ref<string | null>(null)
 const selectedStatus = ref<Record<string, BackendOrderStatus>>({})
 const statusNotes = ref<Record<string, string>>({})
 const error = ref('')
-const source = ref<SellerOrdersSource>('mock')
-const statusDemoOnly = ref(false)
 
 async function loadOrders() {
   loading.value = true
@@ -27,7 +24,6 @@ async function loadOrders() {
   try {
     const result = await orderApi.listForSellerWithMeta()
     orders.value = result.orders
-    source.value = result.source
     for (const o of orders.value) {
       const next = nextBackendStatuses(o.rawStatus)[0]
       if (next) selectedStatus.value[o.id] = next
@@ -51,12 +47,11 @@ async function applyStatus(order: Order) {
   updatingId.value = order.id
   error.value = ''
   try {
-    const { order: updated, persistedOnBackend } = await orderApi.updateBackendStatus(
+    const { order: updated } = await orderApi.updateBackendStatus(
       order.id,
       status,
       statusNotes.value[order.id]?.trim() || undefined,
     )
-    statusDemoOnly.value = !persistedOnBackend
     const idx = orders.value.findIndex((o) => o.id === order.id)
     if (idx >= 0) orders.value[idx] = updated
     const next = nextBackendStatuses(updated.rawStatus)[0]
@@ -76,23 +71,6 @@ async function applyStatus(order: Order) {
       eyebrow="Người bán"
       title="Quản lý đơn hàng"
       lead="Theo dõi tiến trình từng đơn (chờ → xác nhận → giao → hoàn tất) và cập nhật trạng thái cho khách."
-    />
-
-    <HybridDataNotice
-      v-if="source === 'dashboard'"
-      message="Đơn hàng từ GET /seller/dashboard (recentOrders). Chi tiết line items có thể chưa đầy đủ — thử lại sau khi backend GET /orders/seller hoạt động."
-    />
-    <HybridDataNotice
-      v-else-if="source === 'api'"
-      message="Đơn từ GET /orders/seller. Cập nhật trạng thái sẽ lưu vào database (PUT /orders/{id}/status)."
-    />
-    <HybridDataNotice
-      v-else-if="source === 'mock'"
-      message="Backend không phản hồi — hiển thị đơn demo trong trình duyệt."
-    />
-    <HybridDataNotice
-      v-if="statusDemoOnly"
-      message="Trạng thái vừa lưu local (API status chưa thành công). Khi API OK, đơn Đã giao sẽ tính vào doanh số."
     />
 
     <p v-if="error" class="form-error">{{ error }}</p>

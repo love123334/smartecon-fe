@@ -2,32 +2,98 @@
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import PriceQuantityChart from '@/components/dss/PriceQuantityChart.vue'
+import { apiConfig } from '@/api/config'
+import { dssApi, productApi } from '@/api/services'
+import { useAuthStore } from '@/stores/auth'
 import {
   PRICE_PRODUCTS,
   defaultPriceRecommendation,
   generatePriceRecommendation,
+  type PriceProductOption,
   type PriceRecommendationResult,
 } from '@/utils/dssPriceMock'
 
+const auth = useAuthStore()
+const products = ref<PriceProductOption[]>([...PRICE_PRODUCTS])
 const productId = ref(PRICE_PRODUCTS.find((p) => p.id === '1')?.id ?? PRICE_PRODUCTS[0].id)
 const fromDate = ref('')
 const toDate = ref('')
 const result = ref<PriceRecommendationResult | null>(null)
+const usingApi = ref(false)
+const loading = ref(false)
+const errorMsg = ref('')
 
 const selectedProduct = computed(
-  () => PRICE_PRODUCTS.find((p) => p.id === productId.value) ?? PRICE_PRODUCTS[0],
+  () => products.value.find((p) => p.id === productId.value) ?? products.value[0],
 )
 
 const isUsd = computed(() => selectedProduct.value?.id === 'p100')
 
 function money(n: number) {
   if (isUsd.value) return `$${n.toLocaleString('en-US')}`
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(n)
+  return new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND',
+    maximumFractionDigits: 0,
+  }).format(n)
 }
 
-function generate() {
+function changePctLabel(pct: number) {
+  const sign = pct > 0 ? '+' : ''
+  return `${sign}${pct}%`
+}
+
+async function generate() {
   const product = selectedProduct.value
   if (!product) return
+  errorMsg.value = ''
+
+  if (usingApi.value) {
+    loading.value = true
+    try {
+      const api = await dssApi.recommendPrice(product.id, 30)
+      const action =
+        api.action === 'increase' || api.action === 'decrease' || api.action === 'keep'
+          ? api.action
+          : 'keep'
+      result.value = {
+        productName: api.productName,
+        currentPrice: Number(api.currentPrice),
+        recommendedPrice: Number(api.recommendedPrice),
+        priceChangePct: api.priceChangePct,
+        priceElasticity: api.elasticity,
+        currentDemand: api.currentDemand,
+        predictedDemand: api.predictedDemand,
+        expectedRevenue: Number(api.expectedRevenue),
+        recommendationAction: action,
+        recommendationMessage: api.message,
+        insightTitle:
+          action === 'increase'
+            ? 'Nên tăng giá bán'
+            : action === 'decrease'
+              ? 'Nên giảm giá bán'
+              : 'Giữ giá hiện tại',
+        insightBody: api.insight,
+        history: (api.chart ?? []).map((c, i) => ({
+          date: c.label || `D-${i}`,
+          averagePrice: Number(c.averagePrice),
+          quantitySold: Number(c.quantitySold),
+          elasticity: api.elasticity,
+        })),
+        chart: (api.chart ?? []).map((c) => ({
+          label: c.label,
+          averagePrice: Number(c.averagePrice),
+          quantitySold: Number(c.quantitySold),
+        })),
+      }
+      return
+    } catch (e) {
+      errorMsg.value = e instanceof Error ? e.message : 'Không gọi được DSS API'
+    } finally {
+      loading.value = false
+    }
+  }
+
   result.value = generatePriceRecommendation({
     product,
     fromDate: fromDate.value,
@@ -35,12 +101,33 @@ function generate() {
   })
 }
 
-onMounted(() => {
+onMounted(async () => {
   const to = new Date()
   const from = new Date()
   from.setDate(from.getDate() - 30)
   toDate.value = to.toISOString().slice(0, 10)
   fromDate.value = from.toISOString().slice(0, 10)
+
+  if (apiConfig.useRealSeller && auth.isLoggedIn) {
+    try {
+      const sellerKey = auth.user?.backendId ?? auth.user?.id
+      const list = await productApi.list({ sellerId: sellerKey, withStock: false })
+      if (list.length) {
+        products.value = list.map((p) => ({
+          id: String(p.id),
+          name: p.name,
+          currentPrice: p.price,
+        }))
+        productId.value = products.value[0].id
+        usingApi.value = true
+        await generate()
+        return
+      }
+    } catch {
+      /* mock */
+    }
+  }
+
   result.value = defaultPriceRecommendation()
 })
 </script>
@@ -61,27 +148,36 @@ onMounted(() => {
       </p>
     </header>
 
+    <section v-if="errorMsg" class="dss-warn-card">
+      <h2>{{ errorMsg }}</h2>
+    </section>
+
     <section class="dss-card">
       <h2 class="dss-card__title">Bộ lọc</h2>
       <div class="dss-form-grid dss-form-grid--4">
         <label class="dss-field">
           <span>Sản phẩm</span>
           <select v-model="productId" class="dss-input">
-            <option v-for="p in PRICE_PRODUCTS" :key="p.id" :value="p.id">{{ p.name }}</option>
+            <option v-for="p in products" :key="p.id" :value="p.id">{{ p.name }}</option>
           </select>
         </label>
         <label class="dss-field">
           <span>Từ ngày</span>
-          <input v-model="fromDate" type="date" class="dss-input" />
+          <input v-model="fromDate" type="date" class="dss-input" :disabled="usingApi" />
         </label>
         <label class="dss-field">
           <span>Đến ngày</span>
-          <input v-model="toDate" type="date" class="dss-input" />
+          <input v-model="toDate" type="date" class="dss-input" :disabled="usingApi" />
         </label>
         <div class="dss-field dss-field--action">
           <span>&nbsp;</span>
-          <button type="button" class="dss-btn dss-btn--primary" @click="generate">
-            Tạo gợi ý giá
+          <button
+            type="button"
+            class="dss-btn dss-btn--primary"
+            :disabled="loading"
+            @click="generate"
+          >
+            {{ loading ? 'Đang tạo…' : 'Tạo gợi ý giá' }}
           </button>
         </div>
       </div>
@@ -99,7 +195,7 @@ onMounted(() => {
         </article>
         <article class="dss-kpi">
           <span class="dss-kpi__label">Thay đổi giá (%)</span>
-          <strong class="dss-pos">+{{ result.priceChangePct }}%</strong>
+          <strong class="dss-pos">{{ changePctLabel(result.priceChangePct) }}</strong>
         </article>
         <article class="dss-kpi">
           <span class="dss-kpi__label">Độ co giãn giá</span>
@@ -133,7 +229,7 @@ onMounted(() => {
           <ul>
             <li>Nhu cầu: {{ result.currentDemand }} → {{ result.predictedDemand }} đơn vị</li>
             <li>Ưu tiên doanh thu hơn sản lượng</li>
-            <li>Độ co giãn {{ result.priceElasticity }} (tương đối kém co giãn)</li>
+            <li>Độ co giãn {{ result.priceElasticity }}</li>
           </ul>
         </section>
       </div>

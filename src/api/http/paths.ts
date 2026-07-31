@@ -71,17 +71,20 @@ export const apiPaths = {
     trends: 'analytics/products/trends',
     customers: 'analytics/customers',
     kpi: 'analytics/kpi',
+    powerBiSales: 'analytics/powerbi/sales',
   },
   dss: {
     demand: (productId: string) => `dss/demand/${productId}`,
     price: (productId: string) => `dss/price/${productId}`,
-    inventory: (productId: string) => `dss/inventory/${productId}`,
+    inventory: 'dss/inventory',
     whatIf: 'dss/what-if',
     insights: 'dss/insights',
+    insightsPlan: 'dss/insights/plan',
   },
   ai: {
     recommendations: 'ai/recommendations',
     chat: 'ai/chat',
+    status: 'ai/status',
   },
   admin: {
     metrics: 'admin/metrics',

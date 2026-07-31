@@ -10,7 +10,7 @@ import { canShopAsBuyer } from '@/utils/roleNav'
 import ShopHero from '@/components/ShopHero.vue'
 import ShopSidebar from '@/components/ShopSidebar.vue'
 import ProductCard from '@/components/ProductCard.vue'
-import LoadingSpinner from '@/components/LoadingSpinner.vue'
+import ProductSkeletonGrid from '@/components/ProductSkeletonGrid.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import NewsletterBanner from '@/components/NewsletterBanner.vue'
 
@@ -42,10 +42,16 @@ const visibleProducts = computed(() => filtered.value.slice(0, visibleCount.valu
 const sectionTitle = computed(() => category.value || 'Tất cả sản phẩm')
 
 onMounted(async () => {
-  const [list, cats] = await Promise.all([productApi.list(), productApi.categories()])
-  products.value = list
-  categories.value = cats
-  loading.value = false
+  try {
+    const [list, cats] = await Promise.all([
+      productApi.list({ size: 48 }),
+      productApi.categories(),
+    ])
+    products.value = list
+    categories.value = cats
+  } finally {
+    loading.value = false
+  }
 })
 
 watch([category, priceRange], () => {
@@ -105,10 +111,9 @@ function showMore() {
           </div>
         </div>
 
-        <LoadingSpinner v-if="loading" />
+        <ProductSkeletonGrid v-if="loading" :count="8" />
         <EmptyState
           v-else-if="!filtered.length"
-          icon="📭"
           title="Chưa có sản phẩm"
           description="Thử đổi bộ lọc hoặc quay lại sau."
         />

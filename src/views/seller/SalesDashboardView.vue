@@ -4,7 +4,6 @@ import { dssApi, formatVnd, sellerApi } from '@/api/services'
 import type { ChartPoint } from '@/types'
 import type { SalesPerformance, SellerDashboard } from '@/api/real/seller'
 import { useAuthStore } from '@/stores/auth'
-import HybridDataNotice from '@/components/HybridDataNotice.vue'
 import LineChart from '@/components/LineChart.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import { backendStatusLabel } from '@/utils/backendOrderStatus'
@@ -13,7 +12,6 @@ const auth = useAuthStore()
 const salesData = ref<ChartPoint[]>([])
 const performance = ref<SalesPerformance | null>(null)
 const dashboard = ref<SellerDashboard | null>(null)
-const fromApi = ref(false)
 const error = ref('')
 const loading = ref(true)
 
@@ -31,7 +29,6 @@ onMounted(async () => {
     if (perf) {
       performance.value = perf
       salesData.value = perf.monthlyRevenue
-      fromApi.value = true
       if (!perf.monthlyRevenue.length && dash) {
         /* giữ chart trống nếu chưa có DELIVERED */
       }
@@ -51,14 +48,7 @@ onMounted(async () => {
     <PageHeader
       eyebrow="Người bán"
       title="Bảng doanh số & hiệu suất"
-      lead="Số liệu từ GET /seller/sales-performance và /seller/dashboard. Doanh thu hoàn thành tính đơn Đã giao."
-    />
-    <HybridDataNotice
-      :message="
-        fromApi
-          ? 'Đã kết nối API seller. Cập nhật đơn sang Đã giao (Seller → Đơn hàng) để doanh thu phản ánh đúng.'
-          : 'Backend chưa phản hồi sales-performance — hiển thị ước tính / dashboard khi có.'
-      "
+      lead="Theo dõi doanh thu, đơn hoàn thành và hiệu suất bán hàng của shop."
     />
     <p v-if="error" class="form-error">{{ error }}</p>
     <p v-if="loading" class="muted">Đang tải…</p>

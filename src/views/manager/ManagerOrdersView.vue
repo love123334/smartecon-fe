@@ -8,7 +8,6 @@ import {
   backendStatusLabel,
   nextBackendStatuses,
 } from '@/utils/backendOrderStatus'
-import HybridDataNotice from '@/components/HybridDataNotice.vue'
 import OrderTrackStepper from '@/components/OrderTrackStepper.vue'
 import PageHeader from '@/components/PageHeader.vue'
 
@@ -18,7 +17,6 @@ const error = ref('')
 const updatingId = ref<string | null>(null)
 const selectedStatus = ref<Record<string, BackendOrderStatus>>({})
 const statusNotes = ref<Record<string, string>>({})
-const localSync = ref(false)
 
 async function load() {
   loading.value = true
@@ -48,12 +46,11 @@ async function applyStatus(order: Order) {
   updatingId.value = order.id
   error.value = ''
   try {
-    const { order: updated, persistedOnBackend } = await orderApi.updateBackendStatus(
+    const { order: updated } = await orderApi.updateBackendStatus(
       order.id,
       status,
       statusNotes.value[order.id]?.trim() || undefined,
     )
-    localSync.value = !persistedOnBackend
     const idx = orders.value.findIndex((o) => o.id === order.id)
     if (idx >= 0) orders.value[idx] = updated
     const next = nextBackendStatuses(updated.rawStatus)[0]
@@ -72,12 +69,7 @@ async function applyStatus(order: Order) {
     <PageHeader
       eyebrow="Quản lý"
       title="Giám sát & cập nhật đơn hàng"
-      lead="Theo dõi toàn bộ đơn, xác nhận / đẩy giao / hoàn tất — khách sẽ thấy cùng tiến trình (đồng bộ FE khi backend chưa có API status)."
-    />
-
-    <HybridDataNotice
-      v-if="localSync"
-      message="Trạng thái lưu đồng bộ trên trình duyệt (buyer ↔ seller ↔ manager). Backend hiện chỉ hỗ trợ hủy đơn qua API."
+      lead="Theo dõi toàn bộ đơn, xác nhận / đẩy giao / hoàn tất cho khách."
     />
 
     <p v-if="error" class="form-error">{{ error }}</p>

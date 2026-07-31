@@ -10,8 +10,8 @@ import HomeHero from '@/components/home/HomeHero.vue'
 import HomeCategories from '@/components/home/HomeCategories.vue'
 import HomeFeatures from '@/components/home/HomeFeatures.vue'
 import ProductCard from '@/components/ProductCard.vue'
+import ProductSkeletonGrid from '@/components/ProductSkeletonGrid.vue'
 import NewsletterBanner from '@/components/NewsletterBanner.vue'
-import LoadingSpinner from '@/components/LoadingSpinner.vue'
 
 const products = ref<Product[]>([])
 const loading = ref(true)
@@ -28,8 +28,11 @@ const bestSellers = computed(() =>
 )
 
 onMounted(async () => {
-  products.value = await productApi.list()
-  loading.value = false
+  try {
+    products.value = await productApi.list({ size: 24 })
+  } finally {
+    loading.value = false
+  }
 })
 
 async function addToCart(id: string) {
@@ -56,7 +59,7 @@ async function addToCart(id: string) {
       <div class="container">
         <div class="home-section-head">
           <div>
-            <p class="home-flash__badge">⚡ Flash Sale</p>
+            <p class="home-flash__badge">Flash Sale</p>
             <h2 id="flash-title" class="home-section-head__title">Deal sốc hôm nay</h2>
           </div>
           <RouterLink to="/search" class="home-section-head__link btn-interactive">
@@ -84,7 +87,7 @@ async function addToCart(id: string) {
           </div>
         </div>
 
-        <LoadingSpinner v-if="loading" />
+        <ProductSkeletonGrid v-if="loading" :count="4" />
         <div v-else class="home-bestsellers__grid grid-stagger">
           <ProductCard
             v-for="p in bestSellers"
@@ -106,10 +109,13 @@ async function addToCart(id: string) {
     <section class="home-promo reveal-up">
       <div class="container home-promo__inner">
         <div>
-          <h2>Gợi ý từ AI — mua đúng món, đỡ phân vân</h2>
+          <h2>Gợi ý thông minh — mua đúng món, đỡ phân vân</h2>
           <p>Đăng nhập để nhận gợi ý cá nhân hóa và chat với trợ lý SEDSP.</p>
         </div>
-        <RouterLink :to="auth.isLoggedIn ? '/recommendations' : '/login'" class="home-promo__btn btn-interactive">
+        <RouterLink
+          :to="auth.isLoggedIn ? '/recommendations' : '/login'"
+          class="home-promo__btn"
+        >
           {{ auth.isLoggedIn ? 'Xem gợi ý' : 'Đăng nhập ngay' }}
         </RouterLink>
       </div>

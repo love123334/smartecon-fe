@@ -1,21 +1,30 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import DemandTrendChart from '@/components/dss/DemandTrendChart.vue'
+import { apiConfig } from '@/api/config'
+import { dssApi, productApi } from '@/api/services'
+import { useAuthStore } from '@/stores/auth'
 import {
   DEMAND_PRODUCTS,
   FORECAST_PERIOD_OPTIONS,
   HISTORICAL_WINDOW_OPTIONS,
   generateDemandForecast,
   type DemandForecastResult,
+  type DemandProductOption,
   type ForecastPeriodKey,
   type HistoricalWindowKey,
 } from '@/utils/dssDemandMock'
 
+const auth = useAuthStore()
+const products = ref<DemandProductOption[]>([...DEMAND_PRODUCTS])
 const productQuery = ref('')
 const productId = ref(DEMAND_PRODUCTS[0]?.id ?? '')
 const forecastKey = ref<ForecastPeriodKey>('30')
 const historicalKey = ref<HistoricalWindowKey>('90')
+const usingApi = ref(false)
+const loading = ref(false)
+const errorMsg = ref('')
 
 const success = ref(false)
 const insufficient = ref(false)
@@ -23,19 +32,78 @@ const result = ref<DemandForecastResult | null>(null)
 
 const filteredProducts = computed(() => {
   const q = productQuery.value.trim().toLowerCase()
-  if (!q) return DEMAND_PRODUCTS
-  return DEMAND_PRODUCTS.filter((p) => p.name.toLowerCase().includes(q))
+  if (!q) return products.value
+  return products.value.filter((p) => p.name.toLowerCase().includes(q))
 })
 
 const selectedProduct = computed(
-  () => DEMAND_PRODUCTS.find((p) => p.id === productId.value) ?? DEMAND_PRODUCTS[0],
+  () => products.value.find((p) => p.id === productId.value) ?? products.value[0],
 )
 
-function generate() {
+onMounted(async () => {
+  if (!(apiConfig.useRealSeller && auth.isLoggedIn)) return
+  try {
+    const sellerKey = auth.user?.backendId ?? auth.user?.id
+    const list = await productApi.list({ sellerId: sellerKey, withStock: false })
+    if (list.length) {
+      products.value = list.map((p) => ({ id: String(p.id), name: p.name }))
+      productId.value = products.value[0].id
+      usingApi.value = true
+    }
+  } catch {
+    /* keep mock products */
+  }
+})
+
+async function generate() {
   success.value = false
   insufficient.value = false
+  errorMsg.value = ''
   const product = selectedProduct.value
   if (!product) return
+
+  const forecast = FORECAST_PERIOD_OPTIONS.find((o) => o.value === forecastKey.value)!
+  const hist = HISTORICAL_WINDOW_OPTIONS.find((o) => o.value === historicalKey.value)!
+
+  if (usingApi.value) {
+    loading.value = true
+    try {
+      const api = await dssApi.forecastDemand({
+        productId: product.id,
+        historyDays: hist.days,
+        forecastDays: forecast.days,
+      })
+      if (api.insufficientData) {
+        result.value = null
+        insufficient.value = true
+        return
+      }
+      result.value = {
+        productName: api.productName,
+        historicalWindowLabel: hist.label,
+        forecastPeriodLabel: forecast.label,
+        historicalDays: api.historicalDays,
+        forecastDays: api.forecastDays,
+        averageDailyDemand: api.averageDailyDemand,
+        predictedDemand: api.predictedDemand,
+        generatedAt: api.generatedAt,
+        historicalSales: (api.historicalSales ?? []).map((p) => ({
+          day: Number(p.day),
+          qty: Number(p.qty),
+        })),
+        forecastSales: (api.forecastSales ?? []).map((p) => ({
+          day: Number(p.day),
+          qty: Number(p.qty),
+        })),
+      }
+      success.value = true
+      return
+    } catch (e) {
+      errorMsg.value = e instanceof Error ? e.message : 'Không gọi được DSS API'
+    } finally {
+      loading.value = false
+    }
+  }
 
   const out = generateDemandForecast({
     productId: product.id,
@@ -56,6 +124,7 @@ function generate() {
 
 function backFromError() {
   insufficient.value = false
+  errorMsg.value = ''
 }
 </script>
 
@@ -75,10 +144,12 @@ function backFromError() {
       </p>
     </header>
 
-    <section v-if="insufficient" class="dss-warn-card">
+    <section v-if="insufficient || errorMsg" class="dss-warn-card">
       <div class="dss-warn-card__icon" aria-hidden="true">⚠</div>
-      <h2>Không đủ dữ liệu để tạo dự báo.</h2>
-      <p>Cửa sổ lịch sử quá dài hoặc sản phẩm chưa có đủ đơn hàng mẫu. Hãy chọn cửa sổ ngắn hơn.</p>
+      <h2>{{ errorMsg || 'Không đủ dữ liệu để tạo dự báo.' }}</h2>
+      <p v-if="!errorMsg">
+        Cửa sổ lịch sử quá dài hoặc sản phẩm chưa có đủ đơn hàng. Hãy chọn cửa sổ ngắn hơn.
+      </p>
       <button type="button" class="dss-btn dss-btn--outline" @click="backFromError">Quay lại</button>
     </section>
 
@@ -115,8 +186,13 @@ function backFromError() {
             </select>
           </label>
         </div>
-        <button type="button" class="dss-btn dss-btn--primary" @click="generate">
-          Tạo dự báo
+        <button
+          type="button"
+          class="dss-btn dss-btn--primary"
+          :disabled="loading"
+          @click="generate"
+        >
+          {{ loading ? 'Đang tạo…' : 'Tạo dự báo' }}
         </button>
       </section>
 
