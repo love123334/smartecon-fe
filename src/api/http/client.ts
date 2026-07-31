@@ -28,22 +28,32 @@ function authHeaders(): HeadersInit {
   return headers
 }
 
+const DEFAULT_TIMEOUT_MS = 45_000
+
 export async function apiRequest<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
   const url = `${apiConfig.baseUrl.replace(/\/$/, '')}/${path.replace(/^\//, '')}`
   let res: Response
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS)
   try {
     res = await fetch(url, {
       ...options,
+      signal: options.signal ?? controller.signal,
       headers: { ...authHeaders(), ...options.headers },
     })
-  } catch {
+  } catch (e) {
+    const aborted = e instanceof DOMException && e.name === 'AbortError'
     throw new ApiError(
-      'Không kết nối được backend. Hãy chạy Spring Boot tại localhost:8080 (hoặc dùng chế độ mock).',
+      aborted
+        ? 'Backend không phản hồi (timeout). Kiểm tra Railway API đang chạy.'
+        : 'Không kết nối được backend. Kiểm tra VITE_API_BASE_URL hoặc chạy Spring Boot tại localhost:8080.',
       0,
     )
+  } finally {
+    clearTimeout(timeoutId)
   }
 
   let body: ApiResponse<T> | unknown

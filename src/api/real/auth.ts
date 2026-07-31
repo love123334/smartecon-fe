@@ -66,7 +66,7 @@ export type RegisterResult =
 
 /**
  * Backend register tạo CUSTOMER + PENDING (OTP email).
- * Không ép login nếu tài khoản chưa ACTIVE.
+ * Không auto-login — tránh DisabledException / race sau khi tạo PENDING.
  */
 export async function register(data: {
   email: string
@@ -75,30 +75,16 @@ export async function register(data: {
 }): Promise<RegisterResult> {
   await http.post<void>(apiPaths.auth.register, {
     fullName: data.fullName,
-    email: data.email,
+    email: data.email.trim().toLowerCase(),
     password: data.password,
     confirmPassword: data.password,
   })
 
-  try {
-    const user = await login(data.email, data.password)
-    return { status: 'active', user }
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : ''
-    if (/verify|pending|otp|email first/i.test(msg)) {
-      return {
-        status: 'pending_verification',
-        email: data.email,
-        message:
-          'Đăng ký thành công. Vui lòng xác thực email (OTP) trước khi đăng nhập. Bạn có thể gửi lại OTP bên dưới.',
-      }
-    }
-    return {
-      status: 'pending_verification',
-      email: data.email,
-      message:
-        'Đăng ký thành công. Tài khoản có thể đang chờ xác thực — hãy thử đăng nhập sau khi xác nhận email, hoặc nhờ admin kích hoạt.',
-    }
+  return {
+    status: 'pending_verification',
+    email: data.email.trim().toLowerCase(),
+    message:
+      'Đăng ký thành công. Kiểm tra Hộp thư đến và Spam để lấy mã OTP, rồi nhập bên dưới để kích hoạt.',
   }
 }
 
