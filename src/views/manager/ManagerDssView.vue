@@ -6,19 +6,14 @@ import type { DssInsight } from '@/types'
 import type { DssInsightPlanApi } from '@/api/real/dss'
 import PageHeader from '@/components/PageHeader.vue'
 import AiShortcutBar from '@/components/AiShortcutBar.vue'
+import { sanitizeDssCommentary } from '@/utils/dssCommentary'
 
 const insights = ref<DssInsight[]>([])
 const plan = ref<DssInsightPlanApi | null>(null)
 const planError = ref('')
 const planLoading = ref(false)
 const embedUrl = computed(() => plan.value?.powerBiEmbedUrl?.trim() || '')
-const planCommentary = computed(() => {
-  const raw = plan.value?.commentary?.trim() || ''
-  return raw
-    .replace(/\n*-{2,}\s*\n*Metrics snapshot:[\s\S]*$/i, '')
-    .replace(/\n*Metrics snapshot:[\s\S]*$/i, '')
-    .trim()
-})
+const planCommentary = computed(() => sanitizeDssCommentary(plan.value?.commentary || ''))
 
 onMounted(async () => {
   insights.value = await dssApi.managerInsights()

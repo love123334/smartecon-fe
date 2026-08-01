@@ -7,6 +7,7 @@ import type { DssInsightPlanApi } from '@/api/real/dss'
 import { useAuthStore } from '@/stores/auth'
 import PageHeader from '@/components/PageHeader.vue'
 import AiShortcutBar from '@/components/AiShortcutBar.vue'
+import { sanitizeDssCommentary } from '@/utils/dssCommentary'
 
 const auth = useAuthStore()
 const insights = ref<DssInsight[]>([])
@@ -16,13 +17,7 @@ const planLoading = ref(false)
 
 const sellerKey = computed(() => auth.user?.backendId ?? auth.user?.id)
 const embedUrl = computed(() => plan.value?.powerBiEmbedUrl?.trim() || '')
-const planCommentary = computed(() => {
-  const raw = plan.value?.commentary?.trim() || ''
-  return raw
-    .replace(/\n*-{2,}\s*\n*Metrics snapshot:[\s\S]*$/i, '')
-    .replace(/\n*Metrics snapshot:[\s\S]*$/i, '')
-    .trim()
-})
+const planCommentary = computed(() => sanitizeDssCommentary(plan.value?.commentary || ''))
 
 onMounted(async () => {
   insights.value = await dssApi.sellerInsights(sellerKey.value)
