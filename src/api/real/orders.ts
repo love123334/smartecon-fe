@@ -106,8 +106,8 @@ export function toBackendPayment(
   method: 'momo' | 'vnpay' | 'cod' | 'bank' | 'card',
 ): 'MOMO' | 'VNPAY' | 'COD' {
   if (method === 'cod') return 'COD'
-  if (method === 'vnpay' || method === 'bank') return 'VNPAY'
-  return 'MOMO'
+  // UI chỉ còn VNPay; momo/card map sang VNPAY để tránh gọi gateway đã bỏ
+  return 'VNPAY'
 }
 
 export async function createOrder(

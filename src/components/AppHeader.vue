@@ -40,7 +40,6 @@ const opsNavLinks = computed(() => {
       { to: '/seller/inventory', label: 'Tồn kho' },
       { to: '/seller/sales', label: 'Doanh số' },
       { to: '/seller/dss', label: 'DSS' },
-      { to: '/seller/chatbot', label: 'Trợ lý AI' },
     ]
   }
   if (r === 'manager') {
@@ -49,7 +48,6 @@ const opsNavLinks = computed(() => {
       { to: '/manager/platform-revenue', label: 'Doanh thu sàn' },
       { to: '/manager/analytics', label: 'Phân tích' },
       { to: '/manager/dss', label: 'DSS' },
-      { to: '/chatbot', label: 'Trợ lý AI' },
     ]
   }
   if (r === 'admin') {
@@ -113,14 +111,6 @@ function onOpenCart() {
               </RouterLink>
               <RouterLink to="/search" class="shop-nav__link" active-class="shop-nav__link--active">
                 Cửa hàng
-              </RouterLink>
-              <RouterLink
-                v-if="canShopAsBuyer(auth.role)"
-                to="/recommendations"
-                class="shop-nav__link"
-                active-class="shop-nav__link--active"
-              >
-                Gợi ý AI
               </RouterLink>
               <RouterLink
                 v-if="canShopAsBuyer(auth.role)"

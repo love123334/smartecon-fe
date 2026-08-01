@@ -33,8 +33,8 @@ const statusNote = computed(() => {
 const paymentLabel = computed(() => {
   const m = order.value?.paymentMethod
   if (m === 'vnpay' || m === 'bank') return 'VNPay'
-  if (m === 'momo' || m === 'card') return 'Ví MoMo'
   if (m === 'cod') return 'Thanh toán khi nhận hàng (COD)'
+  if (m === 'momo' || m === 'card') return 'Ví MoMo (legacy)'
   return '—'
 })
 
@@ -43,11 +43,15 @@ const payError = ref('')
 
 async function payAgain() {
   if (!order.value) return
-  const method = order.value.paymentMethod === 'vnpay' || order.value.paymentMethod === 'bank' ? 'vnpay' : 'momo'
   paying.value = true
   payError.value = ''
   try {
-    const pay = await orderApi.initiatePayment(order.value.id, method)
+    try {
+      sessionStorage.setItem('sedsp_pending_vnpay_order', String(order.value.id))
+    } catch {
+      /* ignore */
+    }
+    const pay = await orderApi.initiatePayment(order.value.id, 'vnpay')
     if (pay.redirectUrl?.startsWith('http')) {
       window.location.href = pay.redirectUrl
       return

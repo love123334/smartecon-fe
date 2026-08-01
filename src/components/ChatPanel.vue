@@ -29,7 +29,8 @@ const dropActive = ref(false)
 
 async function scrollEnd() {
   await nextTick()
-  listEl.value?.scrollTo({ top: listEl.value.scrollHeight, behavior: 'smooth' })
+  // Instant scroll — smooth gây giật khi nhiều bubble/product card
+  if (listEl.value) listEl.value.scrollTop = listEl.value.scrollHeight
 }
 
 watch(
@@ -46,9 +47,9 @@ async function submit(): Promise<void> {
   emit('send', text)
 }
 
-function usePrompt(text: string) {
-  if (props.loading) return
-  emit('send', text)
+function usePrompt(p: QuickPrompt) {
+  if (props.loading || p.disabled || !p.text) return
+  emit('send', p.text)
 }
 
 function onDragOver(e: DragEvent) {
@@ -92,8 +93,10 @@ defineExpose({ scrollToEnd: scrollEnd })
         :key="p.label"
         type="button"
         class="chat-quick__chip btn-interactive"
-        :disabled="loading"
-        @click="usePrompt(p.text)"
+        :class="{ 'chat-quick__chip--disabled': p.disabled }"
+        :disabled="loading || p.disabled"
+        :title="p.disabled ? 'Module không dùng trong trợ lý — mở trang DSS nếu cần' : p.text"
+        @click="usePrompt(p)"
       >
         {{ p.label }}
       </button>
@@ -126,10 +129,6 @@ defineExpose({ scrollToEnd: scrollEnd })
             />
           </div>
           <span v-if="m.meta?.source === 'llm'" class="chat-bubble__tag">AI</span>
-          <span
-            v-else-if="m.role === 'assistant' && m.meta?.source === 'local'"
-            class="chat-bubble__tag chat-bubble__tag--local"
-          >Local</span>
           <time class="chat-bubble__time">{{
             new Date(m.timestamp).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
           }}</time>
@@ -235,6 +234,13 @@ defineExpose({ scrollToEnd: scrollEnd })
 .chat-quick__chip:hover:not(:disabled) {
   border-color: var(--primary-500);
   background: var(--primary-50);
+}
+
+.chat-quick__chip:disabled,
+.chat-quick__chip--disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  text-decoration: line-through;
 }
 
 .chat-messages {

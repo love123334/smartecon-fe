@@ -1,3 +1,14 @@
+<script setup lang="ts">
+import { RouterLink } from 'vue-router'
+import { useChatWidgetStore } from '@/stores/chatWidget'
+
+const chat = useChatWidgetStore()
+
+function openChat() {
+  chat.show()
+}
+</script>
+
 <template>
   <section class="mkt-promo mkt-promo--animate" aria-label="Khuyến mãi">
     <div class="mkt-promo__main mkt-promo__main--shine">
@@ -10,12 +21,12 @@
     <div class="mkt-promo__side">
       <RouterLink to="/seller/dss" class="mkt-promo__card mkt-promo__card--dss" style="text-decoration: none; color: inherit">
         <strong>DSS cho người bán</strong>
-        <span>Dự báo nhu cầu · Gợi ý giá · Tồn kho</span>
+        <span>Dự báo nhu cầu · Gợi ý giá · Doanh số</span>
       </RouterLink>
-      <RouterLink to="/recommendations" class="mkt-promo__card mkt-promo__card--ai" style="text-decoration: none; color: inherit">
-        <strong>Gợi ý phù hợp bạn</strong>
-        <span>Dựa trên lịch sử mua sắm của bạn</span>
-      </RouterLink>
+      <button type="button" class="mkt-promo__card mkt-promo__card--ai" @click="openChat">
+        <strong>Trợ lý SEDSP</strong>
+        <span>Hỏi giá, ngân sách, so sánh SP trong hộp chat</span>
+      </button>
     </div>
   </section>
 </template>
@@ -28,9 +39,14 @@
 
 .mkt-promo__cta {
   background: var(--primary-600);
-  color: #fff;
-  width: fit-content;
-  z-index: 1;
-  position: relative;
+}
+
+.mkt-promo__card--ai {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  border: none;
 }
 </style>

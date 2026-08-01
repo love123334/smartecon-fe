@@ -33,12 +33,7 @@ const categoryIcons: Record<string, string> = {
 
 const aiLink = computed(() => roleCategoryAiLink(auth.role, auth.isLoggedIn))
 
-const aiTo = computed(() => {
-  if (!auth.isLoggedIn) {
-    return { path: '/login', query: { redirect: '/recommendations' } }
-  }
-  return aiLink.value.to
-})
+const aiTo = computed(() => aiLink.value.to)
 
 onMounted(async () => {
   categories.value = await productApi.categories()

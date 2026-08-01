@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { formatVnd, orderApi } from '@/api/services'
 import { useAuthStore } from '@/stores/auth'
@@ -8,6 +8,8 @@ import { trySiteFx } from '@/utils/siteFx'
 import QuantityStepper from '@/components/QuantityStepper.vue'
 import CheckoutStepper from '@/components/CheckoutStepper.vue'
 import NewsletterBanner from '@/components/NewsletterBanner.vue'
+
+const PENDING_PAY_KEY = 'sedsp_pending_vnpay_order'
 
 const auth = useAuthStore()
 const cart = useCartStore()
@@ -21,17 +23,43 @@ const address = ref('')
 const city = ref('')
 const state = ref('')
 const zip = ref('')
-const payment = ref<'momo' | 'vnpay' | 'cod'>('cod')
+const payment = ref<'vnpay' | 'cod'>('cod')
 const coupon = ref('')
 const couponApplied = ref(false)
 const error = ref('')
 const loading = ref(false)
+const pendingOrderId = ref('')
+const resuming = ref(false)
 
 const shippingFee = computed(() => (cart.total >= 500_000 ? 0 : 30_000))
 const discount = computed(() => (couponApplied.value ? 25_000 : 0))
 const grandTotal = computed(() => Math.max(0, cart.total + shippingFee.value - discount.value))
 
+function readPendingOrder() {
+  try {
+    pendingOrderId.value = sessionStorage.getItem(PENDING_PAY_KEY) ?? ''
+  } catch {
+    pendingOrderId.value = ''
+  }
+}
+
+function clearPendingOrder() {
+  try {
+    sessionStorage.removeItem(PENDING_PAY_KEY)
+  } catch {
+    /* ignore */
+  }
+  pendingOrderId.value = ''
+}
+
+function onPageShow(e: PageTransitionEvent) {
+  // Back từ cổng VNPay (bfcache) — khôi phục banner đơn đang chờ
+  if (e.persisted) readPendingOrder()
+}
+
 onMounted(async () => {
+  window.addEventListener('pageshow', onPageShow)
+  readPendingOrder()
   await cart.refresh()
   if (auth.user) {
     const parts = (auth.user.fullName ?? '').trim().split(/\s+/)
@@ -43,6 +71,10 @@ onMounted(async () => {
   }
 })
 
+onUnmounted(() => {
+  window.removeEventListener('pageshow', onPageShow)
+})
+
 function applyCoupon() {
   if (trySiteFx(coupon.value)) {
     coupon.value = ''
@@ -50,6 +82,28 @@ function applyCoupon() {
   }
   if (coupon.value.trim().toUpperCase() === 'SEDSP30') {
     couponApplied.value = true
+  }
+}
+
+async function resumePendingPay() {
+  if (!pendingOrderId.value) return
+  resuming.value = true
+  error.value = ''
+  try {
+    const pay = await orderApi.initiatePayment(pendingOrderId.value, 'vnpay')
+    if (pay.redirectUrl?.startsWith('http')) {
+      window.location.href = pay.redirectUrl
+      return
+    }
+    if (pay.redirectUrl) {
+      await router.push(pay.redirectUrl)
+      return
+    }
+    error.value = 'Không nhận được link VNPay. Thử lại hoặc xem đơn hàng.'
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'Không thể tiếp tục thanh toán VNPay'
+  } finally {
+    resuming.value = false
   }
 }
 
@@ -66,13 +120,20 @@ async function placeOrder() {
     const order = await orderApi.placeOrder(auth.user.id, fullAddress || address.value, payment.value)
     await cart.refresh()
 
-    // COD: thanh toán khi nhận hàng — không mở cổng
     if (payment.value === 'cod') {
+      clearPendingOrder()
       await router.push(`/orders/${order.id}`)
       return
     }
 
-    const pay = await orderApi.initiatePayment(order.id, payment.value)
+    try {
+      sessionStorage.setItem(PENDING_PAY_KEY, String(order.id))
+      pendingOrderId.value = String(order.id)
+    } catch {
+      /* ignore */
+    }
+
+    const pay = await orderApi.initiatePayment(order.id, 'vnpay')
     if (pay.redirectUrl) {
       if (pay.redirectUrl.startsWith('http')) {
         window.location.href = pay.redirectUrl
@@ -97,11 +158,31 @@ async function placeOrder() {
       <h1 class="elegant-page-title">Thanh toán</h1>
       <CheckoutStepper :step="2" />
 
-      <p v-if="!cart.lines.length" class="empty">
+      <p v-if="!cart.lines.length && !pendingOrderId" class="empty">
         Giỏ hàng trống. <RouterLink to="/">Tiếp tục mua</RouterLink>
       </p>
 
-      <div v-else class="elegant-checkout">
+      <div
+        v-if="pendingOrderId"
+        class="elegant-alert"
+        style="margin-bottom: 1rem; background: #fff7ed; border: 1px solid #fdba74; color: #9a3412"
+      >
+        Bạn có đơn <strong>#{{ pendingOrderId }}</strong> đang chờ VNPay (thường do bấm Back từ cổng thanh toán).
+        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.65rem">
+          <button
+            type="button"
+            class="btn-elegant-primary btn-interactive"
+            :disabled="resuming"
+            @click="resumePendingPay"
+          >
+            {{ resuming ? 'Đang mở VNPay…' : 'Tiếp tục VNPay' }}
+          </button>
+          <RouterLink class="btn-interactive" :to="`/orders/${pendingOrderId}`">Xem đơn</RouterLink>
+          <button type="button" class="btn-interactive" @click="clearPendingOrder">Bỏ qua</button>
+        </div>
+      </div>
+
+      <div v-if="cart.lines.length" class="elegant-checkout">
         <div class="elegant-checkout__forms">
           <p v-if="error" class="elegant-alert elegant-alert--error">{{ error }}</p>
 
@@ -154,15 +235,11 @@ async function placeOrder() {
           <section class="elegant-form-section">
             <h2>Phương thức thanh toán</h2>
             <p class="elegant-muted" style="margin-bottom: 0.75rem; font-size: 0.9rem">
-              Chọn <strong>COD</strong> (trả khi nhận hàng) hoặc cổng <strong>MoMo</strong> / <strong>VNPay</strong>.
+              Chọn <strong>COD</strong> (trả khi nhận hàng) hoặc cổng <strong>VNPay</strong>.
             </p>
             <label class="elegant-payment" :class="{ 'elegant-payment--active': payment === 'cod' }">
               <input v-model="payment" type="radio" value="cod" name="pay" />
               <span>Thanh toán khi nhận hàng (COD)</span>
-            </label>
-            <label class="elegant-payment" :class="{ 'elegant-payment--active': payment === 'momo' }">
-              <input v-model="payment" type="radio" value="momo" name="pay" />
-              <span>Ví MoMo</span>
             </label>
             <label class="elegant-payment" :class="{ 'elegant-payment--active': payment === 'vnpay' }">
               <input v-model="payment" type="radio" value="vnpay" name="pay" />
@@ -183,7 +260,7 @@ async function placeOrder() {
                   : 'Đang chuyển cổng thanh toán...'
                 : payment === 'cod'
                   ? 'Đặt hàng (COD)'
-                  : 'Đặt hàng & thanh toán'
+                  : 'Đặt hàng & thanh toán VNPay'
             }}
           </button>
         </div>
@@ -193,7 +270,7 @@ async function placeOrder() {
 
           <ul class="elegant-order-items">
             <li v-for="line in cart.lines" :key="line.product.id" class="elegant-order-item">
-              <img :src="line.product.imageUrl" :alt="line.product.name" />
+              <img :src="line.product.imageUrl" :alt="line.product.name" loading="lazy" />
               <div class="elegant-order-item__info">
                 <div class="elegant-order-item__name">{{ line.product.name }}</div>
                 <div class="elegant-order-item__meta">{{ line.product.category }}</div>

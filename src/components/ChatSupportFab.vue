@@ -59,11 +59,7 @@ const showFab = computed(() => {
   }
 
   if (auth.role === 'customer' || auth.role === 'guest') {
-    return (
-      isShopBrowsePath(route.path) ||
-      route.path === '/recommendations' ||
-      isChatPage(route.path)
-    )
+    return isShopBrowsePath(route.path) || isChatPage(route.path)
   }
 
   return true
@@ -192,16 +188,15 @@ function onFabDrop(e: DragEvent) {
     >
       <header class="chat-popup__head">
         <div>
-          <p class="chat-popup__eyebrow">AI Support</p>
           <h2 class="chat-popup__title">{{ title }}</h2>
+          <p class="chat-popup__hint-inline">
+            Kéo sản phẩm từ cửa hàng vào khung chat để hỏi / so sánh
+          </p>
         </div>
         <button type="button" class="chat-popup__close" aria-label="Đóng" @click="widget.hide()">
           ×
         </button>
       </header>
-      <p class="chat-popup__hint">
-        Kéo sản phẩm từ cửa hàng vào khung chat để hỏi / so sánh.
-      </p>
       <p v-if="chatError" class="chat-popup__error">{{ chatError }}</p>
       <ChatPanel
         v-if="ready || messages.length"
@@ -265,12 +260,12 @@ function onFabDrop(e: DragEvent) {
   z-index: 130;
   display: flex;
   flex-direction: column;
-  width: min(400px, calc(100vw - 1.5rem));
-  height: min(640px, calc(100vh - 2rem));
+  width: min(420px, calc(100vw - 1.5rem));
+  height: min(620px, calc(100vh - 2rem));
   background: #fff;
   border: 1px solid var(--color-border);
-  border-radius: 16px;
-  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.22);
+  border-radius: 18px;
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.2);
   overflow: hidden;
 }
 
@@ -279,24 +274,24 @@ function onFabDrop(e: DragEvent) {
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 0.9rem 1rem 0.35rem;
+  padding: 0.95rem 1rem 0.55rem;
   flex-shrink: 0;
-}
-
-.chat-popup__eyebrow {
-  margin: 0;
-  font-size: 0.65rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--slate-500);
+  border-bottom: 1px solid var(--color-border);
+  background: linear-gradient(180deg, #fafafa 0%, #fff 100%);
 }
 
 .chat-popup__title {
-  margin: 0.15rem 0 0;
+  margin: 0;
   font-size: 1.05rem;
   font-weight: 750;
   letter-spacing: -0.02em;
+}
+
+.chat-popup__hint-inline {
+  margin: 0.2rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--slate-500);
 }
 
 .chat-popup__close {
@@ -309,17 +304,11 @@ function onFabDrop(e: DragEvent) {
   line-height: 1;
   cursor: pointer;
   color: var(--slate-700);
-}
-
-.chat-popup__hint {
-  margin: 0 1rem 0.35rem;
-  font-size: 0.72rem;
-  color: var(--slate-500);
   flex-shrink: 0;
 }
 
 .chat-popup__error {
-  margin: 0 1rem 0.35rem;
+  margin: 0.5rem 1rem 0;
   padding: 0.4rem 0.55rem;
   font-size: 0.75rem;
   color: #b91c1c;
@@ -338,7 +327,23 @@ function onFabDrop(e: DragEvent) {
 .chat-popup :deep(.chat-panel) {
   border: none;
   border-radius: 0;
-  padding-top: 0.35rem;
+  padding-top: 0.55rem;
+  min-height: 0;
+  flex: 1;
+}
+
+.chat-popup :deep(.chat-messages) {
+  background: #f8fafc;
+}
+
+.chat-popup :deep(.chat-bubble__products) {
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 420px) {
+  .chat-popup :deep(.chat-bubble__products) {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 @media (max-width: 640px) {

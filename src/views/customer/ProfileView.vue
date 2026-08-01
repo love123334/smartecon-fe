@@ -90,8 +90,8 @@ async function save() {
         <RouterLink to="/role-upgrade" class="btn btn-outline">
           Xin nâng Seller / Manager
         </RouterLink>
-        <RouterLink to="/recommendations" class="btn btn-outline">
-          Xem gợi ý AI →
+        <RouterLink to="/search" class="btn btn-outline">
+          Mở cửa hàng →
         </RouterLink>
       </div>
     </form>

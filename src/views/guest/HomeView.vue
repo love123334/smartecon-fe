@@ -12,12 +12,14 @@ import HomeFeatures from '@/components/home/HomeFeatures.vue'
 import ProductCard from '@/components/ProductCard.vue'
 import ProductSkeletonGrid from '@/components/ProductSkeletonGrid.vue'
 import NewsletterBanner from '@/components/NewsletterBanner.vue'
+import { useChatWidgetStore } from '@/stores/chatWidget'
 
 const products = ref<Product[]>([])
 const loading = ref(true)
 const auth = useAuthStore()
 const cart = useCartStore()
 const router = useRouter()
+const chatWidget = useChatWidgetStore()
 
 const flashSale = computed(() =>
   products.value.filter((p) => p.isFlashSale).slice(0, 6),
@@ -26,6 +28,10 @@ const flashSale = computed(() =>
 const bestSellers = computed(() =>
   [...products.value].sort((a, b) => b.soldCount - a.soldCount).slice(0, 4),
 )
+
+function openChat() {
+  chatWidget.show()
+}
 
 onMounted(async () => {
   try {
@@ -109,15 +115,12 @@ async function addToCart(id: string) {
     <section class="home-promo reveal-up">
       <div class="container home-promo__inner">
         <div>
-          <h2>Gợi ý thông minh — mua đúng món, đỡ phân vân</h2>
-          <p>Đăng nhập để nhận gợi ý cá nhân hóa và chat với trợ lý SEDSP.</p>
+          <h2>Trợ lý SEDSP — hỏi nhanh trong hộp chat</h2>
+          <p>Mở nút AI góc phải để hỏi sản phẩm, giá, ngân sách. Không cần trang gợi ý riêng.</p>
         </div>
-        <RouterLink
-          :to="auth.isLoggedIn ? '/recommendations' : '/login'"
-          class="home-promo__btn"
-        >
-          {{ auth.isLoggedIn ? 'Xem gợi ý' : 'Đăng nhập ngay' }}
-        </RouterLink>
+        <button type="button" class="home-promo__btn" @click="openChat">
+          Mở trợ lý AI
+        </button>
       </div>
     </section>
 

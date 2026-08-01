@@ -42,10 +42,9 @@ onMounted(async () => {
       :links="[
         { to: '/seller/dss/demand', label: 'Dự báo nhu cầu', highlight: true },
         { to: '/seller/dss/price', label: 'Gợi ý giá', highlight: true },
-        { to: '/seller/dss/inventory', label: 'Khuyến nghị tồn kho', highlight: true },
-        { to: '/seller/dss/what-if', label: 'What-if giảm giá', highlight: true },
-        { to: '/seller/chatbot', label: 'Trợ lý AI' },
-        { to: '/seller/sales', label: 'Bảng doanh số' },
+        { to: '/seller/sales', label: 'Bảng doanh số', highlight: true },
+        { to: '/seller/orders', label: 'Đơn bán' },
+        { to: '/orders', label: 'Đơn mua' },
       ]"
     />
     <section class="dss-brain">
@@ -67,7 +66,7 @@ onMounted(async () => {
       </div>
     </section>
 
-    <div class="dss-hub">
+      <div class="dss-hub">
       <RouterLink class="dss-hub__card" to="/seller/dss/demand">
         <span class="dss-hub__tag">Dự báo</span>
         <h2>Dự báo nhu cầu</h2>
@@ -80,18 +79,18 @@ onMounted(async () => {
         <p>Hệ số co giãn · bảng scenario · best recommendation · không biểu đồ.</p>
         <span class="dss-hub__cta">Mở →</span>
       </RouterLink>
-      <RouterLink class="dss-hub__card" to="/seller/dss/inventory">
+      <div class="dss-hub__card dss-hub__card--muted" aria-disabled="true" title="Dùng trang DSS riêng — không gắn trợ lý AI">
         <span class="dss-hub__tag">Tồn kho</span>
         <h2>Khuyến nghị tồn kho</h2>
-        <p>ROP · số lượng nhập đề xuất · biểu đồ cột/đường · trạng thái bổ sung.</p>
-        <span class="dss-hub__cta">Mở →</span>
-      </RouterLink>
-      <RouterLink class="dss-hub__card" to="/seller/dss/what-if">
+        <p>Module vẫn có tại /seller/dss/inventory — không ưu tiên trong trợ lý AI.</p>
+        <RouterLink class="dss-hub__cta" to="/seller/dss/inventory">Mở trang →</RouterLink>
+      </div>
+      <div class="dss-hub__card dss-hub__card--muted" aria-disabled="true" title="Dùng trang DSS riêng — không gắn trợ lý AI">
         <span class="dss-hub__tag">What-if</span>
         <h2>Giảm giá & lợi nhuận</h2>
-        <p>Slider giảm giá · so sánh lợi nhuận · break-even · mô phỏng (không đổi giá thật).</p>
-        <span class="dss-hub__cta">Mở →</span>
-      </RouterLink>
+        <p>Module vẫn có tại /seller/dss/what-if — không ưu tiên trong trợ lý AI.</p>
+        <RouterLink class="dss-hub__cta" to="/seller/dss/what-if">Mở trang →</RouterLink>
+      </div>
     </div>
 
     <h3 class="dss-hub__section">Gợi ý nhanh</h3>
@@ -171,6 +170,14 @@ onMounted(async () => {
 .dss-hub__card:hover {
   border-color: #90caf9;
   box-shadow: 0 4px 14px rgba(25, 118, 210, 0.14);
+}
+.dss-hub__card--muted {
+  opacity: 0.72;
+  background: #f8fafc;
+}
+.dss-hub__card--muted:hover {
+  border-color: #e3e8ef;
+  box-shadow: 0 2px 8px rgba(25, 118, 210, 0.08);
 }
 .dss-hub__tag {
   display: inline-block;

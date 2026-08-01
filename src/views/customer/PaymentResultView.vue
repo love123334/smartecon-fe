@@ -7,6 +7,8 @@ import CheckoutStepper from '@/components/CheckoutStepper.vue'
 import NewsletterBanner from '@/components/NewsletterBanner.vue'
 import { mapPaymentMethodLabel } from '@/api/real/payments'
 
+const PENDING_PAY_KEY = 'sedsp_pending_vnpay_order'
+
 const route = useRoute()
 const router = useRouter()
 
@@ -15,7 +17,7 @@ const loading = ref(true)
 const paying = ref(false)
 const error = ref('')
 
-const gateway = computed(() => String(route.query.gateway ?? ''))
+const gateway = computed(() => String(route.query.gateway ?? 'vnpay'))
 const status = computed(() => String(route.query.status ?? ''))
 const orderId = computed(() => String(route.query.orderId ?? ''))
 const isSuccess = computed(() => status.value === 'success')
@@ -23,16 +25,25 @@ const isMock = computed(() => route.query.mock === '1')
 
 const gatewayLabel = computed(() => {
   if (gateway.value === 'vnpay') return 'VNPay'
-  if (gateway.value === 'momo') return 'MoMo'
   return gateway.value || 'Cổng thanh toán'
 })
 
 onMounted(async () => {
   loading.value = true
+  error.value = ''
   try {
     if (orderId.value) {
       order.value = await orderApi.getById(orderId.value)
     }
+    if (isSuccess.value) {
+      try {
+        sessionStorage.removeItem(PENDING_PAY_KEY)
+      } catch {
+        /* ignore */
+      }
+    }
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'Không tải được đơn hàng'
   } finally {
     loading.value = false
   }
@@ -40,11 +51,15 @@ onMounted(async () => {
 
 async function retryPay() {
   if (!order.value) return
-  const method = order.value.paymentMethod === 'vnpay' ? 'vnpay' : 'momo'
   paying.value = true
   error.value = ''
   try {
-    const pay = await orderApi.initiatePayment(order.value.id, method)
+    try {
+      sessionStorage.setItem(PENDING_PAY_KEY, String(order.value.id))
+    } catch {
+      /* ignore */
+    }
+    const pay = await orderApi.initiatePayment(order.value.id, 'vnpay')
     if (pay.redirectUrl?.startsWith('http')) {
       window.location.href = pay.redirectUrl
       return
@@ -53,7 +68,7 @@ async function retryPay() {
       await router.push(pay.redirectUrl)
       return
     }
-    error.value = 'Không nhận được link thanh toán từ gateway'
+    error.value = 'Không nhận được link thanh toán từ VNPay'
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Không thể khởi tạo thanh toán'
   } finally {
@@ -83,13 +98,13 @@ async function retryPay() {
         <template v-else>
           <h2 style="margin-top: 0; color: #b42318">Thanh toán chưa hoàn tất</h2>
           <p>
-            Giao dịch qua <strong>{{ gatewayLabel }}</strong> không thành công hoặc bị hủy.
-            Bạn có thể thử lại hoặc xem chi tiết đơn.
+            Giao dịch qua <strong>{{ gatewayLabel }}</strong> không thành công hoặc bị hủy / Back.
+            Bạn có thể thử lại VNPay hoặc xem chi tiết đơn.
           </p>
         </template>
 
         <p v-if="isMock" class="elegant-muted" style="font-size: 0.9rem">
-          (Chế độ mock — chưa gọi sandbox MoMo/VNPay thật.)
+          (Chế độ mock — chưa gọi sandbox VNPay thật.)
         </p>
 
         <ul v-if="order" style="list-style: none; padding: 0; margin: 1rem 0">
@@ -100,8 +115,8 @@ async function retryPay() {
             <strong>{{
               order.paymentMethod === 'vnpay'
                 ? 'VNPay'
-                : order.paymentMethod === 'momo'
-                  ? 'MoMo'
+                : order.paymentMethod === 'cod'
+                  ? 'COD'
                   : mapPaymentMethodLabel(order.paymentMethod?.toUpperCase())
             }}</strong>
           </li>
@@ -122,7 +137,7 @@ async function retryPay() {
             :disabled="paying"
             @click="retryPay"
           >
-            {{ paying ? 'Đang mở cổng...' : 'Thanh toán lại' }}
+            {{ paying ? 'Đang mở cổng...' : 'Thanh toán lại VNPay' }}
           </button>
           <RouterLink class="btn-interactive" to="/orders">Đơn của tôi</RouterLink>
           <RouterLink class="btn-interactive" to="/">Tiếp tục mua</RouterLink>

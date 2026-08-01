@@ -94,9 +94,7 @@ const router = createRouter({
     },
     {
       path: '/recommendations',
-      name: 'recommendations',
-      component: () => import('@/views/customer/RecommendationsView.vue'),
-      meta: { roles: ['customer'], title: 'Gợi ý' },
+      redirect: '/',
     },
     {
       path: '/chatbot',

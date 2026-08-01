@@ -27,7 +27,7 @@ const isHomePage = computed(() => route.path === '/')
 const isShopCatalog = computed(() => route.path === '/search')
 
 const isShopPage = computed(() => {
-  const shopPrefixes = ['/', '/search', '/products', '/cart', '/checkout', '/orders', '/recommendations', '/chatbot', '/profile']
+  const shopPrefixes = ['/', '/search', '/products', '/cart', '/checkout', '/orders', '/chatbot', '/profile']
   return shopPrefixes.some((p) => route.path === p || (p !== '/' && route.path.startsWith(p)))
 })
 

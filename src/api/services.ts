@@ -1077,7 +1077,7 @@ export const orderApi = {
   async placeOrder(
     customerId: string,
     shippingAddress: string,
-    payment: 'momo' | 'vnpay' | 'cod' | 'bank' | 'card' = 'momo',
+    payment: 'momo' | 'vnpay' | 'cod' | 'bank' | 'card' = 'cod',
   ): Promise<Order> {
     let order: Order
     if (apiConfig.useRealOrders && hasBackendToken()) {
@@ -1092,11 +1092,11 @@ export const orderApi = {
         rawStatus: order.rawStatus || 'PENDING',
         shippingAddress: order.shippingAddress || shippingAddress,
         paymentMethod:
-          payment === 'vnpay' || payment === 'bank'
-            ? 'vnpay'
-            : payment === 'cod'
-              ? 'cod'
-              : 'momo',
+          payment === 'cod'
+            ? 'cod'
+            : payment === 'momo' || payment === 'card'
+              ? 'momo'
+              : 'vnpay',
       }
     } else {
       order = await mockOrderApi.placeOrder(customerId, shippingAddress, payment)
@@ -1105,21 +1105,21 @@ export const orderApi = {
     return applyOrderOverlay(order)
   },
 
-  /** Gọi gateway MoMo/VNPay — trả redirectUrl */
+  /** Gọi gateway VNPay (MoMo giữ tương thích cũ, UI đã bỏ) */
   async initiatePayment(
     orderId: string,
-    method: 'momo' | 'vnpay',
+    method: 'momo' | 'vnpay' = 'vnpay',
   ): Promise<realPayments.PaymentInfo> {
     if (apiConfig.useRealOrders && hasBackendToken()) {
-      return realPayments.payOrder(orderId, method === 'vnpay' ? 'VNPAY' : 'MOMO')
+      return realPayments.payOrder(orderId, method === 'momo' ? 'MOMO' : 'VNPAY')
     }
     return {
       id: `mock-pay-${orderId}`,
       orderId,
-      paymentMethod: method === 'vnpay' ? 'VNPAY' : 'MOMO',
+      paymentMethod: method === 'momo' ? 'MOMO' : 'VNPAY',
       amount: 0,
       status: 'PENDING',
-      redirectUrl: `/payment/result?gateway=${method}&orderId=${orderId}&status=success&mock=1`,
+      redirectUrl: `/payment/result?gateway=${method === 'momo' ? 'momo' : 'vnpay'}&orderId=${orderId}&status=success&mock=1`,
     }
   },
 

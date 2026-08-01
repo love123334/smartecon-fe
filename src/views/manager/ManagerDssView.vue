@@ -38,7 +38,6 @@ onMounted(async () => {
       :links="[
         { to: '/manager/platform-revenue', label: 'Doanh thu sàn', highlight: true },
         { to: '/manager/dss/what-if', label: 'What-if khuyến mãi', highlight: true },
-        { to: '/chatbot', label: 'Trợ lý AI quản lý', highlight: true },
         { to: '/manager/dashboard', label: 'Dashboard KPI' },
         { to: '/manager/analytics', label: 'Phân tích' },
       ]"

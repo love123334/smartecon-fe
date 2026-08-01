@@ -46,10 +46,14 @@ export function roleContactPath(role: UserRole): string {
 const PUBLIC_PREFIXES = ['/', '/search', '/products', '/login', '/register']
 
 const ROLE_PREFIXES: Record<Exclude<UserRole, 'guest'>, string[]> = {
-  customer: ['/profile', '/role-upgrade', '/cart', '/checkout', '/payment', '/orders', '/recommendations', '/chatbot'],
+  customer: ['/profile', '/role-upgrade', '/cart', '/checkout', '/payment', '/orders', '/chatbot'],
   seller: [
     '/seller',
     '/profile',
+    '/orders',
+    '/cart',
+    '/checkout',
+    '/search',
   ],
   manager: ['/manager', '/chatbot'],
   admin: ['/admin'],
@@ -104,6 +108,6 @@ export function footerLinksForRole(role: UserRole): FooterLink[] {
 
 /** Shop header (promo + cart) — customer/guest hoặc ops role đang duyệt cửa hàng */
 export function isShopBrowsePath(path: string): boolean {
-  const browse = ['/', '/search', '/products', '/cart', '/checkout', '/orders', '/recommendations', '/profile', '/role-upgrade']
+  const browse = ['/', '/search', '/products', '/cart', '/checkout', '/orders', '/profile', '/role-upgrade']
   return browse.some((p) => path === p || (p !== '/' && path.startsWith(p + '/')))
 }

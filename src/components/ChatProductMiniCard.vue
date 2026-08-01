@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import type { ChatProductRef } from '@/types'
 import { formatVnd } from '@/api/chat/match'
@@ -7,12 +8,26 @@ defineProps<{
   product: ChatProductRef
   compact?: boolean
 }>()
+
+const imgBroken = ref(false)
+
+function onImgError() {
+  imgBroken.value = true
+}
 </script>
 
 <template>
   <RouterLink :to="`/products/${product.id}`" class="chat-mini-card" :title="product.name">
     <div class="chat-mini-card__media">
-      <img :src="product.imageUrl || '/placeholder-product.png'" :alt="product.name" loading="lazy" />
+      <img
+        v-if="!imgBroken"
+        :src="product.imageUrl || '/placeholder-product.png'"
+        :alt="product.name"
+        loading="lazy"
+        decoding="async"
+        @error="onImgError"
+      />
+      <div v-else class="chat-mini-card__fallback" aria-hidden="true">SP</div>
     </div>
     <div class="chat-mini-card__body">
       <p class="chat-mini-card__name">{{ product.name }}</p>
@@ -64,6 +79,17 @@ defineProps<{
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+.chat-mini-card__fallback {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--slate-500);
+  background: var(--slate-100);
 }
 
 .chat-mini-card__body {
