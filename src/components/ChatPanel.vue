@@ -294,11 +294,14 @@ defineExpose({ scrollToEnd: scrollEnd })
   grid-template-columns: 1fr;
   gap: 0.4rem;
   margin-top: 0.55rem;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 @media (min-width: 420px) {
   .chat-bubble__products {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
 }
 

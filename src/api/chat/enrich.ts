@@ -14,13 +14,20 @@ const PRODUCT_INTENTS = new Set<ChatIntent>([
   'compare',
   'promo',
   'recommend',
+  'where_to_buy',
   'contact_seller',
   'product_search',
   'product_cheapest',
   'product_budget',
 ])
 
-const SEARCH_INTENTS = new Set<ChatIntent>(['shop_overview', 'categories', 'category_browse'])
+const SEARCH_INTENTS = new Set<ChatIntent>([
+  'shop_overview',
+  'categories',
+  'category_browse',
+  'where_to_buy',
+  'recommend',
+])
 
 function extractOrderId(raw: string): string | null {
   const m = raw.match(/(?:don|order|#)\s*[#-]?(\d+)/i) ?? raw.match(/\b(o-\d+)\b/i)
@@ -33,11 +40,22 @@ function extractSearchQuery(raw: string): string | null {
   const patterns = [
     /(?:tim|search|find|kiem)\s+(.+)/,
     /(?:co|ban)\s+(.+?)\s+(?:khong|ko|khong)/,
+    /(?:cho nao ban|o dau ban|mua o dau|shop nao ban|ai ban|where to buy)\s+(.+)/,
+    /(?:nen mua|goi y|sp nao ngon|hang nao ngon)\s+(.+)/,
   ]
   for (const p of patterns) {
     const m = n.match(p)
-    if (m?.[1] && m[1].length > 2) return m[1].trim()
+    if (m?.[1] && m[1].length > 1) return m[1].trim()
   }
+  // bỏ cụm chỉ đường shop, giữ lại tên SP/danh mục
+  const stripped = n
+    .replace(
+      /cho nao ban|o dau ban|mua o dau|shop nao ban|ai ban|seller nao|cua hang nao|where to buy|who sells|tim shop|ban o dau|nen mua|goi y|sp nao ngon|hang nao ngon|tot nhat|dang mua/g,
+      ' ',
+    )
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (stripped.length > 2 && stripped !== n) return stripped
   return null
 }
 
@@ -107,7 +125,12 @@ export async function enrichChatContext(
   }
 
   const searchQ = extractSearchQuery(raw)
-  if (searchQ || intent === 'product_search') {
+  if (
+    searchQ ||
+    intent === 'product_search' ||
+    intent === 'where_to_buy' ||
+    intent === 'recommend'
+  ) {
     tasks.push(
       (async () => {
         const q = searchQ ?? raw
@@ -119,7 +142,11 @@ export async function enrichChatContext(
   const matchedCat = matchCategoryFromText(raw, ctx.categories)
   if (
     matchedCat &&
-    (intent === 'categories' || intent === 'category_browse' || (intent && SEARCH_INTENTS.has(intent)))
+    (intent === 'categories' ||
+      intent === 'category_browse' ||
+      intent === 'where_to_buy' ||
+      intent === 'recommend' ||
+      (intent && SEARCH_INTENTS.has(intent)))
   ) {
     tasks.push(
       (async () => {
@@ -140,9 +167,9 @@ export async function enrichChatContext(
     tasks.push(
       (async () => {
         const e = await enrichProduct(topProduct, {
-          reviews: intent === 'product_review' || intent === 'product_info',
+          reviews: intent === 'product_review' || intent === 'product_info' || intent === 'recommend',
           inventory: intent === 'product_stock' || intent === 'product_info',
-          detail: intent === 'product_info' || intent === 'contact_seller',
+          detail: intent === 'product_info' || intent === 'contact_seller' || intent === 'where_to_buy',
         })
         Object.assign(enrichment, e)
       })(),

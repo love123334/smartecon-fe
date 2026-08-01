@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import type { ChatProductRef } from '@/types'
 import { formatVnd } from '@/api/chat/match'
 
-defineProps<{
+const props = defineProps<{
   product: ChatProductRef
   compact?: boolean
 }>()
@@ -14,6 +14,19 @@ const imgBroken = ref(false)
 function onImgError() {
   imgBroken.value = true
 }
+
+const stockLabel = computed(() => {
+  const s = props.product.stock
+  // null/undefined = chưa biết (list API default), đừng báo hết hàng giả
+  if (s == null || Number.isNaN(Number(s))) return null
+  if (s <= 0) return 'Hết hàng'
+  return `Còn ${s}`
+})
+
+const stockOut = computed(() => {
+  const s = props.product.stock
+  return s != null && s <= 0
+})
 </script>
 
 <template>
@@ -31,13 +44,17 @@ function onImgError() {
     </div>
     <div class="chat-mini-card__body">
       <p class="chat-mini-card__name">{{ product.name }}</p>
-      <p class="chat-mini-card__price">{{ formatVnd(product.price) }}</p>
+      <p class="chat-mini-card__price" :title="formatVnd(product.price)">{{ formatVnd(product.price) }}</p>
       <p v-if="product.category || product.shopName" class="chat-mini-card__meta">
         <span v-if="product.category">{{ product.category }}</span>
         <span v-if="product.shopName"> · {{ product.shopName }}</span>
       </p>
-      <p v-if="product.stock != null" class="chat-mini-card__stock" :data-out="product.stock <= 0 ? '1' : '0'">
-        {{ product.stock <= 0 ? 'Hết hàng' : `Còn ${product.stock}` }}
+      <p
+        v-if="stockLabel"
+        class="chat-mini-card__stock"
+        :data-out="stockOut ? '1' : '0'"
+      >
+        {{ stockLabel }}
       </p>
     </div>
   </RouterLink>
@@ -48,12 +65,15 @@ function onImgError() {
   display: flex;
   gap: 0.55rem;
   min-width: 0;
+  max-width: 100%;
   padding: 0.45rem;
   border: 1px solid var(--color-border);
   border-radius: 10px;
   background: #fff;
   text-decoration: none;
   color: inherit;
+  overflow: hidden;
+  box-sizing: border-box;
   transition: border-color var(--transition), box-shadow var(--transition), transform var(--transition);
 }
 
@@ -94,7 +114,8 @@ function onImgError() {
 
 .chat-mini-card__body {
   min-width: 0;
-  flex: 1;
+  flex: 1 1 auto;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 0.1rem;
@@ -109,13 +130,20 @@ function onImgError() {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  word-break: break-word;
 }
 
 .chat-mini-card__price {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 750;
   color: var(--slate-900);
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .chat-mini-card__meta,
@@ -126,6 +154,7 @@ function onImgError() {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .chat-mini-card__stock[data-out='1'] {

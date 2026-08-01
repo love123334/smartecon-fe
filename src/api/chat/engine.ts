@@ -9,13 +9,16 @@ import {
   filterProductsForQuery,
   findProductsByQuery,
   formatPriceRangeLabel,
+  groupProductsByShop,
   pickProductCatalog,
   productsUnderBudget,
+  rankRecommendedProducts,
 } from '@/api/chat/products'
 import {
   buildIntentReply,
   escalateReply,
   roleHelpHints,
+  sanitizeChatReply,
 } from '@/api/chat/responses'
 import type { ChatProductRef, Product } from '@/types'
 
@@ -31,7 +34,6 @@ const SHOPPING_INTENTS = new Set<ChatIntent>([
   'product_search',
   'product_cheapest',
   'category_browse',
-  'recommend',
   'promo',
   'compare',
   'product_info',
@@ -44,10 +46,20 @@ function greet(name: string): string {
   return name ? `${name}, ` : ''
 }
 
-function apiTag(ctx: ChatContext): string {
-  if (ctx.dataSource === 'api') return ' (dữ liệu API)'
-  if (ctx.dataSource === 'hybrid') return ' (API + demo)'
-  return ''
+function stockPhrase(stock: number | undefined | null): string {
+  if (stock == null || Number.isNaN(Number(stock))) return 'tồn chưa rõ'
+  if (stock <= 0) return 'hết hàng'
+  return `còn ${stock}`
+}
+
+function sellerHintFromProducts(products: Product[]): string {
+  const groups = groupProductsByShop(products, 3, 1)
+  if (!groups.length) return ''
+  return `\n🏪 Seller: ${groups.map((g) => `**${g.shop}**`).join(', ')}.`
+}
+
+function wrapReply(payload: AssistantReplyPayload): AssistantReplyPayload {
+  return { ...payload, content: sanitizeChatReply(payload.content) }
 }
 
 function followUps(intent: ChatIntent | null, role: ChatContext['role']): string {
@@ -58,6 +70,8 @@ function followUps(intent: ChatIntent | null, role: ChatContext['role']): string
     cart_summary: '\n\n👉 Tiếp: **Thanh toán** hoặc hỏi "chính sách giao hàng"',
     orders: '\n\n👉 Hỏi "chi tiết đơn #…" hoặc "hủy đơn"',
     contact_seller: '\n\n👉 Hoặc hỏi CSKH: "liên hệ hỗ trợ"',
+    where_to_buy: '\n\n👉 Hỏi "liên hệ người bán …" để lấy email/SĐT shop.',
+    recommend: '\n\n👉 Hỏi "chỗ nào bán …" để xem đúng shop bán SP.',
     seller_dss_demand: '\n\n👉 Thử thêm: "khuyến nghị giá" · "what-if giảm 10%"',
     seller_whatif: '\n\n👉 Mở **/seller/dss/what-if** để chỉnh % và kỳ.',
     manager_whatif: '\n\n👉 Mở **/manager/dss/what-if** để so sánh scenario.',
@@ -78,7 +92,7 @@ function cardsIntro(
 ): string {
   const name = greet(ctx.userName ?? '')
   const hint = extra ? `\n${extra}` : ''
-  return `${name}**${title}**${apiTag(ctx)} — **${count}** sản phẩm phù hợp.${hint}\n\nChọn card bên dưới để xem chi tiết.`
+  return `${name}**${title}** — **${count}** sản phẩm phù hợp.${hint}\n\nChọn card bên dưới để xem chi tiết.`
 }
 
 function resolveAttachedProducts(
@@ -90,15 +104,24 @@ function resolveAttachedProducts(
   const out: Product[] = []
   for (const a of attachments) {
     const found = catalog.find((p) => String(p.id) === String(a.id))
-    if (found) out.push(found)
-    else {
+    if (found) {
+      // Catalog chat load với withStock — nguồn tồn kho đúng hơn payload kéo (list hay để stock=0)
+      out.push({
+        ...found,
+        name: a.name || found.name,
+        price: typeof a.price === 'number' ? a.price : found.price,
+        imageUrl: a.imageUrl || found.imageUrl,
+        category: a.category || found.category,
+        shopName: a.shopName || found.shopName,
+      })
+    } else {
       out.push({
         id: a.id,
         name: a.name,
         description: '',
         price: a.price,
         originalPrice: a.originalPrice,
-        stock: a.stock ?? 1,
+        stock: a.stock ?? 0,
         category: a.category ?? '',
         imageUrl: a.imageUrl,
         sellerId: '',
@@ -127,12 +150,12 @@ function attachmentReply(
     const lines = products
       .map(
         (p, i) =>
-          `${i + 1}. **${p.name}** — ${formatVnd(p.price)} · ${p.category || '—'} · ${p.stock <= 0 ? 'hết hàng' : `còn ${p.stock}`} · ${p.rating ? `${p.rating}★` : ''}`,
+          `${i + 1}. **${p.name}** — ${formatVnd(p.price)} · ${p.category || '—'} · ${stockPhrase(p.stock)} · ${p.rating ? `${p.rating}★` : ''}`,
       )
       .join('\n')
     const cheapest = [...products].sort((a, b) => a.price - b.price)[0]
     return {
-      content: `${name}**So sánh ${products.length} sản phẩm đã đính kèm**${apiTag(ctx)}:\n${lines}\n\n💡 Giá thấp nhất: **${cheapest.name}** (${formatVnd(cheapest.price)}).`,
+      content: `${name}**So sánh ${products.length} sản phẩm đã đính kèm**:\n${lines}\n\n💡 Giá thấp nhất: **${cheapest.name}** (${formatVnd(cheapest.price)}).`,
       products: cards,
     }
   }
@@ -140,20 +163,26 @@ function attachmentReply(
   const top = products[0]
   if (/gia|bao nhieu|how much|price/.test(lower)) {
     return {
-      content: `${name}**${top.name}**: **${formatVnd(top.price)}**${top.originalPrice && top.originalPrice > top.price ? ` (gốc ${formatVnd(top.originalPrice)})` : ''}\n• Danh mục: ${top.category || '—'}\n• Tồn: ${top.stock <= 0 ? 'hết hàng' : top.stock}`,
+      content: `${name}**${top.name}**: **${formatVnd(top.price)}**${top.originalPrice && top.originalPrice > top.price ? ` (gốc ${formatVnd(top.originalPrice)})` : ''}\n• Danh mục: ${top.category || '—'}\n• Tồn: ${stockPhrase(top.stock)}`,
       products: cards.slice(0, 1),
     }
   }
   if (/con hang|het hang|ton|stock/.test(lower)) {
     return {
-      content: `${name}**${top.name}**: ${top.stock <= 0 ? '**hết hàng**' : `còn **${top.stock}**`}.`,
+      content: `${name}**${top.name}**: ${
+        top.stock == null
+          ? 'chưa lấy được tồn kho — thử lại hoặc mở trang SP.'
+          : top.stock <= 0
+            ? '**hết hàng**'
+            : `còn **${top.stock}**`
+      }.`,
       products: cards.slice(0, 1),
     }
   }
 
   const desc = top.description?.trim()
   return {
-    content: `${name}**${top.name}**${apiTag(ctx)}\n• Giá: **${formatVnd(top.price)}**\n• Danh mục: ${top.category || '—'}\n• Shop: ${top.shopName ?? 'SEDSP'}\n• Rating: ${top.rating ? `${top.rating}★` : '—'}${desc ? `\n• ${desc.slice(0, 160)}${desc.length > 160 ? '…' : ''}` : ''}\n\nHỏi thêm: giá · tồn · so sánh (kéo thêm SP).`,
+    content: `${name}**${top.name}**\n• Giá: **${formatVnd(top.price)}**\n• Danh mục: ${top.category || '—'}\n• Shop: ${top.shopName ?? 'SEDSP'}\n• Rating: ${top.rating ? `${top.rating}★` : '—'}${desc ? `\n• ${desc.slice(0, 160)}${desc.length > 160 ? '…' : ''}` : ''}\n\nHỏi thêm: giá · tồn · so sánh (kéo thêm SP).`,
     products: cards,
   }
 }
@@ -180,7 +209,7 @@ function shoppingStructuredReply(
     const cheap = cheapestProducts(catalog, 6)
     if (!cheap.length) return null
     return {
-      content: cardsIntro(ctx, 'Gợi ý giá tốt nhất', cheap.length),
+      content: cardsIntro(ctx, 'Gợi ý giá tốt nhất', cheap.length) + sellerHintFromProducts(cheap),
       products: toChatProducts(cheap, 6),
     }
   }
@@ -198,20 +227,21 @@ function shoppingStructuredReply(
           : filter.categoryName
             ? filter.categoryName
             : 'Kết quả tìm kiếm'
+    const shopBit = sellerHintFromProducts(filter.products)
     return {
       content: cardsIntro(
         ctx,
         title,
         filter.products.length,
         bits.length ? `Đã lọc: ${bits.join(' · ')}.` : undefined,
-      ),
+      ) + shopBit,
       products: toChatProducts(filter.products, 8),
     }
   }
 
   if (range) {
     return {
-      content: `${greet(ctx.userName ?? '')}Không có SP trong khoảng **${formatPriceRangeLabel(range)}**${apiTag(ctx)}. Thử nới ngân sách hoặc hỏi "sp rẻ nhất".`,
+      content: `${greet(ctx.userName ?? '')}Không có SP trong khoảng **${formatPriceRangeLabel(range)}**. Thử nới ngân sách hoặc hỏi "sp rẻ nhất".`,
     }
   }
 
@@ -227,36 +257,37 @@ function smartProductFallback(
   const name = greet(ctx.userName ?? '')
   const lower = normalizeText(raw)
   const top = matched[0]
-  const tag = apiTag(ctx)
   const cards = toChatProducts(matched, 4)
 
   if (/gia|bao nhieu|how much|price|cost|tien/.test(lower)) {
     return {
-      content: `${name}**${top.name}**${tag}: **${formatVnd(top.price)}**${top.originalPrice && top.originalPrice > top.price ? ` (gốc ${formatVnd(top.originalPrice)})` : ''}\n• Danh mục: ${top.category}\n• Tồn: ${top.stock <= 0 ? 'hết hàng' : top.stock}`,
+      content: `${name}**${top.name}**: **${formatVnd(top.price)}**${top.originalPrice && top.originalPrice > top.price ? ` (gốc ${formatVnd(top.originalPrice)})` : ''}\n• Danh mục: ${top.category}\n• Shop: **${top.shopName ?? 'SEDSP Official'}**\n• Tồn: ${top.stock <= 0 ? 'hết hàng' : top.stock}`,
       products: cards,
     }
   }
   if (/con hang|het hang|ton|stock|available|con khong/.test(lower)) {
     return {
-      content: `${name}**${top.name}**${tag}: ${top.stock <= 0 ? '**hết hàng**' : `còn **${top.stock}**`}. Shop **${top.shopName ?? 'SEDSP'}**.`,
+      content: `${name}**${top.name}**: ${top.stock <= 0 ? '**hết hàng**' : `còn **${top.stock}**`}. Shop **${top.shopName ?? 'SEDSP Official'}**.`,
       products: cards.slice(0, 1),
     }
   }
-  if (/review|danh gia|sao|tot khong/.test(lower)) {
+  if (/review|danh gia|sao|tot khong|ngon/.test(lower)) {
     return {
-      content: `${name}**${top.name}** — rating **${top.rating}★**${top.reviewCount ? ` · ${top.reviewCount} đánh giá` : ''}.`,
+      content: `${name}**${top.name}** — rating **${top.rating}★**${top.reviewCount ? ` · ${top.reviewCount} đánh giá` : ''} · shop **${top.shopName ?? 'SEDSP Official'}**.`,
       products: cards.slice(0, 1),
     }
   }
-  if (/lien he|seller|nguoi ban|shop/.test(lower)) {
+  if (/lien he|seller|nguoi ban|shop|cho nao|o dau ban/.test(lower)) {
     return {
-      content: `${name}Shop **${top.shopName ?? 'SEDSP Official'}** — ${top.name}\n• Email: **${top.sellerEmail ?? 'seller@sedsp.vn'}**\n• SĐT: **${top.sellerPhone ?? '1900-SEDSP'}**`,
+      content: `${name}Shop **${top.shopName ?? 'SEDSP Official'}** đang bán **${top.name}**\n• Email: **${top.sellerEmail ?? 'seller@sedsp.vn'}**\n• SĐT: **${top.sellerPhone ?? '1900-SEDSP'}**`,
       products: cards.slice(0, 1),
     }
   }
 
   return {
-    content: cardsIntro(ctx, 'Sản phẩm liên quan', Math.min(matched.length, 4)),
+    content:
+      cardsIntro(ctx, 'Sản phẩm liên quan', Math.min(matched.length, 4)) +
+      sellerHintFromProducts(matched),
     products: cards,
   }
 }
@@ -270,15 +301,15 @@ export async function generateAssistantReply(
   const lower = normalizeText(raw)
 
   if (!raw && !attachments?.length) {
-    return { content: 'Bạn muốn hỏi gì? ' + roleHelpHints(ctx.role) }
+    return wrapReply({ content: 'Bạn muốn hỏi gì? ' + roleHelpHints(ctx.role) })
   }
 
   const attached = attachmentReply(ctx, raw || 'cho tôi thông tin', attachments ?? [])
   if (attached && attachments?.length) {
-    return {
+    return wrapReply({
       content: attached.content + followUps('compare', ctx.role),
       products: attached.products,
-    }
+    })
   }
 
   const detected = detectIntent(raw, ctx.role)
@@ -287,43 +318,77 @@ export async function generateAssistantReply(
   const budget = extractBudgetVnd(raw)
   const range = extractPriceRange(raw)
   if ((budget != null && budget > 0) || range) {
-    if (!intent || intent === 'product_budget' || intent === 'promo' || intent === 'recommend' || intent === 'product_search') {
+    if (
+      !intent ||
+      intent === 'product_budget' ||
+      intent === 'promo' ||
+      intent === 'product_search'
+    ) {
       intent = 'product_budget'
     }
   }
 
-  const shopping = shoppingStructuredReply(ctx, raw, intent)
-  if (shopping) {
-    return {
-      content: shopping.content + followUps(intent, ctx.role),
-      products: shopping.products,
+  // where_to_buy / recommend: ưu tiên reply chỉ seller, không qua shopping generic
+  if (intent !== 'where_to_buy' && intent !== 'recommend') {
+    const shopping = shoppingStructuredReply(ctx, raw, intent)
+    if (shopping) {
+      return wrapReply({
+        content: shopping.content + followUps(intent, ctx.role),
+        products: shopping.products,
+      })
     }
   }
 
   if (intent) {
     const reply = buildIntentReply(ctx, intent, raw)
     if (reply) {
-      // Bóc SP từ enrichment nếu có (không lặp bullet dài)
+      const catalog = pickProductCatalog(ctx.products, ctx.sellerProducts, ctx.role)
+      const filterHits =
+        intent === 'where_to_buy' || intent === 'recommend'
+          ? filterProductsForQuery(catalog, raw, ctx.categories, 8).products
+          : []
+      const ranked =
+        intent === 'recommend'
+          ? rankRecommendedProducts(
+              ctx.enrichment?.searchResults?.length
+                ? ctx.enrichment.searchResults
+                : filterHits.length
+                  ? filterHits
+                  : catalog,
+              6,
+            )
+          : []
       const enrichProducts =
-        ctx.enrichment?.searchResults?.length
-          ? ctx.enrichment.searchResults
-          : ctx.enrichment?.categoryProducts?.length
-            ? ctx.enrichment.categoryProducts
-            : ctx.enrichment?.product
-              ? [ctx.enrichment.product]
-              : undefined
+        ranked.length
+          ? ranked
+          : ctx.enrichment?.searchResults?.length
+            ? ctx.enrichment.searchResults
+            : ctx.enrichment?.categoryProducts?.length
+              ? ctx.enrichment.categoryProducts
+              : filterHits.length
+                ? filterHits
+                : ctx.enrichment?.product
+                  ? [ctx.enrichment.product]
+                  : undefined
       const products = enrichProducts?.length
         ? toChatProducts(enrichProducts, 6)
         : undefined
       let content = reply + followUps(intent, ctx.role)
-      // Khi đã có card thì rút gọn phần bullet list SP trong text
-      if (products?.length) {
+      // Giữ directory shop cho where_to_buy / recommend — không xóa bullet
+      if (
+        products?.length &&
+        intent !== 'where_to_buy' &&
+        intent !== 'recommend' &&
+        intent !== 'contact_seller'
+      ) {
         content = content.replace(/(?:\n• \*\*[^*]+\*\*[^\n]*)+/g, '').trim()
         if (!content.includes('card') && !content.includes('bên dưới')) {
           content += `\n\n**${products.length}** sản phẩm — xem card bên dưới.`
         }
+      } else if (products?.length && (intent === 'where_to_buy' || intent === 'recommend')) {
+        content += `\n\nChọn card bên dưới để xem SP.`
       }
-      return { content, products }
+      return wrapReply({ content, products })
     }
   }
 
@@ -333,42 +398,45 @@ export async function generateAssistantReply(
 
   const smart = smartProductFallback(ctx, raw, matched)
   if (smart) {
-    return {
+    return wrapReply({
       content: smart.content + followUps(null, ctx.role),
       products: smart.products,
-    }
+    })
   }
 
   if (/re|gia thap|tiet kiem|cheap|affordable/.test(lower) && catalog.length) {
     const cheap = cheapestProducts(catalog, 4)
     if (cheap.length) {
-      return {
-        content: cardsIntro(ctx, 'Gợi ý giá tốt', cheap.length) + '\n\nHoặc hỏi "dưới 2 triệu".',
+      return wrapReply({
+        content:
+          cardsIntro(ctx, 'Gợi ý giá tốt', cheap.length) +
+          sellerHintFromProducts(cheap) +
+          '\n\nHoặc hỏi "dưới 2 triệu".',
         products: toChatProducts(cheap, 4),
-      }
+      })
     }
   }
 
   if (budget != null && catalog.length) {
     const hits = productsUnderBudget(catalog, budget, 6)
     if (hits.length) {
-      return {
-        content: cardsIntro(ctx, `SP ≤ ${formatVnd(budget)}`, hits.length),
+      return wrapReply({
+        content: cardsIntro(ctx, `SP ≤ ${formatVnd(budget)}`, hits.length) + sellerHintFromProducts(hits),
         products: toChatProducts(hits, 6),
-      }
+      })
     }
-    return {
+    return wrapReply({
       content: `${greet(ctx.userName ?? '')}Không có SP trong ngân sách **${formatVnd(budget)}**. Thử mức cao hơn hoặc hỏi "sp rẻ nhất".`,
-    }
+    })
   }
 
   if (/dang nhap|login|sign in/.test(lower) && ctx.role === 'guest') {
-    return {
+    return wrapReply({
       content: `${greet(ctx.userName ?? '')}**Đăng nhập** role Khách hàng để mua hàng, xem đơn & gợi ý AI.\nDemo: **customer@sedsp.vn** / **12345678**`,
-    }
+    })
   }
 
-  return { content: escalateReply(ctx, raw, 'unknown') }
+  return wrapReply({ content: escalateReply(ctx, raw, 'unknown') })
 }
 
 export function typingDelay(content: string): number {

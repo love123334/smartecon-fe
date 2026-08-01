@@ -9,7 +9,7 @@ import { useChatWidgetStore } from '@/stores/chatWidget'
 import { isChatPage, roleChatPath } from '@/utils/roleAiNav'
 import { isShopBrowsePath } from '@/utils/roleNav'
 import ChatPanel from '@/components/ChatPanel.vue'
-import { parseDraggedProduct, SEDSP_PRODUCT_DRAG_MIME } from '@/api/chat/productCards'
+import { parseDraggedProduct, refreshChatProductStock, SEDSP_PRODUCT_DRAG_MIME } from '@/api/chat/productCards'
 
 const auth = useAuthStore()
 const route = useRoute()
@@ -106,8 +106,13 @@ function onFabClick() {
 async function onSend(text: string) {
   loading.value = true
   chatError.value = ''
-  const attached = [...widget.attachments]
   try {
+    const attached = widget.attachments.length
+      ? await refreshChatProductStock([...widget.attachments])
+      : []
+    if (attached.length) {
+      widget.setAttachments(attached)
+    }
     messages.value = await chatApi.send(chatUserId.value, text, effectiveRole.value, {
       userName: auth.user?.fullName,
       sellerBackendId: auth.user?.backendId,
@@ -127,8 +132,9 @@ async function onClear() {
   widget.clearAttachments()
 }
 
-function onAttach(product: ChatProductRef) {
-  widget.addAttachment(product)
+async function onAttach(product: ChatProductRef) {
+  const [fresh] = await refreshChatProductStock([product])
+  widget.addAttachment(fresh ?? product)
 }
 
 function onRemoveAttachment(id: string) {
@@ -153,7 +159,7 @@ function onFabDrop(e: DragEvent) {
   widget.dragOver = false
   const product = parseDraggedProduct(e.dataTransfer)
   if (product) {
-    widget.addAttachment(product)
+    void onAttach(product)
     widget.show()
   }
 }
@@ -337,12 +343,14 @@ function onFabDrop(e: DragEvent) {
 }
 
 .chat-popup :deep(.chat-bubble__products) {
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 100%;
+  overflow: hidden;
 }
 
 @media (min-width: 420px) {
   .chat-popup :deep(.chat-bubble__products) {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
 }
 

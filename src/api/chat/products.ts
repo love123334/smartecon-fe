@@ -208,6 +208,51 @@ export function formatPriceRangeLabel(range: PriceRange): string {
   return ''
 }
 
+/** Gộp SP theo shop — dùng khi hỏi "chỗ nào bán…" */
+export function groupProductsByShop(
+  products: Product[],
+  limitShops = 5,
+  perShop = 3,
+): { shop: string; products: Product[]; sellerEmail?: string; sellerPhone?: string }[] {
+  const map = new Map<string, Product[]>()
+  for (const p of products) {
+    const shop = (p.shopName || 'SEDSP Official').trim()
+    const list = map.get(shop) ?? []
+    list.push(p)
+    map.set(shop, list)
+  }
+  return [...map.entries()]
+    .map(([shop, list]) => {
+      const ranked = [...list].sort(
+        (a, b) => b.rating - a.rating || b.soldCount - a.soldCount || a.price - b.price,
+      )
+      const top = ranked[0]
+      return {
+        shop,
+        products: ranked.slice(0, perShop),
+        sellerEmail: top?.sellerEmail,
+        sellerPhone: top?.sellerPhone,
+      }
+    })
+    .sort((a, b) => {
+      const score = (g: (typeof a)) =>
+        g.products.reduce((s, p) => s + p.rating * 10 + Math.min(p.soldCount, 200), 0)
+      return score(b) - score(a)
+    })
+    .slice(0, limitShops)
+}
+
+/** Xếp SP “ngon / đáng mua”: rating + đã bán + còn hàng */
+export function rankRecommendedProducts(products: Product[], limit = 6): Product[] {
+  return [...products]
+    .filter((p) => (p.stock ?? 0) > 0)
+    .sort((a, b) => {
+      const score = (p: Product) => p.rating * 12 + Math.min(p.soldCount, 300) / 20 - p.price / 50_000_000
+      return score(b) - score(a)
+    })
+    .slice(0, limit)
+}
+
 function formatCompactVnd(amount: number): string {
   if (amount >= 1_000_000 && amount % 1_000_000 === 0) {
     return `${amount / 1_000_000} triệu`

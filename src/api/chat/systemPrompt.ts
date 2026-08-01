@@ -4,22 +4,22 @@ import { orderStatusLabel } from '@/utils/orderStatus'
 
 const ROLE_GUIDE: Record<string, string> = {
   customer:
-    'Hỗ trợ khách mua sắm: catalog API (danh mục tiếng Việt), giỏ hàng, thanh toán, giao hàng, đơn hàng, gợi ý AI, đánh giá SP, đổi trả. Link SP dạng /products/{id}.',
-  guest: 'Tư vấn khách chưa đăng nhập: sản phẩm/danh mục VI từ API, chính sách shop, đăng ký/đăng nhập.',
+    'Hỗ trợ khách mua sắm: tìm SP, chỉ đúng shop/seller bán hàng, giỏ, thanh toán (COD/VNPay), đơn, đổi trả. Link SP: /products/{id}.',
+  guest: 'Tư vấn khách chưa đăng nhập: sản phẩm/danh mục, chỉ shop bán hàng, chính sách, đăng ký/đăng nhập.',
   seller:
-    'Hỗ trợ người bán: doanh số API, dashboard, tồn kho, top SP, đơn bán, DSS (dự báo nhu cầu, khuyến nghị giá, tồn kho, what-if giảm giá). Seller cũng mua như khách: giỏ hàng + đơn mua (/orders).',
+    'Hỗ trợ người bán: doanh số, dashboard, tồn kho, top SP, đơn bán, DSS (nhu cầu/giá/tồn/what-if). Seller cũng mua như khách: giỏ + đơn mua (/orders).',
   manager:
-    'Hỗ trợ quản lý: KPI đơn hàng API, insights DSS, phân khúc, what-if so sánh khuyến mãi (/manager/dss/what-if), xu hướng danh mục.',
-  admin: 'Hỗ trợ admin: users API, trạng thái hệ thống, RBAC, cảnh báo, cấu hình.',
+    'Hỗ trợ quản lý: KPI đơn hàng, insights DSS, phân khúc, what-if khuyến mãi (/manager/dss/what-if), xu hướng danh mục.',
+  admin: 'Hỗ trợ admin: users, trạng thái hệ thống, RBAC, cảnh báo, cấu hình.',
 }
 
 function serializeContext(ctx: ChatContext): string {
   const lines: string[] = []
-  lines.push(`Vai trò: ${ctx.role} | Catalog: ${ctx.catalogSource} | Backend online: ${ctx.backendOnline}`)
+  lines.push(`Vai trò: ${ctx.role}`)
   if (ctx.userName) lines.push(`Tên: ${ctx.userName}`)
 
   if (ctx.categories.length) {
-    lines.push(`Danh mục API (${ctx.categories.length}):`)
+    lines.push(`Danh mục (${ctx.categories.length}):`)
     for (const c of ctx.categories.slice(0, 10)) {
       lines.push(`- ${c.name}: ${c.productCount} SP`)
     }
@@ -45,9 +45,7 @@ function serializeContext(ctx: ChatContext): string {
   if (ctx.purchaseOrders.length && ctx.role === 'seller') {
     lines.push(`Đơn mua (seller-as-buyer) (${ctx.purchaseOrders.length}):`)
     for (const o of ctx.purchaseOrders.slice(0, 5)) {
-      lines.push(
-        `- #${o.id} | ${orderStatusLabel(o.status)} | ${formatVnd(o.total)}`,
-      )
+      lines.push(`- #${o.id} | ${orderStatusLabel(o.status)} | ${formatVnd(o.total)}`)
     }
   }
 
@@ -55,16 +53,20 @@ function serializeContext(ctx: ChatContext): string {
     lines.push('Gợi ý AI:')
     for (const r of ctx.recommendations.slice(0, 5)) {
       const p = ctx.products.find((x) => x.id === r.productId)
-      if (p) lines.push(`- ${p.name} (${Math.round(r.score * 100)}%): ${r.reason}`)
+      if (p) {
+        lines.push(
+          `- ${p.name} | shop ${p.shopName ?? 'SEDSP'} (${Math.round(r.score * 100)}%): ${r.reason}`,
+        )
+      }
     }
   }
 
   const catalog = ctx.sellerProducts.length ? ctx.sellerProducts : ctx.products
   if (catalog.length) {
-    lines.push(`Sản phẩm (${catalog.length}):`)
-    for (const p of catalog.slice(0, 12)) {
+    lines.push(`Sản phẩm + seller (${catalog.length}):`)
+    for (const p of catalog.slice(0, 14)) {
       lines.push(
-        `- ${p.name} | ${p.category} | ${formatVnd(p.price)} | tồn ${p.stock} | shop ${p.shopName ?? 'SEDSP'}`,
+        `- ${p.name} | ${p.category} | ${formatVnd(p.price)} | tồn ${p.stock} | shop ${p.shopName ?? 'SEDSP'} | email ${p.sellerEmail ?? '—'}`,
       )
     }
   }
@@ -72,7 +74,7 @@ function serializeContext(ctx: ChatContext): string {
   if (ctx.salesPerformance) {
     const s = ctx.salesPerformance.summary
     lines.push(
-      `Doanh số seller API: ${formatVnd(s.totalRevenue)}, ${s.completedOrders} đơn, AOV ${formatVnd(s.averageOrderValue)}`,
+      `Doanh số seller: ${formatVnd(s.totalRevenue)}, ${s.completedOrders} đơn, AOV ${formatVnd(s.averageOrderValue)}`,
     )
     for (const tp of ctx.salesPerformance.topProducts.slice(0, 4)) {
       lines.push(`- Top: ${tp.productName} (${tp.quantitySold} sp, ${formatVnd(tp.revenue)})`)
@@ -82,7 +84,7 @@ function serializeContext(ctx: ChatContext): string {
   if (ctx.sellerDashboard) {
     const d = ctx.sellerDashboard
     if (d.lowStockProducts.length) {
-      lines.push('Tồn kho thấp (dashboard API):')
+      lines.push('Tồn kho thấp:')
       for (const p of d.lowStockProducts.slice(0, 6)) {
         lines.push(`- ${p.productName}: còn ${p.quantity}`)
       }
@@ -92,9 +94,6 @@ function serializeContext(ctx: ChatContext): string {
       for (const o of d.recentOrders.slice(0, 4)) {
         lines.push(`- #${o.orderId} ${o.customer} ${formatVnd(o.total)} ${o.status}`)
       }
-    }
-    if (d.recommendations.length) {
-      lines.push('Gợi ý dashboard: ' + d.recommendations.slice(0, 3).join(' | '))
     }
   }
 
@@ -114,7 +113,7 @@ function serializeContext(ctx: ChatContext): string {
 
   if (ctx.users.length) {
     const active = ctx.users.filter((u) => u.active).length
-    lines.push(`Users API: ${ctx.users.length} tổng, ${active} active`)
+    lines.push(`Users: ${ctx.users.length} tổng, ${active} active`)
   }
 
   if (ctx.systemMetrics.length) {
@@ -125,31 +124,37 @@ function serializeContext(ctx: ChatContext): string {
   }
 
   const e = ctx.enrichment
+  if (e?.searchResults?.length) {
+    lines.push('Kết quả tìm kiếm gần nhất:')
+    for (const p of e.searchResults.slice(0, 6)) {
+      lines.push(`- ${p.name} | shop ${p.shopName ?? 'SEDSP'} | ${formatVnd(p.price)}`)
+    }
+  }
   if (e?.ratingSummary) {
     lines.push(`Review SP: ${e.ratingSummary.averageRating}★ / ${e.ratingSummary.totalReviews} đánh giá`)
   }
   if (e?.inventory) {
-    lines.push(`Inventory SP: available ${e.inventory.availableQuantity}, reserved ${e.inventory.reservedQuantity}`)
+    lines.push(`Tồn SP: available ${e.inventory.availableQuantity}, reserved ${e.inventory.reservedQuantity}`)
   }
 
   return lines.join('\n')
 }
 
 export function buildSystemPrompt(ctx: ChatContext): string {
-  return `Bạn là trợ lý AI của SEDSP (Smart E-Commerce Decision Support Platform).
+  return `Bạn là trợ lý mua sắm của SEDSP (Smart E-Commerce Decision Support Platform).
 
 NHIỆM VỤ: ${ROLE_GUIDE[ctx.role] ?? ROLE_GUIDE.customer}
 
-QUY TẮC:
-- Trả lời bằng tiếng Việt (hoặc tiếng Anh nếu user hỏi English), thân thiện, súc tích.
-- Ưu tiên số liệu trong CONTEXT từ API backend; không bịa số liệu catalog/đơn.
-- Danh mục đang dùng tiếng Việt (Điện thoại, Laptop, Thời trang nam/nữ, Giày dép, Chăm sóc da, Nhà bếp…).
-- DSS seller/manager: có thể tóm tắt engine demo (demand/price/inventory/what-if) và hướng dẫn mở đúng màn hình UI.
-- Gợi ý module UI: Cửa hàng, Giỏ hàng, Đơn hàng, Gợi ý AI, DSS, Dashboard...
-- Thiếu dữ liệu → hướng dẫn bước tiếp hoặc chuyển CSKH (customer@sedsp.vn, manager@sedsp.vn).
-- Dùng **in đậm** cho số liệu quan trọng.
+QUY TẮC BẮT BUỘC:
+- Trả lời tiếng Việt (hoặc English nếu user hỏi English), ngắn gọn, thân thiện.
+- Khi hỏi "chỗ nào bán / ai bán / shop nào / SP nào ngon": LUÔN nêu rõ **tên shop/seller** bán SP đó (lấy từ CONTEXT), kèm giá nếu có.
+- Mỗi lần gợi ý SP: ghi shop bán (vd: "Laptop X — shop **Minh Electronics**").
+- Ưu tiên số liệu trong CONTEXT; không bịa shop/giá/tồn.
+- KHÔNG viết ghi chú kỹ thuật kiểu "(dữ liệu API)", "(API backend)", "mock", "hybrid" trong câu trả lời.
+- Thanh toán: COD và VNPay (không nhắc MoMo).
+- Thiếu dữ liệu → hướng dẫn xem **Cửa hàng** hoặc CSKH customer@sedsp.vn.
+- Dùng **in đậm** cho tên shop, giá, số tồn quan trọng.
 
-CONTEXT (API + mock):
+CONTEXT:
 ${serializeContext(ctx)}`
 }
-

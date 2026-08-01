@@ -16,6 +16,7 @@ const embedUrl = computed(() => plan.value?.powerBiEmbedUrl?.trim() || '')
 onMounted(async () => {
   insights.value = await dssApi.managerInsights()
   planLoading.value = true
+  planError.value = ''
   try {
     plan.value = await dssApi.insightPlan()
   } catch (e) {

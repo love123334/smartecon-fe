@@ -3,7 +3,7 @@ import { computed, onUnmounted, ref, watch } from 'vue'
 import type { Product } from '@/types'
 import { formatVnd, getDiscountPercent, productApi } from '@/api/services'
 import SellerShopTag from '@/components/SellerShopTag.vue'
-import { productToDragPayload, SEDSP_PRODUCT_DRAG_MIME } from '@/api/chat/productCards'
+import { productToDragPayload, refreshChatProductStock, SEDSP_PRODUCT_DRAG_MIME } from '@/api/chat/productCards'
 import { useChatWidgetStore } from '@/stores/chatWidget'
 
 const props = defineProps<{
@@ -147,21 +147,24 @@ function onDragStart(e: DragEvent) {
   useChatWidgetStore().dragOver = false
 }
 
-function attachToChat(e: Event) {
+async function attachToChat(e: Event) {
   e.preventDefault()
   e.stopPropagation()
   const widget = useChatWidgetStore()
-  widget.addAttachment({
+  const base = {
     id: String(props.product.id),
     name: props.product.name,
     price: props.product.price,
     imageUrl: props.product.imageUrl,
     category: props.product.category,
-    stock: props.product.stock,
+    // Chỉ gắn stock khi > 0; 0 từ list API là giả — refresh sẽ lấy tồn thật
+    stock: props.product.stock > 0 ? props.product.stock : undefined,
     shopName: props.product.shopName,
     rating: props.product.rating,
     originalPrice: props.product.originalPrice,
-  })
+  }
+  const [fresh] = await refreshChatProductStock([base])
+  widget.addAttachment(fresh ?? base)
   widget.show()
 }
 

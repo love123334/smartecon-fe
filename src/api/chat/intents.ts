@@ -10,6 +10,7 @@ export type ChatIntent =
   | 'categories'
   | 'contact_escalate'
   | 'contact_seller'
+  | 'where_to_buy'
   | 'complaint'
   | 'shipping'
   | 'payment'
@@ -186,6 +187,21 @@ const COMMON: IntentRule[] = [
     priority: 12,
   },
   {
+    intent: 'where_to_buy',
+    keywords: [
+      'cho nao ban', 'o dau ban', 'mua o dau', 'ai ban', 'shop nao ban', 'seller nao',
+      'cua hang nao', 'ban o dau', 'mua o shop nao', 'where to buy', 'who sells',
+      'tim shop', 'tim seller', 'shop nao co', 'ai dang ban', 'ban o shop nao',
+      'mua o cho nao', 'o shop nao',
+    ],
+    phrases: [
+      'cho nao ban', 'o dau ban', 'mua o dau', 'shop nao ban', 'ai ban',
+      'where to buy', 'who sells', 'cua hang nao ban',
+    ],
+    minScore: 3,
+    priority: 13,
+  },
+  {
     intent: 'contact_escalate',
     keywords: [
       'lien he', 'contact', 'hotline', 'email', 'cskh', 'customer service',
@@ -271,11 +287,16 @@ const COMMON: IntentRule[] = [
     intent: 'recommend',
     keywords: [
       'goi y', 'recommend', 'nen mua', 'tu van san pham', 'suggest',
-      'what should i buy', 'best product', 'goi y mua',
+      'what should i buy', 'best product', 'goi y mua', 'ngon', 'tot nhat',
+      'dang mua', 'chat luong', 'sp nao ngon', 'hang nao ngon', 'nen chon',
+      'goi y sp', 'tu van mua',
     ],
-    phrases: ['nen mua', 'goi y san pham', 'what should i buy'],
-    minScore: 4,
-    priority: 7,
+    phrases: [
+      'nen mua', 'goi y san pham', 'what should i buy', 'sp nao ngon',
+      'hang nao ngon', 'tot nhat', 'nen chon',
+    ],
+    minScore: 3,
+    priority: 8,
   },
   {
     intent: 'promo',
@@ -510,6 +531,14 @@ function refineIntent(
     /nguoi ban|seller|shop ban|lien he shop|email shop/.test(normalized)
   ) {
     return 'contact_seller'
+  }
+  // "chỗ nào bán / ai bán / shop nào" → chỉ seller
+  if (
+    /cho nao ban|o dau ban|mua o dau|shop nao ban|ai ban|seller nao|cua hang nao|where to buy|who sells|ban o dau|tim shop|mua o shop/.test(
+      normalized,
+    )
+  ) {
+    return 'where_to_buy'
   }
   // "ban gi" không nên thành product_price vì có chữ "gia"
   if (

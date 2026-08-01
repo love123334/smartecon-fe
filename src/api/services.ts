@@ -1620,8 +1620,42 @@ export const dssApi = {
     return realDss.recommendInventory(planningDays, productId)
   },
 
-  async insightPlan() {
-    return realDss.insightPlan()
+  async insightPlan(): Promise<realDss.DssInsightPlanApi> {
+    const fallback = (note: string): realDss.DssInsightPlanApi => ({
+      source: 'local-fallback',
+      commentary: [
+        '## Nhận xét & kế hoạch (fallback)',
+        note,
+        '',
+        '## Gợi ý nhanh',
+        '1. Mở **Dự báo nhu cầu** / **Gợi ý giá** để chạy DSS trên sản phẩm của bạn.',
+        '2. Theo dõi **Doanh số** và đơn bán để bổ sung dữ liệu DELIVERED.',
+        '3. Đăng nhập lại nếu phiên JWT hết hạn — rồi tải lại trang DSS.',
+      ].join('\n'),
+      metrics: {},
+      powerBiEmbedUrl: '',
+      powerBiReportTitle: 'SEDSP Decision Dashboard',
+      powerBiFeedHint: 'GET /api/v1/analytics/powerbi/sales (Bearer JWT)',
+      generatedAt: new Date().toISOString(),
+    })
+
+    if (!hasBackendToken()) {
+      return fallback(
+        'Chưa có token backend. Đăng nhập seller thật (JWT) để lấy nhận xét từ API.',
+      )
+    }
+
+    try {
+      return await realDss.insightPlan()
+    } catch (e) {
+      if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
+        return fallback(
+          'Phiên đăng nhập hết hạn hoặc thiếu quyền (Authentication failed). Hãy **đăng xuất → đăng nhập lại** rồi mở DSS.',
+        )
+      }
+      const msg = e instanceof Error ? e.message : 'Không tải được kế hoạch từ API'
+      return fallback(msg)
+    }
   },
 }
 
@@ -1766,6 +1800,14 @@ export const chatApi = {
       ctx,
       attachments,
     )
+
+    // Đồng bộ tồn trên card user với card/bot (tránh "Hết hàng" vs "còn 100")
+    if (userMsg.attachments?.length && products?.length) {
+      userMsg.attachments = userMsg.attachments.map((a) => {
+        const hit = products.find((p) => String(p.id) === String(a.id))
+        return hit && typeof hit.stock === 'number' ? { ...a, stock: hit.stock } : a
+      })
+    }
 
     await delay(typingDelay(reply))
 

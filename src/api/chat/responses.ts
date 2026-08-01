@@ -13,8 +13,12 @@ import { formatVnd, normalizeText } from '@/api/chat/match'
 import {
   cheapestProducts,
   extractBudgetVnd,
+  filterProductsForQuery,
   findProductsByQuery,
+  groupProductsByShop,
   productsUnderBudget,
+  rankRecommendedProducts,
+  stripPriceTokens,
 } from '@/api/chat/products'
 import { matchCategoryFromText } from '@/api/chat/synonyms'
 import type { Order, Product } from '@/types'
@@ -26,25 +30,93 @@ function greet(name: string): string {
   return name ? `${name}, ` : ''
 }
 
+/** Bỏ note kỹ thuật (API/mock) khỏi mọi phản hồi hiển thị cho user */
+export function sanitizeChatReply(text: string): string {
+  return text
+    .replace(/\s*\((?:dữ liệu\s+)?API(?:\s*\+\s*demo)?\)/gi, '')
+    .replace(/\s*\*\((?:API(?:\s+backend)?|mock[^*]*)\)\*/gi, '')
+    .replace(/\s*\((?:API\s+inventory|tồn\s+API|API)\)/gi, '')
+    .replace(/\s*\(API\s*\+\s*demo\)/gi, '')
+    .replace(/Nhận xét gần đây \(API\):/gi, 'Nhận xét gần đây:')
+    .replace(/\*\*Top SP \(API\):\*\*/gi, '**Top SP:**')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
 export function productLines(products: Product[], limit = 4): string {
   return products
     .slice(0, limit)
     .map((p) => {
-      const shop = p.shopName ? ` (${p.shopName})` : ''
+      const shop = p.shopName ? ` · shop **${p.shopName}**` : ''
       const stockNote = p.stock <= 0 ? ' (hết hàng)' : p.stock < 10 ? ` (còn ${p.stock})` : ''
+      const rating = p.rating ? ` · ${p.rating}★` : ''
       const link = p.id ? ` → /products/${p.id}` : ''
-      return `• **${p.name}**${shop} — ${formatVnd(p.price)}${stockNote}${link}`
+      return `• **${p.name}** — ${formatVnd(p.price)}${rating}${shop}${stockNote}${link}`
     })
     .join('\n')
 }
 
-function apiNote(ctx: ChatContext): string {
-  if (ctx.catalogSource === 'backend') return ' *(API backend)*'
-  if (!ctx.backendOnline && !apiConfig.useMock) {
-    return ' *(mock — backend :8080 chưa chạy)*'
+function shopDirectoryLines(products: Product[], limitShops = 4): string {
+  const groups = groupProductsByShop(products, limitShops, 2)
+  if (!groups.length) return ''
+  return groups
+    .map((g) => {
+      const items = g.products
+        .map((p) => `${p.name} (${formatVnd(p.price)})`)
+        .join(', ')
+      const contact =
+        g.sellerEmail || g.sellerPhone
+          ? `\n  Liên hệ: ${[g.sellerEmail, g.sellerPhone].filter(Boolean).join(' · ')}`
+          : ''
+      return `• **${g.shop}** — ${items}${contact}`
+    })
+    .join('\n')
+}
+
+function resolveProductHits(ctx: ChatContext, raw: string): Product[] {
+  if (ctx.enrichment?.searchResults?.length) return ctx.enrichment.searchResults
+  if (ctx.enrichment?.categoryProducts?.length) return ctx.enrichment.categoryProducts
+  if (ctx.enrichment?.product) return [ctx.enrichment.product]
+  const filtered = filterProductsForQuery(ctx.products, raw, ctx.categories, 12)
+  if (filtered.products.length) return filtered.products
+  return findProductsByQuery(ctx.products, stripPriceTokens(raw) || raw)
+}
+
+function whereToBuyReply(ctx: ChatContext, raw: string): string {
+  const name = greet(ctx.userName ?? '')
+  const hits = resolveProductHits(ctx, raw)
+  if (!hits.length) {
+    return `${name}Chưa tìm thấy shop bán đúng nhu cầu đó. Thử hỏi cụ thể hơn (vd: **"chỗ nào bán laptop"**, **"shop nào bán tai nghe"**) hoặc mở **Cửa hàng**.`
   }
-  if (ctx.dataSource === 'hybrid') return ' *(mock + demo)*'
-  return ' *(mock local)*'
+  const directory = shopDirectoryLines(hits, 5)
+  const label = matchCategoryFromText(raw, ctx.categories)?.name
+  const topic = label ?? (stripPriceTokens(raw).slice(0, 40) || 'sản phẩm bạn hỏi')
+  return `${name}**Chỗ bán — ${topic}:**\n${directory}\n\n👉 Chọn shop/SP bên dưới hoặc hỏi **"liên hệ người bán …"** để lấy email/SĐT.`
+}
+
+function recommendReply(ctx: ChatContext, raw: string): string {
+  const name = greet(ctx.userName ?? '')
+  if (ctx.recommendations.length) {
+    const picks = ctx.recommendations
+      .slice(0, 4)
+      .map((r) => {
+        const p = ctx.products.find((x) => x.id === r.productId)
+        if (!p) return null
+        const shop = p.shopName ? ` · shop **${p.shopName}**` : ''
+        return `• **${p.name}** (${Math.round(r.score * 100)}%)${shop} — ${r.reason}`
+      })
+      .filter(Boolean)
+    if (picks.length) {
+      return `${name}**Gợi ý đáng mua:**\n${picks.join('\n')}\n\nHỏi **"chỗ nào bán …"** nếu cần tìm đúng shop.`
+    }
+  }
+  const pool = resolveProductHits(ctx, raw)
+  const ranked = rankRecommendedProducts(pool.length ? pool : ctx.products, 6)
+  if (!ranked.length) {
+    return `${name}Chưa có gợi ý phù hợp — xem **Cửa hàng** hoặc hỏi danh mục (laptop, điện thoại…).`
+  }
+  return `${name}**Gợi ý đáng mua** (theo rating & lượt bán):\n${productLines(ranked, 6)}\n\n**Shop nổi bật:**\n${shopDirectoryLines(ranked, 3)}`
 }
 
 function formatOrderSummary(orders: Order[], limit = 3): string {
@@ -67,7 +139,7 @@ export function roleHelpHints(role: ChatContext['role']): string {
     case 'admin':
       return 'Gợi ý: "trạng thái hệ thống", "bao nhiêu user", "cảnh báo vận hành", "bảo mật JWT".'
     default:
-      return 'Gợi ý: "web bán gì", "điện thoại có gì", "dưới 2 triệu", "giỏ hàng", "tai nghe giá bao nhiêu".'
+      return 'Gợi ý: "chỗ nào bán laptop", "sp nào ngon", "điện thoại có gì", "dưới 2 triệu", "giỏ hàng".'
   }
 }
 
@@ -96,14 +168,14 @@ function shopOverviewReply(ctx: ChatContext): string {
   const catCount = ctx.categories.length || new Set(ctx.products.map((p) => p.category)).size
   const offlineHint =
     !ctx.backendOnline && !apiConfig.useMock
-      ? '\n\n⚠ **Backend chưa kết nối** — đang dùng catalog mock. Chạy Postgres + `gradlew bootRun` để lấy catalog thật (≈55 SP, danh mục tiếng Việt).'
+      ? '\n\n⚠ Catalog tạm thời hạn chế — thử lại sau hoặc mở **Cửa hàng**.'
       : ''
-  return `${name}**SEDSP** — sàn TMĐT + DSS & AI${apiNote(ctx)}.\n• **${total}** sản phẩm · **${catCount}** danh mục\n\n**Danh mục:**\n${categoryOverview(ctx)}\n\n**Nổi bật / bán chạy:**\n${top.length ? productLines(top, 5) : '• Xem **Cửa hàng**.'}\n\nHỏi tên SP, "điện thoại có gì", "giỏ hàng", "đơn của tôi".${offlineHint}`
+  return `${name}**SEDSP** — sàn TMĐT + DSS & AI.\n• **${total}** sản phẩm · **${catCount}** danh mục\n\n**Danh mục:**\n${categoryOverview(ctx)}\n\n**Nổi bật / bán chạy:**\n${top.length ? productLines(top, 5) : '• Xem **Cửa hàng**.'}\n\nHỏi tên SP, "điện thoại có gì", "giỏ hàng", "đơn của tôi".${offlineHint}`
 }
 
 function categoriesReply(ctx: ChatContext): string {
   const name = greet(ctx.userName ?? '')
-  return `${name}**Danh mục tiếng Việt${apiNote(ctx)}:**\n${categoryOverview(ctx)}\n\nLọc tại **Cửa hàng** hoặc hỏi vd: "laptop có gì", "thời trang nữ", "nhà bếp có gì".`
+  return `${name}**Danh mục tiếng Việt:**\n${categoryOverview(ctx)}\n\nLọc tại **Cửa hàng** hoặc hỏi vd: "laptop có gì", "thời trang nữ", "nhà bếp có gì".`
 }
 
 function cartSummaryReply(ctx: ChatContext): string {
@@ -112,13 +184,13 @@ function cartSummaryReply(ctx: ChatContext): string {
     return `${name}**Đăng nhập** để xem giỏ hàng cá nhân. Demo: **customer@sedsp.vn** / **12345678**`
   }
   if (!ctx.cartLines.length) {
-    return `${name}Giỏ hàng **trống**${apiNote(ctx)}. Thêm SP từ **Cửa hàng** → **Thêm vào giỏ**.`
+    return `${name}Giỏ hàng **trống**. Thêm SP từ **Cửa hàng** → **Thêm vào giỏ**.`
   }
   const lines = ctx.cartLines
     .slice(0, 6)
     .map((l) => `• ${l.productName} × **${l.quantity}** — ${formatVnd(l.subtotal)}`)
     .join('\n')
-  return `${name}**Giỏ hàng${apiNote(ctx)}** (${ctx.cartItemCount} món):\n${lines}\n\n**Tổng: ${formatVnd(ctx.cartTotal)}**\n→ **Giỏ hàng** · **Thanh toán**`
+  return `${name}**Giỏ hàng** (${ctx.cartItemCount} món):\n${lines}\n\n**Tổng: ${formatVnd(ctx.cartTotal)}**\n→ **Giỏ hàng** · **Thanh toán**`
 }
 
 function orderDetailReply(ctx: ChatContext): string {
@@ -126,12 +198,12 @@ function orderDetailReply(ctx: ChatContext): string {
   const focused = ctx.enrichment?.focusedOrder
   if (focused) {
     const items = focused.items.map((i) => `${i.productName} ×${i.quantity}`).join(', ')
-    return `${name}**Đơn #${focused.id}**${apiNote(ctx)}\n• Trạng thái: **${orderStatusLabel(focused.status)}**\n• Tổng: **${formatVnd(focused.total)}**\n• SP: ${items}\n• Địa chỉ: ${focused.shippingAddress}\n\nChi tiết **Đơn hàng của tôi**.`
+    return `${name}**Đơn #${focused.id}**\n• Trạng thái: **${orderStatusLabel(focused.status)}**\n• Tổng: **${formatVnd(focused.total)}**\n• SP: ${items}\n• Địa chỉ: ${focused.shippingAddress}\n\nChi tiết **Đơn hàng của tôi**.`
   }
   if (ctx.orders.length) {
-    return `${name}**Đơn gần nhất${apiNote(ctx)}:**\n${formatOrderSummary(ctx.orders, 3)}\n\nHỏi kèm mã đơn, vd: "đơn #${ctx.orders[0].id}".`
+    return `${name}**Đơn gần nhất:**\n${formatOrderSummary(ctx.orders, 3)}\n\nHỏi kèm mã đơn, vd: "đơn #${ctx.orders[0].id}".`
   }
-  return `${name}Chưa có đơn hàng${apiNote(ctx)}. Đặt hàng qua **Giỏ hàng** → **Thanh toán**.`
+  return `${name}Chưa có đơn hàng. Đặt hàng qua **Giỏ hàng** → **Thanh toán**.`
 }
 
 function categoryBrowseReply(ctx: ChatContext, raw: string): string {
@@ -150,7 +222,7 @@ function categoryBrowseReply(ctx: ChatContext, raw: string): string {
     return `${name}Chưa tìm thấy SP theo danh mục — thử **Cửa hàng** hoặc hỏi "web bán gì" / "danh mục".`
   }
   const label = cat?.name ?? products[0]?.category ?? 'Danh mục'
-  return `${name}**${label}**${apiNote(ctx)}:\n${productLines(products.slice(0, 6), 6)}\n\nXem thêm **Cửa hàng** · hỏi danh mục khác (Điện thoại, Laptop, Giày dép…).`
+  return `${name}**${label}**:\n${productLines(products.slice(0, 6), 6)}\n\nXem thêm **Cửa hàng** · hỏi danh mục khác (Điện thoại, Laptop, Giày dép…).`
 }
 
 function productSearchReply(ctx: ChatContext, raw: string): string {
@@ -161,7 +233,7 @@ function productSearchReply(ctx: ChatContext, raw: string): string {
   if (!hits.length) {
     return `${name}Gõ tên SP cụ thể, vd: "tìm tai nghe bluetooth" hoặc "bàn phím cơ".`
   }
-  return `${name}**Kết quả tìm kiếm${apiNote(ctx)}:**\n${productLines(hits.slice(0, 6), 6)}`
+  return `${name}**Kết quả tìm kiếm:**\n${productLines(hits.slice(0, 6), 6)}`
 }
 
 function cheapestReply(ctx: ChatContext): string {
@@ -170,7 +242,7 @@ function cheapestReply(ctx: ChatContext): string {
   if (!list.length) {
     return `${name}Chưa có SP để so giá — xem **Cửa hàng**.`
   }
-  return `${name}**Rẻ nhất hiện có${apiNote(ctx)}:**\n${productLines(list, 5)}\n\nHỏi "dưới 2 triệu" để lọc ngân sách.`
+  return `${name}**Rẻ nhất hiện có:**\n${productLines(list, 5)}\n\nHỏi "dưới 2 triệu" để lọc ngân sách.`
 }
 
 function budgetReply(ctx: ChatContext, raw: string): string {
@@ -181,9 +253,9 @@ function budgetReply(ctx: ChatContext, raw: string): string {
   }
   const hits = productsUnderBudget(ctx.products, budget, 6)
   if (!hits.length) {
-    return `${name}Không có SP ≤ **${formatVnd(budget)}**${apiNote(ctx)}. Thử mức cao hơn hoặc hỏi **"sp rẻ nhất"**.`
+    return `${name}Không có SP ≤ **${formatVnd(budget)}**. Thử mức cao hơn hoặc hỏi **"sp rẻ nhất"**.`
   }
-  return `${name}**Phù hợp ngân sách ≤ ${formatVnd(budget)}**${apiNote(ctx)}:\n${productLines(hits, 6)}\n\n→ Mở **Cửa hàng** để thêm giỏ.`
+  return `${name}**Phù hợp ngân sách ≤ ${formatVnd(budget)}**:\n${productLines(hits, 6)}\n\n→ Mở **Cửa hàng** để thêm giỏ.`
 }
 
 function contactSellerReply(ctx: ChatContext, raw: string): string {
@@ -195,10 +267,7 @@ function contactSellerReply(ctx: ChatContext, raw: string): string {
   const shop = p.shopName ?? 'SEDSP Official'
   const email = p.sellerEmail ?? 'seller@sedsp.vn'
   const phone = p.sellerPhone ?? '1900-SEDSP'
-  const contactNote = p.sellerEmail
-    ? ''
-    : '\n\n_(Email/SĐT mặc định demo — backend chưa trả sellerEmail/sellerPhone.)_'
-  return `${name}**Liên hệ người bán — ${p.name}**${apiNote(ctx)}\n\n• **Shop:** ${shop}\n• **Email:** ${email}\n• **Điện thoại:** ${phone}${contactNote}\n\n👉 Xem trang SP **${p.name}** · menu **Liên hệ** CSKH: **customer@sedsp.vn**`
+  return `${name}**Liên hệ người bán — ${p.name}**\n\n• **Shop:** **${shop}**\n• **Email:** ${email}\n• **Điện thoại:** ${phone}\n\n👉 Mở **/products/${p.id}** để xem SP · hỏi CSKH: **customer@sedsp.vn**`
 }
 
 function contactEscalateReply(ctx: ChatContext, raw: string): string {
@@ -254,7 +323,7 @@ function passwordReply(ctx: ChatContext): string {
 function checkoutReply(ctx: ChatContext): string {
   const name = greet(ctx.userName ?? '')
   const loginNote = ctx.role === 'guest' ? '\n\n👉 **Đăng nhập** trước khi checkout.' : ''
-  return `${name}**Cách đặt hàng:**\n1. Chọn SP → **Thêm vào giỏ**\n2. **Giỏ hàng** → kiểm tra số lượng\n3. **Thanh toán** → điền địa chỉ & phương thức (COD / MoMo / VNPay)\n4. Xác nhận — theo dõi tại **Đơn hàng của tôi**${loginNote}`
+  return `${name}**Cách đặt hàng:**\n1. Chọn SP → **Thêm vào giỏ**\n2. **Giỏ hàng** → kiểm tra số lượng\n3. **Thanh toán** → điền địa chỉ & phương thức (**COD** / **VNPay**)\n4. Xác nhận — theo dõi tại **Đơn hàng của tôi**${loginNote}`
 }
 
 function productReviewReply(ctx: ChatContext, raw: string): string {
@@ -264,14 +333,14 @@ function productReviewReply(ctx: ChatContext, raw: string): string {
   if (p) {
     const summary = e?.ratingSummary
     const reviews = e?.reviews ?? []
-    let block = `${name}**${p.name}**${apiNote(ctx)}\n`
+    let block = `${name}**${p.name}**\n`
     if (summary && summary.totalReviews > 0) {
       block += `• Rating: **${summary.averageRating.toFixed(1)}★** / ${summary.totalReviews} đánh giá\n`
     } else {
       block += `• Rating hiển thị: **${p.rating}★** — xem tab **Đánh giá** trên trang SP\n`
     }
     if (reviews.length) {
-      block += `\n**Nhận xét gần đây (API):**\n${reviews.map((r) => `• ${r.userName}: ${r.rating}★ — "${r.comment.slice(0, 60)}${r.comment.length > 60 ? '…' : ''}"`).join('\n')}`
+      block += `\n**Nhận xét gần đây:**\n${reviews.map((r) => `• ${r.userName}: ${r.rating}★ — "${r.comment.slice(0, 60)}${r.comment.length > 60 ? '…' : ''}"`).join('\n')}`
     }
     block += `\n\nShop: **${p.shopName ?? 'SEDSP Official'}**`
     return block
@@ -284,7 +353,7 @@ function compareReply(ctx: ChatContext, raw: string): string {
   const matched = findProductsByQuery(ctx.products, raw)
   if (matched.length >= 2) {
     const [a, b] = matched
-    return `${name}**So sánh nhanh:**\n• **${a.name}** — ${formatVnd(a.price)} · ${a.category} · đã bán ${a.soldCount}\n• **${b.name}** — ${formatVnd(b.price)} · ${b.category} · đã bán ${b.soldCount}\n\nXem mô tả đầy đủ trên **Cửa hàng**.`
+    return `${name}**So sánh nhanh:**\n• **${a.name}** — ${formatVnd(a.price)} · ${a.category} · shop **${a.shopName ?? 'SEDSP'}** · đã bán ${a.soldCount}\n• **${b.name}** — ${formatVnd(b.price)} · ${b.category} · shop **${b.shopName ?? 'SEDSP'}** · đã bán ${b.soldCount}\n\nXem mô tả đầy đủ trên **Cửa hàng**.`
   }
   return `${name}Hãy nêu **2 sản phẩm** cần so sánh, vd: "so sánh tai nghe và loa bluetooth".`
 }
@@ -293,7 +362,7 @@ function sellerRatingReply(ctx: ChatContext): string {
   const name = greet(ctx.userName ?? '')
   const dash = ctx.sellerDashboard
   if (dash?.averageRating != null) {
-    let msg = `${name}**Rating shop${apiNote(ctx)}:** **${dash.averageRating.toFixed(1)}★**`
+    let msg = `${name}**Rating shop:** **${dash.averageRating.toFixed(1)}★**`
     if (dash.totalReviews) msg += ` · ${dash.totalReviews} review`
     if (dash.ratingWarning) msg += `\n⚠ ${dash.ratingWarning}`
     return msg + `\n\nTrả lời review <24h · **Quản lý SP** · **Bảng doanh số**.`
@@ -315,7 +384,7 @@ function productInfoReply(ctx: ChatContext, raw: string): string {
       ? p.description.slice(0, 160) + (p.description.length > 160 ? '…' : '')
       : 'Xem mô tả đầy đủ trên trang SP.'
     const img = p.imageUrl ? `\n• Ảnh: có (xem trang SP)` : ''
-    return `${name}**${p.name}**${apiNote(ctx)}\n• Danh mục: **${p.category}**\n• Giá: **${formatVnd(p.price)}**${p.originalPrice && p.originalPrice > p.price ? ` (gốc ${formatVnd(p.originalPrice)})` : ''}\n• Tồn${inv ? ' (API inventory)' : ''}: **${stock <= 0 ? 'hết hàng' : stock}**\n• Shop: **${p.shopName ?? 'SEDSP Official'}**${img}\n• ${desc}\n\n→ Chi tiết **/products/${p.id}**`
+    return `${name}**${p.name}**\n• Danh mục: **${p.category}**\n• Giá: **${formatVnd(p.price)}**${p.originalPrice && p.originalPrice > p.price ? ` (gốc ${formatVnd(p.originalPrice)})` : ''}\n• Tồn: **${stock <= 0 ? 'hết hàng' : stock}**\n• Shop: **${p.shopName ?? 'SEDSP Official'}**${img}\n• ${desc}\n\n→ Chi tiết **/products/${p.id}**`
   }
   return `${name}Bạn muốn biết SP nào? Hỏi tên cụ thể, vd: "thong tin tai nghe bluetooth".`
 }
@@ -328,13 +397,13 @@ function buildCustomerIntent(ctx: ChatContext, intent: ChatIntent, raw: string):
     case 'shipping':
       return `${name}**Chính sách giao hàng SEDSP:**\n• Nội thành: 1–2 ngày\n• Ngoại tỉnh: 3–5 ngày\n• Miễn phí ship đơn từ **500.000₫**\n• Theo dõi tại **Đơn hàng của tôi** sau khi đặt.`
     case 'payment':
-      return `${name}**Hình thức thanh toán:**\n• **COD** — trả khi nhận hàng\n• **MoMo** — ví điện tử\n• **VNPay** — ATM / QR / thẻ\nGiá đã gồm VAT. Chọn ở bước **Thanh toán**.`
+      return `${name}**Hình thức thanh toán:**\n• **COD** — trả khi nhận hàng\n• **VNPay** — ATM / QR / thẻ\nGiá đã gồm VAT. Chọn ở bước **Thanh toán**.`
     case 'orders': {
       const detail = orderDetailReply(ctx)
       if (ctx.enrichment?.focusedOrder) return detail
       const pending = ctx.orders.filter((o) => o.status === 'pending').length
       const shipping = ctx.orders.filter((o) => o.status === 'shipping').length
-      return `${name}**Đơn hàng${apiNote(ctx)}** (${ctx.orders.length} đơn):\n${formatOrderSummary(ctx.orders)}\n${pending ? `\n⚠ ${pending} đơn đang chờ xác nhận.` : ''}${shipping ? `\n🚚 ${shipping} đơn đang giao.` : ''}\n\nXem **Đơn hàng của tôi**.`
+      return `${name}**Đơn hàng** (${ctx.orders.length} đơn):\n${formatOrderSummary(ctx.orders)}\n${pending ? `\n⚠ ${pending} đơn đang chờ xác nhận.` : ''}${shipping ? `\n🚚 ${shipping} đơn đang giao.` : ''}\n\nXem **Đơn hàng của tôi**.`
     }
     case 'order_detail':
       return orderDetailReply(ctx)
@@ -350,16 +419,7 @@ function buildCustomerIntent(ctx: ChatContext, intent: ChatIntent, raw: string):
     case 'cart_summary':
       return cartSummaryReply(ctx)
     case 'recommend':
-      if (ctx.recommendations.length) {
-        const picks = ctx.recommendations.slice(0, 3).map((r) => {
-          const p = ctx.products.find((x) => x.id === r.productId)
-          return p ? `• ${p.name} (${Math.round(r.score * 100)}%) — ${r.reason}` : null
-        }).filter(Boolean)
-        if (picks.length) {
-          return `${name}**Gợi ý cá nhân hóa:**\n${picks.join('\n')}\n\n**Gợi ý AI** trên menu.`
-        }
-      }
-      return shopOverviewReply(ctx).replace('**SEDSP**', '**Gợi ý mua**')
+      return recommendReply(ctx, raw)
     case 'promo': {
       const onSale = ctx.products.filter((p) => p.originalPrice && p.originalPrice > p.price).slice(0, 4)
       if (onSale.length) {
@@ -377,9 +437,9 @@ function buildCustomerIntent(ctx: ChatContext, intent: ChatIntent, raw: string):
       if (target) {
         const qty = inv?.availableQuantity ?? target.stock
         if (qty <= 0) {
-          return `${name}**${target.name}** **hết hàng**${inv ? ' (API inventory)' : ''}. Danh mục **${target.category}** · shop **${target.shopName ?? 'seller@sedsp.vn'}**.`
+          return `${name}**${target.name}** **hết hàng**. Danh mục **${target.category}** · shop **${target.shopName ?? 'SEDSP Official'}**.`
         }
-        return `${name}**${target.name}** còn **${qty}**${inv ? ' (tồn API)' : ''} — **${formatVnd(target.price)}**. Thêm giỏ trên trang chi tiết.`
+        return `${name}**${target.name}** còn **${qty}** — **${formatVnd(target.price)}** · shop **${target.shopName ?? 'SEDSP Official'}**. Thêm giỏ trên trang chi tiết.`
       }
       break
     }
@@ -414,7 +474,7 @@ function buildSellerIntent(ctx: ChatContext, intent: ChatIntent, raw: string): s
       if (perf) {
         const chart = perf.monthlyRevenue.slice(-3).map((m) => `• ${m.label}: ${formatVnd(m.value)}`).join('\n')
         const top = perf.topProducts.slice(0, 3).map((p) => `• ${p.productName}: ${p.quantitySold} sp · ${formatVnd(p.revenue)}`).join('\n')
-        return `${name}**Doanh số${apiNote(ctx)}:**\n• Tổng: **${formatVnd(perf.summary.totalRevenue)}**\n• Đơn HT: **${perf.summary.completedOrders}**\n• AOV: **${formatVnd(perf.summary.averageOrderValue)}**${chart ? `\n\n**3 tháng:**\n${chart}` : ''}${top ? `\n\n**Top SP (API):**\n${top}` : ''}\n\n**Bảng doanh số**.`
+        return `${name}**Doanh số:**\n• Tổng: **${formatVnd(perf.summary.totalRevenue)}**\n• Đơn HT: **${perf.summary.completedOrders}**\n• AOV: **${formatVnd(perf.summary.averageOrderValue)}**${chart ? `\n\n**3 tháng:**\n${chart}` : ''}${top ? `\n\n**Top SP:**\n${top}` : ''}\n\n**Bảng doanh số**.`
       }
       const est = catalog.reduce((s, p) => s + p.soldCount * p.price, 0)
       return `${name}Doanh thu ước tính catalog: **${formatVnd(est)}**. **Bảng doanh số** khi có dữ liệu đơn.`
@@ -422,8 +482,8 @@ function buildSellerIntent(ctx: ChatContext, intent: ChatIntent, raw: string): s
     case 'seller_inventory': {
       const dash = ctx.sellerDashboard
       if (dash?.lowStockProducts.length) {
-        const lines = dash.lowStockProducts.slice(0, 6).map((p) => `• ${p.productName} — còn **${p.quantity}** (API)`).join('\n')
-        return `${name}**Tồn kho thấp${apiNote(ctx)}:**\n${lines}\n\nCập nhật **Tồn kho** · hoặc hỏi **"khuyến nghị tồn kho"** (DSS).`
+        const lines = dash.lowStockProducts.slice(0, 6).map((p) => `• ${p.productName} — còn **${p.quantity}**`).join('\n')
+        return `${name}**Tồn kho thấp:**\n${lines}\n\nCập nhật **Tồn kho** · hoặc hỏi **"khuyến nghị tồn kho"** (DSS).`
       }
       const low = catalog.filter((p) => p.stock > 0 && p.stock < 20).sort((a, b) => a.stock - b.stock)
       const out = catalog.filter((p) => p.stock <= 0)
@@ -442,23 +502,23 @@ function buildSellerIntent(ctx: ChatContext, intent: ChatIntent, raw: string): s
       return `${name}Tồn kho **ổn định**. Theo dõi **Tồn kho** hoặc hỏi **"khuyến nghị tồn kho"**.`
     }
     case 'seller_pricing':
-      return `${name}**Khuyến nghị giá (DSS)**${apiNote(ctx)}:\n${priceBrief(catalog)}`
+      return `${name}**Khuyến nghị giá (DSS)**:\n${priceBrief(catalog)}`
     case 'seller_dss_demand':
-      return `${name}**Dự báo nhu cầu (Moving Average)**${apiNote(ctx)}:\n${demandBrief(catalog)}`
+      return `${name}**Dự báo nhu cầu (Moving Average)**:\n${demandBrief(catalog)}`
     case 'seller_dss_price':
-      return `${name}**Khuyến nghị giá**${apiNote(ctx)}:\n${priceBrief(catalog)}`
+      return `${name}**Khuyến nghị giá**:\n${priceBrief(catalog)}`
     case 'seller_dss_inventory':
-      return `${name}**Khuyến nghị tồn kho**${apiNote(ctx)}:\n${inventoryDssBrief(catalog)}`
+      return `${name}**Khuyến nghị tồn kho**:\n${inventoryDssBrief(catalog)}`
     case 'seller_whatif': {
       const pct = extractDiscountPct(raw, 10)
-      return `${name}**What-if giảm giá ${pct}%**${apiNote(ctx)}:\n${sellerWhatIfBrief(pct)}`
+      return `${name}**What-if giảm giá ${pct}%**:\n${sellerWhatIfBrief(pct)}`
     }
     case 'seller_purchase_orders': {
       const buys = ctx.purchaseOrders
       if (!buys.length) {
         return `${name}Bạn chưa có **đơn mua** (mua như khách). Thêm SP từ **Cửa hàng** → **Giỏ hàng** → **Thanh toán**. Đơn bán xem bằng "đơn cần xử lý".`
       }
-      return `${name}**Đơn mua của bạn** (${buys.length} đơn)${apiNote(ctx)}:\n${formatOrderSummary(buys, 5)}\n\n→ **/orders** (đơn mua) · **/seller/orders** (đơn bán).`
+      return `${name}**Đơn mua của bạn** (${buys.length} đơn):\n${formatOrderSummary(buys, 5)}\n\n→ **/orders** (đơn mua) · **/seller/orders** (đơn bán).`
     }
     case 'seller_promo': {
       const highStock = catalog.filter((p) => p.stock > 25).slice(0, 2)
@@ -469,22 +529,22 @@ function buildSellerIntent(ctx: ChatContext, intent: ChatIntent, raw: string): s
       return `${name}**Thêm SP:**\n1. **Quản lý SP** → **+ Thêm SP**\n2. Chọn danh mục VI (Điện thoại, Laptop, Nhà bếp…)\n3. Giá, tồn · upload **3 ảnh** (gallery)\n4. Lưu — hiện cửa hàng ngay.`
     case 'seller_orders': {
       if (ctx.orders.length) {
-        return `${name}**${ctx.orders.length} đơn bán cần xử lý${apiNote(ctx)}:**\n${formatOrderSummary(ctx.orders, 5)}\n\n👉 **Quản lý đơn hàng** (/seller/orders). Đơn mua: hỏi **"đơn mua của tôi"**.`
+        return `${name}**${ctx.orders.length} đơn bán cần xử lý:**\n${formatOrderSummary(ctx.orders, 5)}\n\n👉 **Quản lý đơn hàng** (/seller/orders). Đơn mua: hỏi **"đơn mua của tôi"**.`
       }
-      return `${name}Chưa có đơn bán từ API. Xem **Quản lý đơn hàng** khi có khách đặt.`
+      return `${name}Chưa có đơn bán. Xem **Quản lý đơn hàng** khi có khách đặt.`
     }
     case 'seller_recent_orders': {
       const recent = ctx.sellerDashboard?.recentOrders ?? []
       if (recent.length) {
         const lines = recent.slice(0, 5).map((o) => `• #${o.orderId} — ${o.customer} — ${formatVnd(o.total)} — ${o.status}`).join('\n')
-        return `${name}**Đơn gần đây${apiNote(ctx)}:**\n${lines}`
+        return `${name}**Đơn gần đây:**\n${lines}`
       }
-      return `${name}Chưa có đơn gần đây từ API dashboard. Xem **Bảng doanh số**.`
+      return `${name}Chưa có đơn gần đây trên dashboard. Xem **Bảng doanh số**.`
     }
     case 'seller_top_products': {
       const top = ctx.salesPerformance?.topProducts ?? []
       if (top.length) {
-        return `${name}**SP bán chạy${apiNote(ctx)}:**\n${top.slice(0, 5).map((p) => `• ${p.productName}: **${p.quantitySold}** sp · ${formatVnd(p.revenue)}`).join('\n')}`
+        return `${name}**SP bán chạy:**\n${top.slice(0, 5).map((p) => `• ${p.productName}: **${p.quantitySold}** sp · ${formatVnd(p.revenue)}`).join('\n')}`
       }
       const local = [...catalog].sort((a, b) => b.soldCount - a.soldCount).slice(0, 5)
       return `${name}**Top catalog:**\n${productLines(local, 5)}`
@@ -530,7 +590,7 @@ function buildManagerIntent(ctx: ChatContext, intent: ChatIntent, raw: string): 
     }
     case 'manager_whatif': {
       const pct = extractDiscountPct(raw, 10)
-      return `${name}**What-if khuyến mãi (DSS Quản lý)**${apiNote(ctx)}:\n${managerWhatIfBrief(pct)}`
+      return `${name}**What-if khuyến mãi (DSS Quản lý)**:\n${managerWhatIfBrief(pct)}`
     }
     case 'manager_trend': {
       const cats = new Map<string, number>()
@@ -542,9 +602,9 @@ function buildManagerIntent(ctx: ChatContext, intent: ChatIntent, raw: string): 
       return `${name}Doanh thu **${formatVnd(revenue)}** / **${orders.length}** đơn. AOV **${formatVnd(aov)}**.`
     case 'manager_insights': {
       if (ctx.managerInsights.length) {
-        return `${name}**DSS Quản lý${apiNote(ctx)}:**\n${ctx.managerInsights.slice(0, 5).map((i) => `• **${i.title}** (${i.impact}): ${i.description}`).join('\n')}\n\n**DSS Quản lý** · **Phân tích**.`
+        return `${name}**DSS Quản lý:**\n${ctx.managerInsights.slice(0, 5).map((i) => `• **${i.title}** (${i.impact}): ${i.description}`).join('\n')}\n\n**DSS Quản lý** · **Phân tích**.`
       }
-      return `${name}Chưa có insights — xem **Dashboard** khi có thêm đơn hàng API.`
+      return `${name}Chưa có insights — xem **Dashboard** khi có thêm đơn hàng.`
     }
     default:
       return null
@@ -608,6 +668,10 @@ export function buildIntentReply(ctx: ChatContext, intent: ChatIntent, raw: stri
       return categoriesReply(ctx)
     case 'contact_seller':
       return contactSellerReply(ctx, raw)
+    case 'where_to_buy':
+      return whereToBuyReply(ctx, raw)
+    case 'recommend':
+      return recommendReply(ctx, raw)
     case 'contact_escalate':
       return contactEscalateReply(ctx, raw)
     case 'complaint':

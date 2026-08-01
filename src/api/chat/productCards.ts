@@ -1,4 +1,6 @@
 import type { ChatProductRef, Product } from '@/types'
+import { apiConfig } from '@/api/config'
+import * as realInventory from '@/api/real/inventory'
 
 export function toChatProduct(p: Product): ChatProductRef {
   return {
@@ -47,16 +49,41 @@ export function parseDraggedProduct(dataTransfer: DataTransfer | null): ChatProd
 }
 
 export function productToDragPayload(product: Product | ChatProductRef): string {
+  const rawStock = 'stock' in product ? product.stock : undefined
+  // List API hay để stock=0 mặc định — đừng nhét vào chat (sẽ hiện "Hết hàng" giả).
+  // Tồn thật được refreshChatProductStock / catalog withStock gắn lại.
+  const stock =
+    typeof rawStock === 'number' && rawStock > 0 ? rawStock : undefined
   const card: ChatProductRef = {
     id: String(product.id),
     name: product.name,
     price: product.price,
     imageUrl: product.imageUrl,
     category: product.category,
-    stock: 'stock' in product ? product.stock : undefined,
+    stock,
     shopName: product.shopName,
     rating: 'rating' in product ? product.rating : undefined,
     originalPrice: product.originalPrice,
   }
   return JSON.stringify(card)
+}
+
+/** Đồng bộ tồn kho từ inventory API — tránh card list (stock=0 mặc định) lệch với chatbot. */
+export async function refreshChatProductStock(
+  products: ChatProductRef[],
+): Promise<ChatProductRef[]> {
+  if (!products.length) return products
+  if (!apiConfig.useRealInventory || !localStorage.getItem('sedsp_access_token')?.trim()) {
+    return products
+  }
+  return Promise.all(
+    products.map(async (p) => {
+      try {
+        const inv = await realInventory.getInventory(p.id)
+        return { ...p, stock: inv.availableQuantity }
+      } catch {
+        return p
+      }
+    }),
+  )
 }

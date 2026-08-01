@@ -4,6 +4,7 @@ import { generateAssistantReply } from '@/api/chat/engine'
 import { detectIntent, type ChatIntent } from '@/api/chat/intents'
 import { callChatLlm, isLlmConfigured, llmProviderLabel, refreshBeAiStatus } from '@/api/chat/llm'
 import { extractPriceRange } from '@/api/chat/products'
+import { sanitizeChatReply } from '@/api/chat/responses'
 import { buildSystemPrompt } from '@/api/chat/systemPrompt'
 import type { ChatMessage, ChatProductRef } from '@/types'
 
@@ -25,6 +26,8 @@ const FORCE_LOCAL_INTENTS = new Set<ChatIntent>([
   'product_price',
   'product_stock',
   'recommend',
+  'where_to_buy',
+  'contact_seller',
 ])
 
 /** Khi có LLM: ưu tiên AI + context shop; local chỉ fallback. Shopping/filter → local có card. */
@@ -46,8 +49,7 @@ export async function resolveChatReply(
   if (!forceLocal && isLlmConfigured()) {
     try {
       const systemPrompt = buildSystemPrompt(enriched)
-      const content = await callChatLlm(systemPrompt, history, userMessage)
-      // Vẫn lấy card local nếu có kết quả lọc SP
+      const content = sanitizeChatReply(await callChatLlm(systemPrompt, history, userMessage))
       const local = await generateAssistantReply(userMessage, enriched, attachments)
       return {
         content,
@@ -61,7 +63,7 @@ export async function resolveChatReply(
 
   const local = await generateAssistantReply(userMessage, enriched, attachments)
   return {
-    content: local.content,
+    content: sanitizeChatReply(local.content),
     source: 'local',
     products: local.products,
   }

@@ -1,5 +1,6 @@
 export function formatVnd(amount: number): string {
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount)
+  // Compact: tránh "₫" / khoảng trắng hẹp làm đội khung card hẹp
+  return `${new Intl.NumberFormat('vi-VN').format(Math.round(amount))}đ`
 }
 
 /** Bỏ dấu + lowercase — dùng cho fuzzy match tiếng Việt/Anh */

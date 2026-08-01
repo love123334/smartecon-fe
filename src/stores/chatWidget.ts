@@ -37,6 +37,10 @@ export const useChatWidgetStore = defineStore('chatWidget', () => {
     attachments.value = []
   }
 
+  function setAttachments(next: ChatProductRef[]) {
+    attachments.value = next
+  }
+
   return {
     open,
     attachments,
@@ -47,5 +51,6 @@ export const useChatWidgetStore = defineStore('chatWidget', () => {
     addAttachment,
     removeAttachment,
     clearAttachments,
+    setAttachments,
   }
 })

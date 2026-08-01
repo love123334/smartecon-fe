@@ -20,8 +20,13 @@ const embedUrl = computed(() => plan.value?.powerBiEmbedUrl?.trim() || '')
 onMounted(async () => {
   insights.value = await dssApi.sellerInsights(sellerKey.value)
   planLoading.value = true
+  planError.value = ''
   try {
     plan.value = await dssApi.insightPlan()
+    // Fallback vẫn trả plan — nếu source local-fallback thì nhắc đăng nhập lại
+    if (plan.value?.source === 'local-fallback') {
+      planError.value = ''
+    }
   } catch (e) {
     planError.value = e instanceof Error ? e.message : 'Không tải được kế hoạch DSS'
   } finally {
