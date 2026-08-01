@@ -68,7 +68,7 @@ onMounted(async () => {
 
 <style scoped>
 .mkt-cat-link--ai {
-  color: #0f766e;
+  color: var(--blue, #2e7df6);
   font-weight: 600;
 }
 </style>

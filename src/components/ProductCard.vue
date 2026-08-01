@@ -3,6 +3,8 @@ import { computed, onUnmounted, ref, watch } from 'vue'
 import type { Product } from '@/types'
 import { formatVnd, getDiscountPercent, productApi } from '@/api/services'
 import SellerShopTag from '@/components/SellerShopTag.vue'
+import { productToDragPayload, SEDSP_PRODUCT_DRAG_MIME } from '@/api/chat/productCards'
+import { useChatWidgetStore } from '@/stores/chatWidget'
 
 const props = defineProps<{
   product: Product
@@ -134,6 +136,35 @@ function onAdd(e: Event) {
   emit('add', props.product.id)
 }
 
+function onDragStart(e: DragEvent) {
+  if (!e.dataTransfer) return
+  const payload = productToDragPayload(props.product)
+  e.dataTransfer.setData(SEDSP_PRODUCT_DRAG_MIME, payload)
+  e.dataTransfer.setData('application/json', payload)
+  e.dataTransfer.setData('text/plain', payload)
+  e.dataTransfer.effectAllowed = 'copy'
+  // gợi ý mở chat khi kéo
+  useChatWidgetStore().dragOver = false
+}
+
+function attachToChat(e: Event) {
+  e.preventDefault()
+  e.stopPropagation()
+  const widget = useChatWidgetStore()
+  widget.addAttachment({
+    id: String(props.product.id),
+    name: props.product.name,
+    price: props.product.price,
+    imageUrl: props.product.imageUrl,
+    category: props.product.category,
+    stock: props.product.stock,
+    shopName: props.product.shopName,
+    rating: props.product.rating,
+    originalPrice: props.product.originalPrice,
+  })
+  widget.show()
+}
+
 onUnmounted(() => {
   clearTimers()
   fetchSeq += 1
@@ -147,7 +178,11 @@ onUnmounted(() => {
       'product-card--compact': compact,
       'product-card--preview-open': previewOpen,
     }"
+    draggable="true"
+    title="Kéo vào trợ lý AI để hỏi / so sánh"
     @mouseenter="onEnter"
+    @dragstart="onDragStart"
+
     @mouseleave="onLeave"
   >
     <div class="product-card__media">
@@ -157,6 +192,7 @@ onUnmounted(() => {
           :alt="product.name"
           loading="lazy"
           decoding="async"
+          draggable="false"
         />
       </RouterLink>
 
@@ -174,6 +210,15 @@ onUnmounted(() => {
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
           <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
         </svg>
+      </button>
+      <button
+        type="button"
+        class="product-card__ai"
+        title="Đính kèm vào trợ lý AI"
+        aria-label="Đính kèm vào trợ lý AI"
+        @click="attachToChat"
+      >
+        AI
       </button>
     </div>
 

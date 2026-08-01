@@ -18,8 +18,9 @@ import * as realInventory from '@/api/real/inventory'
 import * as realUsers from '@/api/real/users'
 import * as realSeller from '@/api/real/seller'
 import * as realReviews from '@/api/real/reviews'
-import * as realProductImages from '@/api/real/productImages'
 import * as realDss from '@/api/real/dss'
+import * as realPlatformRevenue from '@/api/real/platformRevenue'
+import * as realProductImages from '@/api/real/productImages'
 import { typingDelay } from '@/api/chat/engine'
 import { buildChatContext } from '@/api/chat/context'
 import { chatModeLabel, resolveChatReply, refreshBeAiStatus } from '@/api/chat/responder'
@@ -1587,8 +1588,32 @@ export const dssApi = {
     return realDss.forecastDemand(input.productId, input.historyDays, input.forecastDays)
   },
 
+  async createDemandPrediction(input: {
+    productId: number
+    forecastPeriod: number
+    historicalDays: number
+  }) {
+    return realDss.createDemandPrediction(input)
+  },
+
   async recommendPrice(productId: string, lookbackDays = 30) {
     return realDss.recommendPrice(productId, lookbackDays)
+  },
+
+  async createPricePrediction(input: {
+    productId: number
+    fromDate: string
+    toDate: string
+  }) {
+    return realDss.createPricePrediction(input)
+  },
+
+  async analyzeSellerWhatIf(input: {
+    productId: number
+    discountPercentage: number
+    simulationPeriod: number
+  }) {
+    return realDss.analyzeSellerWhatIf(input)
   },
 
   async recommendInventory(planningDays: number, productId?: string) {
@@ -1712,15 +1737,21 @@ export const chatApi = {
     userId: string,
     content: string,
     role: UserRole,
-    opts?: { userName?: string; sellerBackendId?: string },
+    opts?: {
+      userName?: string
+      sellerBackendId?: string
+      attachments?: import('@/types').ChatProductRef[]
+    },
   ): Promise<ChatMessage[]> {
     const map = getChatMap()
     const history = map[userId] ?? []
+    const attachments = opts?.attachments?.length ? opts.attachments : undefined
     const userMsg: ChatMessage = {
       id: `c-${Date.now()}`,
       role: 'user',
-      content,
+      content: content.trim() || (attachments?.length ? 'Cho tôi thông tin các sản phẩm đã đính kèm.' : content),
       timestamp: new Date().toISOString(),
+      attachments,
     }
 
     const ctx = await buildChatContext(role, {
@@ -1729,7 +1760,12 @@ export const chatApi = {
       sellerBackendId: opts?.sellerBackendId,
     })
 
-    const { content: reply, source } = await resolveChatReply(content, history, ctx)
+    const { content: reply, source, products } = await resolveChatReply(
+      userMsg.content,
+      history,
+      ctx,
+      attachments,
+    )
 
     await delay(typingDelay(reply))
 
@@ -1738,6 +1774,7 @@ export const chatApi = {
       role: 'assistant',
       content: reply,
       timestamp: new Date().toISOString(),
+      products,
       meta: { source },
     }
     const updated = [...history, userMsg, assistantMsg]
@@ -1751,5 +1788,11 @@ export const chatApi = {
     const map = getChatMap()
     delete map[userId]
     saveChatMap(map)
+  },
+}
+
+export const platformRevenueApi = {
+  getDashboard(query: realPlatformRevenue.PlatformRevenueDashboardQuery) {
+    return realPlatformRevenue.getPlatformRevenueDashboard(query)
   },
 }

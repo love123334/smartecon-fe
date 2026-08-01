@@ -140,17 +140,19 @@ async function logout() {
 }
 
 .account-menu__trigger {
-  width: 40px;
-  height: 40px;
+  width: 34px;
+  height: 34px;
   padding: 0;
   border-radius: 999px;
+  border: 1.5px solid var(--line, #e4e9f2);
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
 }
 
 .account-menu__trigger--open {
-  background: var(--slate-100);
+  background: var(--blue-soft, #eaf2ff);
 }
 
 .account-menu__panel {

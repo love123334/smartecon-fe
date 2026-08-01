@@ -71,13 +71,13 @@ onMounted(async () => {
       <RouterLink class="dss-hub__card" to="/seller/dss/demand">
         <span class="dss-hub__tag">Dự báo</span>
         <h2>Dự báo nhu cầu</h2>
-        <p>Moving Average · 7/30/90 ngày · biểu đồ xu hướng và thẻ KPI.</p>
+        <p>Moving Average · Historical Days / Forecast Period · thẻ KPI tóm tắt.</p>
         <span class="dss-hub__cta">Mở →</span>
       </RouterLink>
       <RouterLink class="dss-hub__card" to="/seller/dss/price">
         <span class="dss-hub__tag">Giá bán</span>
         <h2>Gợi ý giá</h2>
-        <p>Hệ số co giãn · biểu đồ giá/số lượng · bảng lịch sử · tác động doanh thu.</p>
+        <p>Hệ số co giãn · bảng scenario · best recommendation · không biểu đồ.</p>
         <span class="dss-hub__cta">Mở →</span>
       </RouterLink>
       <RouterLink class="dss-hub__card" to="/seller/dss/inventory">
@@ -89,7 +89,7 @@ onMounted(async () => {
       <RouterLink class="dss-hub__card" to="/seller/dss/what-if">
         <span class="dss-hub__tag">What-if</span>
         <h2>Giảm giá & lợi nhuận</h2>
-        <p>Mô phỏng giảm giá · điểm hòa vốn · so sánh nhu cầu/lợi nhuận.</p>
+        <p>Slider giảm giá · so sánh lợi nhuận · break-even · mô phỏng (không đổi giá thật).</p>
         <span class="dss-hub__cta">Mở →</span>
       </RouterLink>
     </div>

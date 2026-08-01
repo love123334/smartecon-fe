@@ -1,4 +1,4 @@
-import { http } from '@/api/http/client'
+import { apiRootWithoutVersion, http } from '@/api/http/client'
 import { apiPaths } from '@/api/http/paths'
 
 export interface DemandForecastApi {
@@ -13,6 +13,22 @@ export interface DemandForecastApi {
   historicalSales: { day: number; qty: number; date?: string }[]
   forecastSales: { day: number; qty: number }[]
   generatedAt: string
+}
+
+/** POST /api/v1/dss/demand-predictions */
+export interface DemandPredictionApi {
+  productName: string
+  historicalDays: number
+  forecastPeriod: number
+  averageDailyDemand: number
+  predictedDemand: number
+  generatedAt: string | null
+}
+
+export interface CreateDemandPredictionRequest {
+  productId: number
+  forecastPeriod: number
+  historicalDays: number
 }
 
 export interface PriceRecommendationApi {
@@ -30,6 +46,35 @@ export interface PriceRecommendationApi {
   insight: string
   chart: { label: string; averagePrice: number; quantitySold: number }[]
   generatedAt: string
+}
+
+/** POST /api/v1/dss/price-predictions */
+export interface PriceScenarioApi {
+  priceChangePercent: number
+  cost: number
+  newPrice: number
+  profitPerProduct: number
+  predictedDemand: number
+  expectedProfit: number
+}
+
+export interface PricePredictionApi {
+  productId: number
+  productName: string
+  fromDate: string
+  toDate: string
+  currentPrice: number
+  cost: number
+  averageElasticity: number
+  totalQuantitySold: number
+  bestScenario: PriceScenarioApi | null
+  scenarios: PriceScenarioApi[] | null
+}
+
+export interface CreatePricePredictionRequest {
+  productId: number
+  fromDate: string
+  toDate: string
 }
 
 export interface InventoryRecommendationApi {
@@ -71,9 +116,48 @@ export function forecastDemand(
   )
 }
 
+export function createDemandPrediction(body: CreateDemandPredictionRequest) {
+  return http.post<DemandPredictionApi>(apiPaths.dss.demandPredictions, body)
+}
+
 export function recommendPrice(productId: string | number, lookbackDays = 30) {
   return http.get<PriceRecommendationApi>(
     `${apiPaths.dss.price(String(productId))}?lookbackDays=${lookbackDays}`,
+  )
+}
+
+export function createPricePrediction(body: CreatePricePredictionRequest) {
+  return http.post<PricePredictionApi>(apiPaths.dss.pricePredictions, body)
+}
+
+/** POST /api/v1/dss/price-predictions — kept above; seller what-if is under /api/dss */
+
+export interface SellerWhatIfApi {
+  currentPrice: number
+  costPrice: number
+  discountPercentage: number
+  newPrice: number
+  forecastDemand: number
+  predictedDemand: number
+  currentProfit: number
+  expectedProfit: number
+  breakEvenQuantity: number
+  additionalUnitsRequired: number
+  businessInsight: string
+}
+
+export interface SellerWhatIfRequest {
+  productId: number
+  discountPercentage: number
+  simulationPeriod: number
+}
+
+export function analyzeSellerWhatIf(body: SellerWhatIfRequest) {
+  // Controller: @RequestMapping("/api/dss/what-if/seller") — not under /api/v1
+  return http.postAt<SellerWhatIfApi>(
+    apiRootWithoutVersion(),
+    apiPaths.dss.whatIfSeller,
+    body,
   )
 }
 

@@ -36,6 +36,7 @@ onMounted(async () => {
     <AiShortcutBar
       title="Tiếp theo:"
       :links="[
+        { to: '/manager/platform-revenue', label: 'Doanh thu sàn', highlight: true },
         { to: '/manager/dss/what-if', label: 'What-if khuyến mãi', highlight: true },
         { to: '/chatbot', label: 'Trợ lý AI quản lý', highlight: true },
         { to: '/manager/dashboard', label: 'Dashboard KPI' },
@@ -62,6 +63,12 @@ onMounted(async () => {
     </section>
 
     <div class="dss-hub">
+      <RouterLink class="dss-hub__card" to="/manager/platform-revenue">
+        <span class="dss-hub__tag">Revenue</span>
+        <h2>Platform Revenue</h2>
+        <p>GMV toàn sàn · xu hướng · top sellers/products · hoạt động nền tảng.</p>
+        <span class="dss-hub__cta">Mở →</span>
+      </RouterLink>
       <RouterLink class="dss-hub__card" to="/manager/dss/what-if">
         <span class="dss-hub__tag">What-if</span>
         <h2>So sánh kịch bản khuyến mãi</h2>

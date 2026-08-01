@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { nextTick, ref, watch } from 'vue'
-import type { ChatMessage } from '@/types'
+import type { ChatMessage, ChatProductRef } from '@/types'
 import type { QuickPrompt } from '@/api/chat/prompts'
 import { formatChatHtml } from '@/api/chat/engine'
+import { parseDraggedProduct, SEDSP_PRODUCT_DRAG_MIME } from '@/api/chat/productCards'
+import ChatProductMiniCard from '@/components/ChatProductMiniCard.vue'
 
 const props = defineProps<{
   messages: ChatMessage[]
@@ -10,15 +12,20 @@ const props = defineProps<{
   emptyText?: string
   quickPrompts?: QuickPrompt[]
   loading?: boolean
+  attachments?: ChatProductRef[]
+  compact?: boolean
 }>()
 
 const emit = defineEmits<{
   send: [text: string]
   clear: []
+  'attach-product': [product: ChatProductRef]
+  'remove-attachment': [id: string]
 }>()
 
 const input = ref('')
 const listEl = ref<HTMLElement | null>(null)
+const dropActive = ref(false)
 
 async function scrollEnd() {
   await nextTick()
@@ -26,7 +33,7 @@ async function scrollEnd() {
 }
 
 watch(
-  () => props.messages.length,
+  () => [props.messages.length, props.loading, props.attachments?.length],
   () => {
     void scrollEnd()
   },
@@ -34,7 +41,7 @@ watch(
 
 async function submit(): Promise<void> {
   const text = input.value.trim()
-  if (!text || props.loading) return
+  if ((!text && !props.attachments?.length) || props.loading) return
   input.value = ''
   emit('send', text)
 }
@@ -44,11 +51,41 @@ function usePrompt(text: string) {
   emit('send', text)
 }
 
+function onDragOver(e: DragEvent) {
+  if (!e.dataTransfer) return
+  const types = [...e.dataTransfer.types]
+  if (
+    types.includes(SEDSP_PRODUCT_DRAG_MIME) ||
+    types.includes('application/json') ||
+    types.includes('text/plain')
+  ) {
+    e.preventDefault()
+    dropActive.value = true
+  }
+}
+
+function onDragLeave() {
+  dropActive.value = false
+}
+
+function onDrop(e: DragEvent) {
+  e.preventDefault()
+  dropActive.value = false
+  const product = parseDraggedProduct(e.dataTransfer)
+  if (product) emit('attach-product', product)
+}
+
 defineExpose({ scrollToEnd: scrollEnd })
 </script>
 
 <template>
-  <div class="chat-panel card card--flat">
+  <div
+    class="chat-panel"
+    :class="{ 'chat-panel--compact': compact, 'chat-panel--drop': dropActive }"
+    @dragover="onDragOver"
+    @dragleave="onDragLeave"
+    @drop="onDrop"
+  >
     <div v-if="quickPrompts?.length" class="chat-quick">
       <button
         v-for="p in quickPrompts"
@@ -62,7 +99,7 @@ defineExpose({ scrollToEnd: scrollEnd })
       </button>
     </div>
 
-    <div ref="listEl" class="chat-messages chat-messages--panel">
+    <div ref="listEl" class="chat-messages" :class="{ 'chat-messages--compact': compact }">
       <p v-if="!messages.length" class="empty empty--dashed">
         {{ emptyText ?? 'Xin chào! Hãy đặt câu hỏi.' }}
       </p>
@@ -72,9 +109,27 @@ defineExpose({ scrollToEnd: scrollEnd })
           :key="m.id"
           :class="['chat-bubble', m.role === 'user' ? 'user' : 'assistant']"
         >
+          <div v-if="m.attachments?.length" class="chat-bubble__attach">
+            <ChatProductMiniCard
+              v-for="p in m.attachments"
+              :key="`att-${m.id}-${p.id}`"
+              :product="p"
+              compact
+            />
+          </div>
           <p class="chat-bubble__text" v-html="formatChatHtml(m.content)" />
+          <div v-if="m.products?.length" class="chat-bubble__products">
+            <ChatProductMiniCard
+              v-for="p in m.products"
+              :key="`prod-${m.id}-${p.id}`"
+              :product="p"
+            />
+          </div>
           <span v-if="m.meta?.source === 'llm'" class="chat-bubble__tag">AI</span>
-          <span v-else-if="m.role === 'assistant' && m.meta?.source === 'local'" class="chat-bubble__tag chat-bubble__tag--local">Local</span>
+          <span
+            v-else-if="m.role === 'assistant' && m.meta?.source === 'local'"
+            class="chat-bubble__tag chat-bubble__tag--local"
+          >Local</span>
           <time class="chat-bubble__time">{{
             new Date(m.timestamp).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
           }}</time>
@@ -85,18 +140,53 @@ defineExpose({ scrollToEnd: scrollEnd })
       </TransitionGroup>
     </div>
 
+    <div v-if="dropActive" class="chat-drop-hint" aria-hidden="true">
+      Thả sản phẩm vào đây để đính kèm
+    </div>
+
+    <div v-if="attachments?.length" class="chat-attach-bar">
+      <span class="chat-attach-bar__label">Đính kèm</span>
+      <div class="chat-attach-bar__chips">
+        <button
+          v-for="p in attachments"
+          :key="p.id"
+          type="button"
+          class="chat-attach-chip"
+          :title="`Gỡ ${p.name}`"
+          @click="emit('remove-attachment', p.id)"
+        >
+          <img :src="p.imageUrl" alt="" />
+          <span>{{ p.name }}</span>
+          <em aria-hidden="true">×</em>
+        </button>
+      </div>
+    </div>
+
     <form class="chat-form" @submit.prevent="submit">
       <input
         v-model="input"
         type="text"
-        :placeholder="placeholder ?? 'Nhập câu hỏi...'"
+        :placeholder="
+          attachments?.length
+            ? 'Hỏi về SP đính kèm (so sánh, giá, tồn…) hoặc kéo thêm SP'
+            : (placeholder ?? 'Nhập câu hỏi… · kéo SP vào chat để đính kèm')
+        "
         :disabled="loading"
         autocomplete="off"
       />
-      <button type="button" class="btn btn-outline btn-sm" :disabled="loading || !messages.length" @click="emit('clear')">
+      <button
+        type="button"
+        class="btn btn-outline btn-sm"
+        :disabled="loading || !messages.length"
+        @click="emit('clear')"
+      >
         Xóa
       </button>
-      <button type="submit" class="btn btn-primary" :disabled="loading || !input.trim()">
+      <button
+        type="submit"
+        class="btn btn-primary"
+        :disabled="loading || (!input.trim() && !attachments?.length)"
+      >
         {{ loading ? '...' : 'Gửi' }}
       </button>
     </form>
@@ -105,19 +195,34 @@ defineExpose({ scrollToEnd: scrollEnd })
 
 <style scoped>
 .chat-panel {
-  padding: 1rem 1.15rem;
+  position: relative;
+  padding: 0.85rem 1rem;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+  border-radius: var(--radius-lg);
+  background: #fff;
+  border: 1px solid transparent;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.chat-panel--drop {
+  border-color: var(--primary-500);
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.18);
 }
 
 .chat-quick {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
-  margin-bottom: 0.75rem;
+  gap: 0.35rem;
+  margin-bottom: 0.65rem;
+  flex-shrink: 0;
 }
 
 .chat-quick__chip {
-  padding: 0.35rem 0.65rem;
-  font-size: 0.75rem;
+  padding: 0.3rem 0.55rem;
+  font-size: 0.7rem;
   font-weight: 600;
   border: 1px solid var(--color-border);
   border-radius: 999px;
@@ -132,15 +237,21 @@ defineExpose({ scrollToEnd: scrollEnd })
   background: var(--primary-50);
 }
 
-.chat-messages--panel {
-  min-height: 320px;
+.chat-messages {
+  min-height: 280px;
   max-height: 420px;
   margin-bottom: 0;
-  padding: 0.75rem;
+  padding: 0.65rem;
   background: var(--slate-50);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   overflow-y: auto;
+  flex: 1;
+}
+
+.chat-messages--compact {
+  min-height: 0;
+  max-height: none;
 }
 
 .chat-list {
@@ -150,8 +261,8 @@ defineExpose({ scrollToEnd: scrollEnd })
 }
 
 .chat-bubble {
-  max-width: 88%;
-  padding: 0.65rem 0.85rem;
+  max-width: 92%;
+  padding: 0.6rem 0.75rem;
   border-radius: var(--radius-lg);
 }
 
@@ -159,7 +270,7 @@ defineExpose({ scrollToEnd: scrollEnd })
   margin: 0;
   white-space: pre-wrap;
   line-height: 1.5;
-  font-size: 0.875rem;
+  font-size: 0.84rem;
 }
 
 .chat-bubble__text :deep(strong) {
@@ -169,6 +280,25 @@ defineExpose({ scrollToEnd: scrollEnd })
 
 .chat-bubble.assistant .chat-bubble__text :deep(strong) {
   color: var(--slate-900);
+}
+
+.chat-bubble__products,
+.chat-bubble__attach {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.4rem;
+  margin-top: 0.55rem;
+}
+
+@media (min-width: 420px) {
+  .chat-bubble__products {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.chat-bubble.user .chat-bubble__attach {
+  margin-top: 0;
+  margin-bottom: 0.45rem;
 }
 
 .chat-bubble__tag {
@@ -191,8 +321,8 @@ defineExpose({ scrollToEnd: scrollEnd })
 
 .chat-bubble__time {
   display: block;
-  margin-top: 0.35rem;
-  font-size: 0.65rem;
+  margin-top: 0.3rem;
+  font-size: 0.62rem;
   opacity: 0.65;
 }
 
@@ -248,19 +378,95 @@ defineExpose({ scrollToEnd: scrollEnd })
   }
 }
 
+.chat-drop-hint {
+  position: absolute;
+  inset: 3.5rem 1rem 4.5rem;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  border: 2px dashed var(--primary-500);
+  border-radius: var(--radius-lg);
+  background: rgba(240, 253, 250, 0.92);
+  color: var(--primary-700, #0f766e);
+  font-weight: 700;
+  font-size: 0.875rem;
+  z-index: 2;
+}
+
+.chat-attach-bar {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  margin-top: 0.55rem;
+  flex-shrink: 0;
+}
+
+.chat-attach-bar__label {
+  flex-shrink: 0;
+  margin-top: 0.35rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--slate-500);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.chat-attach-bar__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.chat-attach-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: 160px;
+  padding: 0.2rem 0.4rem 0.2rem 0.2rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--slate-50);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
+.chat-attach-chip img {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.chat-attach-chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-attach-chip em {
+  font-style: normal;
+  opacity: 0.55;
+}
+
 .chat-form {
   display: flex;
-  gap: 0.5rem;
-  margin-top: 1rem;
+  gap: 0.45rem;
+  margin-top: 0.65rem;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .chat-form input {
   flex: 1;
-  padding: 0.65rem 0.9rem;
+  min-width: 0;
+  padding: 0.6rem 0.8rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   font: inherit;
+  font-size: 0.84rem;
   transition: border-color var(--transition), box-shadow var(--transition);
 }
 

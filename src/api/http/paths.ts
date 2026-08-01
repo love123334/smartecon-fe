@@ -73,11 +73,18 @@ export const apiPaths = {
     kpi: 'analytics/kpi',
     powerBiSales: 'analytics/powerbi/sales',
   },
+  manager: {
+    platformRevenueDashboard: 'manager/platform-revenue/dashboard',
+  },
   dss: {
     demand: (productId: string) => `dss/demand/${productId}`,
+    demandPredictions: 'dss/demand-predictions',
     price: (productId: string) => `dss/price/${productId}`,
+    pricePredictions: 'dss/price-predictions',
     inventory: 'dss/inventory',
     whatIf: 'dss/what-if',
+    /** Backend: POST /api/dss/what-if/seller (không có /v1) */
+    whatIfSeller: 'dss/what-if/seller',
     insights: 'dss/insights',
     insightsPlan: 'dss/insights/plan',
   },

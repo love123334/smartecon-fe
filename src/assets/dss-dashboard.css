@@ -153,6 +153,18 @@
   border: 1px solid #a5d6a7;
 }
 
+.dss-alert--warn {
+  background: #fff8e1;
+  color: #e65100;
+  border: 1px solid #ffe082;
+}
+
+.dss-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
 .dss-kpi-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

@@ -34,12 +34,13 @@ onMounted(async () => {
       class="page-header--animate"
       eyebrow="Quản lý"
       title="Bảng điều khiển"
-      lead="KPI vận hành — dùng Đơn hàng để xác nhận/đẩy giao, và Duyệt role để xét hồ sơ Seller/Manager."
+      lead="Theo dõi KPI vận hành, phân tích danh mục và các module DSS hỗ trợ quyết định."
     />
 
     <p style="margin: 0 0 1rem; display: flex; flex-wrap: wrap; gap: 0.5rem">
-      <RouterLink to="/manager/orders" class="btn btn-primary btn-sm">Quản lý đơn hàng</RouterLink>
-      <RouterLink to="/manager/approvals" class="btn btn-outline btn-sm">Duyệt nâng quyền</RouterLink>
+      <RouterLink to="/manager/platform-revenue" class="btn btn-primary btn-sm">Doanh thu sàn</RouterLink>
+      <RouterLink to="/manager/analytics" class="btn btn-outline btn-sm">Phân tích</RouterLink>
+      <RouterLink to="/manager/dss" class="btn btn-outline btn-sm">DSS quản lý</RouterLink>
     </p>
 
     <div class="stat-grid grid-stagger">

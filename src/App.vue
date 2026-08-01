@@ -72,7 +72,9 @@ onMounted(async () => {
   <footer class="footer footer--animate footer--elegant">
     <div class="container footer-elegant__top">
       <div class="footer-elegant__brand">
-        <strong>SEDSP<span class="shop-brand__dot">.</span></strong>
+        <strong class="footer-brand-mark">
+          <img src="/sedsp-logo.png" alt="SEDSP" height="40" />
+        </strong>
         <span class="footer-elegant__tag">Chợ tech · Gợi ý thông minh DSS & AI</span>
       </div>
       <nav class="footer-elegant__nav" aria-label="Footer">
@@ -122,10 +124,25 @@ onMounted(async () => {
   gap: 1rem;
 }
 
-.footer-brand {
+.footer-elegant__brand {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.45rem;
+}
+
+.footer-brand-mark {
+  display: inline-flex;
+  align-items: center;
+}
+
+.footer-brand-mark img {
+  display: block;
+  height: 44px;
+  width: auto;
+  object-fit: contain;
+  background: #fff;
+  border-radius: 10px;
+  padding: 0.2rem 0.35rem;
 }
 
 .footer-brand strong {

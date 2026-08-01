@@ -1,5 +1,5 @@
 import { normalizeText, wordSimilarity } from '@/api/chat/match'
-import { expandQueryTerms } from '@/api/chat/synonyms'
+import { expandQueryTerms, matchCategoryFromText } from '@/api/chat/synonyms'
 import type { Product } from '@/types'
 
 const STOP_WORDS = new Set([
@@ -9,7 +9,93 @@ const STOP_WORDS = new Set([
   'how', 'much', 'is', 'the', 'a', 'an', 'my', 'me', 'please', 'thanks', 'hay',
   'voi', 'cua', 'mot', 'cac', 'nhung', 'that', 'qua', 'roi', 'nhe', 'nha', 'ah',
   'uhm', 'ok', 'oke', 'duoc', 'ko', 'k', 'j', 'bao', 'nhieu', 'gia', 'con',
+  'tim', 'kiem', 'search', 'find', 'sp', 'hang', 'loai', 'mau', 'xem', 'goi',
+  'y', 'suggest', 'recommend', 'nen', 'trong', 'tam', 'khoang', 'duoi', 'tren',
+  'tu', 'den', 'toi', 'da', 'max', 'min', 'budget', 'ngan', 'sach', 'under',
+  'around', 'about', 'gan', 'tam', 'gia',
 ])
+
+export interface PriceRange {
+  min: number | null
+  max: number | null
+}
+
+function parseMoneyToken(numRaw: string, unitRaw?: string): number | null {
+  const num = Number(String(numRaw).replace(',', '.'))
+  if (!Number.isFinite(num) || num < 0) return null
+  const unit = normalizeText(unitRaw ?? '')
+  if (unit.startsWith('tr') || unit === 'm' || unit === 'trieu') return Math.round(num * 1_000_000)
+  if (unit === 'k' || unit.startsWith('ngh')) return Math.round(num * 1_000)
+  // số trần không đơn vị nhỏ → triệu trong ngữ cảnh giá VN
+  if (!unit && num > 0 && num < 1000) return Math.round(num * 1_000_000)
+  return Math.round(num)
+}
+
+/** Trích khoảng giá: dưới X · từ X đến Y · X-Y triệu · trên X */
+export function extractPriceRange(raw: string): PriceRange | null {
+  const n = normalizeText(raw)
+
+  const between =
+    n.match(
+      /(?:tu|from|khoang|around)?\s*(\d+[.,]?\d*)\s*(trieu|tr|m|k|nghin|ngan)?\s*(?:-|–|den|to|toi)\s*(\d+[.,]?\d*)\s*(trieu|tr|m|k|nghin|ngan)?/,
+    ) ??
+    n.match(
+      /(\d+[.,]?\d*)\s*(trieu|tr|m|k)?\s*(?:-|–)\s*(\d+[.,]?\d*)\s*(trieu|tr|m|k)?/,
+    )
+  if (between) {
+    const leftUnit = between[2] || between[4]
+    const rightUnit = between[4] || between[2]
+    const min = parseMoneyToken(between[1], leftUnit ?? undefined)
+    const max = parseMoneyToken(between[3], rightUnit ?? undefined)
+    if (min != null && max != null) {
+      return { min: Math.min(min, max), max: Math.max(min, max) }
+    }
+  }
+
+  const under =
+    n.match(/(?:duoi|under|toi da|max|<=|<|khong qua|re hon)\s*(\d+[.,]?\d*)\s*(trieu|tr|m|k|nghin|ngan)?/) ??
+    n.match(/(\d+[.,]?\d*)\s*(trieu|tr)\s*(?:tro xuong|do xuong|thoi|tro lai)?/) ??
+    n.match(/(?:trong tam|tam gia|ngan sach|budget)\s*(?:khoang|around|about)?\s*(\d+[.,]?\d*)\s*(trieu|tr|m|k)?/) ??
+    n.match(/budget\s*(\d+[.,]?\d*)\s*(trieu|tr|k)?/)
+  if (under) {
+    const max = parseMoneyToken(under[1], under[2])
+    if (max != null && max > 0) return { min: null, max }
+  }
+
+  const over = n.match(/(?:tren|from|tu|>=|>|it nhat|toi thieu)\s*(\d+[.,]?\d*)\s*(trieu|tr|m|k|nghin|ngan)?/)
+  if (over && /tren|>=|>|it nhat|toi thieu|tu\s+\d/.test(n) && !/tu\s+\d+.+(den|to|toi|-)/.test(n)) {
+    const min = parseMoneyToken(over[1], over[2])
+    if (min != null && min > 0) return { min, max: null }
+  }
+
+  return null
+}
+
+/** @deprecated dùng extractPriceRange — giữ tương thích */
+export function extractBudgetVnd(raw: string): number | null {
+  const range = extractPriceRange(raw)
+  return range?.max ?? null
+}
+
+/** Bỏ token giá khỏi câu để search text sạch hơn */
+export function stripPriceTokens(raw: string): string {
+  return normalizeText(raw)
+    .replace(
+      /(?:tu|from|khoang|duoi|under|toi da|max|tren|toi thieu|it nhat|budget|ngan sach|trong tam|tam gia)?\s*\d+[.,]?\d*\s*(trieu|tr|m|k|nghin|ngan)?(?:\s*(?:-|–|den|to|toi)\s*\d+[.,]?\d*\s*(trieu|tr|m|k|nghin|ngan)?)?/g,
+      ' ',
+    )
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+export function applyPriceRange(products: Product[], range: PriceRange | null): Product[] {
+  if (!range) return products
+  return products.filter((p) => {
+    if (range.min != null && p.price < range.min) return false
+    if (range.max != null && p.price > range.max) return false
+    return true
+  })
+}
 
 export function findProductsByQuery(products: Product[], query: string): Product[] {
   const expanded = expandQueryTerms(query)
@@ -36,7 +122,6 @@ export function findProductsByQuery(products: Product[], query: string): Product
           if (sim >= 0.74) score += w.length * sim
         }
       }
-      // ưu tiên SP bán chạy khi điểm ngang nhau
       score += Math.min(p.soldCount / 500, 1.5)
       return { p, score }
     })
@@ -59,26 +144,76 @@ export function cheapestProducts(products: Product[], limit = 5): Product[] {
 }
 
 export function productsUnderBudget(products: Product[], budget: number, limit = 6): Product[] {
-  return [...products]
-    .filter((p) => p.price <= budget && p.stock > 0)
+  return applyPriceRange(products, { min: null, max: budget })
+    .filter((p) => p.stock > 0)
     .sort((a, b) => a.price - b.price)
     .slice(0, limit)
 }
 
-/** Trích ngân sách từ câu hỏi (vd: dưới 2 triệu, dưới 500k) */
-export function extractBudgetVnd(raw: string): number | null {
-  const n = normalizeText(raw)
-  const m =
-    n.match(/(?:duoi|under|toi da|max|<=|<)\s*(\d+[.,]?\d*)\s*(trieu|tr|m|k|nghin|ngan)?/) ??
-    n.match(/(\d+[.,]?\d*)\s*(trieu|tr)\s*(?:tro xuong|do xuong|thoi)?/) ??
-    n.match(/budget\s*(\d+[.,]?\d*)\s*(trieu|tr|k)?/)
-  if (!m) return null
-  const num = Number(String(m[1]).replace(',', '.'))
-  if (Number.isNaN(num)) return null
-  const unit = m[2] ?? ''
-  if (unit.startsWith('tr') || unit === 'm') return Math.round(num * 1_000_000)
-  if (unit === 'k' || unit.startsWith('ngh')) return Math.round(num * 1_000)
-  // số trần không đơn vị: nếu < 1000 coi là triệu khi ngữ cảnh "duoi X"
-  if (num < 1000 && /duoi|under|trieu|budget/.test(n)) return Math.round(num * 1_000_000)
-  return Math.round(num)
+export interface SmartProductFilterResult {
+  products: Product[]
+  range: PriceRange | null
+  categoryName: string | null
+  queryText: string
+}
+
+/**
+ * Lọc SP thông minh: khoảng giá + danh mục + từ khóa (vd: "tai nghe dưới 2 triệu").
+ */
+export function filterProductsForQuery(
+  products: Product[],
+  raw: string,
+  categories: { name: string; slug: string }[] = [],
+  limit = 8,
+): SmartProductFilterResult {
+  const range = extractPriceRange(raw)
+  const matchedCat = matchCategoryFromText(raw, categories)
+  const queryText = stripPriceTokens(raw)
+
+  let pool = products.filter((p) => (p.stock ?? 0) > 0)
+
+  if (matchedCat) {
+    const catNorm = normalizeText(matchedCat.name)
+    const byCat = pool.filter((p) => normalizeText(p.category) === catNorm)
+    if (byCat.length) pool = byCat
+  }
+
+  pool = applyPriceRange(pool, range)
+
+  let hits: Product[] = []
+  if (queryText.length >= 2) {
+    hits = findProductsByQuery(pool, queryText)
+    // nếu text search quá hẹp sau khi đã lọc giá/danh mục → nới: lấy pool theo giá
+    if (!hits.length && (range || matchedCat)) {
+      hits = [...pool].sort((a, b) => a.price - b.price)
+    }
+  } else if (range || matchedCat) {
+    hits = [...pool].sort((a, b) => a.price - b.price)
+  }
+
+  return {
+    products: hits.slice(0, limit),
+    range,
+    categoryName: matchedCat?.name ?? null,
+    queryText,
+  }
+}
+
+export function formatPriceRangeLabel(range: PriceRange): string {
+  if (range.min != null && range.max != null) {
+    return `${formatCompactVnd(range.min)} – ${formatCompactVnd(range.max)}`
+  }
+  if (range.max != null) return `≤ ${formatCompactVnd(range.max)}`
+  if (range.min != null) return `≥ ${formatCompactVnd(range.min)}`
+  return ''
+}
+
+function formatCompactVnd(amount: number): string {
+  if (amount >= 1_000_000 && amount % 1_000_000 === 0) {
+    return `${amount / 1_000_000} triệu`
+  }
+  if (amount >= 1_000_000) {
+    return `${(amount / 1_000_000).toFixed(1).replace(/\.0$/, '')} triệu`
+  }
+  return new Intl.NumberFormat('vi-VN').format(amount) + 'đ'
 }

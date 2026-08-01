@@ -49,14 +49,6 @@ const header = computed(() => {
       placeholder: 'VD: KPI tháng này?',
     }
   }
-  if (role === 'admin') {
-    return {
-      eyebrow: 'Admin AI',
-      title: 'Trợ lý hệ thống',
-      lead: 'Giám sát vận hành và hỗ trợ quản trị nền tảng.',
-      placeholder: 'VD: trạng thái dịch vụ?',
-    }
-  }
   return {
     eyebrow: 'AI Support',
     title: 'Trợ lý SEDSP',

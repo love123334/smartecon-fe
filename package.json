@@ -7,7 +7,9 @@
     "setup": "node scripts/setup.mjs",
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "chart.js": "^4.5.1",
@@ -22,6 +24,7 @@
     "@vue/tsconfig": "^0.9.1",
     "typescript": "~6.0.2",
     "vite": "^8.0.12",
+    "vitest": "^3.2.4",
     "vue-tsc": "^3.2.8"
   }
 }

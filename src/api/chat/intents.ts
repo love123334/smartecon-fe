@@ -518,10 +518,12 @@ function refineIntent(
   ) {
     return 'shop_overview'
   }
-  // ngân sách rõ ràng
+  // ngân sách / khoảng giá rõ ràng
   if (
     detected.intent !== 'product_budget' &&
-    /duoi\s+\d|under\s+\d|budget|ngan sach|toi da\s+\d/.test(normalized)
+    /duoi\s+\d|under\s+\d|budget|ngan sach|toi da\s+\d|trong tam|tam gia|\d+\s*(trieu|tr|k).*(den|to|-|–)\s*\d+|tu\s+\d+.+(den|to)\s*\d/.test(
+      normalized,
+    )
   ) {
     return 'product_budget'
   }

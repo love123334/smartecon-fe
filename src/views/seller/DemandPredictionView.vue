@@ -1,137 +1,125 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
-import DemandTrendChart from '@/components/dss/DemandTrendChart.vue'
-import { apiConfig } from '@/api/config'
 import { dssApi, productApi } from '@/api/services'
+import type { DemandPredictionApi } from '@/api/real/dss'
 import { useAuthStore } from '@/stores/auth'
 import {
-  DEMAND_PRODUCTS,
   FORECAST_PERIOD_OPTIONS,
-  HISTORICAL_WINDOW_OPTIONS,
-  generateDemandForecast,
-  type DemandForecastResult,
-  type DemandProductOption,
-  type ForecastPeriodKey,
-  type HistoricalWindowKey,
-} from '@/utils/dssDemandMock'
+  HISTORICAL_DAYS_OPTIONS,
+  formatViDateTime,
+  formatViNumber,
+  mapDemandPredictionError,
+  validateDemandPredictionForm,
+} from '@/utils/demandPrediction'
+
+interface SellerProductOption {
+  id: number
+  name: string
+}
 
 const auth = useAuthStore()
-const products = ref<DemandProductOption[]>([...DEMAND_PRODUCTS])
-const productQuery = ref('')
-const productId = ref(DEMAND_PRODUCTS[0]?.id ?? '')
-const forecastKey = ref<ForecastPeriodKey>('30')
-const historicalKey = ref<HistoricalWindowKey>('90')
-const usingApi = ref(false)
-const loading = ref(false)
-const errorMsg = ref('')
 
-const success = ref(false)
-const insufficient = ref(false)
-const result = ref<DemandForecastResult | null>(null)
+const products = ref<SellerProductOption[]>([])
+const productsLoading = ref(false)
+const productsError = ref('')
 
-const filteredProducts = computed(() => {
-  const q = productQuery.value.trim().toLowerCase()
-  if (!q) return products.value
-  return products.value.filter((p) => p.name.toLowerCase().includes(q))
-})
+const productId = ref<number | ''>('')
+const historicalDays = ref<number>(90)
+const forecastPeriod = ref<number>(30)
 
-const selectedProduct = computed(
-  () => products.value.find((p) => p.id === productId.value) ?? products.value[0],
+const fieldErrors = ref<{ productId?: string; historicalDays?: string; forecastPeriod?: string }>({})
+const submitting = ref(false)
+const submitError = ref('')
+const successMessage = ref('')
+const result = ref<DemandPredictionApi | null>(null)
+
+let requestSeq = 0
+
+const selectedProduct = computed(() =>
+  products.value.find((p) => p.id === productId.value) ?? null,
+)
+
+const canSubmit = computed(
+  () => !submitting.value && !productsLoading.value && products.value.length > 0,
 )
 
 onMounted(async () => {
-  if (!(apiConfig.useRealSeller && auth.isLoggedIn)) return
-  try {
-    const sellerKey = auth.user?.backendId ?? auth.user?.id
-    const list = await productApi.list({ sellerId: sellerKey, withStock: false })
-    if (list.length) {
-      products.value = list.map((p) => ({ id: String(p.id), name: p.name }))
-      productId.value = products.value[0].id
-      usingApi.value = true
-    }
-  } catch {
-    /* keep mock products */
-  }
+  await loadSellerProducts()
 })
 
-async function generate() {
-  success.value = false
-  insufficient.value = false
-  errorMsg.value = ''
-  const product = selectedProduct.value
-  if (!product) return
-
-  const forecast = FORECAST_PERIOD_OPTIONS.find((o) => o.value === forecastKey.value)!
-  const hist = HISTORICAL_WINDOW_OPTIONS.find((o) => o.value === historicalKey.value)!
-
-  if (usingApi.value) {
-    loading.value = true
-    try {
-      const api = await dssApi.forecastDemand({
-        productId: product.id,
-        historyDays: hist.days,
-        forecastDays: forecast.days,
-      })
-      if (api.insufficientData) {
-        result.value = null
-        insufficient.value = true
-        return
-      }
-      result.value = {
-        productName: api.productName,
-        historicalWindowLabel: hist.label,
-        forecastPeriodLabel: forecast.label,
-        historicalDays: api.historicalDays,
-        forecastDays: api.forecastDays,
-        averageDailyDemand: api.averageDailyDemand,
-        predictedDemand: api.predictedDemand,
-        generatedAt: api.generatedAt,
-        historicalSales: (api.historicalSales ?? []).map((p) => ({
-          day: Number(p.day),
-          qty: Number(p.qty),
-        })),
-        forecastSales: (api.forecastSales ?? []).map((p) => ({
-          day: Number(p.day),
-          qty: Number(p.qty),
-        })),
-      }
-      success.value = true
-      return
-    } catch (e) {
-      errorMsg.value = e instanceof Error ? e.message : 'Không gọi được DSS API'
-    } finally {
-      loading.value = false
+async function loadSellerProducts() {
+  if (!auth.user) return
+  productsLoading.value = true
+  productsError.value = ''
+  try {
+    const sellerKey = auth.user.backendId ?? auth.user.id
+    const list = await productApi.list({ sellerId: sellerKey, withStock: false })
+    products.value = list
+      .map((p) => ({ id: Number(p.id), name: p.name }))
+      .filter((p) => Number.isFinite(p.id) && p.id > 0)
+    if (!products.value.length) {
+      productsError.value = 'Bạn chưa có sản phẩm nào để tạo dự báo.'
+      productId.value = ''
+    } else if (!products.value.some((p) => p.id === productId.value)) {
+      productId.value = products.value[0].id
     }
+  } catch (e) {
+    products.value = []
+    productId.value = ''
+    productsError.value = e instanceof Error ? e.message : 'Không tải được danh sách sản phẩm.'
+  } finally {
+    productsLoading.value = false
   }
+}
 
-  const out = generateDemandForecast({
-    productId: product.id,
-    productName: product.name,
-    forecastKey: forecastKey.value,
-    historicalKey: historicalKey.value,
+async function onSubmit() {
+  if (submitting.value) return
+
+  successMessage.value = ''
+  submitError.value = ''
+  fieldErrors.value = {}
+
+  const validated = validateDemandPredictionForm({
+    productId: productId.value,
+    historicalDays: historicalDays.value,
+    forecastPeriod: forecastPeriod.value,
   })
 
-  if (!out) {
-    result.value = null
-    insufficient.value = true
+  if (!validated.ok) {
+    fieldErrors.value = validated.errors
     return
   }
 
-  result.value = out
-  success.value = true
+  const seq = ++requestSeq
+  submitting.value = true
+  try {
+    const data = await dssApi.createDemandPrediction(validated.payload)
+    if (seq !== requestSeq) return
+    result.value = data
+    successMessage.value = 'Tạo dự báo nhu cầu thành công.'
+  } catch (e) {
+    if (seq !== requestSeq) return
+    submitError.value = mapDemandPredictionError(e)
+  } finally {
+    if (seq === requestSeq) submitting.value = false
+  }
 }
 
-function backFromError() {
-  insufficient.value = false
-  errorMsg.value = ''
+function resetResult() {
+  requestSeq += 1
+  submitting.value = false
+  result.value = null
+  successMessage.value = ''
+  submitError.value = ''
+  fieldErrors.value = {}
 }
 </script>
 
 <template>
   <div class="dss-page">
     <header class="dss-page__header">
-      <nav class="dss-crumb">
+      <nav class="dss-crumb" aria-label="Breadcrumb">
         <RouterLink to="/seller/products">Bảng điều khiển người bán</RouterLink>
         <span>/</span>
         <RouterLink to="/seller/dss">DSS</RouterLink>
@@ -140,112 +128,227 @@ function backFromError() {
       </nav>
       <h1>Dự báo nhu cầu</h1>
       <p class="dss-page__sub">
-        Dự báo nhu cầu sản phẩm dựa trên doanh số lịch sử bằng phương pháp Moving Average.
+        Tạo dự báo nhu cầu sản phẩm từ lịch sử bán hàng của bạn — Moving Average, không dùng biểu đồ.
       </p>
     </header>
 
-    <section v-if="insufficient || errorMsg" class="dss-warn-card">
-      <div class="dss-warn-card__icon" aria-hidden="true">⚠</div>
-      <h2>{{ errorMsg || 'Không đủ dữ liệu để tạo dự báo.' }}</h2>
-      <p v-if="!errorMsg">
-        Cửa sổ lịch sử quá dài hoặc sản phẩm chưa có đủ đơn hàng. Hãy chọn cửa sổ ngắn hơn.
-      </p>
-      <button type="button" class="dss-btn dss-btn--outline" @click="backFromError">Quay lại</button>
-    </section>
+    <div class="dss-two-col">
+      <section class="dss-card" aria-labelledby="demand-config-title">
+        <h2 id="demand-config-title" class="dss-card__title">Cấu hình dự báo</h2>
 
-    <template v-else>
-      <section class="dss-card">
-        <h2 class="dss-card__title">Cấu hình dự báo</h2>
-        <div class="dss-form-grid">
-          <label class="dss-field">
-            <span>Sản phẩm</span>
-            <input
-              v-model="productQuery"
-              type="search"
-              class="dss-input"
-              placeholder="Tìm sản phẩm…"
-            />
-            <select v-model="productId" class="dss-input">
-              <option v-for="p in filteredProducts" :key="p.id" :value="p.id">{{ p.name }}</option>
-            </select>
-          </label>
-          <label class="dss-field">
-            <span>Kỳ dự báo</span>
-            <select v-model="forecastKey" class="dss-input">
-              <option v-for="o in FORECAST_PERIOD_OPTIONS" :key="o.value" :value="o.value">
-                {{ o.label }}
-              </option>
-            </select>
-          </label>
-          <label class="dss-field">
-            <span>Dữ liệu lịch sử</span>
-            <select v-model="historicalKey" class="dss-input">
-              <option v-for="o in HISTORICAL_WINDOW_OPTIONS" :key="o.value" :value="o.value">
-                {{ o.label }}
-              </option>
-            </select>
-          </label>
+        <p v-if="productsLoading" class="dss-hint" role="status">Đang tải sản phẩm…</p>
+        <p v-else-if="productsError" class="dss-alert dss-alert--warn" role="alert">{{ productsError }}</p>
+
+        <form class="dss-form" @submit.prevent="onSubmit">
+          <div class="dss-form-grid">
+            <label class="dss-field">
+              <span id="product-label">Sản phẩm</span>
+              <select
+                v-model.number="productId"
+                class="dss-input"
+                :disabled="productsLoading || !products.length || submitting"
+                aria-labelledby="product-label"
+                aria-describedby="product-help product-error"
+                :aria-invalid="Boolean(fieldErrors.productId)"
+                required
+              >
+                <option disabled value="">— Chọn sản phẩm —</option>
+                <option v-for="p in products" :key="p.id" :value="p.id">{{ p.name }}</option>
+              </select>
+              <small id="product-help" class="dss-hint">
+                Chỉ hiển thị sản phẩm thuộc tài khoản Seller hiện tại.
+              </small>
+              <small v-if="selectedProduct" class="dss-selected-name">
+                Đã chọn: <strong>{{ selectedProduct.name }}</strong>
+              </small>
+              <small v-if="fieldErrors.productId" id="product-error" class="dss-field-error" role="alert">
+                {{ fieldErrors.productId }}
+              </small>
+            </label>
+
+            <label class="dss-field">
+              <span id="historical-label">Historical Days</span>
+              <select
+                v-model.number="historicalDays"
+                class="dss-input"
+                :disabled="submitting"
+                aria-labelledby="historical-label"
+                aria-describedby="historical-help historical-error"
+                :aria-invalid="Boolean(fieldErrors.historicalDays)"
+              >
+                <option v-for="d in HISTORICAL_DAYS_OPTIONS" :key="d" :value="d">{{ d }} ngày</option>
+              </select>
+              <small id="historical-help" class="dss-hint">
+                Số ngày bán hàng được dùng làm dữ liệu lịch sử.
+              </small>
+              <small
+                v-if="fieldErrors.historicalDays"
+                id="historical-error"
+                class="dss-field-error"
+                role="alert"
+              >
+                {{ fieldErrors.historicalDays }}
+              </small>
+            </label>
+
+            <label class="dss-field">
+              <span id="forecast-label">Forecast Period</span>
+              <select
+                v-model.number="forecastPeriod"
+                class="dss-input"
+                :disabled="submitting"
+                aria-labelledby="forecast-label"
+                aria-describedby="forecast-help forecast-error"
+                :aria-invalid="Boolean(fieldErrors.forecastPeriod)"
+              >
+                <option v-for="d in FORECAST_PERIOD_OPTIONS" :key="d" :value="d">{{ d }} ngày</option>
+              </select>
+              <small id="forecast-help" class="dss-hint">
+                Số ngày tương lai cần dự báo.
+              </small>
+              <small
+                v-if="fieldErrors.forecastPeriod"
+                id="forecast-error"
+                class="dss-field-error"
+                role="alert"
+              >
+                {{ fieldErrors.forecastPeriod }}
+              </small>
+            </label>
+          </div>
+
+          <div class="dss-actions">
+            <button
+              type="submit"
+              class="dss-btn dss-btn--primary"
+              :disabled="!canSubmit"
+              :aria-busy="submitting"
+            >
+              {{ submitting ? 'Đang tạo dự báo…' : 'Tạo dự báo' }}
+            </button>
+            <button
+              v-if="result"
+              type="button"
+              class="dss-btn dss-btn--outline"
+              :disabled="submitting"
+              @click="resetResult"
+            >
+              Tạo dự báo khác
+            </button>
+          </div>
+        </form>
+
+        <div v-if="submitError" class="dss-alert dss-alert--warn" role="alert" style="margin-top: 1rem">
+          {{ submitError }}
         </div>
-        <button
-          type="button"
-          class="dss-btn dss-btn--primary"
-          :disabled="loading"
-          @click="generate"
+        <div
+          v-if="successMessage"
+          class="dss-alert dss-alert--success"
+          role="status"
+          style="margin-top: 1rem"
         >
-          {{ loading ? 'Đang tạo…' : 'Tạo dự báo' }}
-        </button>
+          {{ successMessage }}
+        </div>
       </section>
 
-      <div v-if="success" class="dss-alert dss-alert--success" role="status">
-        Tạo dự báo nhu cầu thành công.
-      </div>
+      <section class="dss-card" aria-labelledby="demand-result-title">
+        <h2 id="demand-result-title" class="dss-card__title">Kết quả dự báo</h2>
 
-      <template v-if="result">
-        <section class="dss-kpi-grid">
-          <article class="dss-kpi">
-            <span class="dss-kpi__label">Nhu cầu TB / ngày</span>
-            <strong>{{ result.averageDailyDemand }} đơn vị</strong>
-          </article>
-          <article class="dss-kpi">
-            <span class="dss-kpi__label">Nhu cầu dự báo</span>
-            <strong>{{ result.predictedDemand }} đơn vị</strong>
-          </article>
-          <article class="dss-kpi">
-            <span class="dss-kpi__label">Số ngày lịch sử</span>
-            <strong>{{ result.historicalDays }}</strong>
-          </article>
-          <article class="dss-kpi">
-            <span class="dss-kpi__label">Số ngày dự báo</span>
-            <strong>{{ result.forecastDays }}</strong>
-          </article>
-        </section>
+        <div v-if="!result" class="dss-empty" role="status">
+          <div class="dss-empty__art" aria-hidden="true">◇</div>
+          <h2>Chưa có kết quả</h2>
+          <p>Chọn sản phẩm, cấu hình Historical Days / Forecast Period rồi bấm “Tạo dự báo”.</p>
+        </div>
 
-        <section class="dss-card">
-          <h2 class="dss-card__title">Kết quả dự báo</h2>
+        <template v-else>
           <div class="dss-result-grid">
             <div>
               <p class="dss-meta"><span>Tên sản phẩm</span>{{ result.productName }}</p>
-              <p class="dss-meta"><span>Cửa sổ lịch sử</span>{{ result.historicalWindowLabel }}</p>
-              <p class="dss-meta"><span>Kỳ dự báo</span>{{ result.forecastPeriodLabel }}</p>
-              <p class="dss-meta"><span>Nhu cầu TB / ngày</span>{{ result.averageDailyDemand }} đơn vị</p>
-              <p class="dss-meta"><span>Thời điểm tạo</span>{{ result.generatedAt }}</p>
+              <p class="dss-meta">
+                <span>Số ngày lịch sử</span>{{ formatViNumber(result.historicalDays) }}
+              </p>
+              <p class="dss-meta">
+                <span>Thời gian dự báo</span>{{ formatViNumber(result.forecastPeriod) }} ngày
+              </p>
+              <p class="dss-meta">
+                <span>Nhu cầu TB / ngày</span>{{ formatViNumber(result.averageDailyDemand) }}
+              </p>
+              <p class="dss-meta">
+                <span>Thời gian tạo</span>{{ formatViDateTime(result.generatedAt) }}
+              </p>
             </div>
-            <div class="dss-highlight">
-              <span>Nhu cầu dự báo</span>
-              <strong>{{ result.predictedDemand }}</strong>
+            <div class="dss-highlight" aria-label="Tổng nhu cầu dự báo">
+              <span>Tổng nhu cầu dự báo</span>
+              <strong>{{ formatViNumber(result.predictedDemand) }}</strong>
               <em>đơn vị</em>
             </div>
           </div>
-        </section>
 
-        <section class="dss-card">
-          <h2 class="dss-card__title">Biểu đồ xu hướng nhu cầu</h2>
-          <DemandTrendChart
-            :historical="result.historicalSales"
-            :forecast="result.forecastSales"
-          />
-        </section>
-      </template>
-    </template>
+          <section class="dss-kpi-grid" style="margin-top: 1rem" aria-label="Tóm tắt chỉ số">
+            <article class="dss-kpi">
+              <span class="dss-kpi__label">Sản phẩm</span>
+              <strong>{{ result.productName }}</strong>
+            </article>
+            <article class="dss-kpi">
+              <span class="dss-kpi__label">Lịch sử</span>
+              <strong>{{ formatViNumber(result.historicalDays) }} ngày</strong>
+            </article>
+            <article class="dss-kpi">
+              <span class="dss-kpi__label">Kỳ dự báo</span>
+              <strong>{{ formatViNumber(result.forecastPeriod) }} ngày</strong>
+            </article>
+            <article class="dss-kpi">
+              <span class="dss-kpi__label">TB / ngày</span>
+              <strong>{{ formatViNumber(result.averageDailyDemand) }}</strong>
+            </article>
+            <article class="dss-kpi dss-kpi--accent">
+              <span class="dss-kpi__label">Nhu cầu dự báo</span>
+              <strong>{{ formatViNumber(result.predictedDemand) }}</strong>
+            </article>
+            <article class="dss-kpi">
+              <span class="dss-kpi__label">Thời điểm tạo</span>
+              <strong>{{ formatViDateTime(result.generatedAt) }}</strong>
+            </article>
+          </section>
+        </template>
+      </section>
+    </div>
   </div>
 </template>
+
+<style scoped>
+.dss-hint {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--dss-muted, #607d8b);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.dss-selected-name {
+  display: block;
+  margin-top: 0.4rem;
+  font-size: 0.875rem;
+  color: #1565c0;
+}
+
+.dss-field-error {
+  display: block;
+  margin-top: 0.35rem;
+  color: #c62828;
+  font-size: 0.8125rem;
+}
+
+.dss-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.dss-input:focus-visible,
+.dss-btn:focus-visible {
+  outline: 2px solid #1976d2;
+  outline-offset: 2px;
+}
+</style>

@@ -1,8 +1,8 @@
 import type { UserRole } from '@/types'
 
-/** Customer + seller đều được mua hàng (giỏ, checkout, đơn mua, đánh giá). */
+/** Customer được mua hàng (giỏ, checkout, đơn mua, đánh giá). Seller không dùng giỏ hàng. */
 export function canShopAsBuyer(role: UserRole | null | undefined): boolean {
-  return role === 'customer' || role === 'seller'
+  return role === 'customer'
 }
 
 /** Trang chủ chế độ vận hành theo role (seller/manager/admin) */
@@ -39,6 +39,7 @@ export function roleOpsHomeLabel(role: UserRole): string {
 /** Trang trợ lý AI / liên hệ phù hợp từng role */
 export function roleContactPath(role: UserRole): string {
   if (role === 'seller') return '/seller/chatbot'
+  if (role === 'admin') return '/admin/monitoring'
   return '/chatbot'
 }
 
@@ -49,14 +50,9 @@ const ROLE_PREFIXES: Record<Exclude<UserRole, 'guest'>, string[]> = {
   seller: [
     '/seller',
     '/profile',
-    '/cart',
-    '/checkout',
-    '/payment',
-    '/orders',
-    '/recommendations',
   ],
   manager: ['/manager', '/chatbot'],
-  admin: ['/admin', '/chatbot'],
+  admin: ['/admin'],
 }
 
 export function isPathAllowedForRole(role: UserRole, path: string): boolean {
@@ -90,19 +86,18 @@ export function footerLinksForRole(role: UserRole): FooterLink[] {
     links.push({ to: '/orders', label: 'Đơn hàng' })
   }
   if (role === 'seller') {
-    links.push({ to: '/cart', label: 'Giỏ hàng' })
-    links.push({ to: '/orders', label: 'Đơn mua' })
     links.push({ to: '/seller/products', label: 'Quản lý SP' })
     links.push({ to: '/seller/orders', label: 'Đơn bán' })
   }
   if (role === 'manager') {
     links.push({ to: '/manager/dashboard', label: 'Dashboard' })
-    links.push({ to: '/manager/orders', label: 'Đơn hàng' })
-    links.push({ to: '/manager/approvals', label: 'Duyệt role' })
+    links.push({ to: '/manager/platform-revenue', label: 'Doanh thu sàn' })
+    links.push({ to: '/manager/analytics', label: 'Phân tích' })
+    links.push({ to: '/manager/dss', label: 'DSS' })
   }
   if (role === 'admin') {
     links.push({ to: '/admin/users', label: 'Người dùng' })
-    links.push({ to: '/admin/approvals', label: 'Duyệt role' })
+    links.push({ to: '/admin/monitoring', label: 'Giám sát' })
   }
   return links
 }

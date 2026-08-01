@@ -46,8 +46,7 @@ const opsNavLinks = computed(() => {
   if (r === 'manager') {
     return [
       { to: '/manager/dashboard', label: 'Dashboard' },
-      { to: '/manager/orders', label: 'Đơn hàng' },
-      { to: '/manager/approvals', label: 'Duyệt role' },
+      { to: '/manager/platform-revenue', label: 'Doanh thu sàn' },
       { to: '/manager/analytics', label: 'Phân tích' },
       { to: '/manager/dss', label: 'DSS' },
       { to: '/chatbot', label: 'Trợ lý AI' },
@@ -58,7 +57,6 @@ const opsNavLinks = computed(() => {
       { to: '/admin/users', label: 'Người dùng' },
       { to: '/admin/approvals', label: 'Duyệt role' },
       { to: '/admin/monitoring', label: 'Giám sát' },
-      { to: '/chatbot', label: 'Trợ lý AI' },
     ]
   }
   return []
@@ -78,103 +76,106 @@ function onOpenCart() {
   <div class="site-chrome">
     <!-- Shop header (guest, customer, hoặc ops role đang duyệt cửa hàng) -->
     <template v-if="isShopMode">
-      <div v-if="!promoDismissed" class="shop-promo-bar">
-        <div class="container shop-promo-bar__inner">
-          <p>
-            Giảm 30% toàn shop — Có hạn!
-            <RouterLink to="/search" class="shop-promo-bar__link">Mua ngay →</RouterLink>
-          </p>
-          <button
-            type="button"
-            class="shop-promo-bar__close"
-            aria-label="Đóng thông báo"
-            @click="promoDismissed = true"
-          >
-            ×
-          </button>
-        </div>
-      </div>
-
-      <header class="shop-header site-chrome__bar">
-        <div class="container shop-header__inner">
-          <RouterLink to="/" class="shop-brand">
-            SEDSP<span class="shop-brand__dot">.</span>
-          </RouterLink>
-
-          <nav class="shop-nav" aria-label="Điều hướng chính">
-            <RouterLink
-              v-if="opsHome"
-              :to="opsHome"
-              class="shop-nav__link shop-nav__link--ops"
-            >
-              {{ opsHomeLabel }}
-            </RouterLink>
-            <RouterLink to="/" class="shop-nav__link" exact-active-class="shop-nav__link--active">
-              Trang chủ
-            </RouterLink>
-            <RouterLink to="/search" class="shop-nav__link" active-class="shop-nav__link--active">
-              Cửa hàng
-            </RouterLink>
-            <RouterLink
-              v-if="canShopAsBuyer(auth.role)"
-              to="/recommendations"
-              class="shop-nav__link shop-nav__link--ai"
-              active-class="shop-nav__link--active"
-            >
-              Gợi ý AI
-            </RouterLink>
-            <RouterLink
-              v-if="canShopAsBuyer(auth.role)"
-              to="/orders"
-              class="shop-nav__link"
-              active-class="shop-nav__link--active"
-            >
-              {{ auth.role === 'seller' ? 'Đơn mua' : 'Đơn hàng / lịch sử' }}
-            </RouterLink>
-            <RouterLink :to="contactTo" class="shop-nav__link" active-class="shop-nav__link--active">
-              Liên hệ
-            </RouterLink>
-          </nav>
-
-          <div class="shop-header__actions">
-            <RouterLink
-              to="/search"
-              class="shop-icon-btn btn-interactive"
-              title="Tìm kiếm"
-              aria-label="Tìm kiếm"
-            >
-              <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
-                <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
-              </svg>
-            </RouterLink>
-
-            <AccountHoverMenu variant="shop" />
-
+      <header class="shop-chrome site-chrome__bar">
+        <div v-if="!promoDismissed" class="shop-promo-bar">
+          <div class="container shop-promo-bar__inner">
+            <p>
+              <b>Giảm 30% toàn shop</b> — có hạn
+              <RouterLink to="/search" class="shop-promo-bar__link">Mua ngay</RouterLink>
+            </p>
             <button
-              v-if="showCart"
               type="button"
-              class="shop-icon-btn shop-icon-btn--cart btn-interactive"
-              title="Giỏ hàng"
-              aria-label="Giỏ hàng"
-              @click="onOpenCart"
+              class="shop-promo-bar__close"
+              aria-label="Đóng thông báo"
+              @click="promoDismissed = true"
             >
-              <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" /><path d="M3 6h18" /><path d="M16 10a4 4 0 0 1-8 0" />
-              </svg>
-              <span v-if="cart.itemCount" class="shop-icon-btn__badge">{{ cart.itemCount }}</span>
+              ×
             </button>
           </div>
         </div>
+
+        <div class="shop-header">
+          <div class="container shop-header__inner">
+            <RouterLink to="/" class="shop-brand" aria-label="SEDSP — Trang chủ">
+              <img src="/sedsp-logo.png" alt="SEDSP" class="shop-brand__logo" height="48" />
+            </RouterLink>
+
+            <nav class="shop-nav" aria-label="Điều hướng chính">
+              <RouterLink
+                v-if="opsHome"
+                :to="opsHome"
+                class="shop-nav__link shop-nav__link--ops"
+              >
+                {{ opsHomeLabel }}
+              </RouterLink>
+              <RouterLink to="/" class="shop-nav__link" exact-active-class="shop-nav__link--active">
+                Trang chủ
+              </RouterLink>
+              <RouterLink to="/search" class="shop-nav__link" active-class="shop-nav__link--active">
+                Cửa hàng
+              </RouterLink>
+              <RouterLink
+                v-if="canShopAsBuyer(auth.role)"
+                to="/recommendations"
+                class="shop-nav__link"
+                active-class="shop-nav__link--active"
+              >
+                Gợi ý AI
+              </RouterLink>
+              <RouterLink
+                v-if="canShopAsBuyer(auth.role)"
+                to="/orders"
+                class="shop-nav__link"
+                active-class="shop-nav__link--active"
+              >
+                {{ auth.role === 'seller' ? 'Đơn mua' : 'Đơn hàng / lịch sử' }}
+              </RouterLink>
+              <RouterLink :to="contactTo" class="shop-nav__link" active-class="shop-nav__link--active">
+                Liên hệ
+              </RouterLink>
+            </nav>
+
+            <div class="shop-header__actions">
+              <RouterLink
+                to="/search"
+                class="shop-icon-btn btn-interactive"
+                title="Tìm kiếm"
+                aria-label="Tìm kiếm"
+              >
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                  <circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" />
+                </svg>
+              </RouterLink>
+
+              <button
+                v-if="showCart"
+                type="button"
+                class="shop-icon-btn shop-icon-btn--cart btn-interactive"
+                title="Giỏ hàng"
+                aria-label="Giỏ hàng"
+                @click="onOpenCart"
+              >
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M6 6h15l-1.5 9h-12z" /><path d="M6 6L4.5 3H2" /><circle cx="9.5" cy="19" r="1.4" /><circle cx="17" cy="19" r="1.4" />
+                </svg>
+                <span v-if="cart.itemCount" class="shop-icon-btn__badge">{{ cart.itemCount }}</span>
+              </button>
+
+              <AccountHoverMenu variant="shop" />
+            </div>
+          </div>
+        </div>
+
+        <CategoryNav v-if="showCategoryNav" />
       </header>
 
-      <CategoryNav v-if="showCategoryNav" />
     </template>
 
     <!-- Ops header (seller/manager/admin trên trang vận hành) -->
     <header v-else class="ops-header site-chrome__bar">
       <div class="container ops-header__inner">
-        <RouterLink to="/" class="shop-brand shop-brand--sm">
-          SEDSP<span class="shop-brand__dot">.</span>
+        <RouterLink to="/" class="shop-brand shop-brand--sm" aria-label="SEDSP">
+          <img src="/sedsp-logo.png" alt="SEDSP" class="shop-brand__logo shop-brand__logo--sm" height="40" />
         </RouterLink>
 
         <nav class="nav ops-header__nav">
@@ -182,15 +183,6 @@ function onOpenCart() {
             {{ link.label }}
           </RouterLink>
           <RouterLink to="/" class="nav-link">← Cửa hàng</RouterLink>
-          <button
-            v-if="auth.role === 'seller'"
-            type="button"
-            class="nav-link nav-link--cart"
-            @click="onOpenCart"
-          >
-            Giỏ hàng
-            <span v-if="cart.itemCount" class="ops-cart-badge">{{ cart.itemCount }}</span>
-          </button>
         </nav>
 
         <div class="mkt-user-menu ops-account">
@@ -212,7 +204,12 @@ function onOpenCart() {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: #fff;
+  background: var(--paper, #fff);
+}
+
+.shop-chrome {
+  background: var(--paper, #fff);
+  border-bottom: 1px solid var(--line, #e4e9f2);
 }
 
 .nav {
@@ -287,16 +284,6 @@ function onOpenCart() {
   color: var(--primary-800);
 }
 
-.shop-nav__link--ai {
-  color: #0f766e;
-  font-weight: 600;
-}
-
-.shop-nav__link--ai:hover,
-.shop-nav__link--ai.router-link-active {
-  color: #065f46;
-}
-
 .shop-header__actions {
   display: flex;
   align-items: center;
@@ -309,7 +296,7 @@ function onOpenCart() {
     display: none;
   }
 
-  .shop-nav__link--ai {
+  .shop-nav {
     display: none;
   }
 }

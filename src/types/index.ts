@@ -81,6 +81,19 @@ export interface CartItem {
   cartItemId?: string
 }
 
+/** SP rút gọn dùng trong chat (card / đính kèm) */
+export interface ChatProductRef {
+  id: string
+  name: string
+  price: number
+  imageUrl: string
+  category?: string
+  stock?: number
+  shopName?: string
+  rating?: number
+  originalPrice?: number
+}
+
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
@@ -88,6 +101,10 @@ export interface ChatMessage {
   timestamp: string
   /** Bot đang gõ phản hồi */
   pending?: boolean
+  /** Card SP gắn với tin nhắn (kết quả tìm / gợi ý / so sánh) */
+  products?: ChatProductRef[]
+  /** SP người dùng kéo-thả đính kèm khi hỏi */
+  attachments?: ChatProductRef[]
   meta?: {
     source?: 'llm' | 'local'
   }

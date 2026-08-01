@@ -8,7 +8,9 @@ export interface NavLink {
 
 /** Route chatbot đúng role */
 export function roleChatPath(role: UserRole): string {
-  return role === 'seller' ? '/seller/chatbot' : '/chatbot'
+  if (role === 'seller') return '/seller/chatbot'
+  if (role === 'admin') return '/admin/monitoring'
+  return '/chatbot'
 }
 
 /** Route gợi ý / DSS chính theo role */
@@ -39,9 +41,6 @@ export function roleAccountMenuLinks(role: UserRole): NavLink[] {
     case 'seller':
       return [
         { to: '/profile', label: 'Hồ sơ & avatar' },
-        { to: '/cart', label: 'Giỏ hàng' },
-        { to: '/orders', label: 'Đơn mua của tôi' },
-        { to: '/recommendations', label: 'Gợi ý AI sản phẩm', highlight: true },
         { to: '/seller/dss', label: 'DSS — Kế hoạch bán hàng', highlight: true },
         { to: '/seller/dss/demand', label: 'Dự báo nhu cầu' },
         { to: '/seller/dss/price', label: 'Gợi ý giá' },
@@ -56,6 +55,7 @@ export function roleAccountMenuLinks(role: UserRole): NavLink[] {
     case 'manager':
       return [
         { to: '/manager/dashboard', label: 'Dashboard KPI' },
+        { to: '/manager/platform-revenue', label: 'Doanh thu sàn', highlight: true },
         { to: '/manager/dss', label: 'DSS & what-if', highlight: true },
         { to: '/manager/dss/what-if', label: 'What-if khuyến mãi' },
         { to: '/manager/analytics', label: 'Phân tích danh mục' },
@@ -65,7 +65,6 @@ export function roleAccountMenuLinks(role: UserRole): NavLink[] {
       return [
         { to: '/admin/users', label: 'Quản lý người dùng' },
         { to: '/admin/monitoring', label: 'Giám sát hệ thống' },
-        { to: '/chatbot', label: 'Trợ lý AI admin', highlight: true },
       ]
     default:
       return []
@@ -83,8 +82,6 @@ export function roleChatShortcuts(role: UserRole): NavLink[] {
       ]
     case 'seller':
       return [
-        { to: '/search', label: 'Mua hàng' },
-        { to: '/orders', label: 'Đơn mua' },
         { to: '/seller/dss', label: 'DSS bán hàng' },
         { to: '/seller/dss/what-if', label: 'What-if giảm giá' },
         { to: '/seller/sales', label: 'Doanh số' },
@@ -134,6 +131,9 @@ export function roleCategoryAiLink(role: UserRole, isLoggedIn: boolean): NavLink
   }
   if (role === 'manager') {
     return { to: '/manager/dss', label: 'DSS & AI' }
+  }
+  if (role === 'admin') {
+    return { to: '/admin/monitoring', label: 'Giám sát' }
   }
   return { to: '/chatbot', label: 'Trợ lý AI' }
 }
