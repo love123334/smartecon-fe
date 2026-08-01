@@ -1805,7 +1805,9 @@ export const chatApi = {
     if (userMsg.attachments?.length && products?.length) {
       userMsg.attachments = userMsg.attachments.map((a) => {
         const hit = products.find((p) => String(p.id) === String(a.id))
-        return hit && typeof hit.stock === 'number' ? { ...a, stock: hit.stock } : a
+        return hit && typeof hit.stock === 'number'
+          ? { ...a, stock: hit.stock, stockKnown: true }
+          : a
       })
     }
 

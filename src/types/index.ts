@@ -89,6 +89,8 @@ export interface ChatProductRef {
   imageUrl: string
   category?: string
   stock?: number
+  /** true = tồn lấy từ inventory/catalog withStock — mới được báo hết hàng */
+  stockKnown?: boolean
   shopName?: string
   rating?: number
   originalPrice?: number

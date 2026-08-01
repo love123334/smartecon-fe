@@ -43,7 +43,11 @@ const SHOPPING_INTENTS = new Set<ChatIntent>([
 ])
 
 function greet(name: string): string {
-  return name ? `${name}, ` : ''
+  const n = name?.trim()
+  // Bỏ qua handle kỹ thuật / username không phải tên hiển thị
+  if (!n || n.length < 2) return ''
+  if (/^[a-z0-9._-]+$/i.test(n) && !/\s/.test(n) && n.length < 24) return ''
+  return `${n}, `
 }
 
 function stockPhrase(stock: number | undefined | null): string {

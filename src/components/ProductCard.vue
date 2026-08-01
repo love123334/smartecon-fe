@@ -159,6 +159,7 @@ async function attachToChat(e: Event) {
     category: props.product.category,
     // Chỉ gắn stock khi > 0; 0 từ list API là giả — refresh sẽ lấy tồn thật
     stock: props.product.stock > 0 ? props.product.stock : undefined,
+    stockKnown: props.product.stock > 0,
     shopName: props.product.shopName,
     rating: props.product.rating,
     originalPrice: props.product.originalPrice,

@@ -12,6 +12,13 @@ const plan = ref<DssInsightPlanApi | null>(null)
 const planError = ref('')
 const planLoading = ref(false)
 const embedUrl = computed(() => plan.value?.powerBiEmbedUrl?.trim() || '')
+const planCommentary = computed(() => {
+  const raw = plan.value?.commentary?.trim() || ''
+  return raw
+    .replace(/\n*-{2,}\s*\n*Metrics snapshot:[\s\S]*$/i, '')
+    .replace(/\n*Metrics snapshot:[\s\S]*$/i, '')
+    .trim()
+})
 
 onMounted(async () => {
   insights.value = await dssApi.managerInsights()
@@ -51,7 +58,7 @@ onMounted(async () => {
       <p v-if="planLoading">Đang tổng hợp số liệu…</p>
       <p v-else-if="planError" class="dss-brain__err">{{ planError }}</p>
       <div v-else-if="plan">
-        <pre class="dss-brain__md">{{ plan.commentary }}</pre>
+        <pre class="dss-brain__md">{{ planCommentary }}</pre>
         <iframe
           v-if="embedUrl"
           class="dss-brain__embed"

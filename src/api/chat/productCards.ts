@@ -2,14 +2,16 @@ import type { ChatProductRef, Product } from '@/types'
 import { apiConfig } from '@/api/config'
 import * as realInventory from '@/api/real/inventory'
 
-export function toChatProduct(p: Product): ChatProductRef {
+export function toChatProduct(p: Product, opts?: { stockKnown?: boolean }): ChatProductRef {
+  const stockKnown = opts?.stockKnown ?? (typeof p.stock === 'number' && p.stock > 0)
   return {
     id: String(p.id),
     name: p.name,
     price: p.price,
     imageUrl: p.imageUrl,
     category: p.category,
-    stock: p.stock,
+    stock: typeof p.stock === 'number' ? p.stock : undefined,
+    stockKnown: stockKnown || (typeof p.stock === 'number' && p.stock > 0),
     shopName: p.shopName,
     rating: p.rating,
     originalPrice: p.originalPrice,
@@ -17,7 +19,8 @@ export function toChatProduct(p: Product): ChatProductRef {
 }
 
 export function toChatProducts(products: Product[], limit = 6): ChatProductRef[] {
-  return products.slice(0, limit).map(toChatProduct)
+  // Catalog chat load withStock — tin được số tồn
+  return products.slice(0, limit).map((p) => toChatProduct(p, { stockKnown: true }))
 }
 
 export const SEDSP_PRODUCT_DRAG_MIME = 'application/x-sedsp-product'
@@ -39,6 +42,7 @@ export function parseDraggedProduct(dataTransfer: DataTransfer | null): ChatProd
       imageUrl: String(parsed.imageUrl ?? ''),
       category: parsed.category,
       stock: parsed.stock,
+      stockKnown: typeof parsed.stock === 'number' && parsed.stock > 0 ? true : undefined,
       shopName: parsed.shopName,
       rating: parsed.rating,
       originalPrice: parsed.originalPrice,
@@ -61,6 +65,7 @@ export function productToDragPayload(product: Product | ChatProductRef): string 
     imageUrl: product.imageUrl,
     category: product.category,
     stock,
+    stockKnown: stock != null ? true : undefined,
     shopName: product.shopName,
     rating: 'rating' in product ? product.rating : undefined,
     originalPrice: product.originalPrice,
@@ -74,15 +79,22 @@ export async function refreshChatProductStock(
 ): Promise<ChatProductRef[]> {
   if (!products.length) return products
   if (!apiConfig.useRealInventory || !localStorage.getItem('sedsp_access_token')?.trim()) {
-    return products
+    // Không gọi được inventory — đừng giữ stock=0 giả (sẽ hiện Hết hàng)
+    return products.map((p) =>
+      p.stockKnown ? p : { ...p, stock: p.stock && p.stock > 0 ? p.stock : undefined, stockKnown: false },
+    )
   }
   return Promise.all(
     products.map(async (p) => {
       try {
         const inv = await realInventory.getInventory(p.id)
-        return { ...p, stock: inv.availableQuantity }
+        return { ...p, stock: inv.availableQuantity, stockKnown: true }
       } catch {
-        return p
+        return {
+          ...p,
+          stock: p.stock && p.stock > 0 ? p.stock : undefined,
+          stockKnown: Boolean(p.stockKnown && p.stock != null && p.stock > 0),
+        }
       }
     }),
   )

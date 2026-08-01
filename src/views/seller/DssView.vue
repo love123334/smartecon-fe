@@ -16,6 +16,13 @@ const planLoading = ref(false)
 
 const sellerKey = computed(() => auth.user?.backendId ?? auth.user?.id)
 const embedUrl = computed(() => plan.value?.powerBiEmbedUrl?.trim() || '')
+const planCommentary = computed(() => {
+  const raw = plan.value?.commentary?.trim() || ''
+  return raw
+    .replace(/\n*-{2,}\s*\n*Metrics snapshot:[\s\S]*$/i, '')
+    .replace(/\n*Metrics snapshot:[\s\S]*$/i, '')
+    .trim()
+})
 
 onMounted(async () => {
   insights.value = await dssApi.sellerInsights(sellerKey.value)
@@ -60,7 +67,7 @@ onMounted(async () => {
       <p v-if="planLoading" class="dss-brain__loading">Đang tổng hợp số liệu…</p>
       <p v-else-if="planError" class="dss-brain__err">{{ planError }}</p>
       <div v-else-if="plan" class="dss-brain__body">
-        <pre class="dss-brain__md">{{ plan.commentary }}</pre>
+        <pre class="dss-brain__md">{{ planCommentary }}</pre>
         <iframe
           v-if="embedUrl"
           class="dss-brain__embed"

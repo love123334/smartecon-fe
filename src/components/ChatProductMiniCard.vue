@@ -17,15 +17,15 @@ function onImgError() {
 
 const stockLabel = computed(() => {
   const s = props.product.stock
-  // null/undefined = chưa biết (list API default), đừng báo hết hàng giả
   if (s == null || Number.isNaN(Number(s))) return null
-  if (s <= 0) return 'Hết hàng'
+  // stock=0 từ list API là giả — chỉ báo hết hàng khi đã xác nhận inventory
+  if (s <= 0) return props.product.stockKnown ? 'Hết hàng' : null
   return `Còn ${s}`
 })
 
 const stockOut = computed(() => {
   const s = props.product.stock
-  return s != null && s <= 0
+  return Boolean(props.product.stockKnown && s != null && s <= 0)
 })
 </script>
 

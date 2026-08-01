@@ -27,7 +27,10 @@ import { orderStatusLabel } from '@/utils/orderStatus'
 export { findProductsByQuery } from '@/api/chat/products'
 
 function greet(name: string): string {
-  return name ? `${name}, ` : ''
+  const n = name?.trim()
+  if (!n || n.length < 2) return ''
+  if (/^[a-z0-9._-]+$/i.test(n) && !/\s/.test(n) && n.length < 24) return ''
+  return `${n}, `
 }
 
 /** Bỏ note kỹ thuật (API/mock) khỏi mọi phản hồi hiển thị cho user */
@@ -37,6 +40,7 @@ export function sanitizeChatReply(text: string): string {
     .replace(/\s*\*\((?:API(?:\s+backend)?|mock[^*]*)\)\*/gi, '')
     .replace(/\s*\((?:API\s+inventory|tồn\s+API|API)\)/gi, '')
     .replace(/\s*\(API\s*\+\s*demo\)/gi, '')
+    .replace(/\s*\(dữ liệu API\)/gi, '')
     .replace(/Nhận xét gần đây \(API\):/gi, 'Nhận xét gần đây:')
     .replace(/\*\*Top SP \(API\):\*\*/gi, '**Top SP:**')
     .replace(/\s{2,}/g, ' ')
