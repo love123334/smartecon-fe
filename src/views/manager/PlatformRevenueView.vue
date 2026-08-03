@@ -20,12 +20,16 @@ import {
   mapPlatformRevenueError,
 } from '@/utils/platformRevenue'
 
+const LOOKER_STUDIO_EMBED_URL =
+  'https://datastudio.google.com/embed/reporting/8d218406-968f-42bc-85a9-dfd1f42fab43/page/ChS5F'
+
 const filter = ref<PlatformRevenueDashboardQuery>(defaultPlatformRevenueFilter())
 const data = ref<PlatformRevenueDashboard | null>(null)
 const initialLoading = ref(true)
 const filterLoading = ref(false)
 const error = ref('')
 const hasLoadedOnce = ref(false)
+const lookerLoaded = ref(false)
 
 let requestSeq = 0
 
@@ -97,6 +101,39 @@ function retry() {
       </template>
     </PageHeader>
 
+    <section class="pr-looker card" aria-label="Looker Studio — Platform Revenue">
+      <div class="pr-looker__head">
+        <div>
+          <h2 class="pr-looker__title">Looker Studio</h2>
+          <p class="pr-looker__lead muted">
+            Báo cáo doanh thu sàn nhúng từ Google Looker Studio
+          </p>
+        </div>
+        <a
+          class="btn btn-outline btn-sm"
+          :href="LOOKER_STUDIO_EMBED_URL"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Mở full báo cáo
+        </a>
+      </div>
+      <div class="pr-looker__frame-wrap">
+        <p v-if="!lookerLoaded" class="pr-looker__loading muted" role="status">
+          Đang tải dashboard Looker Studio…
+        </p>
+        <iframe
+          class="pr-looker__frame"
+          title="Platform Revenue Management — Looker Studio"
+          :src="LOOKER_STUDIO_EMBED_URL"
+          loading="lazy"
+          referrerpolicy="no-referrer-when-downgrade"
+          allowfullscreen
+          @load="lookerLoaded = true"
+        />
+      </div>
+    </section>
+
     <PlatformRevenueFilter v-model="filter" :loading="loading" @apply="onApply" />
 
     <div v-if="error" class="card pr-error-card" role="alert">
@@ -162,6 +199,61 @@ function retry() {
 }
 .pr-generated strong {
   color: #0f172a;
+}
+.pr-looker {
+  margin: 0 0 1.25rem;
+  padding: 1rem 1.1rem 1.15rem;
+  overflow: hidden;
+}
+.pr-looker__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  margin-bottom: 0.85rem;
+}
+.pr-looker__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--navy, #14275c);
+}
+.pr-looker__lead {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+}
+.pr-looker__frame-wrap {
+  position: relative;
+  width: 100%;
+  min-height: 720px;
+  border: 1px solid var(--line, #e4e9f2);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #f8fafc;
+}
+.pr-looker__loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  font-size: 0.9rem;
+  pointer-events: none;
+}
+.pr-looker__frame {
+  display: block;
+  width: 100%;
+  height: 720px;
+  border: 0;
+  background: #fff;
+}
+@media (max-width: 768px) {
+  .pr-looker__frame-wrap,
+  .pr-looker__frame {
+    min-height: 560px;
+    height: 560px;
+  }
 }
 .pr-error-card {
   margin: 1rem 0;
