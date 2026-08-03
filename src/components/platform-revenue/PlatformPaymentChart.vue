@@ -54,7 +54,7 @@ const options = {
         <Doughnut :data="chartData" :options="options" />
       </div>
       <p v-else class="muted">Chưa có tỷ trọng thanh toán thành công.</p>
-      <div class="table-wrap">
+      <div v-if="items.length" class="table-wrap">
         <table class="data">
           <thead>
             <tr>

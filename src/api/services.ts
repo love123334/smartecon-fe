@@ -539,6 +539,9 @@ async function listProductsHybridInternal(
     }
     return { products: enriched, catalogSource: 'backend' }
   } catch (e) {
+    if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
+      throw e
+    }
     return {
       products: await mockProductApi.list(params),
       catalogSource: 'mock',

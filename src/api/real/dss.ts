@@ -1,4 +1,4 @@
-import { apiRootWithoutVersion, http } from '@/api/http/client'
+import { ApiError, apiRootWithoutVersion, http } from '@/api/http/client'
 import { apiPaths } from '@/api/http/paths'
 
 export interface DemandForecastApi {
@@ -152,13 +152,21 @@ export interface SellerWhatIfRequest {
   simulationPeriod: number
 }
 
-export function analyzeSellerWhatIf(body: SellerWhatIfRequest) {
-  // Controller: @RequestMapping("/api/dss/what-if/seller") — not under /api/v1
-  return http.postAt<SellerWhatIfApi>(
-    apiRootWithoutVersion(),
-    apiPaths.dss.whatIfSeller,
-    body,
-  )
+export async function analyzeSellerWhatIf(body: SellerWhatIfRequest) {
+  // Primary: @RequestMapping("/api/dss/what-if/seller") — not under /api/v1
+  try {
+    return await http.postAt<SellerWhatIfApi>(
+      apiRootWithoutVersion(),
+      apiPaths.dss.whatIfSeller,
+      body,
+    )
+  } catch (e) {
+    // Fallback: some BE branches mount the same handler under /api/v1
+    if (e instanceof ApiError && (e.status === 404 || e.status === 405)) {
+      return http.post<SellerWhatIfApi>(apiPaths.dss.whatIfSeller, body)
+    }
+    throw e
+  }
 }
 
 export function recommendInventory(planningDays: number, productId?: string | number) {

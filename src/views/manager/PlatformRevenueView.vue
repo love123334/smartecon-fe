@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { platformRevenueApi } from '@/api/services'
 import type {
   PlatformRevenueDashboard,
@@ -30,6 +30,8 @@ const filterLoading = ref(false)
 const error = ref('')
 const hasLoadedOnce = ref(false)
 const lookerLoaded = ref(false)
+const lookerFailed = ref(false)
+let lookerTimer: ReturnType<typeof setTimeout> | null = null
 
 let requestSeq = 0
 
@@ -45,8 +47,24 @@ const products = computed(() => data.value?.topProducts ?? [])
 const categories = computed(() => data.value?.topCategories ?? [])
 
 onMounted(() => {
+  lookerTimer = setTimeout(() => {
+    if (!lookerLoaded.value) lookerFailed.value = true
+  }, 12_000)
   void loadDashboard(filter.value, true)
 })
+
+onUnmounted(() => {
+  if (lookerTimer) clearTimeout(lookerTimer)
+})
+
+function onLookerLoad() {
+  lookerLoaded.value = true
+  lookerFailed.value = false
+  if (lookerTimer) {
+    clearTimeout(lookerTimer)
+    lookerTimer = null
+  }
+}
 
 async function loadDashboard(query: PlatformRevenueDashboardQuery, isInitial = false) {
   const seq = ++requestSeq
@@ -119,9 +137,20 @@ function retry() {
         </a>
       </div>
       <div class="pr-looker__frame-wrap">
-        <p v-if="!lookerLoaded" class="pr-looker__loading muted" role="status">
+        <p v-if="!lookerLoaded && !lookerFailed" class="pr-looker__loading muted" role="status">
           Đang tải dashboard Looker Studio…
         </p>
+        <div v-if="lookerFailed && !lookerLoaded" class="pr-looker__fallback" role="status">
+          <p>Không nhúng được Looker trong trang (chặn iframe / mạng).</p>
+          <a
+            class="btn btn-outline btn-sm"
+            :href="LOOKER_STUDIO_EMBED_URL"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Mở full báo cáo
+          </a>
+        </div>
         <iframe
           class="pr-looker__frame"
           title="Platform Revenue Management — Looker Studio"
@@ -129,7 +158,7 @@ function retry() {
           loading="lazy"
           referrerpolicy="no-referrer-when-downgrade"
           allowfullscreen
-          @load="lookerLoaded = true"
+          @load="onLookerLoad"
         />
       </div>
     </section>
@@ -240,6 +269,23 @@ function retry() {
   margin: 0;
   font-size: 0.9rem;
   pointer-events: none;
+  z-index: 1;
+}
+.pr-looker__fallback {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 1rem;
+  background: rgba(248, 250, 252, 0.96);
+  text-align: center;
+  font-size: 0.9rem;
+  color: #475569;
 }
 .pr-looker__frame {
   display: block;

@@ -18,23 +18,50 @@ export class ApiError extends Error {
   }
 }
 
-function authHeaders(): HeadersInit {
+function authHeaders(withJsonContentType = false): HeadersInit {
   const token = localStorage.getItem('sedsp_access_token')
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
     Accept: 'application/json',
   }
+  if (withJsonContentType) headers['Content-Type'] = 'application/json'
   if (token) headers.Authorization = `Bearer ${token}`
   return headers
 }
 
 const DEFAULT_TIMEOUT_MS = 25_000
 
+const CONNECTIVITY_ERROR =
+  'Không kết nối được backend. Kiểm tra VITE_API_BASE_URL / VITE_BACKEND_ORIGIN.'
+
 /** `/api/v1` → `/api` (một số DSS endpoint không nằm dưới v1). */
 export function apiRootWithoutVersion(): string {
   const base = apiConfig.baseUrl.replace(/\/$/, '')
-  if (/\/v1$/i.test(base)) return base.replace(/\/v1$/i, '')
+  // Absolute or relative URL ending in /v1|/v2 → strip version segment
+  if (/\/v\d+$/i.test(base)) return base.replace(/\/v\d+$/i, '')
+  // Absolute base without version (e.g. https://api.example.com/api) — keep same host
+  if (/^https?:\/\//i.test(base)) return base
+  // Relative path like /api — same-origin via Vite proxy
+  if (base.startsWith('/')) return base || '/api'
   return `${apiConfig.backendOrigin.replace(/\/$/, '')}/api`
+}
+
+function mergeAbortSignals(
+  timeoutSignal: AbortSignal,
+  userSignal?: AbortSignal | null,
+): AbortSignal {
+  if (!userSignal) return timeoutSignal
+  if (typeof AbortSignal.any === 'function') {
+    return AbortSignal.any([timeoutSignal, userSignal])
+  }
+  const controller = new AbortController()
+  const abort = () => controller.abort()
+  if (timeoutSignal.aborted || userSignal.aborted) {
+    abort()
+    return controller.signal
+  }
+  timeoutSignal.addEventListener('abort', abort, { once: true })
+  userSignal.addEventListener('abort', abort, { once: true })
+  return controller.signal
 }
 
 async function parseJsonBody(res: Response): Promise<unknown> {
@@ -72,21 +99,25 @@ export async function apiRequest<T>(
 ): Promise<T> {
   const root = (config?.baseUrl ?? apiConfig.baseUrl).replace(/\/$/, '')
   const url = `${root}/${path.replace(/^\//, '')}`
+  const method = (options.method ?? 'GET').toUpperCase()
+  const hasJsonBody =
+    typeof options.body === 'string' &&
+    ['POST', 'PUT', 'PATCH'].includes(method)
   let res: Response
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS)
   try {
     res = await fetch(url, {
       ...options,
-      signal: options.signal ?? controller.signal,
-      headers: { ...authHeaders(), ...options.headers },
+      signal: mergeAbortSignals(controller.signal, options.signal),
+      headers: { ...authHeaders(hasJsonBody), ...options.headers },
     })
   } catch (e) {
     const aborted = e instanceof DOMException && e.name === 'AbortError'
     throw new ApiError(
       aborted
-        ? 'Backend không phản hồi (timeout). Kiểm tra Railway API đang chạy.'
-        : 'Không kết nối được backend. Kiểm tra VITE_API_BASE_URL hoặc chạy Spring Boot tại localhost:8080.',
+        ? 'Backend không phản hồi (timeout). Kiểm tra API đang chạy và CORS.'
+        : CONNECTIVITY_ERROR,
       0,
     )
   } finally {
@@ -99,18 +130,26 @@ export async function apiRequest<T>(
 
 export async function apiUpload<T>(path: string, formData: FormData): Promise<T> {
   const url = `${apiConfig.baseUrl.replace(/\/$/, '')}/${path.replace(/^\//, '')}`
-  const token = localStorage.getItem('sedsp_access_token')
-  const headers: Record<string, string> = { Accept: 'application/json' }
-  if (token) headers.Authorization = `Bearer ${token}`
+  const headers = authHeaders(false) as Record<string, string>
 
   let res: Response
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS)
   try {
-    res = await fetch(url, { method: 'POST', headers, body: formData })
-  } catch {
+    res = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: formData,
+      signal: controller.signal,
+    })
+  } catch (e) {
+    const aborted = e instanceof DOMException && e.name === 'AbortError'
     throw new ApiError(
-      'Không kết nối được backend. Hãy chạy Spring Boot tại localhost:8080.',
+      aborted ? 'Upload timeout — backend không phản hồi.' : CONNECTIVITY_ERROR,
       0,
     )
+  } finally {
+    clearTimeout(timeoutId)
   }
 
   const body = await parseJsonBody(res)

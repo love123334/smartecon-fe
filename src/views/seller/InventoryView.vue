@@ -6,15 +6,33 @@ import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
 const products = ref<Product[]>([])
+const loading = ref(true)
+const error = ref('')
 
-onMounted(async () => {
-  if (auth.user) {
+onMounted(() => {
+  void loadProducts()
+})
+
+async function loadProducts() {
+  if (!auth.user) {
+    loading.value = false
+    error.value = 'Cần đăng nhập seller để xem tồn kho.'
+    return
+  }
+  loading.value = true
+  error.value = ''
+  try {
     products.value = await productApi.list({
       sellerId: auth.user.backendId ?? auth.user.id,
       withStock: true,
     })
+  } catch (e) {
+    products.value = []
+    error.value = e instanceof Error ? e.message : 'Không tải được tồn kho.'
+  } finally {
+    loading.value = false
   }
-})
+}
 
 function stockLevel(stock: number) {
   if (stock < 10) return 'low'
@@ -26,7 +44,19 @@ function stockLevel(stock: number) {
 <template>
   <div>
     <h1 class="page-title">Tồn kho</h1>
-    <div class="table-wrap card">
+
+    <p v-if="loading" class="muted" role="status">Đang tải tồn kho…</p>
+
+    <div v-else-if="error" class="card" role="alert" style="border-color: #fecaca; background: #fef2f2">
+      <p style="margin: 0 0 0.75rem; color: #b91c1c; font-weight: 600">{{ error }}</p>
+      <button type="button" class="btn btn-outline btn-sm" @click="loadProducts">Thử lại</button>
+    </div>
+
+    <div v-else-if="!products.length" class="card" role="status">
+      <p class="muted" style="margin: 0">Chưa có sản phẩm nào trong kho của bạn.</p>
+    </div>
+
+    <div v-else class="table-wrap card">
       <table class="data">
         <thead>
           <tr>

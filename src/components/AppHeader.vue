@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
@@ -11,6 +11,7 @@ const auth = useAuthStore()
 const cart = useCartStore()
 const route = useRoute()
 const promoDismissed = ref(false)
+const mobileNavOpen = ref(false)
 
 const isShopMode = computed(() => {
   if (auth.role === 'guest' || auth.role === 'customer') return true
@@ -68,6 +69,17 @@ const showCart = computed(() => auth.role === 'guest' || canShopAsBuyer(auth.rol
 function onOpenCart() {
   cart.openDrawer()
 }
+
+function closeMobileNav() {
+  mobileNavOpen.value = false
+}
+
+watch(
+  () => route.path,
+  () => {
+    mobileNavOpen.value = false
+  },
+)
 </script>
 
 <template>
@@ -126,6 +138,19 @@ function onOpenCart() {
             </nav>
 
             <div class="shop-header__actions">
+              <button
+                type="button"
+                class="shop-icon-btn btn-interactive mobile-nav-toggle"
+                :aria-expanded="mobileNavOpen"
+                aria-controls="mobile-nav-drawer"
+                aria-label="Mở menu"
+                @click="mobileNavOpen = !mobileNavOpen"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <path d="M4 7h16M4 12h16M4 17h16" />
+                </svg>
+              </button>
+
               <RouterLink
                 to="/search"
                 class="shop-icon-btn btn-interactive"
@@ -176,11 +201,70 @@ function onOpenCart() {
         </nav>
 
         <div class="mkt-user-menu ops-account">
+          <button
+            type="button"
+            class="shop-icon-btn btn-interactive mobile-nav-toggle"
+            :aria-expanded="mobileNavOpen"
+            aria-controls="mobile-nav-drawer"
+            aria-label="Mở menu"
+            @click="mobileNavOpen = !mobileNavOpen"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16" />
+            </svg>
+          </button>
           <span class="badge badge-role">{{ roleLabels[auth.role] }}</span>
           <AccountHoverMenu variant="ops" />
         </div>
       </div>
     </header>
+
+    <div
+      v-if="mobileNavOpen"
+      id="mobile-nav-drawer"
+      class="mobile-nav"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Menu điều hướng"
+    >
+      <div class="mobile-nav__backdrop" @click="closeMobileNav" />
+      <nav class="mobile-nav__panel" @click.stop>
+        <div class="mobile-nav__head">
+          <strong>Menu</strong>
+          <button type="button" class="shop-icon-btn" aria-label="Đóng menu" @click="closeMobileNav">
+            ×
+          </button>
+        </div>
+        <template v-if="isShopMode">
+          <RouterLink v-if="opsHome" :to="opsHome" class="mobile-nav__link" @click="closeMobileNav">
+            {{ opsHomeLabel }}
+          </RouterLink>
+          <RouterLink to="/" class="mobile-nav__link" @click="closeMobileNav">Trang chủ</RouterLink>
+          <RouterLink to="/search" class="mobile-nav__link" @click="closeMobileNav">Cửa hàng</RouterLink>
+          <RouterLink
+            v-if="canShopAsBuyer(auth.role)"
+            to="/orders"
+            class="mobile-nav__link"
+            @click="closeMobileNav"
+          >
+            {{ auth.role === 'seller' ? 'Đơn mua' : 'Đơn hàng / lịch sử' }}
+          </RouterLink>
+          <RouterLink :to="contactTo" class="mobile-nav__link" @click="closeMobileNav">Liên hệ</RouterLink>
+        </template>
+        <template v-else>
+          <RouterLink
+            v-for="link in opsNavLinks"
+            :key="link.to"
+            :to="link.to"
+            class="mobile-nav__link"
+            @click="closeMobileNav"
+          >
+            {{ link.label }}
+          </RouterLink>
+          <RouterLink to="/" class="mobile-nav__link" @click="closeMobileNav">← Cửa hàng</RouterLink>
+        </template>
+      </nav>
+    </div>
   </div>
 </template>
 
@@ -281,6 +365,10 @@ function onOpenCart() {
   justify-self: end;
 }
 
+.mobile-nav-toggle {
+  display: none;
+}
+
 @media (max-width: 768px) {
   .nav {
     display: none;
@@ -289,5 +377,59 @@ function onOpenCart() {
   .shop-nav {
     display: none;
   }
+
+  .mobile-nav-toggle {
+    display: inline-flex;
+  }
+}
+
+.mobile-nav {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+}
+
+.mobile-nav__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.35);
+}
+
+.mobile-nav__panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: min(320px, 88vw);
+  height: 100%;
+  padding: 1rem;
+  background: #fff;
+  box-shadow: -8px 0 32px rgba(15, 23, 42, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  overflow-y: auto;
+}
+
+.mobile-nav__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.mobile-nav__link {
+  display: block;
+  padding: 0.7rem 0.75rem;
+  border-radius: 8px;
+  color: var(--slate-700, #334155);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.mobile-nav__link:hover,
+.mobile-nav__link.router-link-active {
+  background: var(--blue-soft, #eaf2ff);
+  color: var(--navy, #14275c);
+  text-decoration: none;
 }
 </style>

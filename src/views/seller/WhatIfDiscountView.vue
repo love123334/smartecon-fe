@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
-import { dssApi, productApi } from '@/api/services'
+import { dssApi } from '@/api/services'
 import type { SellerWhatIfApi } from '@/api/real/dss'
 import { useAuthStore } from '@/stores/auth'
+import { loadSellerCatalogForDss } from '@/utils/sellerCatalog'
 import {
   DISCOUNT_MAX,
   DISCOUNT_MIN,
@@ -80,7 +81,16 @@ async function loadSellerProducts() {
   productsError.value = ''
   try {
     const sellerKey = auth.user.backendId ?? auth.user.id
-    const list = await productApi.list({ sellerId: sellerKey, withStock: false })
+    const { products: list, error } = await loadSellerCatalogForDss({
+      sellerId: sellerKey,
+      withStock: false,
+    })
+    if (error) {
+      products.value = []
+      productId.value = ''
+      productsError.value = error
+      return
+    }
     products.value = list
       .map((p) => ({ id: Number(p.id), name: p.name }))
       .filter((p) => Number.isFinite(p.id) && p.id > 0)

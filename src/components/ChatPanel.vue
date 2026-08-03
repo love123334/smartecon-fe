@@ -462,6 +462,7 @@ defineExpose({ scrollToEnd: scrollEnd })
 
 .chat-form {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.45rem;
   margin-top: 0.65rem;
   align-items: center;
@@ -469,7 +470,7 @@ defineExpose({ scrollToEnd: scrollEnd })
 }
 
 .chat-form input {
-  flex: 1;
+  flex: 1 1 140px;
   min-width: 0;
   padding: 0.6rem 0.8rem;
   border: 1px solid var(--color-border);

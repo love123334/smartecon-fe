@@ -218,7 +218,10 @@ export function mapPlatformRevenueError(error: unknown): string {
       return error.message || 'Bạn không có quyền xem báo cáo doanh thu toàn sàn.'
     }
     if (error.status === 404) {
-      return error.message || 'Không tìm thấy báo cáo.'
+      return (
+        error.message ||
+        'Backend này chưa có API doanh thu sàn. Bạn vẫn xem được Looker Studio phía trên.'
+      )
     }
     if (error.status >= 500) {
       return error.message || 'Máy chủ gặp lỗi. Vui lòng thử lại sau.'

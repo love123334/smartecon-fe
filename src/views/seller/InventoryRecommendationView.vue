@@ -4,8 +4,9 @@ import { RouterLink } from 'vue-router'
 import InventoryStockBarChart from '@/components/dss/InventoryStockBarChart.vue'
 import InventorySalesTrendChart from '@/components/dss/InventorySalesTrendChart.vue'
 import { apiConfig } from '@/api/config'
-import { dssApi, productApi } from '@/api/services'
+import { dssApi } from '@/api/services'
 import { useAuthStore } from '@/stores/auth'
+import { loadSellerCatalogForDss } from '@/utils/sellerCatalog'
 import {
   INVENTORY_ERROR_MESSAGES,
   INVENTORY_PRODUCTS,
@@ -18,11 +19,14 @@ import {
 } from '@/utils/dssInventoryMock'
 
 const auth = useAuthStore()
-const products = ref<InventoryProductOption[]>([...INVENTORY_PRODUCTS])
+const products = ref<InventoryProductOption[]>(
+  apiConfig.useRealSeller ? [{ id: 'all', name: 'Tất cả sản phẩm của tôi' }] : [...INVENTORY_PRODUCTS],
+)
 const productQuery = ref('')
 const productId = ref('all')
 const planningKey = ref<PlanningPeriodKey>('14')
 const usingApi = ref(false)
+const catalogError = ref('')
 
 const loading = ref(false)
 const success = ref(false)
@@ -37,12 +41,21 @@ const filteredProducts = computed(() => {
 })
 
 const trendSeries = computed(() => result.value?.rows[0]?.historicalSales ?? [])
+const hasTrend = computed(() => trendSeries.value.length > 0)
 
 onMounted(async () => {
   if (!(apiConfig.useRealSeller && auth.isLoggedIn)) return
   try {
     const sellerKey = auth.user?.backendId ?? auth.user?.id
-    const list = await productApi.list({ sellerId: sellerKey, withStock: true })
+    const { products: list, error } = await loadSellerCatalogForDss({
+      sellerId: sellerKey,
+      withStock: true,
+    })
+    if (error) {
+      catalogError.value = error
+      usingApi.value = false
+      return
+    }
     if (list.length) {
       products.value = [
         { id: 'all', name: 'Tất cả sản phẩm của tôi' },
@@ -50,9 +63,13 @@ onMounted(async () => {
       ]
       productId.value = 'all'
       usingApi.value = true
+      catalogError.value = ''
+    } else {
+      catalogError.value = 'Bạn chưa có sản phẩm nào để tạo khuyến nghị tồn kho.'
     }
-  } catch {
-    /* mock */
+  } catch (e) {
+    catalogError.value = e instanceof Error ? e.message : 'Không tải được danh sách sản phẩm.'
+    usingApi.value = false
   }
 })
 
@@ -64,6 +81,15 @@ async function generate() {
   loading.value = true
 
   const planning = PLANNING_PERIOD_OPTIONS.find((o) => o.value === planningKey.value)!
+
+  if (apiConfig.useRealSeller && !usingApi.value) {
+    apiError.value =
+      catalogError.value ||
+      'Chưa kết nối được catalog backend — không chạy mô phỏng demo khi đang ở chế độ API thật.'
+    errorCode.value = 'failed'
+    loading.value = false
+    return
+  }
 
   if (usingApi.value) {
     try {
@@ -86,6 +112,7 @@ async function generate() {
       }))
       if (!rows.length) {
         errorCode.value = 'failed'
+        apiError.value = 'Backend không trả về dòng khuyến nghị nào.'
         return
       }
       const focus = rows[0]
@@ -155,14 +182,16 @@ function clearError() {
       </p>
     </header>
 
-    <section v-if="errorCode" class="dss-warn-card">
-      <div class="dss-warn-card__icon" aria-hidden="true">⚠</div>
-      <h2>{{ apiError || INVENTORY_ERROR_MESSAGES[errorCode] }}</h2>
-      <button type="button" class="dss-btn dss-btn--outline" @click="clearError">Quay lại</button>
-    </section>
+    <div v-if="catalogError" class="dss-alert dss-alert--warn" role="alert">
+      {{ catalogError }}
+    </div>
 
-    <template v-else>
-      <section class="dss-card">
+    <div v-if="errorCode" class="dss-alert dss-alert--warn" role="alert">
+      <p style="margin: 0 0 0.5rem">{{ apiError || INVENTORY_ERROR_MESSAGES[errorCode] }}</p>
+      <button type="button" class="dss-btn dss-btn--outline" @click="clearError">Đóng</button>
+    </div>
+
+    <section class="dss-card">
         <h2 class="dss-card__title">Cấu hình</h2>
         <div class="dss-form-grid dss-form-grid--3">
           <label class="dss-field">
@@ -299,12 +328,15 @@ function clearError() {
             <h2 class="dss-card__title">Xu hướng bán hàng lịch sử</h2>
             <p class="dss-hint">Dùng để tính nhu cầu trung bình mỗi ngày (ADD).</p>
             <InventorySalesTrendChart
+              v-if="hasTrend"
               :series="trendSeries"
               :product-name="result.rows[0]?.productName"
             />
+            <p v-else class="dss-hint">
+              Backend chưa trả chuỗi lịch sử bán — biểu đồ ẩn. Nhu cầu TB/ngày vẫn lấy từ API khuyến nghị.
+            </p>
           </section>
         </div>
       </template>
-    </template>
   </div>
 </template>

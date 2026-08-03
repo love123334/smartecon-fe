@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
@@ -18,6 +18,7 @@ const cart = useCartStore()
 const router = useRouter()
 const open = ref(false)
 let closeTimer: ReturnType<typeof setTimeout> | null = null
+const rootEl = ref<HTMLElement | null>(null)
 
 const roleLabels: Record<string, string> = {
   customer: 'Khách hàng',
@@ -47,6 +48,27 @@ function onLeave() {
   }, 120)
 }
 
+function toggleOpen() {
+  if (closeTimer) clearTimeout(closeTimer)
+  open.value = !open.value
+}
+
+function onDocPointerDown(e: PointerEvent) {
+  if (!open.value || !rootEl.value) return
+  if (!rootEl.value.contains(e.target as Node)) {
+    open.value = false
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('pointerdown', onDocPointerDown)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('pointerdown', onDocPointerDown)
+  if (closeTimer) clearTimeout(closeTimer)
+})
+
 async function logout() {
   await auth.logout()
   cart.lines = []
@@ -55,7 +77,7 @@ async function logout() {
 </script>
 
 <template>
-  <div class="account-menu-root">
+  <div ref="rootEl" class="account-menu-root">
     <div
       v-if="auth.user"
       class="account-menu"
@@ -69,6 +91,7 @@ async function logout() {
         aria-haspopup="true"
         :aria-expanded="open"
         aria-label="Tài khoản"
+        @click.stop="toggleOpen"
       >
         <UserAvatar
           :name="auth.user.fullName"
