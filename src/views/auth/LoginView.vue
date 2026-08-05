@@ -134,6 +134,7 @@ async function submit() {
             Mật khẩu chung: <code>{{ demoPassword }}</code>
             <span v-if="apiConfig.useRealAuth" class="demo-hint">(backend)</span>
             <span v-else class="demo-hint">(mock)</span>
+            · Seller DSS (team khác): <code>password</code>
           </p>
           <div class="demo-grid">
             <button

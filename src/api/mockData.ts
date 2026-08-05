@@ -17,8 +17,9 @@ export interface DemoAccount {
   password?: string
 }
 
-/** DSS platform-revenue demo seller (Flyway V43/V44) — same password as other backend demos */
+/** DSS demo seller from teammate dataset — password is literally "password" */
 export const DSS_DEMO_SELLER_EMAIL = 'seller.dss.demo@example.com'
+export const DSS_DEMO_PASSWORD = 'password'
 
 export const DEMO_ACCOUNTS: DemoAccount[] = [
   {
@@ -40,7 +41,8 @@ export const DEMO_ACCOUNTS: DemoAccount[] = [
     label: 'Seller DSS',
     fullName: 'DSS Demo Seller',
     email: DSS_DEMO_SELLER_EMAIL,
-    description: 'Platform revenue / DSS dataset',
+    description: 'Dataset từ team DSS (pass: password)',
+    password: DSS_DEMO_PASSWORD,
   },
   {
     role: 'manager',
