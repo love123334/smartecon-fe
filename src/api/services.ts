@@ -599,7 +599,8 @@ export const productApi = {
         }
         return p
       } catch {
-        /* fallback mock */
+        // Không fallback mock — tránh hiện SP localStorage (vd. AirFlex) thay vì DB
+        return null
       }
     }
     return mockProductApi.getById(id)
@@ -1022,16 +1023,12 @@ const mockOrderApi = {
 
 async function mergedAllOrders(): Promise<Order[]> {
   let orders: Order[] = []
-  if (apiConfig.useRealOrders && hasBackendToken()) {
-    try {
-      orders = await realOrders.listManagedOrders(0, 100)
-    } catch {
-      /* backend hiện tại chưa có GET /orders/manage — dùng mock + overlay */
-      orders = await mockOrderApi.listAll()
-    }
-  } else {
-    orders = await mockOrderApi.listAll()
+  if (apiConfig.useRealOrders) {
+    if (!hasBackendToken()) return []
+    orders = await realOrders.listManagedOrders(0, 100)
+    return applyOrderOverlays(orders).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
   }
+  orders = await mockOrderApi.listAll()
   const merged = applyOrderOverlays(orders)
   const ids = new Set(merged.map((o) => o.id))
   return [...merged, ...overlayOnlyOrders(ids)].sort((a, b) =>
@@ -1042,8 +1039,10 @@ async function mergedAllOrders(): Promise<Order[]> {
 export const orderApi = {
   async listForCustomer(customerId: string): Promise<Order[]> {
     let orders: Order[]
-    if (apiConfig.useRealOrders && hasBackendToken()) {
-      orders = await realOrders.listMyOrders()
+    if (apiConfig.useRealOrders) {
+      if (!hasBackendToken()) return []
+      // Chỉ đơn từ DB — không trộn seedOrders / localStorage mock
+      orders = await realOrders.listMyOrders(0, 50)
     } else {
       orders = await mockOrderApi.listForCustomer(customerId)
     }
@@ -1076,7 +1075,7 @@ export const orderApi = {
       }
     }
 
-    if (!orders.length) {
+    if (!orders.length && !apiConfig.useRealOrders) {
       const sellerId = getUsers().find((u) => u.role === 'seller')?.id ?? 'u-seller'
       const productIds = new Set(
         getProducts().filter((p) => p.sellerId === sellerId).map((p) => p.id),
@@ -1088,6 +1087,12 @@ export const orderApi = {
     }
 
     const merged = applyOrderOverlays(orders)
+    if (apiConfig.useRealOrders) {
+      return {
+        orders: merged.sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+        source,
+      }
+    }
     const ids = new Set(merged.map((o) => o.id))
     const extra = overlayOnlyOrders(ids)
     return {
@@ -1102,11 +1107,13 @@ export const orderApi = {
 
   async getById(id: string): Promise<Order | null> {
     let order: Order | null = null
-    if (apiConfig.useRealOrders && hasBackendToken()) {
+    if (apiConfig.useRealOrders) {
+      if (!hasBackendToken()) return null
       order = await realOrders.getOrderById(id)
-    } else {
-      order = await mockOrderApi.getById(id)
+      if (!order) return null
+      return applyOrderOverlay(order)
     }
+    order = await mockOrderApi.getById(id)
     if (!order) {
       const only = overlayOnlyOrders(new Set()).find((o) => o.id === id)
       return only ?? null
@@ -1572,14 +1579,17 @@ export const dssApi = {
   },
 
   async recommendations(customerId: string): Promise<Recommendation[]> {
-    let orders = getOrders().filter((o) => o.customerId === customerId)
-    if (apiConfig.useRealOrders && hasBackendToken()) {
-      try {
-        const real = await realOrders.listMyOrders()
-        orders = [...orders, ...real]
-      } catch {
-        /* keep mock orders */
+    let orders: Order[] = []
+    if (apiConfig.useRealOrders) {
+      if (hasBackendToken()) {
+        try {
+          orders = await realOrders.listMyOrders(0, 50)
+        } catch {
+          orders = []
+        }
       }
+    } else {
+      orders = getOrders().filter((o) => o.customerId === customerId)
     }
 
     let catalog: Product[] = []

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { formatVnd, orderApi, reviewApi } from '@/api/services'
 import type { Order, ProductReview } from '@/types'
 import { useAuthStore } from '@/stores/auth'
@@ -12,6 +13,7 @@ import OrderProductReview from '@/components/OrderProductReview.vue'
 import PageHeader from '@/components/PageHeader.vue'
 
 const auth = useAuthStore()
+const router = useRouter()
 const orders = ref<Order[]>([])
 const loading = ref(true)
 const error = ref('')
@@ -55,8 +57,21 @@ function statusClass(s: string) {
   return `badge badge-${s}`
 }
 
-function toggleTrack(id: string) {
-  expandedId.value = expandedId.value === id ? null : id
+function primaryProductId(order: Order): string | null {
+  return order.items[0]?.productId ?? null
+}
+
+/** Một SP → vào trang SP; nhiều SP → mở danh sách để chọn */
+function onViewProduct(order: Order) {
+  const items = order.items
+  if (items.length === 1) {
+    void router.push({ name: 'product-detail', params: { id: items[0].productId } })
+    return
+  }
+  if (items.length > 1) {
+    expandedId.value = expandedId.value === order.id ? null : order.id
+    return
+  }
 }
 
 function canReviewItem(order: Order, productId: string): boolean {
@@ -76,6 +91,10 @@ function onReviewSubmitted(productId: string) {
   void reviewApi.list(productId).then((list) => {
     reviewsByProduct.value = { ...reviewsByProduct.value, [productId]: list }
   })
+}
+
+function showItems(order: Order): boolean {
+  return expandedId.value === order.id || order.status === 'delivered' || order.items.length <= 1
 }
 </script>
 
@@ -118,8 +137,20 @@ function onReviewSubmitted(productId: string) {
         <OrderTrackStepper :status="o.status" compact show-hint />
 
         <div class="orders-track-card__actions">
-          <button type="button" class="btn btn-sm" @click="toggleTrack(o.id)">
-            {{ expandedId === o.id ? 'Ẩn sản phẩm' : 'Xem sản phẩm' }}
+          <RouterLink
+            v-if="o.items.length === 1 && primaryProductId(o)"
+            :to="{ name: 'product-detail', params: { id: primaryProductId(o)! } }"
+            class="btn btn-sm"
+          >
+            Xem sản phẩm
+          </RouterLink>
+          <button
+            v-else-if="o.items.length > 1"
+            type="button"
+            class="btn btn-sm"
+            @click="onViewProduct(o)"
+          >
+            {{ expandedId === o.id ? 'Ẩn danh sách SP' : 'Xem sản phẩm' }}
           </button>
           <RouterLink
             v-if="o.status === 'delivered'"
@@ -133,10 +164,21 @@ function onReviewSubmitted(productId: string) {
           </RouterLink>
         </div>
 
-        <ul v-if="expandedId === o.id || o.status === 'delivered'" class="orders-track-card__items">
+        <ul v-if="showItems(o)" class="orders-track-card__items">
           <li v-for="item in o.items" :key="item.productId" class="orders-track-item">
-            <div class="orders-track-item__name">
-              {{ item.productName }} × {{ item.quantity }}
+            <div class="orders-track-item__head">
+              <RouterLink
+                class="orders-track-item__name"
+                :to="{ name: 'product-detail', params: { id: item.productId } }"
+              >
+                {{ item.productName }} × {{ item.quantity }}
+              </RouterLink>
+              <RouterLink
+                class="orders-track-item__link"
+                :to="{ name: 'product-detail', params: { id: item.productId } }"
+              >
+                Xem SP →
+              </RouterLink>
             </div>
             <OrderProductReview
               v-if="canReviewItem(o, item.productId)"
@@ -208,10 +250,38 @@ function onReviewSubmitted(productId: string) {
   background: #fafbfc;
 }
 
+.orders-track-item__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
 .orders-track-item__name {
   font-size: 0.9rem;
   font-weight: 600;
-  margin-bottom: 0.35rem;
+  color: var(--navy, #14275c);
+  text-decoration: none;
+}
+
+.orders-track-item__name:hover {
+  color: var(--primary-600, #2e7df6);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.orders-track-item__link {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--primary-700, #1f63d4);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.orders-track-item__link:hover {
+  text-decoration: underline;
 }
 
 .orders-track-item__note {

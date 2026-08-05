@@ -286,12 +286,21 @@ async function onReviewSubmitted(productId: string) {
             </div>
             <div v-for="item in order.items" :key="item.productId" class="elegant-cart-row">
               <div class="elegant-cart-row__product">
-                <img
-                  :src="productsById[item.productId]?.imageUrl ?? 'https://placehold.co/80x80/f3f5f7/737373?text=SP'"
-                  :alt="item.productName"
-                />
+                <RouterLink :to="{ name: 'product-detail', params: { id: item.productId } }">
+                  <img
+                    :src="productsById[item.productId]?.imageUrl ?? 'https://placehold.co/80x80/f3f5f7/737373?text=SP'"
+                    :alt="item.productName"
+                  />
+                </RouterLink>
                 <div>
-                  <div class="elegant-cart-row__name">{{ item.productName }}</div>
+                  <div class="elegant-cart-row__name">
+                    <RouterLink
+                      class="order-item-product-link"
+                      :to="{ name: 'product-detail', params: { id: item.productId } }"
+                    >
+                      {{ item.productName }}
+                    </RouterLink>
+                  </div>
                   <SellerShopTag
                     v-if="productsById[item.productId]"
                     :product="productsById[item.productId]"
@@ -371,6 +380,18 @@ async function onReviewSubmitted(productId: string) {
 .order-item-seller-tag {
   display: inline-flex;
   margin: 0.35rem 0 0.25rem;
+}
+
+.order-item-product-link {
+  color: inherit;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.order-item-product-link:hover {
+  color: var(--primary-600, #2e7df6);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .review-link--muted {
