@@ -7,7 +7,10 @@ import type { DssInsightPlanApi } from '@/api/real/dss'
 import { useAuthStore } from '@/stores/auth'
 import PageHeader from '@/components/PageHeader.vue'
 import AiShortcutBar from '@/components/AiShortcutBar.vue'
-import { sanitizeDssCommentary } from '@/utils/dssCommentary'
+import {
+  buildSellerAiInsightsSummary,
+  sanitizeDssCommentary,
+} from '@/utils/dssCommentary'
 
 const auth = useAuthStore()
 const insights = ref<DssInsight[]>([])
@@ -17,7 +20,23 @@ const planLoading = ref(false)
 
 const sellerKey = computed(() => auth.user?.backendId ?? auth.user?.id)
 const embedUrl = computed(() => plan.value?.powerBiEmbedUrl?.trim() || '')
-const planCommentary = computed(() => sanitizeDssCommentary(plan.value?.commentary || ''))
+
+const planCommentary = computed(() => {
+  const raw = sanitizeDssCommentary(plan.value?.commentary || '')
+  if (raw.trim().length > 40) return raw
+  return sanitizeDssCommentary(buildSellerAiInsightsSummary(insights.value))
+})
+
+const commentarySections = computed(() => {
+  const text = planCommentary.value
+  const parts = text.split(/^##\s+/m).filter(Boolean)
+  return parts.map((block) => {
+    const nl = block.indexOf('\n')
+    const title = (nl >= 0 ? block.slice(0, nl) : block).trim()
+    const body = (nl >= 0 ? block.slice(nl + 1) : '').trim()
+    return { title, body }
+  })
+})
 
 onMounted(async () => {
   insights.value = await dssApi.sellerInsights(sellerKey.value)
@@ -25,10 +44,6 @@ onMounted(async () => {
   planError.value = ''
   try {
     plan.value = await dssApi.insightPlan()
-    // Fallback vẫn trả plan — nếu source local-fallback thì nhắc đăng nhập lại
-    if (plan.value?.source === 'local-fallback') {
-      planError.value = ''
-    }
   } catch (e) {
     planError.value = e instanceof Error ? e.message : 'Không tải được kế hoạch DSS'
   } finally {
@@ -42,7 +57,7 @@ onMounted(async () => {
     <PageHeader
       eyebrow="Người bán"
       title="Hỗ trợ quyết định (DSS)"
-      lead="Dự báo nhu cầu, gợi ý giá và khuyến nghị bổ sung tồn kho — dashboard phân tích cho người bán."
+      lead="Dự báo nhu cầu, gợi ý giá và khuyến nghị tồn kho — kèm nhận định AI từ số liệu bán hàng."
     />
     <AiShortcutBar
       title="Tiếp theo:"
@@ -54,36 +69,43 @@ onMounted(async () => {
         { to: '/seller/orders', label: 'Đơn bán' },
       ]"
     />
-    <section class="dss-brain">
+
+    <section class="dss-brain" aria-labelledby="dss-ai-title">
       <div class="dss-brain__head">
-        <h3>Nhận xét & kế hoạch</h3>
+        <h3 id="dss-ai-title">Nhận định AI &amp; kế hoạch</h3>
         <small v-if="plan">{{ plan.generatedAt }}</small>
       </div>
       <p v-if="planLoading" class="dss-brain__loading">Đang tổng hợp số liệu…</p>
-      <p v-else-if="planError" class="dss-brain__err">{{ planError }}</p>
-      <div v-else-if="plan" class="dss-brain__body">
-        <pre class="dss-brain__md">{{ planCommentary }}</pre>
+      <p v-else-if="planError && !planCommentary" class="dss-brain__err">{{ planError }}</p>
+      <div v-else class="dss-brain__body">
+        <div v-if="commentarySections.length" class="dss-ai-sections">
+          <article v-for="(sec, idx) in commentarySections" :key="idx" class="dss-ai-sec">
+            <h4>{{ sec.title }}</h4>
+            <pre class="dss-brain__md">{{ sec.body }}</pre>
+          </article>
+        </div>
+        <pre v-else class="dss-brain__md">{{ planCommentary }}</pre>
         <iframe
           v-if="embedUrl"
           class="dss-brain__embed"
           :src="embedUrl"
-          :title="plan.powerBiReportTitle || 'Power BI'"
+          :title="plan?.powerBiReportTitle || 'Power BI'"
           allowfullscreen
         />
       </div>
     </section>
 
-      <div class="dss-hub">
+    <div class="dss-hub">
       <RouterLink class="dss-hub__card" to="/seller/dss/demand">
         <span class="dss-hub__tag">Dự báo</span>
         <h2>Dự báo nhu cầu</h2>
-        <p>Moving Average · Historical Days / Forecast Period · thẻ KPI tóm tắt.</p>
+        <p>Dự báo từ lịch sử bán hàng · KPI tóm tắt.</p>
         <span class="dss-hub__cta">Mở →</span>
       </RouterLink>
       <RouterLink class="dss-hub__card" to="/seller/dss/price">
         <span class="dss-hub__tag">Giá bán</span>
         <h2>Gợi ý giá</h2>
-        <p>Hệ số co giãn · bảng scenario · best recommendation · không biểu đồ.</p>
+        <p>Hệ số co giãn · bảng scenario · best recommendation.</p>
         <span class="dss-hub__cta">Mở →</span>
       </RouterLink>
       <RouterLink class="dss-hub__card" to="/seller/dss/inventory">
@@ -94,8 +116,8 @@ onMounted(async () => {
       </RouterLink>
       <RouterLink class="dss-hub__card" to="/seller/dss/what-if">
         <span class="dss-hub__tag">What-if</span>
-        <h2>Giảm giá & lợi nhuận</h2>
-        <p>Mô phỏng % giảm giá · hòa vốn · lợi nhuận kỳ vọng (API seller).</p>
+        <h2>Giảm giá &amp; lợi nhuận</h2>
+        <p>Mô phỏng % giảm giá · hòa vốn · lợi nhuận kỳ vọng.</p>
         <span class="dss-hub__cta">Mở →</span>
       </RouterLink>
     </div>
@@ -135,6 +157,22 @@ onMounted(async () => {
 }
 .dss-brain__head small {
   color: #64748b;
+}
+.dss-ai-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+.dss-ai-sec {
+  padding: 0.75rem 0.9rem;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px solid #e8eef8;
+}
+.dss-ai-sec h4 {
+  margin: 0 0 0.4rem;
+  font-size: 0.9rem;
+  color: #1565c0;
 }
 .dss-brain__md {
   margin: 0;
@@ -178,14 +216,6 @@ onMounted(async () => {
   border-color: #90caf9;
   box-shadow: 0 4px 14px rgba(25, 118, 210, 0.14);
 }
-.dss-hub__card--muted {
-  opacity: 0.72;
-  background: #f8fafc;
-}
-.dss-hub__card--muted:hover {
-  border-color: #e3e8ef;
-  box-shadow: 0 2px 8px rgba(25, 118, 210, 0.08);
-}
 .dss-hub__tag {
   display: inline-block;
   font-size: 0.7rem;
@@ -198,19 +228,19 @@ onMounted(async () => {
   border-radius: 999px;
 }
 .dss-hub__card h2 {
-  margin: 0.6rem 0 0.35rem;
+  margin: 0.55rem 0 0.35rem;
   font-size: 1.15rem;
-  color: #0d47a1;
 }
 .dss-hub__card p {
   margin: 0;
   color: #64748b;
-  font-size: 0.9rem;
+  font-size: 0.875rem;
+  line-height: 1.45;
 }
 .dss-hub__cta {
   display: inline-block;
   margin-top: 0.75rem;
-  font-size: 0.85rem;
+  font-size: 0.8125rem;
   font-weight: 700;
   color: #1565c0;
 }
@@ -218,9 +248,20 @@ onMounted(async () => {
   margin: 0 0 0.75rem;
 }
 .insight .impact {
-  text-transform: uppercase;
+  display: inline-block;
   font-size: 0.7rem;
   font-weight: 700;
+  text-transform: uppercase;
+  margin-bottom: 0.35rem;
+}
+.insight .impact.high {
+  color: #c62828;
+}
+.insight .impact.medium {
+  color: #ef6c00;
+}
+.insight .impact.low {
+  color: #2e7d32;
 }
 @media (max-width: 720px) {
   .dss-hub {

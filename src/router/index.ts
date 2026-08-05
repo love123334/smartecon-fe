@@ -103,6 +103,24 @@ const router = createRouter({
       meta: { roles: ['customer', 'manager'], title: 'Trợ lý AI' },
     },
     {
+      path: '/contact',
+      name: 'contact',
+      component: () => import('@/views/guest/ContactView.vue'),
+      meta: { title: 'Liên hệ' },
+    },
+    {
+      path: '/privacy',
+      name: 'privacy',
+      component: () => import('@/views/guest/PrivacyView.vue'),
+      meta: { title: 'Chính sách bảo mật' },
+    },
+    {
+      path: '/terms',
+      name: 'terms',
+      component: () => import('@/views/guest/TermsView.vue'),
+      meta: { title: 'Điều khoản' },
+    },
+    {
       path: '/seller/products',
       name: 'seller-products',
       component: () => import('@/views/seller/ProductManageView.vue'),
@@ -209,7 +227,8 @@ const router = createRouter({
 
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
-  if (!auth.user && !auth.loading) {
+  // Always await shared hydrate when session not ready (single-flight in store)
+  if (!auth.user) {
     await auth.hydrate()
   }
 

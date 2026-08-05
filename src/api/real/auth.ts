@@ -9,6 +9,15 @@ import {
   type BackendMeResponse,
   type BackendUserProfileResponse,
 } from '@/api/real/mappers'
+import {
+  clearUserSnapshot,
+  readUserSnapshot,
+  saveUserSnapshot,
+} from '@/utils/sessionSnapshot'
+
+function isAuthRejected(status: number): boolean {
+  return status === 401 || status === 403
+}
 
 export async function login(email: string, password: string): Promise<User> {
   const data = await http.post<BackendLoginResponse>(apiPaths.auth.login, {
@@ -19,55 +28,82 @@ export async function login(email: string, password: string): Promise<User> {
 
   try {
     const me = await http.get<BackendMeResponse>(apiPaths.auth.me)
-    return mapBackendUser({
+    const user = mapBackendUser({
       ...me,
       role: me.role ?? data.user.role,
     })
-  } catch {
-    return mapBackendUser({
+    saveUserSnapshot(user)
+    return user
+  } catch (e) {
+    const status = e instanceof ApiError ? e.status : 0
+    if (isAuthRejected(status)) {
+      clearAccessToken()
+      clearUserSnapshot()
+      throw e
+    }
+    // /me lỗi tạm — vẫn giữ phiên từ payload login
+    const user = mapBackendUser({
       id: data.user.id,
       email: data.user.email,
       username: data.user.username,
       role: data.user.role,
     })
+    saveUserSnapshot(user)
+    return user
   }
 }
 
 export async function getCurrentUser(): Promise<User | null> {
   const token = localStorage.getItem('sedsp_access_token')
-  if (!token) return null
+  if (!token) {
+    clearUserSnapshot()
+    return null
+  }
+
+  // Mock token — không gọi /auth/me
+  if (token.startsWith('mock.')) {
+    return readUserSnapshot()
+  }
 
   const fetchMe = async () => {
     const me = await http.get<BackendMeResponse>(apiPaths.auth.me)
-    return mapBackendUser(me)
+    const user = mapBackendUser(me)
+    saveUserSnapshot(user)
+    return user
   }
 
   try {
     return await fetchMe()
   } catch (e) {
     const status = e instanceof ApiError ? e.status : 0
-    // Only wipe JWT on real auth rejection — keep session across network blips
-    // (VNPay return reload + brief /auth/me timeout must not log the user out)
-    if (status === 401 || status === 403) {
+    if (isAuthRejected(status)) {
       clearAccessToken()
+      clearUserSnapshot()
       return null
     }
-    // One retry for transient failures right after payment-gateway return
+    // Retry một lần cho lỗi tạm (network / 5xx)
     try {
-      await new Promise((r) => setTimeout(r, 450))
+      await new Promise((r) => setTimeout(r, 400))
       return await fetchMe()
     } catch (e2) {
       const status2 = e2 instanceof ApiError ? e2.status : 0
-      if (status2 === 401 || status2 === 403) {
+      if (isAuthRejected(status2)) {
         clearAccessToken()
+        clearUserSnapshot()
+        return null
       }
-      return null
+      // Giữ phiên từ snapshot nếu JWT vẫn còn
+      const snap = readUserSnapshot()
+      if (snap) return snap
+      // Không wipe token — để hydrate / lần sau thử lại
+      throw e2 instanceof Error ? e2 : new Error('Không tải được phiên đăng nhập')
     }
   }
 }
 
 export async function logout(): Promise<void> {
   clearAccessToken()
+  clearUserSnapshot()
 }
 
 export async function updateProfile(
@@ -78,7 +114,9 @@ export async function updateProfile(
     fullName: patch.fullName,
     phone: patch.phone,
   })
-  return mapBackendUser(data)
+  const user = mapBackendUser(data)
+  saveUserSnapshot(user)
+  return user
 }
 
 export type RegisterResult =

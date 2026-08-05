@@ -1,14 +1,18 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { RouterLink } from 'vue-router'
+import { useRouter } from 'vue-router'
 import type { ChatProductRef } from '@/types'
 import { formatVnd } from '@/api/chat/match'
 import { handleProductImageError, repairProductImageUrl } from '@/utils/productImage'
+import { useChatWidgetStore } from '@/stores/chatWidget'
 
 const props = defineProps<{
   product: ChatProductRef
   compact?: boolean
 }>()
+
+const router = useRouter()
+const widget = useChatWidgetStore()
 
 const displaySrc = computed(() =>
   repairProductImageUrl(props.product.imageUrl, {
@@ -24,7 +28,6 @@ function onImgError(e: Event) {
 const stockLabel = computed(() => {
   const s = props.product.stock
   if (s == null || Number.isNaN(Number(s))) return null
-  // stock=0 từ list API là giả — chỉ báo hết hàng khi đã xác nhận inventory
   if (s <= 0) return props.product.stockKnown ? 'Hết hàng' : null
   return `Còn ${s}`
 })
@@ -33,10 +36,15 @@ const stockOut = computed(() => {
   const s = props.product.stock
   return Boolean(props.product.stockKnown && s != null && s <= 0)
 })
+
+function openProduct() {
+  widget.hide()
+  void router.push(`/products/${props.product.id}`)
+}
 </script>
 
 <template>
-  <RouterLink :to="`/products/${product.id}`" class="chat-mini-card" :title="product.name">
+  <button type="button" class="chat-mini-card" :title="product.name" @click="openProduct">
     <div class="chat-mini-card__media">
       <img
         :src="displaySrc"
@@ -61,7 +69,7 @@ const stockOut = computed(() => {
         {{ stockLabel }}
       </p>
     </div>
-  </RouterLink>
+  </button>
 </template>
 
 <style scoped>
@@ -70,14 +78,17 @@ const stockOut = computed(() => {
   gap: 0.55rem;
   min-width: 0;
   max-width: 100%;
+  width: 100%;
   padding: 0.45rem;
   border: 1px solid var(--color-border);
   border-radius: 10px;
   background: #fff;
-  text-decoration: none;
   color: inherit;
   overflow: hidden;
   box-sizing: border-box;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
   transition: border-color var(--transition), box-shadow var(--transition), transform var(--transition);
 }
 
@@ -85,8 +96,6 @@ const stockOut = computed(() => {
   border-color: var(--primary-500);
   box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
   transform: translateY(-1px);
-  text-decoration: none;
-  color: inherit;
 }
 
 .chat-mini-card__media {
@@ -103,17 +112,6 @@ const stockOut = computed(() => {
   height: 100%;
   object-fit: cover;
   display: block;
-}
-
-.chat-mini-card__fallback {
-  width: 100%;
-  height: 100%;
-  display: grid;
-  place-items: center;
-  font-size: 0.7rem;
-  font-weight: 700;
-  color: var(--slate-500);
-  background: var(--slate-100);
 }
 
 .chat-mini-card__body {
@@ -142,8 +140,6 @@ const stockOut = computed(() => {
   font-size: 0.75rem;
   font-weight: 750;
   color: var(--slate-900);
-  min-width: 0;
-  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -158,7 +154,6 @@ const stockOut = computed(() => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 100%;
 }
 
 .chat-mini-card__stock[data-out='1'] {

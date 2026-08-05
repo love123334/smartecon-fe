@@ -26,6 +26,7 @@ import { buildChatContext } from '@/api/chat/context'
 import { chatModeLabel, resolveChatReply, refreshBeAiStatus } from '@/api/chat/responder'
 import { isLlmConfigured } from '@/api/chat/llm'
 import { applyAvatarToUser, saveUserAvatar } from '@/utils/avatar'
+import { clearUserSnapshot, saveUserSnapshot } from '@/utils/sessionSnapshot'
 import { categoryRevenueChart, monthlyRevenueChart } from '@/utils/orderAnalytics'
 import { scoreProductRecommendation } from '@/utils/recommendationScore'
 import { repairProductImageUrl } from '@/utils/productImage'
@@ -178,7 +179,9 @@ const mockAuthApi = {
       'sedsp_access_token',
       `mock.${btoa(JSON.stringify({ sub: user.id, role: user.role.toUpperCase() }))}`,
     )
-    return publicUser(user)
+    const pub = publicUser(user)
+    saveUserSnapshot(pub)
+    return pub
   },
 
   async register(data: {
@@ -214,6 +217,7 @@ const mockAuthApi = {
     await delay(30)
     storageSet(STORAGE_KEYS.session, null)
     localStorage.removeItem('sedsp_access_token')
+    clearUserSnapshot()
   },
 
   async getCurrentUser(): Promise<User | null> {
@@ -276,11 +280,17 @@ export const authApi = apiConfig.useRealAuth
           const u = await realAuth.getCurrentUser()
           return u ? applyRoleOverride(u) : null
         } catch (e) {
+          // Transient /me failure: realAuth may throw; keep JWT session via snapshot inside realAuth.
+          // Do NOT fall through to mock guest — that logs the user out on reload.
           if (isBackendUnreachableError(e)) {
+            const token = localStorage.getItem('sedsp_access_token')
+            if (token && !token.startsWith('mock.')) {
+              throw e
+            }
             const u = await mockAuthApi.getCurrentUser()
             return u ? applyRoleOverride(u) : null
           }
-          return null
+          throw e
         }
       },
       updateProfile: async (

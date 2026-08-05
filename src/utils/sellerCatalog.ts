@@ -8,16 +8,30 @@ export interface SellerCatalogLoadResult {
   error: string
 }
 
+function uniqueById(list: Product[]): Product[] {
+  const seen = new Set<string>()
+  const out: Product[] = []
+  for (const p of list) {
+    const id = String(p.id)
+    if (seen.has(id)) continue
+    seen.add(id)
+    out.push(p)
+  }
+  return out
+}
+
 /**
  * Load seller products for DSS forms.
  * In real-API mode, never return mock catalog (mock IDs break DSS POSTs).
+ * Fallback: nếu filter sellerId API trống, lấy catalog rộng hơn rồi lọc theo seller.
  */
 export async function loadSellerCatalogForDss(opts: {
   sellerId?: string
   withStock?: boolean
 }): Promise<SellerCatalogLoadResult> {
+  const sellerId = opts.sellerId?.trim()
   const meta = await productApi.listWithMeta({
-    sellerId: opts.sellerId,
+    sellerId,
     withStock: opts.withStock ?? false,
     size: 100,
   })
@@ -32,9 +46,32 @@ export async function loadSellerCatalogForDss(opts: {
     }
   }
 
+  let products = uniqueById(meta.products)
+
+  // Nếu API sellerId không trả SP (một số backend chỉ lọc khi đúng numeric id),
+  // thử lấy list rộng rồi lọc client theo sellerId / email.
+  if (!products.length && sellerId) {
+    const broad = await productApi.listWithMeta({
+      withStock: opts.withStock ?? false,
+      size: 120,
+    })
+    if (!(apiConfig.useRealProducts && broad.catalogSource === 'mock')) {
+      const key = sellerId.toLowerCase()
+      products = uniqueById(
+        broad.products.filter((p) => {
+          const sid = String(p.sellerId ?? '').toLowerCase()
+          const email = String(p.sellerEmail ?? '').toLowerCase()
+          return sid === key || email === key || email.includes(key)
+        }),
+      )
+    }
+  }
+
   return {
-    products: meta.products,
+    products,
     catalogSource: meta.catalogSource,
-    error: '',
+    error: products.length
+      ? ''
+      : 'Bạn chưa có sản phẩm nào để tạo dự báo. Thêm SP tại Quản lý sản phẩm trước.',
   }
 }

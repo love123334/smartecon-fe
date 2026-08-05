@@ -256,7 +256,7 @@ async function addRelated(id: string) {
           <div class="elegant-product__main">
             <div class="elegant-product__badges">
               <span v-if="isNew" class="elegant-badge elegant-badge--dark">Mới</span>
-              <span v-if="discount > 0" class="elegant-badge elegant-badge--green">-{{ discount }}%</span>
+              <span v-if="discount > 0" class="elegant-badge elegant-badge--sale">-{{ discount }}%</span>
             </div>
             <img :src="mainImage" :alt="product.name" @error="onDetailImgError" />
           </div>
@@ -281,7 +281,9 @@ async function addRelated(id: string) {
             <span class="elegant-product__review-count">({{ reviewCount || product.reviewCount || displayReviews.length }} đánh giá)</span>
           </p>
           <h1 class="elegant-product__title">{{ product.name }}</h1>
-          <p class="elegant-product__desc">{{ product.description }}</p>
+          <p class="elegant-product__desc">
+            {{ product.description?.split(/[.\n]/)[0]?.trim() || product.category }}
+          </p>
 
           <div class="elegant-product__price-row">
             <span class="elegant-product__price">{{ formatVnd(product.price) }}</span>

@@ -41,6 +41,13 @@ const selectedProduct = computed(() =>
   products.value.find((p) => p.id === productId.value) ?? null,
 )
 
+const displayProductName = computed(
+  () =>
+    (result.value?.productName && result.value.productName.trim()) ||
+    selectedProduct.value?.name ||
+    '—',
+)
+
 const canSubmit = computed(
   () => !submitting.value && !productsLoading.value && products.value.length > 0,
 )
@@ -106,7 +113,13 @@ async function onSubmit() {
   try {
     const data = await dssApi.createDemandPrediction(validated.payload)
     if (seq !== requestSeq) return
-    result.value = data
+    result.value = {
+      ...data,
+      productName:
+        (data.productName && data.productName.trim()) ||
+        selectedProduct.value?.name ||
+        '',
+    }
     successMessage.value = 'Tạo dự báo nhu cầu thành công.'
   } catch (e) {
     if (seq !== requestSeq) return
@@ -138,7 +151,7 @@ function resetResult() {
       </nav>
       <h1>Dự báo nhu cầu</h1>
       <p class="dss-page__sub">
-        Tạo dự báo nhu cầu sản phẩm từ lịch sử bán hàng của bạn — Moving Average, không dùng biểu đồ.
+        Tạo dự báo nhu cầu sản phẩm từ lịch sử bán hàng.
       </p>
     </header>
 
@@ -273,7 +286,7 @@ function resetResult() {
         <template v-else>
           <div class="dss-result-grid">
             <div>
-              <p class="dss-meta"><span>Tên sản phẩm</span>{{ result.productName }}</p>
+              <p class="dss-meta"><span>Tên sản phẩm</span>{{ displayProductName }}</p>
               <p class="dss-meta">
                 <span>Số ngày lịch sử</span>{{ formatViNumber(result.historicalDays) }}
               </p>
@@ -297,7 +310,7 @@ function resetResult() {
           <section class="dss-kpi-grid" style="margin-top: 1rem" aria-label="Tóm tắt chỉ số">
             <article class="dss-kpi">
               <span class="dss-kpi__label">Sản phẩm</span>
-              <strong>{{ result.productName }}</strong>
+              <strong>{{ displayProductName }}</strong>
             </article>
             <article class="dss-kpi">
               <span class="dss-kpi__label">Lịch sử</span>

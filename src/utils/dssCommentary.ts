@@ -49,6 +49,44 @@ export function sanitizeDssCommentary(raw: string): string {
   return text.trim()
 }
 
+/** Nhận định AI ngắn từ insight cards (fallback khi commentary trống). */
+export function buildSellerAiInsightsSummary(
+  insights: Array<Pick<DssInsight, 'title' | 'description' | 'impact' | 'category'>>,
+): string {
+  if (!insights.length) {
+    return [
+      '## Nhận định AI',
+      'Chưa đủ số liệu để phân tích sâu. Hãy tạo dự báo nhu cầu hoặc kiểm tra đơn bán gần đây.',
+      '',
+      '## Kế hoạch đề xuất',
+      '1. Chạy **Dự báo nhu cầu** cho 1–2 SKU bán chạy.',
+      '2. Xem **Gợi ý giá** nếu biên lợi nhuận đang mỏng.',
+      '3. Dùng **What-if giảm giá** trước khi chạy khuyến mãi.',
+    ].join('\n')
+  }
+
+  const high = insights.filter((i) => i.impact === 'high')
+  const lines = insights
+    .slice(0, 5)
+    .map((i) => `- **${i.title}**: ${i.description}`)
+    .join('\n')
+
+  return [
+    '## Nhận định AI',
+    high.length
+      ? `Có **${high.length}** điểm cần ưu tiên cao dựa trên tồn kho / doanh số / đánh giá hiện tại.`
+      : 'Tình hình vận hành ổn định tương đối; vẫn nên theo dõi SKU bán chạy và tồn thấp.',
+    '',
+    '## Điểm nổi bật',
+    lines,
+    '',
+    '## Kế hoạch đề xuất',
+    '1. Ưu tiên SKU tồn thấp / bán chạy trong **Dự báo nhu cầu**.',
+    '2. Điều chỉnh giá qua **Gợi ý giá** nếu biên lợi nhuận lệch.',
+    '3. Mô phỏng khuyến mãi bằng **What-if** trước khi áp dụng thật.',
+  ].join('\n')
+}
+
 /** Nhận xét vận hành cho Manager DSS (không dùng what-if seller). */
 export function buildManagerDssCommentary(
   insights: Array<Pick<DssInsight, 'title' | 'description'> & { category?: string }>,

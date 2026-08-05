@@ -82,17 +82,18 @@ async function submit() {
 
 <style scoped>
 .order-review {
-  margin-top: 0.35rem;
+  margin-top: 0.5rem;
 }
 .order-review__form {
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
+  gap: 0.5rem;
   margin-top: 0.35rem;
-  padding: 0.65rem 0.75rem;
-  background: var(--surface-muted, #f8fafc);
-  border-radius: 8px;
-  max-width: 360px;
+  padding: 0.85rem 0.95rem;
+  background: #fff;
+  border: 1px solid var(--line, #e4e9f2);
+  border-radius: 10px;
+  max-width: 420px;
 }
 .order-review__title {
   margin: 0;

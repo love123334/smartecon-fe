@@ -36,14 +36,22 @@ export function roleOpsHomeLabel(role: UserRole): string {
   }
 }
 
-/** Trang trợ lý AI / liên hệ phù hợp từng role */
-export function roleContactPath(role: UserRole): string {
-  if (role === 'seller') return '/seller/chatbot'
-  if (role === 'admin') return '/admin/monitoring'
-  return '/chatbot'
+/** Trang liên hệ / góp ý (không mở chatbot) */
+export function roleContactPath(_role: UserRole): string {
+  return '/contact'
 }
 
-const PUBLIC_PREFIXES = ['/', '/search', '/products', '/login', '/register', '/payment']
+const PUBLIC_PREFIXES = [
+  '/',
+  '/search',
+  '/products',
+  '/login',
+  '/register',
+  '/payment',
+  '/contact',
+  '/privacy',
+  '/terms',
+]
 
 const ROLE_PREFIXES: Record<Exclude<UserRole, 'guest'>, string[]> = {
   customer: ['/profile', '/role-upgrade', '/cart', '/checkout', '/payment', '/orders', '/chatbot'],

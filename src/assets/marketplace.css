@@ -2050,12 +2050,13 @@
 }
 
 .elegant-badge--dark {
-  background: var(--slate-900);
+  background: #14275c;
   color: #fff;
 }
 
-.elegant-badge--green {
-  background: var(--primary-600);
+.elegant-badge--green,
+.elegant-badge--sale {
+  background: #2e7df6;
   color: #fff;
 }
 
@@ -2124,7 +2125,7 @@
 .elegant-product__price {
   font-size: 1.5rem;
   font-weight: 700;
-  color: var(--slate-900);
+  color: #2e7df6;
 }
 
 .elegant-product__price-old {

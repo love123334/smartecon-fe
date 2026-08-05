@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { formatVnd, orderApi } from '@/api/services'
-import type { Order } from '@/types'
+import { formatVnd, orderApi, reviewApi } from '@/api/services'
+import type { Order, ProductReview } from '@/types'
 import { useAuthStore } from '@/stores/auth'
 import { orderStatusLabel } from '@/utils/orderStatus'
+import { checkReviewEligibility } from '@/utils/reviewEligibility'
 import EmptyState from '@/components/EmptyState.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import OrderTrackStepper from '@/components/OrderTrackStepper.vue'
@@ -15,6 +16,7 @@ const orders = ref<Order[]>([])
 const loading = ref(true)
 const error = ref('')
 const expandedId = ref<string | null>(null)
+const reviewsByProduct = ref<Record<string, ProductReview[]>>({})
 
 onMounted(async () => {
   if (!auth.user) {
@@ -25,6 +27,22 @@ onMounted(async () => {
   error.value = ''
   try {
     orders.value = await orderApi.listForCustomer(auth.user.id)
+    const deliveredIds = [
+      ...new Set(
+        orders.value
+          .filter((o) => o.status === 'delivered')
+          .flatMap((o) => o.items.map((i) => i.productId)),
+      ),
+    ]
+    await Promise.all(
+      deliveredIds.slice(0, 12).map(async (pid) => {
+        try {
+          reviewsByProduct.value[pid] = await reviewApi.list(pid)
+        } catch {
+          reviewsByProduct.value[pid] = []
+        }
+      }),
+    )
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Không tải được lịch sử mua hàng'
     orders.value = []
@@ -39,6 +57,25 @@ function statusClass(s: string) {
 
 function toggleTrack(id: string) {
   expandedId.value = expandedId.value === id ? null : id
+}
+
+function canReviewItem(order: Order, productId: string): boolean {
+  if (order.status !== 'delivered') return false
+  const eligibility = checkReviewEligibility({
+    isLoggedIn: auth.isLoggedIn,
+    isCustomer: true,
+    productId,
+    orders: [order],
+    existingReviews: reviewsByProduct.value[productId] ?? [],
+    currentUserId: auth.user?.backendId ?? auth.user?.id,
+  })
+  return eligibility.canReview
+}
+
+function onReviewSubmitted(productId: string) {
+  void reviewApi.list(productId).then((list) => {
+    reviewsByProduct.value = { ...reviewsByProduct.value, [productId]: list }
+  })
 }
 </script>
 
@@ -92,20 +129,28 @@ function toggleTrack(id: string) {
             Đánh giá đơn
           </RouterLink>
           <RouterLink :to="`/orders/${o.id}`" class="btn btn-primary btn-sm">
-            Chi tiết & theo dõi
+            Chi tiết &amp; theo dõi
           </RouterLink>
         </div>
 
         <ul v-if="expandedId === o.id || o.status === 'delivered'" class="orders-track-card__items">
-          <li v-for="item in o.items" :key="item.productId">
-            <div>
+          <li v-for="item in o.items" :key="item.productId" class="orders-track-item">
+            <div class="orders-track-item__name">
               {{ item.productName }} × {{ item.quantity }}
-              <OrderProductReview
-                v-if="o.status === 'delivered'"
-                :product-id="item.productId"
-                :product-name="item.productName"
-              />
             </div>
+            <OrderProductReview
+              v-if="canReviewItem(o, item.productId)"
+              :product-id="item.productId"
+              :product-name="item.productName"
+              @submitted="onReviewSubmitted(item.productId)"
+            />
+            <p
+              v-else-if="o.status === 'delivered'"
+              class="orders-track-item__note"
+            >
+              Đã đánh giá hoặc hết hạn / chưa đủ điều kiện — xem
+              <RouterLink :to="`/orders/${o.id}`">chi tiết đơn</RouterLink>.
+            </p>
           </li>
         </ul>
       </article>
@@ -148,14 +193,31 @@ function toggleTrack(id: string) {
 }
 
 .orders-track-card__items {
-  margin: 0.75rem 0 0;
-  padding-left: 1.1rem;
-  font-size: 0.875rem;
+  margin: 0.85rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
-.review-inline {
-  margin-left: 0.5rem;
-  font-size: 0.8125rem;
+.orders-track-item {
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--line, #e4e9f2);
+  border-radius: 10px;
+  background: #fafbfc;
+}
+
+.orders-track-item__name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+
+.orders-track-item__note {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  color: var(--slate-500, #64748b);
 }
 
 .muted {

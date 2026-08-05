@@ -174,7 +174,7 @@ function shopOverviewReply(ctx: ChatContext): string {
     !ctx.backendOnline && !apiConfig.useMock
       ? '\n\n⚠ Catalog tạm thời hạn chế — thử lại sau hoặc mở **Cửa hàng**.'
       : ''
-  return `${name}**SEDSP** — sàn TMĐT + DSS & AI.\n• **${total}** sản phẩm · **${catCount}** danh mục\n\n**Danh mục:**\n${categoryOverview(ctx)}\n\n**Nổi bật / bán chạy:**\n${top.length ? productLines(top, 5) : '• Xem **Cửa hàng**.'}\n\nHỏi tên SP, "điện thoại có gì", "giỏ hàng", "đơn của tôi".${offlineHint}`
+  return `${name}SEDSP đang có khoảng **${total}** sản phẩm trong **${catCount}** danh mục.\n\n**Danh mục nổi bật:**\n${categoryOverview(ctx)}\n\n**Đang bán chạy:**\n${top.length ? productLines(top, 5) : '• Xem Cửa hàng để khám phá.'}\n\nBạn muốn mình gợi ý theo nhu cầu nào — điện thoại, laptop, hay khoảng giá?${offlineHint}`
 }
 
 function categoriesReply(ctx: ChatContext): string {
@@ -237,7 +237,7 @@ function productSearchReply(ctx: ChatContext, raw: string): string {
   if (!hits.length) {
     return `${name}Gõ tên SP cụ thể, vd: "tìm tai nghe bluetooth" hoặc "bàn phím cơ".`
   }
-  return `${name}**Kết quả tìm kiếm:**\n${productLines(hits.slice(0, 6), 6)}`
+  return `${name}Mình tìm thấy vài lựa chọn phù hợp:\n${productLines(hits.slice(0, 6), 6)}\n\nBấm card bên dưới để xem chi tiết, hoặc nói rõ hơn nhu cầu nhé.`
 }
 
 function cheapestReply(ctx: ChatContext): string {

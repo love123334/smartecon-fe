@@ -32,7 +32,12 @@ const isShopPage = computed(() => {
 })
 
 onMounted(async () => {
-  await auth.hydrate()
+  // Router already hydrates; only run if still needed (avoid racing dual hydrate)
+  if (!auth.user && !auth.loading) {
+    await auth.hydrate()
+  } else if (auth.loading) {
+    await auth.hydrate()
+  }
   if (canShopAsBuyer(auth.role)) {
     await cart.refresh()
   }
@@ -86,8 +91,8 @@ onMounted(async () => {
     <div class="container footer-elegant__bottom">
       <span>© 2026 SEDSP · FPT University</span>
       <div class="footer-elegant__legal">
-        <a href="#">Chính sách bảo mật</a>
-        <a href="#">Điều khoản</a>
+        <RouterLink to="/privacy">Chính sách bảo mật</RouterLink>
+        <RouterLink to="/terms">Điều khoản</RouterLink>
       </div>
     </div>
   </footer>

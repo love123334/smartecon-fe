@@ -59,7 +59,7 @@ function stockPhrase(stock: number | undefined | null): string {
 function sellerHintFromProducts(products: Product[]): string {
   const groups = groupProductsByShop(products, 3, 1)
   if (!groups.length) return ''
-  return `\n🏪 Seller: ${groups.map((g) => `**${g.shop}**`).join(', ')}.`
+  return `\nMột số shop đang bán: ${groups.map((g) => g.shop).join(', ')}.`
 }
 
 function wrapReply(payload: AssistantReplyPayload): AssistantReplyPayload {
@@ -68,23 +68,23 @@ function wrapReply(payload: AssistantReplyPayload): AssistantReplyPayload {
 
 function followUps(intent: ChatIntent | null, role: ChatContext['role']): string {
   const tips: Partial<Record<ChatIntent, string>> = {
-    shop_overview: '\n\n👉 Thử: "điện thoại có gì" · "laptop có gì" · "sp rẻ nhất"',
-    product_price: '\n\n👉 Thử: "còn hàng không" · "review" · "liên hệ người bán"',
-    product_stock: '\n\n👉 Thử: "thêm vào giỏ" tại trang SP · "cách đặt hàng"',
-    cart_summary: '\n\n👉 Tiếp: **Thanh toán** hoặc hỏi "chính sách giao hàng"',
-    orders: '\n\n👉 Hỏi "chi tiết đơn #…" hoặc "hủy đơn"',
-    contact_seller: '\n\n👉 Hoặc hỏi CSKH: "liên hệ hỗ trợ"',
-    where_to_buy: '\n\n👉 Hỏi "liên hệ người bán …" để lấy email/SĐT shop.',
-    recommend: '\n\n👉 Hỏi "chỗ nào bán …" để xem đúng shop bán SP.',
-    seller_dss_demand: '\n\n👉 Thử thêm: "khuyến nghị giá" · "what-if giảm 10%"',
-    seller_whatif: '\n\n👉 Mở **/seller/dss/what-if** để chỉnh % và kỳ.',
-    manager_whatif: '\n\n👉 What-if SP thuộc **seller**: đăng nhập seller → **/seller/dss/what-if**. Manager xem **/manager/dashboard**.',
-    seller_purchase_orders: '\n\n👉 Đơn bán: hỏi "đơn cần xử lý". Giỏ: "giỏ hàng của tôi".',
-    product_budget: '\n\n👉 Kéo SP vào chat để so sánh, hoặc hỏi "còn hàng không".',
-    product_search: '\n\n👉 Thu hẹp thêm: "dưới 2 triệu" · kéo SP để hỏi chi tiết.',
+    shop_overview: '\n\nBạn có thể hỏi tiếp: điện thoại, laptop, hoặc sp rẻ nhất.',
+    product_price: '\n\nMuốn biết thêm: còn hàng không, review, hoặc liên hệ người bán.',
+    product_stock: '\n\nThêm vào giỏ trên trang sản phẩm, hoặc hỏi mình cách đặt hàng.',
+    cart_summary: '\n\nSẵn sàng thì thanh toán, hoặc hỏi chính sách giao hàng.',
+    orders: '\n\nHỏi chi tiết đơn #… hoặc hủy đơn nếu cần.',
+    contact_seller: '\n\nHoặc gửi góp ý qua trang Liên hệ nếu cần Admin hỗ trợ.',
+    where_to_buy: '\n\nHỏi "liên hệ người bán …" để lấy email/SĐT shop.',
+    recommend: '\n\nHỏi "chỗ nào bán …" để xem đúng shop.',
+    seller_dss_demand: '\n\nCó thể hỏi thêm: khuyến nghị giá, what-if giảm 10%.',
+    seller_whatif: '\n\nMở DSS → What-if giảm giá để chỉnh % và kỳ.',
+    manager_whatif: '\n\nWhat-if theo SP thuộc seller; Manager xem Dashboard.',
+    seller_purchase_orders: '\n\nĐơn bán: hỏi "đơn cần xử lý". Giỏ: "giỏ hàng của tôi".',
+    product_budget: '\n\nKéo SP vào chat để so sánh, hoặc hỏi còn hàng không.',
+    product_search: '\n\nThu hẹp thêm bằng "dưới 2 triệu", hoặc kéo SP để hỏi chi tiết.',
   }
   if (intent && tips[intent]) return tips[intent]
-  if (role === 'guest') return '\n\n👉 **Đăng nhập** để xem giỏ & đơn cá nhân.'
+  if (role === 'guest') return '\n\nĐăng nhập để xem giỏ hàng và đơn cá nhân nhé.'
   return ''
 }
 
@@ -96,7 +96,11 @@ function cardsIntro(
 ): string {
   const name = greet(ctx.userName ?? '')
   const hint = extra ? `\n${extra}` : ''
-  return `${name}**${title}** — **${count}** sản phẩm phù hợp.${hint}\n\nChọn card bên dưới để xem chi tiết.`
+  const soft =
+    count <= 0
+      ? `${name}Mình chưa thấy sản phẩm phù hợp.${hint}`
+      : `${name}${title} — hiện có **${count}** lựa chọn.${hint}\n\nBấm card bên dưới nếu muốn xem chi tiết nhé.`
+  return soft
 }
 
 function resolveAttachedProducts(
@@ -237,7 +241,7 @@ function shoppingStructuredReply(
         ctx,
         title,
         filter.products.length,
-        bits.length ? `Đã lọc: ${bits.join(' · ')}.` : undefined,
+        bits.length ? `Đã lọc theo ${bits.join(', ')}.` : undefined,
       ) + shopBit,
       products: toChatProducts(filter.products, 8),
     }
