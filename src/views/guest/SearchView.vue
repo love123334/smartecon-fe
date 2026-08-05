@@ -104,9 +104,8 @@ async function addToCart(id: string) {
   }
   try {
     await cart.add(id)
-    cart.openDrawer()
   } catch {
-    /* hết hàng → CenterNotice từ cart store */
+    /* CenterNotice từ cart store */
   }
 }
 

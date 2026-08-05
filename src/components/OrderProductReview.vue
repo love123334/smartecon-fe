@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { reviewApi } from '@/api/services'
+import StarRating from '@/components/StarRating.vue'
 
 const props = defineProps<{
   productId: string
@@ -55,12 +56,10 @@ async function submit() {
       </button>
       <form v-else class="order-review__form" @submit.prevent="submit">
         <p class="order-review__title">{{ productName }}</p>
-        <label>
-          Số sao
-          <select v-model.number="rating" class="input">
-            <option v-for="n in 5" :key="n" :value="n">{{ n }} sao</option>
-          </select>
-        </label>
+        <div class="order-review__stars">
+          <span>Số sao</span>
+          <StarRating v-model="rating" />
+        </div>
         <label>
           Bình luận
           <textarea v-model="comment" class="input" rows="2" required placeholder="Nhận xét của bạn…" />
@@ -99,6 +98,14 @@ async function submit() {
   margin: 0;
   font-weight: 600;
   font-size: 0.875rem;
+}
+.order-review__stars {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
 }
 .order-review__actions {
   display: flex;

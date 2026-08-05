@@ -48,9 +48,8 @@ async function addToCart(id: string) {
   }
   try {
     await cart.add(id)
-    cart.openDrawer()
   } catch {
-    /* hết hàng → CenterNotice từ cart store */
+    /* CenterNotice từ cart store */
   }
 }
 </script>
@@ -105,9 +104,13 @@ async function addToCart(id: string) {
         </div>
 
         <div class="home-bestsellers__cta">
-          <RouterLink to="/search" class="btn-elegant-primary btn-interactive">
+          <button
+            type="button"
+            class="btn-elegant-primary home-explore-btn"
+            @click="router.push({ name: 'search' })"
+          >
             Khám phá toàn bộ cửa hàng
-          </RouterLink>
+          </button>
         </div>
       </div>
     </section>

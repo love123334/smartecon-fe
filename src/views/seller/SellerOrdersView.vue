@@ -17,6 +17,7 @@ const updatingId = ref<string | null>(null)
 const selectedStatus = ref<Record<string, BackendOrderStatus>>({})
 const statusNotes = ref<Record<string, string>>({})
 const error = ref('')
+const successId = ref<string | null>(null)
 
 async function loadOrders() {
   loading.value = true
@@ -46,8 +47,8 @@ async function applyStatus(order: Order) {
   if (!status) return
   updatingId.value = order.id
   error.value = ''
+  successId.value = null
   const prev = { ...order }
-  // Optimistic — UI cập nhật ngay, không chờ email/BE chậm
   const optimistic: Order = {
     ...order,
     rawStatus: status,
@@ -79,6 +80,7 @@ async function applyStatus(order: Order) {
     const next = nextBackendStatuses(updated.rawStatus)[0]
     if (next) selectedStatus.value[order.id] = next
     else delete selectedStatus.value[order.id]
+    successId.value = order.id
   } catch (e) {
     if (idx >= 0) orders.value[idx] = prev
     selectedStatus.value[order.id] = status
@@ -105,7 +107,7 @@ async function applyStatus(order: Order) {
       <article v-for="o in orders" :key="o.id" class="card seller-order-card">
         <div class="seller-order-card__head">
           <div>
-            <strong>#{{ o.id }}</strong>
+            <h2 class="seller-order-card__id">#{{ o.id }}</h2>
             <p class="muted">
               {{ o.customerName || 'Khách' }}
               · {{ new Date(o.createdAt).toLocaleString('vi-VN') }}
@@ -128,34 +130,31 @@ async function applyStatus(order: Order) {
         </ul>
         <p v-else class="muted">Chi tiết dòng hàng có thể chưa đầy đủ từ API.</p>
 
-        <div class="status-cell">
-          <template v-if="statusOptions(o).length">
-            <select v-model="selectedStatus[o.id]" class="input input--sm">
-              <option
-                v-for="s in statusOptions(o)"
-                :key="s"
-                :value="s"
-              >
-                {{ BACKEND_STATUS_LABEL[s] }}
-              </option>
-            </select>
-            <input
-              v-model="statusNotes[o.id]"
-              type="text"
-              class="input input--sm"
-              placeholder="Ghi chú giao hàng (tuỳ chọn)"
-            />
-            <button
-              type="button"
-              class="btn btn--sm btn--primary"
-              :disabled="updatingId === o.id"
-              @click="applyStatus(o)"
-            >
-              {{ updatingId === o.id ? 'Đang lưu…' : 'Cập nhật trạng thái' }}
-            </button>
-          </template>
-          <span v-else class="muted">Đơn đã hoàn tất / hủy — không còn bước cập nhật.</span>
+        <div v-if="statusOptions(o).length" class="status-cell">
+          <select v-model="selectedStatus[o.id]" class="input status-cell__select">
+            <option v-for="s in statusOptions(o)" :key="s" :value="s">
+              {{ BACKEND_STATUS_LABEL[s] }}
+            </option>
+          </select>
+          <input
+            v-model="statusNotes[o.id]"
+            type="text"
+            class="input status-cell__note"
+            placeholder="Ghi chú giao hàng (tuỳ chọn)"
+          />
+          <button
+            type="button"
+            class="btn btn-primary btn-sm"
+            :disabled="updatingId === o.id"
+            @click="applyStatus(o)"
+          >
+            {{ updatingId === o.id ? 'Đang lưu…' : 'Cập nhật trạng thái' }}
+          </button>
         </div>
+        <p v-else class="muted">Đơn đã hoàn tất / hủy — không còn bước cập nhật.</p>
+        <p v-if="successId === o.id" class="seller-order-card__ok" role="status">
+          Đã cập nhật trạng thái.
+        </p>
       </article>
     </div>
   </div>
@@ -169,7 +168,8 @@ async function applyStatus(order: Order) {
 }
 
 .seller-order-card {
-  padding: 1rem 1.15rem;
+  padding: 1.1rem 1.2rem;
+  border-radius: 12px;
 }
 
 .seller-order-card__head {
@@ -177,7 +177,13 @@ async function applyStatus(order: Order) {
   flex-wrap: wrap;
   justify-content: space-between;
   gap: 0.75rem;
-  margin-bottom: 0.35rem;
+  margin-bottom: 0.5rem;
+}
+
+.seller-order-card__id {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
 }
 
 .seller-order-card__total {
@@ -188,27 +194,29 @@ async function applyStatus(order: Order) {
 }
 
 .item-list {
-  margin: 0.5rem 0 0.75rem;
-  padding-left: 1rem;
-  font-size: 0.875rem;
+  margin: 0.65rem 0 0.85rem;
+  padding-left: 1.1rem;
+  font-size: 0.9rem;
 }
 
 .status-cell {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
+  display: grid;
+  grid-template-columns: minmax(140px, 180px) minmax(0, 1fr) auto;
+  gap: 0.5rem;
   align-items: center;
 }
 
-.input--sm {
-  font-size: 0.8125rem;
-  padding: 0.25rem 0.5rem;
-  min-width: 140px;
+.status-cell__select,
+.status-cell__note {
+  font-size: 0.875rem;
+  min-height: 2.25rem;
 }
 
-.btn--sm {
+.seller-order-card__ok {
+  margin: 0.5rem 0 0;
   font-size: 0.8125rem;
-  padding: 0.3rem 0.65rem;
+  color: #0f766e;
+  font-weight: 600;
 }
 
 .muted {
@@ -216,5 +224,11 @@ async function applyStatus(order: Order) {
   font-size: 0.8125rem;
   color: var(--slate-500, #64748b);
   font-weight: 400;
+}
+
+@media (max-width: 720px) {
+  .status-cell {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

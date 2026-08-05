@@ -14,6 +14,8 @@ export const useCartStore = defineStore('cart', () => {
   const loading = ref(false)
   const error = ref<string | null>(null)
   const drawerOpen = ref(false)
+  const cartBounce = ref(false)
+  let bounceTimer: ReturnType<typeof setTimeout> | null = null
 
   const itemCount = computed(() =>
     lines.value.reduce((s, l) => s + l.quantity, 0),
@@ -21,6 +23,15 @@ export const useCartStore = defineStore('cart', () => {
   const total = computed(() =>
     lines.value.reduce((s, l) => s + l.subtotal, 0),
   )
+
+  function bounceCart() {
+    cartBounce.value = true
+    if (bounceTimer) clearTimeout(bounceTimer)
+    bounceTimer = setTimeout(() => {
+      cartBounce.value = false
+      bounceTimer = null
+    }, 700)
+  }
 
   async function refresh() {
     const auth = useAuthStore()
@@ -50,10 +61,18 @@ export const useCartStore = defineStore('cart', () => {
     try {
       await cartApi.addItem(auth.user.id, productId, qty)
       await refresh()
+      bounceCart()
+      openDrawer()
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Không thêm được'
       if (isOutOfStockError(e)) {
         useNoticeStore().showOutOfStock()
+      } else {
+        useNoticeStore().show({
+          kind: 'error',
+          title: 'Không thêm được giỏ',
+          message: error.value || 'Thử lại sau.',
+        })
       }
       throw e
     } finally {
@@ -94,6 +113,7 @@ export const useCartStore = defineStore('cart', () => {
     loading,
     error,
     drawerOpen,
+    cartBounce,
     itemCount,
     total,
     refresh,
@@ -102,5 +122,6 @@ export const useCartStore = defineStore('cart', () => {
     remove,
     openDrawer,
     closeDrawer,
+    bounceCart,
   }
 })

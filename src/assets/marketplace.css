@@ -1548,6 +1548,26 @@
   display: flex;
   gap: 0.45rem;
   margin-top: 0.7rem;
+  position: relative;
+  z-index: 5;
+}
+
+.product-card__title-btn {
+  appearance: none;
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-weight: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+}
+
+.product-card__title-btn:hover {
+  color: var(--blue, #2e7df6);
 }
 
 .product-card__cart-btn {
@@ -1572,14 +1592,17 @@
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   padding: 0.55rem 0.8rem;
   border-radius: 999px;
   border: 1px solid var(--color-border);
   background: #fff;
   color: var(--slate-800) !important;
+  font: inherit;
   font-size: 0.75rem;
   font-weight: 600;
   text-decoration: none;
+  cursor: pointer;
 }
 
 .product-card__detail-btn:hover {
@@ -1593,6 +1616,10 @@
   justify-content: center;
   width: 100%;
   height: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
 }
 
 .product-card--elegant .product-card__media img {
@@ -3459,6 +3486,15 @@
   display: flex;
   justify-content: center;
   margin-top: 2rem;
+  position: relative;
+  z-index: 8;
+}
+
+.home-explore-btn {
+  position: relative;
+  z-index: 8;
+  min-width: min(360px, 92vw);
+  pointer-events: auto;
 }
 
 /* ——— Promo band ——— */

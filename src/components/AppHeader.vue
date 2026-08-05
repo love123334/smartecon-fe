@@ -154,6 +154,7 @@ watch(
                 v-if="showCart"
                 type="button"
                 class="shop-icon-btn shop-icon-btn--cart btn-interactive"
+                :class="{ 'shop-icon-btn--bounce': cart.cartBounce }"
                 title="Giỏ hàng"
                 aria-label="Giỏ hàng"
                 @click="onOpenCart"
@@ -267,6 +268,19 @@ watch(
   top: 0;
   z-index: 100;
   background: var(--paper, #fff);
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.06);
+}
+
+.shop-icon-btn--bounce {
+  animation: cart-bounce 0.65s ease;
+}
+
+@keyframes cart-bounce {
+  0% { transform: scale(1); }
+  25% { transform: scale(1.22); }
+  50% { transform: scale(0.92); }
+  75% { transform: scale(1.12); }
+  100% { transform: scale(1); }
 }
 
 .shop-chrome {

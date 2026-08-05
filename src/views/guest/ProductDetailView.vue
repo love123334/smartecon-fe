@@ -17,6 +17,7 @@ import QuantityStepper from '@/components/QuantityStepper.vue'
 import ProductCard from '@/components/ProductCard.vue'
 import SellerShopTag from '@/components/SellerShopTag.vue'
 import NewsletterBanner from '@/components/NewsletterBanner.vue'
+import StarRating from '@/components/StarRating.vue'
 import { handleProductImageError, repairProductImageUrl } from '@/utils/productImage'
 
 const route = useRoute()
@@ -213,7 +214,6 @@ async function addToCart() {
   try {
     await cart.add(product.value.id, qty.value)
     message.value = 'Đã thêm vào giỏ hàng'
-    cart.openDrawer()
   } catch (e) {
     if (isOutOfStockError(e)) {
       message.value = ''
@@ -230,7 +230,6 @@ async function addRelated(id: string) {
   }
   try {
     await cart.add(id)
-    cart.openDrawer()
   } catch {
     /* hết hàng → CenterNotice */
   }
@@ -405,12 +404,10 @@ async function addRelated(id: string) {
           </div>
 
           <form v-if="showReviewForm && eligibility.canReview" class="review-form card" @submit.prevent="submitReview">
-            <label>
-              Số sao
-              <select v-model.number="reviewForm.rating" class="input">
-                <option v-for="n in 5" :key="n" :value="n">{{ n }} sao</option>
-              </select>
-            </label>
+            <div class="review-form__stars">
+              <span>Số sao</span>
+              <StarRating v-model="reviewForm.rating" />
+            </div>
             <label>
               Nội dung
               <textarea v-model="reviewForm.comment" class="input" rows="3" required />

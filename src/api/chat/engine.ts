@@ -224,6 +224,7 @@ function resolveAttachedProducts(
         imageUrl: a.imageUrl || found.imageUrl,
         category: a.category || found.category,
         shopName: a.shopName || found.shopName,
+        description: found.description || a.name,
       })
     } else {
       out.push({
@@ -274,7 +275,7 @@ function attachmentReply(
   const top = products[0]
   if (/gia|bao nhieu|how much|price/.test(lower)) {
     return {
-      content: `${name}**${top.name}**: **${formatVnd(top.price)}**${top.originalPrice && top.originalPrice > top.price ? ` (gốc ${formatVnd(top.originalPrice)})` : ''}\n• Danh mục: ${top.category || '—'}\n• Tồn: ${stockPhrase(top.stock)}`,
+      content: `${name}**${top.name}** đang bán **${formatVnd(top.price)}**${top.originalPrice && top.originalPrice > top.price ? ` (gốc ${formatVnd(top.originalPrice)})` : ''}.`,
       products: cards.slice(0, 1),
     }
   }
@@ -284,17 +285,36 @@ function attachmentReply(
         top.stock == null
           ? 'chưa lấy được tồn kho — thử lại hoặc mở trang SP.'
           : top.stock <= 0
-            ? '**hết hàng**'
-            : `còn **${top.stock}**`
+            ? 'hiện **hết hàng**'
+            : `còn khoảng **${top.stock}**`
       }.`,
       products: cards.slice(0, 1),
     }
   }
 
+  // Công dụng / mô tả / dùng để làm gì
+  if (/cong dung|mo ta|dung de|dung lam|la gi|what is|what does|tinh nang|dac diem|gioi thieu|cho minh biet|ve san pham|ve no/.test(lower)) {
+    const desc = top.description?.trim()
+    const useLine = desc
+      ? desc.slice(0, 280) + (desc.length > 280 ? '…' : '')
+      : `${top.name} thuộc danh mục **${top.category || 'sản phẩm'}**, phù hợp nhu cầu mua sắm trên SEDSP.`
+    return {
+      content: `${name}**${top.name}** — công dụng / mô tả:\n${useLine}\n\nGiá hiện tại **${formatVnd(top.price)}** · shop **${top.shopName ?? 'SEDSP'}**. Bạn muốn hỏi thêm giá, còn hàng, hay so sánh với SP khác?`,
+      products: cards.slice(0, 1),
+    }
+  }
+
   const desc = top.description?.trim()
+  if (desc) {
+    return {
+      content: `${name}**${top.name}**: ${desc.slice(0, 220)}${desc.length > 220 ? '…' : ''}\n\nGiá **${formatVnd(top.price)}**. Hỏi thêm: công dụng, giá, còn hàng, hoặc kéo thêm SP để so sánh.`,
+      products: cards.slice(0, 1),
+    }
+  }
+
   return {
-    content: `${name}**${top.name}**\n• Giá: **${formatVnd(top.price)}**\n• Danh mục: ${top.category || '—'}\n• Shop: ${top.shopName ?? 'SEDSP'}\n• Rating: ${top.rating ? `${top.rating}★` : '—'}${desc ? `\n• ${desc.slice(0, 160)}${desc.length > 160 ? '…' : ''}` : ''}\n\nHỏi thêm: giá · tồn · so sánh (kéo thêm SP).`,
-    products: cards,
+    content: `${name}Bạn đang hỏi về **${top.name}** (${formatVnd(top.price)}, danh mục ${top.category || '—'}).\nMình chưa có mô tả chi tiết — bạn mở trang SP hoặc hỏi cụ thể: **công dụng**, **giá**, **còn hàng**.`,
+    products: cards.slice(0, 1),
   }
 }
 

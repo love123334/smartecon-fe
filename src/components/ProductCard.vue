@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import type { Product } from '@/types'
 import { formatVnd, getDiscountPercent, productApi } from '@/api/services'
 import SellerShopTag from '@/components/SellerShopTag.vue'
@@ -17,6 +18,7 @@ const emit = defineEmits<{
   add: [id: string]
 }>()
 
+const router = useRouter()
 const previewOpen = ref(false)
 const detailLoading = ref(false)
 const detail = ref<Product | null>(null)
@@ -125,7 +127,7 @@ function onEnter() {
   hoverTimer = setTimeout(() => {
     previewOpen.value = true
     void loadDetail()
-  }, 140)
+  }, 280)
 }
 
 function onLeave() {
@@ -154,6 +156,12 @@ function onAdd(e: Event) {
   emit('add', props.product.id)
 }
 
+function goDetail(e?: Event) {
+  e?.preventDefault()
+  e?.stopPropagation()
+  void router.push(`/products/${props.product.id}`)
+}
+
 function onDragStart(e: DragEvent) {
   if (!e.dataTransfer) return
   const payload = productToDragPayload(props.product)
@@ -161,7 +169,6 @@ function onDragStart(e: DragEvent) {
   e.dataTransfer.setData('application/json', payload)
   e.dataTransfer.setData('text/plain', payload)
   e.dataTransfer.effectAllowed = 'copy'
-  // gợi ý mở chat khi kéo
   useChatWidgetStore().dragOver = false
 }
 
@@ -175,7 +182,6 @@ async function attachToChat(e: Event) {
     price: props.product.price,
     imageUrl: props.product.imageUrl,
     category: props.product.category,
-    // Chỉ gắn stock khi > 0; 0 từ list API là giả — refresh sẽ lấy tồn thật
     stock: props.product.stock > 0 ? props.product.stock : undefined,
     stockKnown: props.product.stock > 0,
     shopName: props.product.shopName,
@@ -200,15 +206,11 @@ onUnmounted(() => {
       'product-card--compact': compact,
       'product-card--preview-open': previewOpen,
     }"
-    draggable="true"
-    title="Kéo vào trợ lý AI để hỏi / so sánh"
     @mouseenter="onEnter"
-    @dragstart="onDragStart"
-
     @mouseleave="onLeave"
   >
     <div class="product-card__media">
-      <RouterLink :to="`/products/${product.id}`" class="product-card__img-link">
+      <button type="button" class="product-card__img-link" :aria-label="`Xem ${product.name}`" @click="goDetail">
         <img
           :src="activeImage || product.imageUrl"
           :alt="product.name"
@@ -217,7 +219,7 @@ onUnmounted(() => {
           draggable="false"
           @error="onImgError"
         />
-      </RouterLink>
+      </button>
 
       <div class="product-card__badges">
         <span v-if="isNew" class="product-card__new">Mới</span>
@@ -237,15 +239,16 @@ onUnmounted(() => {
       <button
         type="button"
         class="product-card__ai"
-        title="Đính kèm vào trợ lý AI"
+        title="Kéo hoặc bấm để đính kèm vào trợ lý AI"
         aria-label="Đính kèm vào trợ lý AI"
+        draggable="true"
         @click="attachToChat"
+        @dragstart="onDragStart"
       >
         AI
       </button>
     </div>
 
-    <!-- Mini panel dưới ảnh: không đè nút giỏ -->
     <div
       v-if="!compact"
       class="product-card__mini"
@@ -280,7 +283,9 @@ onUnmounted(() => {
         <span aria-hidden="true">{{ starDisplay(product.rating) }}</span>
       </p>
       <h3>
-        <RouterLink :to="`/products/${product.id}`">{{ product.name }}</RouterLink>
+        <button type="button" class="product-card__title-btn" @click="goDetail">
+          {{ product.name }}
+        </button>
       </h3>
       <div class="price-row">
         <p class="price">{{ formatVnd(product.price) }}</p>
@@ -296,9 +301,9 @@ onUnmounted(() => {
         <button type="button" class="product-card__cart-btn" @click="onAdd">
           Thêm vào giỏ
         </button>
-        <RouterLink :to="`/products/${product.id}`" class="product-card__detail-btn">
+        <button type="button" class="product-card__detail-btn" @click="goDetail">
           Chi tiết
-        </RouterLink>
+        </button>
       </div>
     </div>
   </article>
