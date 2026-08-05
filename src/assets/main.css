@@ -108,6 +108,8 @@ body {
   -webkit-font-smoothing: antialiased;
   font-feature-settings: 'kern' 1, 'liga' 1;
   text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 #app {
@@ -115,6 +117,8 @@ body {
   display: flex;
   flex-direction: column;
   background: var(--color-bg);
+  /* Do not create a nested scrollport — body scrolls so header leaves with content */
+  overflow: visible;
 }
 
 a {

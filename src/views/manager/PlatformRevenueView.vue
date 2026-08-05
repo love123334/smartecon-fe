@@ -23,8 +23,8 @@ import {
 
 const LOOKER_STUDIO_EMBED_URL = LOOKER_STUDIO_PLATFORM_REVENUE_URL
 
-/** Tạm ẩn báo cáo native (bộ lọc / KPI / chart) — chỉ hiện Looker nhúng phía trên. */
-const SHOW_NATIVE_PLATFORM_REPORT = false
+/** Looker + báo cáo native (bộ lọc / KPI / chart). */
+const SHOW_NATIVE_PLATFORM_REPORT = true
 
 const filter = ref<PlatformRevenueDashboardQuery>(defaultPlatformRevenueFilter())
 const data = ref<PlatformRevenueDashboard | null>(null)

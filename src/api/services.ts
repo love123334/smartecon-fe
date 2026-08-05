@@ -491,8 +491,10 @@ async function mockLoginAcceptingDemoPassword(
 
 export type CatalogSource = 'backend' | 'mock'
 
-const CATALOG_CACHE_MS = 45_000
+const CATALOG_CACHE_MS = 90_000
 const catalogListCache = new Map<string, { at: number; products: Product[] }>()
+const categoryNamesCache = { at: 0, names: [] as string[] }
+const CATEGORY_CACHE_MS = 120_000
 
 export interface ProductListResult {
   products: Product[]
@@ -691,14 +693,26 @@ export const productApi = {
   },
 
   async categories(): Promise<string[]> {
+    if (
+      categoryNamesCache.names.length &&
+      Date.now() - categoryNamesCache.at < CATEGORY_CACHE_MS
+    ) {
+      return categoryNamesCache.names
+    }
     if (apiConfig.useRealCategories) {
       try {
-        return await realCategories.categoryNames()
+        const names = await realCategories.categoryNames()
+        categoryNamesCache.names = names
+        categoryNamesCache.at = Date.now()
+        return names
       } catch {
         /* fallback */
       }
     }
-    return mockProductApi.categories()
+    const names = await mockProductApi.categories()
+    categoryNamesCache.names = names
+    categoryNamesCache.at = Date.now()
+    return names
   },
 
   async uploadImage(file: File): Promise<{ url: string; publicId: string }> {

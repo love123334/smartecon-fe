@@ -5,6 +5,7 @@ import AppHeader from '@/components/AppHeader.vue'
 import CartFlyout from '@/components/CartFlyout.vue'
 import CenterNotice from '@/components/CenterNotice.vue'
 import ChatSupportFab from '@/components/ChatSupportFab.vue'
+import RouteProgress from '@/components/RouteProgress.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
 import { canShopAsBuyer, footerLinksForRole } from '@/utils/roleNav'
@@ -45,6 +46,7 @@ onMounted(async () => {
 </script>
 
 <template>
+  <RouteProgress />
   <AppHeader />
   <CartFlyout />
   <CenterNotice />

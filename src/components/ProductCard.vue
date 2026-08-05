@@ -214,16 +214,18 @@ onUnmounted(() => {
         <img
           :src="activeImage || product.imageUrl"
           :alt="product.name"
+          class="img-fade"
           loading="lazy"
           decoding="async"
           draggable="false"
+          @load="($event.target as HTMLImageElement).classList.add('is-loaded')"
           @error="onImgError"
         />
       </button>
 
       <div class="product-card__badges">
         <span v-if="isNew" class="product-card__new">Mới</span>
-        <span v-if="product.isFlashSale" class="product-card__sale">Sale</span>
+        <span v-if="product.isFlashSale || discount > 0" class="product-card__sale">Sale</span>
         <span v-if="discount > 0" class="product-card__discount">-{{ discount }}%</span>
       </div>
 

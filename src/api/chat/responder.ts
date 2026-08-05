@@ -10,7 +10,7 @@ import {
 import { detectIntent, type ChatIntent } from '@/api/chat/intents'
 import { callChatLlm, isLlmConfigured, llmProviderLabel, refreshBeAiStatus } from '@/api/chat/llm'
 import { normalizeText } from '@/api/chat/match'
-import { extractPriceRange } from '@/api/chat/products'
+import { extractPriceRange, isPriceStatsQuery } from '@/api/chat/products'
 import { sanitizeChatReply } from '@/api/chat/responses'
 import { buildSystemPrompt } from '@/api/chat/systemPrompt'
 import type { ChatMessage, ChatProductRef, Product } from '@/types'
@@ -143,10 +143,12 @@ export async function resolveChatReply(
 
   const intent = detected?.intent ?? null
   const hasPriceFilter = Boolean(extractPriceRange(userMessage))
+  const priceStats = isPriceStatsQuery(userMessage)
   const forceLocal =
     Boolean(effectiveAttachments?.length) ||
     followUp ||
     hasPriceFilter ||
+    priceStats ||
     (intent != null && FORCE_LOCAL_INTENTS.has(intent))
 
   const runLocal = () => generateAssistantReply(userMessage, ctxForReply, effectiveAttachments)

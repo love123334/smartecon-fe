@@ -215,9 +215,19 @@
 .mkt-categories {
   background: var(--paper, #fff);
   border-bottom: none;
-  position: relative;
-  top: auto;
-  z-index: 90;
+  position: static !important;
+  top: auto !important;
+  z-index: 1;
+}
+
+/* Hard-unstick site chrome (promo + nav + categories) */
+.site-chrome,
+.shop-chrome,
+.shop-header,
+.shop-promo-bar,
+.ops-header {
+  position: static !important;
+  top: auto !important;
 }
 
 .mkt-categories__scroll {
@@ -3310,11 +3320,13 @@
 /* ——— Hero carousel ——— */
 .home-hero {
   position: relative;
-  min-height: min(78vh, 640px);
+  min-height: min(62vh, 520px);
   display: flex;
   align-items: flex-end;
   overflow: hidden;
   color: #fff;
+  content-visibility: auto;
+  contain-intrinsic-size: 520px;
 }
 
 .home-hero__slide {

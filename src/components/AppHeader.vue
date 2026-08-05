@@ -258,9 +258,18 @@ watch(
 </template>
 
 <style scoped>
+/* Document flow only — never pin to viewport (sticky/fixed break "scroll away") */
+.site-chrome,
+.site-chrome__bar,
+.shop-chrome,
+.ops-header {
+  position: static !important;
+  top: auto !important;
+  inset: auto !important;
+}
+
 .site-chrome {
-  position: relative;
-  z-index: 100;
+  z-index: 1;
   background: var(--paper, #fff);
 }
 

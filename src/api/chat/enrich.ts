@@ -1,7 +1,7 @@
 import type { ChatContext, ChatEnrichment } from '@/api/chat/context'
 import type { ChatIntent } from '@/api/chat/intents'
 import { normalizeText } from '@/api/chat/match'
-import { findProductsByQuery } from '@/api/chat/products'
+import { findProductsByQuery, isPriceStatsQuery } from '@/api/chat/products'
 import { matchCategoryFromText } from '@/api/chat/synonyms'
 import {
   demandBriefLive,
@@ -115,6 +115,11 @@ export async function enrichChatContext(
 ): Promise<ChatContext> {
   const enrichment: ChatEnrichment = {}
   const tasks: Promise<void>[] = []
+
+  // Hỏi TB/min/max giá → chỉ cần catalog local, khỏi gọi search/stock thừa
+  if (isPriceStatsQuery(raw)) {
+    return ctx
+  }
 
   const orderId = extractOrderId(raw)
   if (

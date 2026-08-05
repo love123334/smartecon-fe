@@ -225,7 +225,27 @@ const router = createRouter({
   ],
 })
 
+let dssCssLoaded = false
+
+async function ensureDssStyles(path: string) {
+  if (dssCssLoaded) return
+  if (
+    !path.includes('/dss') &&
+    !path.includes('/seller/demand') &&
+    !path.includes('/seller/price') &&
+    !path.includes('/seller/inventory') &&
+    !path.includes('/seller/what-if') &&
+    !path.includes('/seller/sales') &&
+    !path.includes('/manager/')
+  ) {
+    return
+  }
+  await import('@/assets/dss-dashboard.css')
+  dssCssLoaded = true
+}
+
 router.beforeEach(async (to) => {
+  void ensureDssStyles(to.path)
   const auth = useAuthStore()
   // Always await shared hydrate when session not ready (single-flight in store)
   if (!auth.user) {

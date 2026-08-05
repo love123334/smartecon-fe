@@ -35,14 +35,45 @@
 .page-fade-enter-active,
 .page-fade-leave-active {
   transition:
-    opacity 0.12s cubic-bezier(0.4, 0, 0.2, 1),
-    transform 0.12s cubic-bezier(0.4, 0, 0.2, 1);
+    opacity 0.18s var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
+    transform 0.18s var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1));
 }
 
 .page-fade-enter-from,
 .page-fade-leave-to {
   opacity: 0;
-  transform: translateY(4px);
+  transform: translateY(6px);
+}
+
+/* ——— Image soft-load ——— */
+img.img-fade,
+.product-card img,
+.product-skel__media {
+  background: #eef1f6;
+}
+
+img.img-fade {
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+
+img.img-fade.is-loaded,
+img.img-fade[complete] {
+  opacity: 1;
+}
+
+@keyframes soft-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.loading-soft {
+  animation: soft-pulse 1.1s ease-in-out infinite;
 }
 
 /* ——— Stagger grid ——— */

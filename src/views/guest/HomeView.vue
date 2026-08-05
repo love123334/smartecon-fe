@@ -21,9 +21,19 @@ const cart = useCartStore()
 const router = useRouter()
 const chatWidget = useChatWidgetStore()
 
-const flashSale = computed(() =>
-  products.value.filter((p) => p.isFlashSale).slice(0, 6),
-)
+const flashSale = computed(() => {
+  const tagged = products.value.filter((p) => p.isFlashSale).slice(0, 6)
+  if (tagged.length) return tagged
+  // Fallback: SP đang giảm giá (originalPrice > price)
+  return products.value
+    .filter((p) => (p.originalPrice ?? 0) > p.price && p.price > 0)
+    .sort((a, b) => {
+      const da = ((a.originalPrice ?? a.price) - a.price) / (a.originalPrice ?? a.price)
+      const db = ((b.originalPrice ?? b.price) - b.price) / (b.originalPrice ?? b.price)
+      return db - da
+    })
+    .slice(0, 6)
+})
 
 const bestSellers = computed(() =>
   [...products.value].sort((a, b) => b.soldCount - a.soldCount).slice(0, 4),
