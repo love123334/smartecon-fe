@@ -586,7 +586,7 @@
   }
 }
 
-/* â€”â€”â€” Nháº­n Ä‘á»‹nh AI panel (Demand / Price / Inventory / What-if) â€”â€”â€” */
+/* --- Nhan dinh AI panel (Demand / Price / Inventory / What-if) --- */
 .dss-ai-panel {
   border-left: 4px solid #2e7d32;
   background: linear-gradient(180deg, #f1f8f4 0%, #fff 42%);
@@ -706,7 +706,7 @@
   }
 }
 
-/* ——— Nh?n d?nh AI panel (Demand / Price / Inventory / What-if) ——— */
+/* --- Nhan dinh AI panel (Demand / Price / Inventory / What-if) --- */
 .dss-ai-panel {
   border-left: 4px solid #2e7d32;
   background: linear-gradient(180deg, #f1f8f4 0%, #fff 42%);
