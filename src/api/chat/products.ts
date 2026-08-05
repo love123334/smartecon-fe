@@ -13,6 +13,8 @@ const STOP_WORDS = new Set([
   'y', 'suggest', 'recommend', 'nen', 'trong', 'tam', 'khoang', 'duoi', 'tren',
   'tu', 'den', 'toi', 'da', 'max', 'min', 'budget', 'ngan', 'sach', 'under',
   'around', 'about', 'gan', 'tam', 'gia',
+  // tránh search lẫn khi hỏi đơn / tài khoản
+  'don', 'order', 'orders', 'status', 'trang', 'thai', 'lich', 'su', 'theo', 'doi',
 ])
 
 export interface PriceRange {
@@ -140,7 +142,12 @@ export function pickProductCatalog(
 }
 
 export function cheapestProducts(products: Product[], limit = 5): Product[] {
-  return [...products].filter((p) => p.stock > 0).sort((a, b) => a.price - b.price).slice(0, limit)
+  if (!products.length) return []
+  const sorted = [...products].sort((a, b) => a.price - b.price)
+  const minPrice = sorted[0].price
+  // Chỉ các SP đúng mức giá thấp nhất — không trộn SP đắt hơn
+  const atFloor = sorted.filter((p) => p.price === minPrice)
+  return atFloor.slice(0, Math.min(limit, 4))
 }
 
 export function productsUnderBudget(products: Product[], budget: number, limit = 6): Product[] {

@@ -110,7 +110,7 @@ const COMMON: IntentRule[] = [
       'web ban gi', 'ban gi vay', 'ban gi', 'shop ban gi', 'cua hang ban gi',
       'ban nhung gi', 'co nhung san pham gi', 'what do you sell', 'what products',
       'catalog', 'ban hang gi', 'website ban gi', 'shop co gi', 'web ban j', 'ban j',
-      'mua gi o day', 'co ban gi', 'what can i buy', 'san pham nao', 'hang hoa',
+      'mua gi o day', 'co ban gi', 'what can i buy', 'hang hoa',
     ],
     phrases: [
       'web ban gi', 'ban gi vay', 'what do you sell', 'shop ban gi', 'cua hang ban gi',
@@ -155,11 +155,14 @@ const COMMON: IntentRule[] = [
     intent: 'product_cheapest',
     keywords: [
       're nhat', 'gia re nhat', 'cheapest', 're nhat la gi', 'sp re', 'hang re',
-      'gia thap nhat', 'lowest price', 're nhat shop',
+      'gia thap nhat', 'lowest price', 're nhat shop', 'san pham nao re', 'sp nao re',
     ],
-    phrases: ['re nhat', 'gia re nhat', 'cheapest', 'lowest price'],
-    minScore: 4,
-    priority: 11,
+    phrases: [
+      're nhat', 'gia re nhat', 'cheapest', 'lowest price',
+      'san pham nao re nhat', 'sp nao re nhat', 'hang nao re nhat',
+    ],
+    minScore: 3,
+    priority: 14,
   },
   {
     intent: 'product_budget',
@@ -246,11 +249,15 @@ const COMMON: IntentRule[] = [
     intent: 'orders',
     keywords: [
       'don hang', 'my order', 'order status', 'trang thai don', 'don cua toi',
-      'lich su mua', 'theo doi don',
+      'lich su mua', 'theo doi don', 'don the nao', 'tinh trang don',
+      'don hang cua toi', 'don hang cua minh', 'don cua minh',
     ],
-    phrases: ['don cua toi', 'lich su mua', 'my order', 'theo doi don'],
-    minScore: 4,
-    priority: 7,
+    phrases: [
+      'don cua toi', 'don hang cua toi', 'don hang the nao', 'don hang cua minh',
+      'lich su mua', 'my order', 'theo doi don', 'trang thai don', 'don the nao',
+    ],
+    minScore: 3,
+    priority: 14,
   },
   {
     intent: 'order_detail',
@@ -525,6 +532,23 @@ function refineIntent(
   detected: { intent: ChatIntent; score: number },
   role: UserRole,
 ): ChatIntent {
+  // Đơn hàng — luôn ưu tiên trước product search
+  if (
+    /(?:^|\s)(don hang|don cua|trang thai don|lich su mua|theo doi don|order status|my order|don the nao|tinh trang don)/.test(
+      normalized,
+    ) &&
+    !/tao don|dat hang|them vao gio/.test(normalized)
+  ) {
+    if (/huy don|cancel order/.test(normalized)) return 'order_cancel'
+    if (/chi tiet don|ma don|order id|don #|don so/.test(normalized)) return 'order_detail'
+    return 'orders'
+  }
+
+  // Rẻ nhất
+  if (/re nhat|gia re nhat|cheapest|gia thap nhat|lowest price|san pham nao re|sp nao re|hang nao re/.test(normalized)) {
+    return 'product_cheapest'
+  }
+
   // seller contact ưu tiên hơn escalate chung
   if (
     detected.intent === 'contact_escalate' &&

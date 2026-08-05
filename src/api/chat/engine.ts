@@ -17,7 +17,6 @@ import {
 import {
   buildIntentReply,
   escalateReply,
-  roleHelpHints,
   sanitizeChatReply,
 } from '@/api/chat/responses'
 import type { ChatProductRef, Product } from '@/types'
@@ -40,14 +39,59 @@ const SHOPPING_INTENTS = new Set<ChatIntent>([
   'product_price',
   'product_stock',
   'product_review',
+  'shop_overview',
+  'categories',
+])
+
+/** Intent không được “lạc” sang tìm sản phẩm */
+const NON_SHOPPING_INTENTS = new Set<ChatIntent>([
+  'orders',
+  'order_detail',
+  'order_cancel',
+  'cart',
+  'cart_summary',
+  'shipping',
+  'payment',
+  'account',
+  'password',
+  'checkout',
+  'complaint',
+  'return_policy',
+  'contact_escalate',
+  'greeting',
+  'thanks',
+  'help',
+  'platform',
+  'seller_orders',
+  'seller_recent_orders',
+  'seller_purchase_orders',
+  'seller_revenue',
+  'seller_inventory',
+  'seller_pricing',
+  'seller_dss_demand',
+  'seller_dss_price',
+  'seller_dss_inventory',
+  'seller_whatif',
+  'manager_kpi',
+  'manager_pending',
+  'manager_revenue',
 ])
 
 function greet(name: string): string {
   const n = name?.trim()
-  // Bỏ qua handle kỹ thuật / username không phải tên hiển thị
   if (!n || n.length < 2) return ''
+  // Bỏ tên demo / generic cho tự nhiên hơn
+  if (/nguyen van khach|khach hang|guest|user\d+/i.test(n)) return ''
   if (/^[a-z0-9._-]+$/i.test(n) && !/\s/.test(n) && n.length < 24) return ''
-  return `${n}, `
+  const first = n.split(/\s+/).pop() || n
+  if (first.length < 2) return ''
+  return `${first}, `
+}
+
+function isOffTopic(normalized: string): boolean {
+  return /thoi tiet|chinh tri|bong da|lap trinh|python|javascript|chatgpt|tinh yeu|lam bai|toan hoc|dich thuat|ke chuyen|hat nhac|phim bo|crypto|chung khoan|bitcoin/.test(
+    normalized,
+  )
 }
 
 function stockPhrase(stock: number | undefined | null): string {
@@ -59,7 +103,7 @@ function stockPhrase(stock: number | undefined | null): string {
 function sellerHintFromProducts(products: Product[]): string {
   const groups = groupProductsByShop(products, 3, 1)
   if (!groups.length) return ''
-  return `\nMột số shop đang bán: ${groups.map((g) => g.shop).join(', ')}.`
+  return `\nShop đang bán: ${groups.map((g) => g.shop).join(', ')}.`
 }
 
 function wrapReply(payload: AssistantReplyPayload): AssistantReplyPayload {
@@ -96,11 +140,70 @@ function cardsIntro(
 ): string {
   const name = greet(ctx.userName ?? '')
   const hint = extra ? `\n${extra}` : ''
-  const soft =
-    count <= 0
-      ? `${name}Mình chưa thấy sản phẩm phù hợp.${hint}`
-      : `${name}${title} — hiện có **${count}** lựa chọn.${hint}\n\nBấm card bên dưới nếu muốn xem chi tiết nhé.`
-  return soft
+  if (count <= 0) return `${name}Mình chưa thấy sản phẩm phù hợp.${hint}`
+  return `${name}${title}${hint}\n\nBấm card bên dưới để xem chi tiết nhé.`
+}
+
+function shoppingStructuredReply(
+  ctx: ChatContext,
+  raw: string,
+  intent: ChatIntent | null,
+): AssistantReplyPayload | null {
+  const catalog = pickProductCatalog(ctx.products, ctx.sellerProducts, ctx.role)
+  if (!catalog.length) return null
+
+  // Không bao giờ biến câu đơn hàng / tài khoản thành tìm SP
+  if (intent && NON_SHOPPING_INTENTS.has(intent)) return null
+
+  const range = extractPriceRange(raw)
+  const filter = filterProductsForQuery(catalog, raw, ctx.categories, 8)
+  const wantsShop =
+    Boolean(range) ||
+    (intent != null && SHOPPING_INTENTS.has(intent)) ||
+    // Chỉ search mù khi chưa nhận ra intent và câu có từ khóa sản phẩm rõ
+    (intent == null &&
+      Boolean(filter.queryText) &&
+      filter.products.length > 0 &&
+      filter.queryText.split(/\s+/).some((w) => w.length >= 3))
+
+  if (!wantsShop) return null
+
+  if (intent === 'product_cheapest' || (/re nhat|cheapest|gia thap nhat/.test(normalizeText(raw)) && !range)) {
+    const cheap = cheapestProducts(catalog, 4)
+    if (!cheap.length) return null
+    const floor = formatVnd(cheap[0].price)
+    const sameCount = cheap.length
+    return {
+      content: cardsIntro(
+        ctx,
+        sameCount === 1
+          ? `Sản phẩm **rẻ nhất** hiện tại là **${cheap[0].name}** — **${floor}**.`
+          : `Mức giá **thấp nhất** hiện tại là **${floor}**. Có **${sameCount}** sản phẩm cùng mức giá này:`,
+        sameCount,
+      ),
+      products: toChatProducts(cheap, 4),
+    }
+  }
+
+  if (filter.products.length) {
+    const title = filter.categoryName
+      ? `Một vài lựa chọn trong **${filter.categoryName}**:`
+      : filter.range
+        ? `Sản phẩm trong tầm giá **${formatPriceRangeLabel(filter.range)}**:`
+        : 'Mình gợi ý vài sản phẩm liên quan:'
+    return {
+      content: cardsIntro(ctx, title, filter.products.length),
+      products: toChatProducts(filter.products, 6),
+    }
+  }
+
+  if (range) {
+    return {
+      content: `${greet(ctx.userName ?? '')}Không có sản phẩm trong khoảng **${formatPriceRangeLabel(range)}**. Thử nới ngân sách hoặc hỏi "sp rẻ nhất" nhé.`,
+    }
+  }
+
+  return null
 }
 
 function resolveAttachedProducts(
@@ -195,67 +298,6 @@ function attachmentReply(
   }
 }
 
-function shoppingStructuredReply(
-  ctx: ChatContext,
-  raw: string,
-  intent: ChatIntent | null,
-): AssistantReplyPayload | null {
-  const catalog = pickProductCatalog(ctx.products, ctx.sellerProducts, ctx.role)
-  if (!catalog.length) return null
-
-  const range = extractPriceRange(raw)
-  const filter = filterProductsForQuery(catalog, raw, ctx.categories, 8)
-  const isBuyerRole = ctx.role === 'customer' || ctx.role === 'guest'
-  const wantsShop =
-    Boolean(range) ||
-    (intent != null && SHOPPING_INTENTS.has(intent)) ||
-    (isBuyerRole && Boolean(filter.queryText && filter.products.length))
-
-  if (!wantsShop) return null
-
-  if (intent === 'product_cheapest' || (/re nhat|cheapest|gia thap nhat/.test(normalizeText(raw)) && !range)) {
-    const cheap = cheapestProducts(catalog, 6)
-    if (!cheap.length) return null
-    return {
-      content: cardsIntro(ctx, 'Gợi ý giá tốt nhất', cheap.length) + sellerHintFromProducts(cheap),
-      products: toChatProducts(cheap, 6),
-    }
-  }
-
-  if (filter.products.length) {
-    const bits: string[] = []
-    if (filter.categoryName) bits.push(`danh mục **${filter.categoryName}**`)
-    if (filter.range) bits.push(`giá **${formatPriceRangeLabel(filter.range)}**`)
-    if (filter.queryText) bits.push(`từ khóa “${filter.queryText}”`)
-    const title =
-      filter.range && filter.queryText
-        ? 'SP khớp nhu cầu & ngân sách'
-        : filter.range
-          ? `SP trong tầm giá ${formatPriceRangeLabel(filter.range)}`
-          : filter.categoryName
-            ? filter.categoryName
-            : 'Kết quả tìm kiếm'
-    const shopBit = sellerHintFromProducts(filter.products)
-    return {
-      content: cardsIntro(
-        ctx,
-        title,
-        filter.products.length,
-        bits.length ? `Đã lọc theo ${bits.join(', ')}.` : undefined,
-      ) + shopBit,
-      products: toChatProducts(filter.products, 8),
-    }
-  }
-
-  if (range) {
-    return {
-      content: `${greet(ctx.userName ?? '')}Không có SP trong khoảng **${formatPriceRangeLabel(range)}**. Thử nới ngân sách hoặc hỏi "sp rẻ nhất".`,
-    }
-  }
-
-  return null
-}
-
 function smartProductFallback(
   ctx: ChatContext,
   raw: string,
@@ -264,38 +306,44 @@ function smartProductFallback(
   if (!matched.length) return null
   const name = greet(ctx.userName ?? '')
   const lower = normalizeText(raw)
+  // Không fallback SP khi câu hỏi thuộc đơn / tài khoản / chính sách
+  if (
+    /don hang|don cua|trang thai don|lich su mua|theo doi don|gio hang|thanh toan|doi tra|bao hanh|dang nhap|mat khau/.test(
+      lower,
+    )
+  ) {
+    return null
+  }
   const top = matched[0]
   const cards = toChatProducts(matched, 4)
 
   if (/gia|bao nhieu|how much|price|cost|tien/.test(lower)) {
     return {
-      content: `${name}**${top.name}**: **${formatVnd(top.price)}**${top.originalPrice && top.originalPrice > top.price ? ` (gốc ${formatVnd(top.originalPrice)})` : ''}\n• Danh mục: ${top.category}\n• Shop: **${top.shopName ?? 'SEDSP Official'}**\n• Tồn: ${top.stock <= 0 ? 'hết hàng' : top.stock}`,
+      content: `${name}**${top.name}** đang bán **${formatVnd(top.price)}**${top.originalPrice && top.originalPrice > top.price ? ` (gốc ${formatVnd(top.originalPrice)})` : ''}.`,
       products: cards,
     }
   }
   if (/con hang|het hang|ton|stock|available|con khong/.test(lower)) {
     return {
-      content: `${name}**${top.name}**: ${top.stock <= 0 ? '**hết hàng**' : `còn **${top.stock}**`}. Shop **${top.shopName ?? 'SEDSP Official'}**.`,
+      content: `${name}**${top.name}**: ${top.stock <= 0 ? 'hiện **hết hàng**' : `còn khoảng **${top.stock}**`}.`,
       products: cards.slice(0, 1),
     }
   }
   if (/review|danh gia|sao|tot khong|ngon/.test(lower)) {
     return {
-      content: `${name}**${top.name}** — rating **${top.rating}★**${top.reviewCount ? ` · ${top.reviewCount} đánh giá` : ''} · shop **${top.shopName ?? 'SEDSP Official'}**.`,
+      content: `${name}**${top.name}** đang được đánh giá khoảng **${top.rating}★**.`,
       products: cards.slice(0, 1),
     }
   }
   if (/lien he|seller|nguoi ban|shop|cho nao|o dau ban/.test(lower)) {
     return {
-      content: `${name}Shop **${top.shopName ?? 'SEDSP Official'}** đang bán **${top.name}**\n• Email: **${top.sellerEmail ?? 'seller@sedsp.vn'}**\n• SĐT: **${top.sellerPhone ?? '1900-SEDSP'}**`,
+      content: `${name}Shop **${top.shopName ?? 'SEDSP Official'}** đang bán **${top.name}**.\nEmail: ${top.sellerEmail ?? 'seller@sedsp.vn'} · SĐT: ${top.sellerPhone ?? '1900-SEDSP'}`,
       products: cards.slice(0, 1),
     }
   }
 
   return {
-    content:
-      cardsIntro(ctx, 'Sản phẩm liên quan', Math.min(matched.length, 4)) +
-      sellerHintFromProducts(matched),
+    content: cardsIntro(ctx, 'Mình thấy vài sản phẩm liên quan:', Math.min(matched.length, 4)),
     products: cards,
   }
 }
@@ -309,7 +357,14 @@ export async function generateAssistantReply(
   const lower = normalizeText(raw)
 
   if (!raw && !attachments?.length) {
-    return wrapReply({ content: 'Bạn muốn hỏi gì? ' + roleHelpHints(ctx.role) })
+    return wrapReply({ content: 'Bạn muốn hỏi gì về sản phẩm, giỏ hàng hay đơn hàng?' })
+  }
+
+  if (raw && isOffTopic(lower) && !attachments?.length) {
+    return wrapReply({
+      content:
+        'Mình là trợ lý mua sắm SEDSP nên chỉ hỗ trợ **sản phẩm, giỏ hàng, đơn hàng và chính sách shop**. Câu hỏi này nằm ngoài phạm vi — bạn hỏi giúp mình về mua sắm nhé!',
+    })
   }
 
   const attached = attachmentReply(ctx, raw || 'cho tôi thông tin', attachments ?? [])
@@ -378,9 +433,12 @@ export async function generateAssistantReply(
                 : ctx.enrichment?.product
                   ? [ctx.enrichment.product]
                   : undefined
-      const products = enrichProducts?.length
-        ? toChatProducts(enrichProducts, 6)
-        : undefined
+      const products =
+        intent && NON_SHOPPING_INTENTS.has(intent)
+          ? undefined
+          : enrichProducts?.length
+            ? toChatProducts(enrichProducts, 6)
+            : undefined
       let content = reply + followUps(intent, ctx.role)
       // Giữ directory shop cho where_to_buy / recommend — không xóa bullet
       if (
@@ -389,9 +447,8 @@ export async function generateAssistantReply(
         intent !== 'recommend' &&
         intent !== 'contact_seller'
       ) {
-        content = content.replace(/(?:\n• \*\*[^*]+\*\*[^\n]*)+/g, '').trim()
         if (!content.includes('card') && !content.includes('bên dưới')) {
-          content += `\n\n**${products.length}** sản phẩm — xem card bên dưới.`
+          content += `\n\nBấm card bên dưới để xem chi tiết.`
         }
       } else if (products?.length && (intent === 'where_to_buy' || intent === 'recommend')) {
         content += `\n\nChọn card bên dưới để xem SP.`
@@ -401,6 +458,13 @@ export async function generateAssistantReply(
   }
 
   const catalog = pickProductCatalog(ctx.products, ctx.sellerProducts, ctx.role)
+  // Không fallback tìm SP khi đã biết là đơn hàng / tài khoản / chính sách
+  if (intent && NON_SHOPPING_INTENTS.has(intent)) {
+    return wrapReply({
+      content: escalateReply(ctx, raw, 'unknown'),
+    })
+  }
+
   const searchHits = ctx.enrichment?.searchResults
   const matched = searchHits?.length ? searchHits : findProductsByQuery(catalog, raw)
 
@@ -412,14 +476,18 @@ export async function generateAssistantReply(
     })
   }
 
-  if (/re|gia thap|tiet kiem|cheap|affordable/.test(lower) && catalog.length) {
+  if (/\bre nhat\b|gia thap nhat|cheapest|gia re/.test(lower) && catalog.length) {
     const cheap = cheapestProducts(catalog, 4)
     if (cheap.length) {
+      const floor = formatVnd(cheap[0].price)
       return wrapReply({
-        content:
-          cardsIntro(ctx, 'Gợi ý giá tốt', cheap.length) +
-          sellerHintFromProducts(cheap) +
-          '\n\nHoặc hỏi "dưới 2 triệu".',
+        content: cardsIntro(
+          ctx,
+          cheap.length === 1
+            ? `Sản phẩm rẻ nhất hiện tại là **${cheap[0].name}** — **${floor}**.`
+            : `Mức giá thấp nhất là **${floor}**. Có **${cheap.length}** sản phẩm cùng mức này:`,
+          cheap.length,
+        ),
         products: toChatProducts(cheap, 4),
       })
     }

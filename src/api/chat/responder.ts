@@ -28,6 +28,12 @@ const FORCE_LOCAL_INTENTS = new Set<ChatIntent>([
   'recommend',
   'where_to_buy',
   'contact_seller',
+  'orders',
+  'order_detail',
+  'order_cancel',
+  'cart',
+  'cart_summary',
+  'shop_overview',
   // Seller DSS — factual from APIs / local engine, not free-form LLM
   'seller_dss_demand',
   'seller_dss_price',

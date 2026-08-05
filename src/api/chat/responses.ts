@@ -28,8 +28,11 @@ export { findProductsByQuery } from '@/api/chat/products'
 function greet(name: string): string {
   const n = name?.trim()
   if (!n || n.length < 2) return ''
+  if (/nguyen van khach|khach hang|guest|user\d+/i.test(n)) return ''
   if (/^[a-z0-9._-]+$/i.test(n) && !/\s/.test(n) && n.length < 24) return ''
-  return `${n}, `
+  const first = n.split(/\s+/).pop() || n
+  if (first.length < 2) return ''
+  return `${first}, `
 }
 
 /** Bỏ note kỹ thuật (API/mock) khỏi mọi phản hồi hiển thị cho user */
@@ -242,11 +245,15 @@ function productSearchReply(ctx: ChatContext, raw: string): string {
 
 function cheapestReply(ctx: ChatContext): string {
   const name = greet(ctx.userName ?? '')
-  const list = cheapestProducts(ctx.products, 5)
+  const list = cheapestProducts(ctx.products, 4)
   if (!list.length) {
-    return `${name}Chưa có SP để so giá — xem **Cửa hàng**.`
+    return `${name}Chưa có sản phẩm để so giá — bạn mở **Cửa hàng** xem thử nhé.`
   }
-  return `${name}**Rẻ nhất hiện có:**\n${productLines(list, 5)}\n\nHỏi "dưới 2 triệu" để lọc ngân sách.`
+  const floor = formatVnd(list[0].price)
+  if (list.length === 1) {
+    return `${name}Rẻ nhất hiện tại là **${list[0].name}** — **${floor}**.`
+  }
+  return `${name}Mức giá thấp nhất là **${floor}**. Có **${list.length}** sản phẩm cùng mức này:\n${productLines(list, 4)}`
 }
 
 function budgetReply(ctx: ChatContext, raw: string): string {
@@ -280,34 +287,14 @@ function contactEscalateReply(ctx: ChatContext, raw: string): string {
 
 export function escalateReply(
   ctx: ChatContext,
-  raw: string,
+  _raw: string,
   mode: 'unknown' | 'explicit' = 'unknown',
 ): string {
   const name = greet(ctx.userName ?? '')
-  const matched = findProductsByQuery(ctx.products, raw)[0]
-  const intro =
-    mode === 'explicit'
-      ? `${name}**Chuyển liên hệ hỗ trợ:**\n`
-      : `${name}Mình chưa có câu trả lời chính xác cho: *"${raw.slice(0, 80)}${raw.length > 80 ? '…' : ''}"*.\n\n**Chuyển sang người phụ trách:**\n`
-
-  const productBlock = matched
-    ? `• **Shop "${matched.shopName ?? 'SEDSP Official'}"** — ${matched.name}\n  Email: **${matched.sellerEmail ?? 'seller@sedsp.vn'}** · SĐT: **${matched.sellerPhone ?? '1900-SEDSP'}**\n`
-    : ''
-
-  const roleBlock: Record<ChatContext['role'], string> = {
-    guest:
-      '• **CSKH**: menu **Liên hệ** · email **customer@sedsp.vn**\n• **Đăng nhập** (Khách hàng) để theo dõi đơn & chat cá nhân hóa',
-    customer:
-      '• **CSKH / đơn hàng**: **Liên hệ** · **customer@sedsp.vn**\n• **Quản lý vận hành**: **manager@sedsp.vn**\n• **Kỹ thuật / admin**: **admin@sedsp.vn**',
-    seller:
-      '• **Quản lý seller**: **manager@sedsp.vn**\n• **Admin hệ thống**: **admin@sedsp.vn**\n• Hotline demo: **1900-SEDSP**',
-    manager:
-      '• **Admin kỹ thuật**: **admin@sedsp.vn**\n• **Giám sát**: menu **Giám sát hệ thống**',
-    admin:
-      '• Kiểm tra **Giám sát hệ thống** & logs backend\n• Escalation dev: team SEDSP qua kênh nội bộ',
+  if (mode === 'unknown') {
+    return `${name}Mình chưa hiểu rõ câu hỏi này trong phạm vi mua sắm SEDSP.\n\nMình hỗ trợ: **tìm sản phẩm**, **giỏ hàng**, **đơn hàng**, **giao hàng / thanh toán / đổi trả**.\nBạn thử hỏi lại cụ thể hơn, hoặc gửi góp ý qua trang **Liên hệ**.`
   }
-
-  return `${intro}${productBlock}${roleBlock[ctx.role]}\n\nHoặc thử hỏi cụ thể hơn:\n${roleHelpHints(ctx.role)}`
+  return `${name}Bạn có thể liên hệ hỗ trợ qua:\n• Trang **Liên hệ** (gửi email Admin)\n• Email **customer@sedsp.vn**\n\nHoặc hỏi mình về sản phẩm / đơn hàng ngay tại đây.`
 }
 
 function complaintReply(ctx: ChatContext): string {
@@ -440,9 +427,15 @@ function buildCustomerIntent(ctx: ChatContext, intent: ChatIntent, raw: string):
     case 'orders': {
       const detail = orderDetailReply(ctx)
       if (ctx.enrichment?.focusedOrder) return detail
+      if (ctx.role === 'guest') {
+        return `${name}Bạn cần **đăng nhập** để mình xem đơn hàng cá nhân. Sau đó hỏi lại "đơn hàng của tôi" nhé.`
+      }
+      if (!ctx.orders.length) {
+        return `${name}Hiện bạn chưa có đơn nào. Thêm sản phẩm vào giỏ rồi thanh toán — đơn sẽ hiện ở **Đơn hàng**.`
+      }
       const pending = ctx.orders.filter((o) => o.status === 'pending').length
       const shipping = ctx.orders.filter((o) => o.status === 'shipping').length
-      return `${name}**Đơn hàng** (${ctx.orders.length} đơn):\n${formatOrderSummary(ctx.orders)}\n${pending ? `\n⚠ ${pending} đơn đang chờ xác nhận.` : ''}${shipping ? `\n🚚 ${shipping} đơn đang giao.` : ''}\n\nXem **Đơn hàng của tôi**.`
+      return `${name}Bạn đang có **${ctx.orders.length}** đơn:\n${formatOrderSummary(ctx.orders)}${pending ? `\n\nCó ${pending} đơn đang chờ xác nhận.` : ''}${shipping ? `\nCó ${shipping} đơn đang giao.` : ''}\n\nMở **Đơn hàng** để theo dõi chi tiết, hoặc hỏi "chi tiết đơn #…".`
     }
     case 'order_detail':
       return orderDetailReply(ctx)

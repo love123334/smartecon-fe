@@ -25,18 +25,6 @@ function onImgError(e: Event) {
   handleProductImageError(e, [displaySrc.value])
 }
 
-const stockLabel = computed(() => {
-  const s = props.product.stock
-  if (s == null || Number.isNaN(Number(s))) return null
-  if (s <= 0) return props.product.stockKnown ? 'Hết hàng' : null
-  return `Còn ${s}`
-})
-
-const stockOut = computed(() => {
-  const s = props.product.stock
-  return Boolean(props.product.stockKnown && s != null && s <= 0)
-})
-
 function openProduct() {
   widget.hide()
   void router.push(`/products/${props.product.id}`)
@@ -60,13 +48,6 @@ function openProduct() {
       <p v-if="product.category || product.shopName" class="chat-mini-card__meta">
         <span v-if="product.category">{{ product.category }}</span>
         <span v-if="product.shopName"> · {{ product.shopName }}</span>
-      </p>
-      <p
-        v-if="stockLabel"
-        class="chat-mini-card__stock"
-        :data-out="stockOut ? '1' : '0'"
-      >
-        {{ stockLabel }}
       </p>
     </div>
   </button>
