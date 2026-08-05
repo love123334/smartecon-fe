@@ -3,6 +3,7 @@ import {
   computeProductPriceStats,
   extractBudgetVnd,
   extractPriceRange,
+  extractProductFocusLabel,
   filterProductsForQuery,
   findProductsByQuery,
   isPriceStatsQuery,
@@ -102,5 +103,47 @@ describe('macbook price stats', () => {
     expect(stats?.average).toBe((32_990_000 + 48_990_000) / 2)
     expect(stats?.min).toBe(32_990_000)
     expect(stats?.max).toBe(48_990_000)
+  })
+})
+
+describe('tai nghe giá cả trung bình', () => {
+  const mixed: Product[] = [
+    p({ id: '1', name: 'Tai nghe Bluetooth Pro ANC', price: 1_890_000, category: 'Điện tử' }),
+    p({ id: '5', name: 'Tai nghe gaming rẻ', price: 450_000, category: 'Điện tử' }),
+    p({ id: '2', name: 'Centella Facial Cleanser', price: 299_000, category: 'Chăm sóc da' }),
+    p({ id: '3', name: 'Vitamin C Serum 20ml', price: 459_000, category: 'Chăm sóc da' }),
+    p({ id: '4', name: 'Electric Kettle 1.8L', price: 499_000, category: 'Nhà bếp' }),
+    p({
+      id: '6',
+      name: 'Xiaomi 14 Ultra',
+      price: 21_990_000,
+      category: 'Điện thoại',
+      description: 'bluetooth 5.3 smartphone',
+    }),
+  ]
+
+  it('labels as Tai Nghe not Tai Nghe Ca', () => {
+    expect(extractProductFocusLabel('tai nghe giá cả trung bình')).toBe('Tai Nghe')
+  })
+
+  it('strips giá cả from search text', () => {
+    expect(stripPriceTokens('tai nghe giá cả trung bình')).toBe('tai nghe')
+  })
+
+  it('only returns headphones for average-price query', () => {
+    const hits = findProductsByQuery(mixed, stripPriceTokens('tai nghe giá cả trung bình'))
+    expect(hits.length).toBe(2)
+    expect(hits.every((x) => /tai nghe/i.test(x.name))).toBe(true)
+    expect(hits.some((x) => /centella|serum|kettle|xiaomi/i.test(x.name))).toBe(false)
+  })
+
+  it('computes headphone price stats without skincare/phone', () => {
+    const hits = findProductsByQuery(mixed, 'tai nghe')
+    const stats = computeProductPriceStats(hits, extractProductFocusLabel('tai nghe giá cả trung bình'), 4)
+    expect(stats?.count).toBe(2)
+    expect(stats?.min).toBe(450_000)
+    expect(stats?.max).toBe(1_890_000)
+    expect(stats?.cheapest.name).toMatch(/tai nghe/i)
+    expect(stats?.priciest.name).toMatch(/tai nghe/i)
   })
 })

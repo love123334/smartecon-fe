@@ -1,13 +1,14 @@
-import { normalizeText } from '@/api/chat/match'
+import { containsWholePhrase, normalizeText } from '@/api/chat/match'
 
-/** Từ đồng nghĩa / alias SP & danh mục VI (V31) + EN */
+/** Từ đồng nghĩa / alias SP & danh mục VI (V31) + EN
+ *  Tránh alias quá ngắn/chung (co, ao, bluetooth, ca…) — dễ kích hoạt nhầm khi hỏi giá. */
 const SYNONYM_GROUPS: string[][] = [
   // Sản phẩm phổ biến
-  ['tai nghe', 'headphone', 'headset', 'earphone', 'earbuds', 'airpod', 'bluetooth'],
-  ['ban phim', 'keyboard', 'keypro', 'co'],
+  ['tai nghe', 'headphone', 'headset', 'earphone', 'earbuds', 'tai nghe bluetooth'],
+  ['ban phim', 'keyboard', 'keypro', 'ban phim co'],
   ['chuot', 'mouse', 'chuot khong day'],
   ['giay', 'sneaker', 'running', 'marathon', 'airflex', 'giay dep'],
-  ['noi chien', 'air fryer', 'chien khong dau', 'noi'],
+  ['noi chien', 'air fryer', 'chien khong dau'],
   ['dien thoai', 'phone', 'smartphone', 'mobile'],
   // Brand riêng — không gộp macbook vào mọi laptop (tránh dump Dell/HP khi hỏi MacBook)
   ['laptop', 'may tinh xach tay', 'notebook'],
@@ -18,21 +19,21 @@ const SYNONYM_GROUPS: string[][] = [
   ['laptop', 'lap trinh', 'programming', 'coding', 'developer', 'coder', 'sinh vien it', 'hoc code', 'vscode'],
   ['may tinh bang', 'tablet', 'ipad'],
   ['cham soc da', 'skincare', 'serum', 'kem duong'],
-  ['trang diem', 'makeup', 'son', 'phan'],
+  ['trang diem', 'makeup'],
   // Danh mục marketplace VI
   ['dien thoai', 'phones', 'smartphones'],
-  ['phu kien', 'accessory', 'accessories', 'op lung', 'sac'],
+  ['phu kien', 'accessory', 'accessories', 'op lung'],
   ['thoi trang nam', 'men fashion', 'ao nam', 'quan nam'],
   ['thoi trang nu', 'women fashion', 'ao nu', 'quan nu'],
-  ['thoi trang', 'fashion', 'ao', 'quan'],
+  ['thoi trang', 'fashion'],
   ['nha bep', 'kitchen', 'gia dung bep', 'do bep'],
   ['noi that', 'furniture', 'noi that nha'],
   ['trang tri', 'decor', 'home decor'],
   ['thiet bi the hinh', 'fitness gear', 'gym', 'the hinh'],
   ['do da ngoai', 'outdoor', 'camping', 'da ngoai'],
   ['the thao', 'sport', 'fitness'],
-  ['gia dung', 'home', 'nha cua', 'bep'],
-  ['dien tu', 'electronics', 'tech', 'cong nghe'],
+  ['gia dung', 'nha cua'],
+  ['dien tu', 'electronics'],
   ['sach', 'book', 'books'],
 ]
 
@@ -46,6 +47,17 @@ for (const group of SYNONYM_GROUPS) {
   }
 }
 
+/** Alias có xuất hiện đúng cụm/từ trong câu — không dùng substring ("ca"⊂"camping", "gia"⊂"giay") */
+function queryHitsAlias(normalizedQuery: string, words: string[], alias: string): boolean {
+  if (!alias || alias.length < 2) return false
+  if (containsWholePhrase(normalizedQuery, alias)) return true
+  // Từ đơn đủ dài: khớp exact hoặc typo gần đúng (≥4 ký tự)
+  if (!alias.includes(' ') && alias.length >= 4) {
+    return words.some((w) => w === alias)
+  }
+  return false
+}
+
 /** Mở rộng từ khóa truy vấn bằng synonym */
 export function expandQueryTerms(query: string): string[] {
   const n = normalizeText(query)
@@ -53,19 +65,21 @@ export function expandQueryTerms(query: string): string[] {
   const out = new Set<string>(words)
 
   for (const [alias, related] of ALIAS_LOOKUP) {
-    if (n.includes(alias) || words.some((w: string) => alias.includes(w) || w.includes(alias))) {
-      out.add(alias)
-      for (const r of related) {
-        for (const part of r.split(/\s+/)) {
-          if (part.length > 2) out.add(part)
-        }
-        out.add(r)
+    if (!queryHitsAlias(n, words, alias)) continue
+    out.add(alias)
+    for (const r of related) {
+      // Chỉ thêm cụm đầy đủ + token ≥4 — tránh nhét "home"/"tech"/"bep" làm nhiễu
+      out.add(r)
+      for (const part of r.split(/\s+/)) {
+        if (part.length >= 4) out.add(part)
       }
     }
   }
 
-  // bigrams từ câu hỏi gốc
+  // bigrams từ câu hỏi gốc (bỏ bigram chứa stop-ish giá)
+  const skipBigram = new Set(['gia', 'ca', 'trung', 'binh', 'tb', 'avg', 'average', 'gia ca'])
   for (let i = 0; i < words.length - 1; i++) {
+    if (skipBigram.has(words[i]) || skipBigram.has(words[i + 1])) continue
     out.add(`${words[i]} ${words[i + 1]}`)
   }
 

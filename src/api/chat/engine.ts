@@ -171,15 +171,13 @@ function shoppingStructuredReply(
 
   if (!wantsShop) return null
 
-  // "giá macbook trung bình" → tính TB / min / max, không dump cả laptop
+  // "giá macbook/tai nghe trung bình" → tính TB / min / max đúng nhóm SP
   if (isPriceStatsQuery(raw) || /gia.+(macbook|iphone|laptop|tai nghe|airpod)/.test(normalizeText(raw))) {
     const focusLabel = extractProductFocusLabel(raw)
-    const statsHits = findProductsByQuery(catalog, filter.queryText || raw)
-    const stats = computeProductPriceStats(
-      statsHits.length ? statsHits : filter.products,
-      focusLabel,
-      4,
-    )
+    const searchText = filter.queryText || raw
+    const statsHits = findProductsByQuery(catalog, searchText)
+    // Không fallback sang filter.products (dễ lẫn serum/bếp khi synonym nhiễu)
+    const stats = computeProductPriceStats(statsHits, focusLabel, 4)
     if (stats) {
       const name = greet(ctx.userName ?? '')
       const spread = stats.max - stats.min
@@ -197,6 +195,9 @@ function shoppingStructuredReply(
           `Một vài lựa chọn tiêu biểu:`,
         products: toChatProducts(stats.products, 4),
       }
+    }
+    return {
+      content: `${greet(ctx.userName ?? '')}Chưa tìm thấy sản phẩm **${focusLabel}** đang bán để tính giá trung bình. Thử tên khác (vd: "tai nghe bluetooth", "AirPods") hoặc mở **Cửa hàng**.`,
     }
   }
 

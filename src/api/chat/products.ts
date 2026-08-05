@@ -12,11 +12,29 @@ const STOP_WORDS = new Set([
   'tim', 'kiem', 'search', 'find', 'sp', 'hang', 'loai', 'mau', 'xem', 'goi',
   'y', 'suggest', 'recommend', 'nen', 'trong', 'tam', 'khoang', 'duoi', 'tren',
   'tu', 'den', 'toi', 'da', 'max', 'min', 'budget', 'ngan', 'sach', 'under',
-  'around', 'about', 'gan', 'tam', 'gia',
+  'around', 'about', 'gan', 'tam', 'gia', 'ca',
   'trung', 'binh', 'average', 'avg', 'tb', 'khoang',
   // tránh search lẫn khi hỏi đơn / tài khoản
   'don', 'order', 'orders', 'status', 'trang', 'thai', 'lich', 'su', 'theo', 'doi',
 ])
+
+/** Cụm SP ưu tiên khi tạo nhãn / lọc giá TB */
+const FOCUS_PHRASES = [
+  'tai nghe',
+  'ban phim',
+  'macbook',
+  'iphone',
+  'airpods',
+  'airpod',
+  'dien thoai',
+  'laptop',
+  'chuot',
+  'may tinh bang',
+  'ipad',
+  'noi chien',
+  'giay',
+  'serum',
+] as const
 
 export interface PriceRange {
   min: number | null
@@ -65,22 +83,33 @@ export function computeProductPriceStats(
   }
 }
 
+function titleCaseWords(text: string): string {
+  return text
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 4)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ')
+}
+
 /** Nhãn brand/SP từ câu hỏi (vd: macbook, iphone, tai nghe) */
 export function extractProductFocusLabel(raw: string): string {
-  const n = normalizeText(raw)
+  const full = normalizeText(raw)
+  // Ưu tiên cụm SP đã biết — tránh "Tai Nghe Ca" từ "giá cả"
+  for (const phrase of FOCUS_PHRASES) {
+    if (full.includes(phrase)) return titleCaseWords(phrase)
+  }
+
+  const n = full
+    .replace(/\bgia\s*ca\b/g, ' ')
     .replace(
-      /gia|bao nhieu|trung binh|average|avg|tb|khoang|thap nhat|cao nhat|min|max|cua|cac|sp|san pham|hang/g,
+      /\b(gia|bao nhieu|trung binh|average|avg|tb|khoang|thap nhat|cao nhat|min|max|cua|cac|sp|san pham|hang|ca)\b/g,
       ' ',
     )
     .replace(/\s+/g, ' ')
     .trim()
   if (!n) return 'sản phẩm'
-  // Title-ish
-  return n
-    .split(/\s+/)
-    .slice(0, 4)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ')
+  return titleCaseWords(n)
 }
 
 function parseMoneyToken(numRaw: string, unitRaw?: string): number | null {
@@ -147,7 +176,8 @@ export function stripPriceTokens(raw: string): string {
       /(?:tu|from|khoang|duoi|under|toi da|max|tren|toi thieu|it nhat|budget|ngan sach|trong tam|tam gia|trung binh|average|avg|tb)?\s*\d+[.,]?\d*\s*(trieu|tr|m|k|nghin|ngan)?(?:\s*(?:-|–|den|to|toi)\s*\d+[.,]?\d*\s*(trieu|tr|m|k|nghin|ngan)?)?/g,
       ' ',
     )
-    .replace(/\b(trung binh|average|avg|gia tb|tb gia|khoang gia)\b/g, ' ')
+    .replace(/\b(gia\s*ca|trung binh|average|avg|gia tb|tb gia|khoang gia|bao nhieu)\b/g, ' ')
+    .replace(/\b(gia|ca)\b/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
 }
@@ -166,13 +196,14 @@ export function findProductsByQuery(products: Product[], query: string): Product
   const originalWords = normalizedQuery
     .split(/\s+/)
     .filter((w) => w.length > 2 && !STOP_WORDS.has(w))
+  const focusPhrase = FOCUS_PHRASES.find((phrase) => normalizedQuery.includes(phrase)) ?? null
   const expanded = expandQueryTerms(query)
   const words = expanded.filter((w) => {
     const parts = w.split(/\s+/)
     if (parts.length > 1) return true
     return w.length > 2 && !STOP_WORDS.has(w)
   })
-  if (!words.length) return []
+  if (!words.length && !focusPhrase) return []
 
   const scored = products
     .map((p) => {
@@ -182,6 +213,19 @@ export function findProductsByQuery(products: Product[], query: string): Product
       )
       let score = 0
       let nameHit = false
+      let phraseHit = false
+
+      if (focusPhrase) {
+        if (nameHay.includes(focusPhrase)) {
+          score += focusPhrase.length * 10
+          nameHit = true
+          phraseHit = true
+        } else if (hay.includes(focusPhrase)) {
+          score += focusPhrase.length * 4
+          phraseHit = true
+        }
+      }
+
       // Ưu tiên khớp đúng từ trong câu hỏi trên TÊN SP (macbook ≠ mọi laptop)
       for (const w of originalWords) {
         if (nameHay.includes(w)) {
@@ -196,20 +240,34 @@ export function findProductsByQuery(products: Product[], query: string): Product
           score += w.length * (inName ? (w.includes(' ') ? 3.2 : 2.4) : w.includes(' ') ? 1.2 : 0.85)
           continue
         }
+        // Fuzzy chỉ trên từ đơn ≥4 — tránh nhiễu synonym
+        if (w.includes(' ') || w.length < 4) continue
         for (const hw of hay.split(/\s+/)) {
+          if (hw.length < 4) continue
           const sim = wordSimilarity(hw, w)
-          if (sim >= 0.74) score += w.length * sim * (nameHay.includes(hw) ? 1 : 0.55)
+          if (sim >= 0.82) score += w.length * sim * (nameHay.includes(hw) ? 1 : 0.45)
         }
       }
       score += Math.min(p.soldCount / 500, 1.5)
-      // Có brand rõ trong câu hỏi mà tên SP không chứa → loại mạnh
+      // Có brand/cụm rõ trong câu hỏi mà tên SP không chứa → loại mạnh
       if (originalWords.length && !nameHit && originalWords.some((w) => w.length >= 4)) {
         score *= 0.25
       }
-      return { p, score, nameHit }
+      // Hỏi cụm SP rõ (tai nghe…) mà không đụng cụm đó → loại
+      if (focusPhrase && !phraseHit && !nameHit) {
+        score *= 0.15
+      }
+      return { p, score, nameHit, phraseHit }
     })
     .filter((x) => x.score >= 4)
     .sort((a, b) => b.score - a.score || Number(b.nameHit) - Number(a.nameHit))
+
+  // Có cụm focus → chỉ giữ SP khớp cụm/tên; không fallback serum/bếp
+  if (focusPhrase) {
+    const focused = scored.filter((x) => x.phraseHit || x.nameHit)
+    if (focused.length) return focused.map((x) => x.p)
+    return []
+  }
 
   // Nếu có hit đúng tên brand → chỉ giữ nhóm đó (tránh Dell lẫn MacBook)
   const withName = scored.filter((x) => x.nameHit)
