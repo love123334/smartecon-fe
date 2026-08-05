@@ -17,7 +17,7 @@ export interface DemoAccount {
   password?: string
 }
 
-/** DSS platform-revenue demo (Flyway V43) — same backend demo password */
+/** DSS platform-revenue demo seller (Flyway V43/V44) — same password as other backend demos */
 export const DSS_DEMO_SELLER_EMAIL = 'seller.dss.demo@example.com'
 
 export const DEMO_ACCOUNTS: DemoAccount[] = [
