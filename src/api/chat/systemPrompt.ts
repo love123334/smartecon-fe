@@ -64,9 +64,9 @@ function serializeContext(ctx: ChatContext): string {
   const catalog = ctx.sellerProducts.length ? ctx.sellerProducts : ctx.products
   if (catalog.length) {
     lines.push(`Sản phẩm + seller (${catalog.length}):`)
-    for (const p of catalog.slice(0, 14)) {
+    for (const p of catalog.slice(0, 8)) {
       lines.push(
-        `- ${p.name} | ${p.category} | ${formatVnd(p.price)} | tồn ${p.stock} | shop ${p.shopName ?? 'SEDSP'} | email ${p.sellerEmail ?? '—'}`,
+        `- ${p.name} | ${p.category} | ${formatVnd(p.price)} | tồn ${p.stock} | shop ${p.shopName ?? 'SEDSP'}`,
       )
     }
   }

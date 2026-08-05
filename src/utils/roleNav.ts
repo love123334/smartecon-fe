@@ -43,7 +43,7 @@ export function roleContactPath(role: UserRole): string {
   return '/chatbot'
 }
 
-const PUBLIC_PREFIXES = ['/', '/search', '/products', '/login', '/register']
+const PUBLIC_PREFIXES = ['/', '/search', '/products', '/login', '/register', '/payment']
 
 const ROLE_PREFIXES: Record<Exclude<UserRole, 'guest'>, string[]> = {
   customer: ['/profile', '/role-upgrade', '/cart', '/checkout', '/payment', '/orders', '/chatbot'],
@@ -59,18 +59,28 @@ const ROLE_PREFIXES: Record<Exclude<UserRole, 'guest'>, string[]> = {
   admin: ['/admin'],
 }
 
+/** Strip query/hash so `/cart?pay=cancelled` still matches `/cart`. */
+function pathOnly(path: string): string {
+  const raw = (path || '/').trim()
+  const noHash = raw.split('#')[0] ?? raw
+  const noQuery = noHash.split('?')[0] ?? noHash
+  return noQuery || '/'
+}
+
 export function isPathAllowedForRole(role: UserRole, path: string): boolean {
-  if (PUBLIC_PREFIXES.some((p) => path === p || (p !== '/' && path.startsWith(p + '/')))) {
+  const clean = pathOnly(path)
+  if (PUBLIC_PREFIXES.some((p) => clean === p || (p !== '/' && clean.startsWith(p + '/')))) {
     return true
   }
   if (role === 'guest') return false
-  return ROLE_PREFIXES[role].some((p) => path === p || path.startsWith(p + '/'))
+  return ROLE_PREFIXES[role].some((p) => clean === p || clean.startsWith(p + '/'))
 }
 
 /** Sau login: ưu tiên redirect hợp lệ, không thì về home theo role */
 export function resolvePostLoginPath(role: UserRole, redirect?: string): string {
   if (redirect && isPathAllowedForRole(role, redirect)) {
-    return redirect
+    // Preserve query (e.g. /cart?pay=cancelled) when present
+    return redirect.startsWith('/') ? redirect : `/${redirect}`
   }
   return roleHomePath(role)
 }
@@ -95,9 +105,6 @@ export function footerLinksForRole(role: UserRole): FooterLink[] {
   }
   if (role === 'manager') {
     links.push({ to: '/manager/dashboard', label: 'Dashboard' })
-    links.push({ to: '/manager/platform-revenue', label: 'Doanh thu sàn' })
-    links.push({ to: '/manager/analytics', label: 'Phân tích' })
-    links.push({ to: '/manager/dss', label: 'DSS' })
   }
   if (role === 'admin') {
     links.push({ to: '/admin/users', label: 'Người dùng' })

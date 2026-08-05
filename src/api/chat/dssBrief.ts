@@ -115,11 +115,121 @@ export function sellerWhatIfBrief(discountPct = 10): string {
   ].join('\n')
 }
 
+/** Live DSS via backend — falls back to mock briefs if API unavailable. */
+export async function demandBriefLive(catalog: Product[]): Promise<string> {
+  const focus = pickFocusProduct(catalog)
+  if (!focus?.id || !/^\d+$/.test(focus.id)) return demandBrief(catalog)
+  try {
+    const { dssApi } = await import('@/api/services')
+    const r = await dssApi.forecastDemand({
+      productId: focus.id,
+      historyDays: 30,
+      forecastDays: 14,
+    })
+    return [
+      `• Nguồn: **API DSS** (${r.method || 'moving_average'})`,
+      `• SP: **${r.productName || focus.name}**`,
+      `• TB bán/ngày: **${r.averageDailyDemand}**`,
+      `• Dự báo ${r.forecastDays} ngày: **${r.predictedDemand}**`,
+      r.insufficientData ? '• ⚠ Dữ liệu lịch sử còn mỏng — kết quả mang tính tham khảo.' : null,
+      `→ **DSS → Dự báo nhu cầu** để chỉnh kỳ.`,
+    ]
+      .filter(Boolean)
+      .join('\n')
+  } catch {
+    return demandBrief(catalog)
+  }
+}
+
+export async function priceBriefLive(catalog: Product[]): Promise<string> {
+  const focus = pickFocusProduct(catalog)
+  if (!focus?.id || !/^\d+$/.test(focus.id)) return priceBrief(catalog)
+  try {
+    const { dssApi } = await import('@/api/services')
+    const r = await dssApi.recommendPrice(focus.id, 30)
+    return [
+      `• Nguồn: **API DSS khuyến nghị giá**`,
+      `• SP: **${r.productName || focus.name}**`,
+      `• Giá hiện tại: **${formatVnd(Number(r.currentPrice))}** → đề xuất **${formatVnd(Number(r.recommendedPrice))}** (${r.priceChangePct > 0 ? '+' : ''}${r.priceChangePct}%)`,
+      `• Hành động: **${r.action}**`,
+      r.message ? `• ${r.message}` : null,
+      r.insight ? `• ${r.insight}` : null,
+      `→ **DSS → Khuyến nghị giá**.`,
+    ]
+      .filter(Boolean)
+      .join('\n')
+  } catch {
+    return priceBrief(catalog)
+  }
+}
+
+export async function inventoryDssBriefLive(catalog: Product[]): Promise<string> {
+  try {
+    const { dssApi } = await import('@/api/services')
+    const api = await dssApi.recommendInventory(14)
+    const need = (api.rows ?? []).filter((r) => r.status === 'need' || r.recommendedOrder > 0)
+    const lines = [
+      `• Nguồn: **API DSS tồn kho**`,
+      `• ${api.recommendationMessage}`,
+      `• Trạng thái tổng: **${api.overallStatus}**`,
+    ]
+    if (need.length) {
+      lines.push('**Cần bổ sung:**')
+      for (const r of need.slice(0, 4)) {
+        lines.push(
+          `• ${r.productName}: tồn ${r.currentStock} · ROP ${r.reorderPoint} · nhập **${r.recommendedOrder}**`,
+        )
+      }
+    }
+    lines.push('→ **DSS → Khuyến nghị tồn kho**.')
+    return lines.join('\n')
+  } catch {
+    return inventoryDssBrief(catalog)
+  }
+}
+
+export async function sellerWhatIfBriefLive(
+  discountPct: number,
+  catalog: Product[],
+): Promise<string> {
+  const focus = pickFocusProduct(catalog)
+  if (!focus?.id || !/^\d+$/.test(focus.id)) return sellerWhatIfBrief(discountPct)
+  try {
+    const { dssApi } = await import('@/api/services')
+    const r = await dssApi.analyzeSellerWhatIf({
+      productId: Number(focus.id),
+      discountPercentage: discountPct,
+      simulationPeriod: 30,
+    })
+    return [
+      `• Nguồn: **API What-if seller**`,
+      `• SP: **${focus.name}** · Giảm **${discountPct}%** · 30 ngày`,
+      `• Giá: ${formatVnd(r.currentPrice)} → **${formatVnd(r.newPrice)}**`,
+      `• Nhu cầu: ${r.forecastDemand} → **${r.predictedDemand}**`,
+      `• LN: ${formatVnd(r.currentProfit)} → **${formatVnd(r.expectedProfit)}**`,
+      r.businessInsight ? `• ${r.businessInsight}` : null,
+      `→ **/seller/dss/what-if**`,
+    ]
+      .filter(Boolean)
+      .join('\n')
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : ''
+    if (/demand|price|elastic|du lieu|dữ liệu|prediction/i.test(msg)) {
+      return [
+        `• Chưa chạy được what-if cho **${focus.name}**: ${msg}`,
+        `• Hãy mở **Dự báo nhu cầu** rồi **Khuyến nghị giá**, sau đó thử lại what-if.`,
+        `→ **/seller/dss/what-if**`,
+      ].join('\n')
+    }
+    return sellerWhatIfBrief(discountPct)
+  }
+}
+
 export function managerWhatIfBrief(_discountHint = 10): string {
   return [
     '• What-if giảm giá theo **sản phẩm** thuộc module **Người bán**.',
     '• Manager dùng **Doanh thu sàn** + **Looker Studio** để theo dõi GMV toàn sàn.',
-    '→ Seller: **/seller/dss/what-if** · Manager: **/manager/platform-revenue**.',
+    '→ Seller: **/seller/dss/what-if** · Manager: **/manager/dashboard**.',
   ].join('\n')
 }
 

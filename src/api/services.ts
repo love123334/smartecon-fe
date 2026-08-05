@@ -27,6 +27,8 @@ import { chatModeLabel, resolveChatReply, refreshBeAiStatus } from '@/api/chat/r
 import { isLlmConfigured } from '@/api/chat/llm'
 import { applyAvatarToUser, saveUserAvatar } from '@/utils/avatar'
 import { categoryRevenueChart, monthlyRevenueChart } from '@/utils/orderAnalytics'
+import { scoreProductRecommendation } from '@/utils/recommendationScore'
+import { repairProductImageUrl } from '@/utils/productImage'
 import {
   applyOrderOverlay,
   applyOrderOverlays,
@@ -860,25 +862,40 @@ export async function resolveCartLines(userId: string): Promise<CartLine[]> {
 
   if (apiConfig.useRealCart && hasBackendToken()) {
     const cart = await realCart.getCart()
+    // Prefer catalog images (same mapper as shop) so cart/checkout match listing
+    const byId = new Map<string, Product>()
+    try {
+      const catalog = await listProductsHybrid({ size: 120 })
+      for (const p of catalog) byId.set(p.id, p)
+    } catch {
+      /* fall back to cart API image */
+    }
+
     return cart.items.map((item) => {
       const price = realCart.cartNum(item.price)
       const subtotal = realCart.cartNum(item.totalPrice, price * item.quantity)
+      const pid = String(item.productId)
+      const fromCatalog = byId.get(pid)
+      const imageUrl =
+        fromCatalog?.imageUrl ||
+        repairProductImageUrl(item.productImageUrl, { seed: pid, category: fromCatalog?.category })
       return {
         cartItemId: String(item.id),
         product: {
-          id: String(item.productId),
-          name: item.productName,
-          description: '',
+          id: pid,
+          name: item.productName || fromCatalog?.name || 'Sản phẩm',
+          description: fromCatalog?.description ?? '',
           price,
-          stock: 0,
-          category: '',
-          imageUrl: `https://picsum.photos/seed/prod-${item.productId}/400/400`,
-          sellerId: '',
-          shopName: 'SEDSP Official',
-          shopLocation: 'TP.HCM',
-          rating: 4.5,
-          soldCount: 0,
-          createdAt: new Date().toISOString(),
+          stock: fromCatalog?.stock ?? 0,
+          category: fromCatalog?.category ?? '',
+          imageUrl,
+          imageUrls: fromCatalog?.imageUrls?.length ? fromCatalog.imageUrls : [imageUrl],
+          sellerId: fromCatalog?.sellerId ?? '',
+          shopName: fromCatalog?.shopName ?? 'SEDSP Official',
+          shopLocation: fromCatalog?.shopLocation ?? 'TP.HCM',
+          rating: fromCatalog?.rating ?? 4.5,
+          soldCount: fromCatalog?.soldCount ?? 0,
+          createdAt: fromCatalog?.createdAt ?? new Date().toISOString(),
         },
         quantity: item.quantity,
         subtotal,
@@ -1535,7 +1552,6 @@ export const dssApi = {
   },
 
   async recommendations(customerId: string): Promise<Recommendation[]> {
-    await delay()
     let orders = getOrders().filter((o) => o.customerId === customerId)
     if (apiConfig.useRealOrders && hasBackendToken()) {
       try {
@@ -1546,41 +1562,57 @@ export const dssApi = {
       }
     }
 
-    const bought = new Set(orders.flatMap((o) => o.items.map((i) => i.productId)))
-    const boughtCategories = new Map<string, number>()
-    for (const o of orders) {
-      for (const item of o.items) {
-        const p = getProducts().find((x) => x.id === item.productId)
-        if (p) boughtCategories.set(p.category, (boughtCategories.get(p.category) ?? 0) + 1)
-      }
-    }
-
     let catalog: Product[] = []
     try {
-      catalog = await listProductsHybrid()
+      catalog = await listProductsHybrid({ size: 80 })
     } catch {
       catalog = getProducts()
     }
+    const byId = new Map(catalog.map((p) => [p.id, p]))
+
+    const bought = new Set(orders.flatMap((o) => o.items.map((i) => i.productId)))
+    const boughtCategories = new Map<string, number>()
+    const spendSamples: number[] = []
+    for (const o of orders) {
+      for (const item of o.items) {
+        const p =
+          byId.get(item.productId) ||
+          getProducts().find((x) => x.id === item.productId)
+        if (p) {
+          boughtCategories.set(p.category, (boughtCategories.get(p.category) ?? 0) + item.quantity)
+        } else if (item.productName) {
+          // Fallback: infer category from catalog name match
+          const hit = catalog.find(
+            (c) => c.name.toLowerCase() === item.productName.toLowerCase(),
+          )
+          if (hit) {
+            boughtCategories.set(hit.category, (boughtCategories.get(hit.category) ?? 0) + item.quantity)
+          }
+        }
+        spendSamples.push(item.unitPrice * item.quantity)
+      }
+    }
+
+    const preferredCategories = [...boughtCategories.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([c]) => c)
+    const avgSpend =
+      spendSamples.length > 0
+        ? spendSamples.reduce((a, b) => a + b, 0) / spendSamples.length
+        : null
 
     const candidates = catalog.filter((p) => !bought.has(p.id))
-    const ranked = candidates
-      .map((p) => {
-        const catBoost = (boughtCategories.get(p.category) ?? 0) * 0.12
-        const ratingBoost = p.rating * 0.08
-        const popularBoost = Math.min(p.soldCount / 200, 0.15)
-        const score = Math.min(0.98, 0.55 + catBoost + ratingBoost + popularBoost)
-        const topCat = [...boughtCategories.entries()].sort((a, b) => b[1] - a[1])[0]?.[0]
-        const reason =
-          bought.size === 0
-            ? 'Phổ biến trên SEDSP — bắt đầu khám phá'
-            : topCat && p.category === topCat
-              ? `Bạn thường mua ${topCat} — gợi ý bổ sung`
-              : 'Khách hàng tương tự cũng quan tâm'
-        return { productId: p.id, score, reason }
-      })
+    return candidates
+      .map((p) =>
+        scoreProductRecommendation(p, {
+          boughtIds: bought,
+          categoryCounts: boughtCategories,
+          avgSpend,
+          preferredCategories,
+        }),
+      )
       .sort((a, b) => b.score - a.score)
-
-    return ranked.slice(0, 6)
+      .slice(0, 8)
   },
 
   async forecastDemand(input: {

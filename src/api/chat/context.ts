@@ -47,8 +47,11 @@ export interface ChatEnrichment {
   reviews?: ProductReview[]
   inventory?: InventoryInfo | null
   searchResults?: Product[]
-  focusedOrder?: Order | null
+  /** Products matched via category synonym / browse intent */
   categoryProducts?: Product[]
+  focusedOrder?: Order | null
+  /** Pre-fetched seller DSS brief (real API) for chat */
+  dssBriefText?: string
 }
 
 export interface ChatContext {
@@ -152,10 +155,28 @@ function detectDataSource(
 }
 
 /** Thu thập dữ liệu từ backend + mock — gọi song song theo role */
+const CTX_TTL_MS = 25_000
+const ctxCache = new Map<string, { at: number; ctx: ChatContext }>()
+
 export async function buildChatContext(
   role: UserRole,
   opts?: { userName?: string; userId?: string; sellerBackendId?: string },
 ): Promise<ChatContext> {
+  const cacheKey = `${role}|${opts?.userId ?? ''}|${opts?.sellerBackendId ?? ''}`
+  const hit = ctxCache.get(cacheKey)
+  if (hit && Date.now() - hit.at < CTX_TTL_MS) {
+    // Refresh cart only (cheap) so totals stay accurate
+    const cartData = await loadCart(opts?.userId)
+    return {
+      ...hit.ctx,
+      userName: opts?.userName ?? hit.ctx.userName,
+      cartLines: cartData.lines,
+      cartTotal: cartData.total,
+      cartItemCount: cartData.lines.reduce((s, l) => s + l.quantity, 0),
+      enrichment: undefined,
+    }
+  }
+
   const sellerKey = opts?.sellerBackendId ?? opts?.userId
 
   const [catalog, rawCategories, cartData] = await Promise.all([
@@ -247,5 +268,6 @@ export async function buildChatContext(
   }
 
   await Promise.all(roleTasks)
+  ctxCache.set(cacheKey, { at: Date.now(), ctx: { ...ctx } })
   return ctx
 }

@@ -46,9 +46,6 @@ const opsNavLinks = computed(() => {
   if (r === 'manager') {
     return [
       { to: '/manager/dashboard', label: 'Dashboard' },
-      { to: '/manager/platform-revenue', label: 'Doanh thu sàn' },
-      { to: '/manager/analytics', label: 'Phân tích' },
-      { to: '/manager/dss', label: 'DSS' },
     ]
   }
   if (r === 'admin') {

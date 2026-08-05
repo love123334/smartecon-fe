@@ -30,7 +30,7 @@ onMounted(async () => {
   try {
     const [list, all] = await Promise.all([
       dssApi.recommendations(auth.user.id),
-      productApi.list(),
+      productApi.list({ size: 80 }),
     ])
     recs.value = list
     products.value = all
@@ -57,7 +57,7 @@ async function addToCart(productId: string) {
     <PageHeader
       eyebrow="AI · DSS"
       title="Gợi ý cho bạn"
-      lead="Sản phẩm được chọn dựa trên lịch sử mua hàng, danh mục yêu thích và hành vi khách tương tự."
+      lead="Xếp hạng đa tiêu chí từ lịch sử mua, danh mục ưa thích, rating, độ phổ biến và tầm giá — kèm lý do rõ ràng."
     />
     <AiShortcutBar
       title="Tiếp theo:"
@@ -73,11 +73,23 @@ async function addToCart(productId: string) {
     <div v-else-if="pairs.length" class="rec-grid">
       <article v-for="{ rec, product } in pairs" :key="product.id" class="rec-card card">
         <div class="rec-card__score">
-          <span class="rec-card__pct">{{ Math.round(rec.score * 100) }}%</span>
-          <span class="rec-card__match">phù hợp</span>
+          <span class="rec-card__pct">{{ Math.round(rec.score * 100) }}</span>
+          <span class="rec-card__match">/ 100</span>
         </div>
         <ProductCard :product="product" compact />
-        <p class="rec-card__reason">{{ rec.reason }}</p>
+        <div class="rec-card__why">
+          <p class="rec-card__why-title">Vì sao gợi ý?</p>
+          <ul class="rec-card__reasons">
+            <li v-for="(why, i) in rec.reasons?.length ? rec.reasons : [rec.reason]" :key="i">
+              ✓ {{ why }}
+            </li>
+          </ul>
+          <div v-if="rec.breakdown?.length" class="rec-card__break">
+            <span v-for="b in rec.breakdown.filter((x) => x.points > 0)" :key="b.label">
+              {{ b.label }} {{ b.points }}
+            </span>
+          </div>
+        </div>
         <div class="rec-card__foot">
           <strong>{{ formatVnd(product.price) }}</strong>
           <button
@@ -92,7 +104,7 @@ async function addToCart(productId: string) {
     </div>
 
     <div v-else class="empty card" style="padding: 2rem; text-align: center">
-      <p>Chưa đủ dữ liệu để gợi ý.</p>
+      <p>Chưa đủ dữ liệu để gợi ý — mua vài món hoặc duyệt cửa hàng để DSS học sở thích.</p>
       <RouterLink to="/search" class="btn btn-primary" style="margin-top: 1rem">
         Khám phá cửa hàng
       </RouterLink>
@@ -119,6 +131,7 @@ async function addToCart(productId: string) {
   position: absolute;
   top: 0.75rem;
   right: 0.75rem;
+  z-index: 2;
   text-align: center;
   background: #ecfdf5;
   border: 1px solid #a7f3d0;
@@ -136,16 +149,51 @@ async function addToCart(productId: string) {
 
 .rec-card__match {
   font-size: 0.625rem;
-  text-transform: uppercase;
   letter-spacing: 0.04em;
   color: #0f766e;
 }
 
-.rec-card__reason {
+.rec-card__why {
   margin: 0;
+  padding: 0.65rem 0.75rem;
+  background: #f8fafc;
+  border-radius: 10px;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.rec-card__why-title {
+  margin: 0 0 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.rec-card__reasons {
+  margin: 0;
+  padding: 0;
+  list-style: none;
   font-size: 0.8125rem;
-  color: var(--slate-600);
-  font-style: italic;
+  color: #475569;
+  line-height: 1.45;
+}
+
+.rec-card__reasons li + li {
+  margin-top: 0.2rem;
+}
+
+.rec-card__break {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+.rec-card__break span {
+  font-size: 0.6875rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #334155;
 }
 
 .rec-card__foot {

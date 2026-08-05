@@ -3,6 +3,13 @@ import type { ChatIntent } from '@/api/chat/intents'
 import { normalizeText } from '@/api/chat/match'
 import { findProductsByQuery } from '@/api/chat/products'
 import { matchCategoryFromText } from '@/api/chat/synonyms'
+import {
+  demandBriefLive,
+  extractDiscountPct,
+  inventoryDssBriefLive,
+  priceBriefLive,
+  sellerWhatIfBriefLive,
+} from '@/api/chat/dssBrief'
 import { inventoryApi, orderApi, productApi, reviewApi } from '@/api/services'
 import type { Product } from '@/types'
 
@@ -179,6 +186,29 @@ export async function enrichChatContext(
       (async () => {
         const e = await enrichProduct(topProduct, { inventory: true })
         Object.assign(enrichment, e)
+      })(),
+    )
+  }
+
+  // Seller DSS intents → real backend analytics (fallback inside *Live helpers)
+  if (
+    ctx.role === 'seller' &&
+    intent &&
+    ['seller_dss_demand', 'seller_dss_price', 'seller_dss_inventory', 'seller_pricing', 'seller_whatif'].includes(
+      intent,
+    )
+  ) {
+    tasks.push(
+      (async () => {
+        if (intent === 'seller_dss_demand') {
+          enrichment.dssBriefText = await demandBriefLive(catalog)
+        } else if (intent === 'seller_dss_price' || intent === 'seller_pricing') {
+          enrichment.dssBriefText = await priceBriefLive(catalog)
+        } else if (intent === 'seller_dss_inventory') {
+          enrichment.dssBriefText = await inventoryDssBriefLive(catalog)
+        } else if (intent === 'seller_whatif') {
+          enrichment.dssBriefText = await sellerWhatIfBriefLive(extractDiscountPct(raw, 10), catalog)
+        }
       })(),
     )
   }

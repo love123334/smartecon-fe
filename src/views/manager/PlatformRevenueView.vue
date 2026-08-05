@@ -109,8 +109,8 @@ function retry() {
   <div class="pr-page">
     <PageHeader
       eyebrow="Quản lý"
-      title="Platform Revenue Management"
-      lead="Theo dõi doanh số và hoạt động tổng thể của sàn"
+      title="Bảng điều khiển"
+      lead="Doanh thu sàn, KPI vận hành và báo cáo Looker Studio — gom một chỗ."
     >
       <template #actions>
         <p v-if="data" class="pr-generated muted">
@@ -119,12 +119,12 @@ function retry() {
       </template>
     </PageHeader>
 
-    <section class="pr-looker card" aria-label="Looker Studio — Platform Revenue">
+    <section class="pr-looker card" aria-label="Looker Studio — SEDSP Dashboard">
       <div class="pr-looker__head">
         <div>
-          <h2 class="pr-looker__title">Looker Studio</h2>
+          <h2 class="pr-looker__title">SEDSP Dashboard · Looker Studio</h2>
           <p class="pr-looker__lead muted">
-            Báo cáo doanh thu sàn nhúng từ Google Looker Studio
+            Báo cáo tổng hợp nhúng từ Google Looker Studio
           </p>
         </div>
         <a
@@ -153,7 +153,7 @@ function retry() {
         </div>
         <iframe
           class="pr-looker__frame"
-          title="Platform Revenue Management — Looker Studio"
+          title="SEDSP Dashboard — Looker Studio"
           :src="LOOKER_STUDIO_EMBED_URL"
           loading="lazy"
           referrerpolicy="no-referrer-when-downgrade"

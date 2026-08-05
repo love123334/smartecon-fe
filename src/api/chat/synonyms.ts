@@ -10,6 +10,8 @@ const SYNONYM_GROUPS: string[][] = [
   ['noi chien', 'air fryer', 'chien khong dau', 'noi'],
   ['dien thoai', 'phone', 'smartphone', 'mobile', 'iphone', 'samsung'],
   ['laptop', 'may tinh xach tay', 'notebook', 'macbook'],
+  // Use-case: lập trình / học IT
+  ['laptop', 'lap trinh', 'programming', 'coding', 'developer', 'coder', 'sinh vien it', 'hoc code', 'vscode'],
   ['may tinh bang', 'tablet', 'ipad'],
   ['cham soc da', 'skincare', 'serum', 'kem duong'],
   ['trang diem', 'makeup', 'son', 'phan'],

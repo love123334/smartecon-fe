@@ -28,9 +28,15 @@ const FORCE_LOCAL_INTENTS = new Set<ChatIntent>([
   'recommend',
   'where_to_buy',
   'contact_seller',
+  // Seller DSS — factual from APIs / local engine, not free-form LLM
+  'seller_dss_demand',
+  'seller_dss_price',
+  'seller_dss_inventory',
+  'seller_whatif',
+  'seller_pricing',
 ])
 
-/** Khi có LLM: ưu tiên AI + context shop; local chỉ fallback. Shopping/filter → local có card. */
+/** When LLM succeeds: still need cards from local engine, but skip if local already ran. */
 export async function resolveChatReply(
   userMessage: string,
   history: ChatMessage[],
@@ -48,9 +54,18 @@ export async function resolveChatReply(
 
   if (!forceLocal && isLlmConfigured()) {
     try {
-      const systemPrompt = buildSystemPrompt(enriched)
-      const content = sanitizeChatReply(await callChatLlm(systemPrompt, history, userMessage))
-      const local = await generateAssistantReply(userMessage, enriched, attachments)
+      const [content, local] = await Promise.all([
+        callChatLlm(buildSystemPrompt(enriched), history, userMessage).then(sanitizeChatReply),
+        generateAssistantReply(userMessage, enriched, attachments),
+      ])
+      // Prefer local body when it already found catalog cards — avoids LLM inventing SKUs
+      if (local.products?.length) {
+        return {
+          content: sanitizeChatReply(local.content),
+          source: 'local',
+          products: local.products,
+        }
+      }
       return {
         content,
         source: 'llm',

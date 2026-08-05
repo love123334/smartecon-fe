@@ -10,6 +10,7 @@ import EmptyState from '@/components/EmptyState.vue'
 import NewsletterBanner from '@/components/NewsletterBanner.vue'
 
 const PENDING_PAY_KEY = 'sedsp_pending_vnpay_order'
+const PAY_RETURN_KEY = 'sedsp_pay_return'
 
 const cart = useCartStore()
 const route = useRoute()
@@ -29,12 +30,8 @@ const shippingFee = computed(() => {
 const discount = computed(() => (couponApplied.value ? 25_000 : 0))
 const grandTotal = computed(() => Math.max(0, cart.total + shippingFee.value - discount.value))
 
-function consumePayQuery() {
-  const pay = String(route.query.pay ?? '').toLowerCase()
-  if (!pay) return
-  const orderId = String(route.query.orderId ?? '')
-  const gateway = String(route.query.gateway ?? 'vnpay').toUpperCase()
-
+function applyPayStatus(pay: string, orderId: string, gateway: string) {
+  const g = gateway.toUpperCase() || 'VNPAY'
   if (pay === 'success') {
     try {
       sessionStorage.removeItem(PENDING_PAY_KEY)
@@ -45,8 +42,8 @@ function consumePayQuery() {
       kind: 'ok',
       orderId,
       text: orderId
-        ? `Thanh toán ${gateway} thành công — đơn #${orderId} đã ghi nhận.`
-        : `Thanh toán ${gateway} thành công.`,
+        ? `Thanh toán ${g} thành công — đơn #${orderId} đã ghi nhận.`
+        : `Thanh toán ${g} thành công.`,
     }
     notice.show({
       kind: 'info',
@@ -59,8 +56,8 @@ function consumePayQuery() {
       kind: 'warn',
       orderId,
       text: orderId
-        ? `Bạn đã hủy / thoát cổng ${gateway}. Đơn #${orderId} vẫn chờ — có thể thanh toán lại từ đơn hàng.`
-        : `Bạn đã hủy cổng ${gateway}.`,
+        ? `Bạn đã hủy / thoát cổng ${g}. Đơn #${orderId} vẫn chờ — có thể thanh toán lại từ đơn hàng.`
+        : `Bạn đã hủy cổng ${g}.`,
     }
     notice.show({
       kind: 'info',
@@ -73,8 +70,8 @@ function consumePayQuery() {
       kind: 'err',
       orderId,
       text: orderId
-        ? `Thanh toán ${gateway} không thành công cho đơn #${orderId}. Kiểm tra lại hoặc thử lại từ đơn hàng.`
-        : `Thanh toán ${gateway} không thành công.`,
+        ? `Thanh toán ${g} không thành công cho đơn #${orderId}. Kiểm tra lại hoặc thử lại từ đơn hàng.`
+        : `Thanh toán ${g} không thành công.`,
     }
     notice.show({
       kind: 'error',
@@ -83,6 +80,40 @@ function consumePayQuery() {
       durationMs: 3600,
     })
   }
+}
+
+function consumePayQuery() {
+  let pay = String(route.query.pay ?? '').toLowerCase()
+  let orderId = String(route.query.orderId ?? '')
+  let gateway = String(route.query.gateway ?? 'vnpay')
+
+  if (!pay) {
+    try {
+      const raw = sessionStorage.getItem(PAY_RETURN_KEY)
+      if (raw) {
+        const saved = JSON.parse(raw) as {
+          pay?: string
+          orderId?: string
+          gateway?: string
+        }
+        pay = String(saved.pay ?? '').toLowerCase()
+        orderId = String(saved.orderId ?? '')
+        gateway = String(saved.gateway ?? 'vnpay')
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  if (!pay) return
+
+  try {
+    sessionStorage.removeItem(PAY_RETURN_KEY)
+  } catch {
+    /* ignore */
+  }
+
+  applyPayStatus(pay, orderId, gateway)
 
   // Clean query so refresh không hiện lại banner/toast
   const nextQuery = { ...route.query } as Record<string, string | string[]>
@@ -91,7 +122,6 @@ function consumePayQuery() {
   delete nextQuery.code
   delete nextQuery.txnRef
   delete nextQuery.gateway
-  // giữ orderId trên banner state, bỏ khỏi URL
   delete nextQuery.orderId
   void router.replace({ path: '/cart', query: nextQuery })
 }

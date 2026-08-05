@@ -21,7 +21,7 @@ export function roleInsightsPath(role: UserRole): string | null {
     case 'seller':
       return '/seller/dss'
     case 'manager':
-      return '/manager/dss'
+      return '/manager/dashboard'
     default:
       return null
   }
@@ -50,10 +50,7 @@ export function roleAccountMenuLinks(role: UserRole): NavLink[] {
       ]
     case 'manager':
       return [
-        { to: '/manager/dashboard', label: 'Dashboard KPI' },
-        { to: '/manager/platform-revenue', label: 'Doanh thu sàn', highlight: true },
-        { to: '/manager/dss', label: 'DSS Quản lý + Looker', highlight: true },
-        { to: '/manager/analytics', label: 'Phân tích danh mục' },
+        { to: '/manager/dashboard', label: 'Dashboard · Doanh thu sàn', highlight: true },
       ]
     case 'admin':
       return [
@@ -81,9 +78,7 @@ export function roleChatShortcuts(role: UserRole): NavLink[] {
       ]
     case 'manager':
       return [
-        { to: '/manager/platform-revenue', label: 'Doanh thu sàn' },
-        { to: '/manager/dss', label: 'DSS + Looker' },
-        { to: '/manager/dashboard', label: 'Dashboard' },
+        { to: '/manager/dashboard', label: 'Dashboard · Doanh thu' },
       ]
     case 'admin':
       return [
@@ -101,7 +96,7 @@ export function roleAiFooterLinks(role: UserRole): NavLink[] {
     case 'seller':
       return [{ to: '/seller/dss', label: 'DSS bán hàng' }]
     case 'manager':
-      return [{ to: '/manager/dss', label: 'DSS quản lý' }]
+      return [{ to: '/manager/dashboard', label: 'Dashboard' }]
     default:
       return []
   }
@@ -116,7 +111,7 @@ export function roleCategoryAiLink(role: UserRole, isLoggedIn: boolean): NavLink
     return { to: '/seller/dss', label: 'DSS & AI' }
   }
   if (role === 'manager') {
-    return { to: '/manager/dss', label: 'DSS & AI' }
+    return { to: '/manager/dashboard', label: 'Dashboard' }
   }
   if (role === 'admin') {
     return { to: '/admin/monitoring', label: 'Giám sát' }

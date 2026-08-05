@@ -16,12 +16,12 @@ import {
   findProductsByQuery,
   groupProductsByShop,
   productsUnderBudget,
-  rankRecommendedProducts,
   stripPriceTokens,
 } from '@/api/chat/products'
 import { matchCategoryFromText } from '@/api/chat/synonyms'
 import type { Order, Product } from '@/types'
 import { orderStatusLabel } from '@/utils/orderStatus'
+import { rankForUseCase } from '@/utils/recommendationScore'
 
 export { findProductsByQuery } from '@/api/chat/products'
 
@@ -107,19 +107,20 @@ function recommendReply(ctx: ChatContext, raw: string): string {
         const p = ctx.products.find((x) => x.id === r.productId)
         if (!p) return null
         const shop = p.shopName ? ` · shop **${p.shopName}**` : ''
-        return `• **${p.name}** (${Math.round(r.score * 100)}%)${shop} — ${r.reason}`
+        const why = (r.reasons?.length ? r.reasons : [r.reason]).slice(0, 2).join('; ')
+        return `• **${p.name}** (${Math.round(r.score * 100)}/100)${shop}\n  → ${why}`
       })
       .filter(Boolean)
     if (picks.length) {
-      return `${name}**Gợi ý đáng mua:**\n${picks.join('\n')}\n\nHỏi **"chỗ nào bán …"** nếu cần tìm đúng shop.`
+      return `${name}**Gợi ý DSS (có giải thích):**\n${picks.join('\n')}\n\nHỏi **"so sánh A và B"** hoặc **"chỗ nào bán …"**.`
     }
   }
   const pool = resolveProductHits(ctx, raw)
-  const ranked = rankRecommendedProducts(pool.length ? pool : ctx.products, 6)
+  const ranked = rankForUseCase(pool.length ? pool : ctx.products, raw, 6)
   if (!ranked.length) {
     return `${name}Chưa có gợi ý phù hợp — xem **Cửa hàng** hoặc hỏi danh mục (laptop, điện thoại…).`
   }
-  return `${name}**Gợi ý đáng mua** (theo rating & lượt bán):\n${productLines(ranked, 6)}\n\n**Shop nổi bật:**\n${shopDirectoryLines(ranked, 3)}`
+  return `${name}**Gợi ý theo yêu cầu của bạn** (giá · rating · phù hợp use-case):\n${productLines(ranked, 6)}\n\n**Shop nổi bật:**\n${shopDirectoryLines(ranked, 3)}`
 }
 
 function formatOrderSummary(orders: Order[], limit = 3): string {
@@ -356,7 +357,42 @@ function compareReply(ctx: ChatContext, raw: string): string {
   const matched = findProductsByQuery(ctx.products, raw)
   if (matched.length >= 2) {
     const [a, b] = matched
-    return `${name}**So sánh nhanh:**\n• **${a.name}** — ${formatVnd(a.price)} · ${a.category} · shop **${a.shopName ?? 'SEDSP'}** · đã bán ${a.soldCount}\n• **${b.name}** — ${formatVnd(b.price)} · ${b.category} · shop **${b.shopName ?? 'SEDSP'}** · đã bán ${b.soldCount}\n\nXem mô tả đầy đủ trên **Cửa hàng**.`
+    const cheaper = a.price <= b.price ? a : b
+    const betterRated = a.rating >= b.rating ? a : b
+    const hotter = a.soldCount >= b.soldCount ? a : b
+    const pref = (id: string) => {
+      const r = ctx.recommendations.find((x) => x.productId === id)
+      return r ? Math.round(r.score * 100) : null
+    }
+    const score = (p: typeof a) =>
+      Math.round(p.rating * 12 + Math.min(p.soldCount, 200) / 20 - p.price / 50_000_000)
+    const pa = pref(a.id)
+    const pb = pref(b.id)
+    const lines = [
+      `${name}**So sánh DSS (dữ liệu thật trên sàn):**`,
+      `| | **${a.name}** | **${b.name}** |`,
+      `|---|---|---|`,
+      `| Giá | ${formatVnd(a.price)} | ${formatVnd(b.price)} |`,
+      `| Rating | ${a.rating}★ | ${b.rating}★ |`,
+      `| Đã bán | ${a.soldCount} | ${b.soldCount} |`,
+      `| Tồn | ${a.stock ?? '—'} | ${b.stock ?? '—'} |`,
+      `| Danh mục | ${a.category} | ${b.category} |`,
+      `| Shop | ${a.shopName ?? 'SEDSP'} | ${b.shopName ?? 'SEDSP'} |`,
+      `| Điểm DSS* | ${score(a)} | ${score(b)} |`,
+    ]
+    if (pa != null || pb != null) {
+      lines.push(`| Khớp sở thích | ${pa != null ? `${pa}/100` : '—'} | ${pb != null ? `${pb}/100` : '—'} |`)
+    }
+    lines.push(
+      '',
+      `• Rẻ hơn: **${cheaper.name}**`,
+      `• Rating cao hơn: **${betterRated.name}**`,
+      `• Bán chạy hơn: **${hotter.name}**`,
+      '',
+      `*Điểm DSS = rating + phổ biến − phạt giá (không bịa số liệu).`,
+      `Kéo 2 SP vào chat để so sánh tồn kho chi tiết hơn.`,
+    )
+    return lines.join('\n')
   }
   return `${name}Hãy nêu **2 sản phẩm** cần so sánh, vd: "so sánh tai nghe và loa bluetooth".`
 }
@@ -505,16 +541,16 @@ function buildSellerIntent(ctx: ChatContext, intent: ChatIntent, raw: string): s
       return `${name}Tồn kho **ổn định**. Theo dõi **Tồn kho** hoặc hỏi **"khuyến nghị tồn kho"**.`
     }
     case 'seller_pricing':
-      return `${name}**Khuyến nghị giá (DSS)**:\n${priceBrief(catalog)}`
+      return `${name}**Khuyến nghị giá (DSS)**:\n${ctx.enrichment?.dssBriefText ?? priceBrief(catalog)}`
     case 'seller_dss_demand':
-      return `${name}**Dự báo nhu cầu (Moving Average)**:\n${demandBrief(catalog)}`
+      return `${name}**Dự báo nhu cầu (Moving Average)**:\n${ctx.enrichment?.dssBriefText ?? demandBrief(catalog)}`
     case 'seller_dss_price':
-      return `${name}**Khuyến nghị giá**:\n${priceBrief(catalog)}`
+      return `${name}**Khuyến nghị giá**:\n${ctx.enrichment?.dssBriefText ?? priceBrief(catalog)}`
     case 'seller_dss_inventory':
-      return `${name}**Khuyến nghị tồn kho**:\n${inventoryDssBrief(catalog)}`
+      return `${name}**Khuyến nghị tồn kho**:\n${ctx.enrichment?.dssBriefText ?? inventoryDssBrief(catalog)}`
     case 'seller_whatif': {
       const pct = extractDiscountPct(raw, 10)
-      return `${name}**What-if giảm giá ${pct}%**:\n${sellerWhatIfBrief(pct)}`
+      return `${name}**What-if giảm giá ${pct}%**:\n${ctx.enrichment?.dssBriefText ?? sellerWhatIfBrief(pct)}`
     }
     case 'seller_purchase_orders': {
       const buys = ctx.purchaseOrders
@@ -576,7 +612,7 @@ function buildManagerIntent(ctx: ChatContext, intent: ChatIntent, _raw: string):
 
   switch (intent) {
     case 'manager_kpi':
-      return `${name}**KPI** (${orders.length} đơn):\n• Doanh thu: **${formatVnd(revenue)}**\n• AOV: **${formatVnd(aov)}**\n• Đã giao: **${delivered}**\n• Chờ xử lý: **${pending}**\n• Hủy: **${cancelRate}%**\n\n**Dashboard** & **DSS Quản lý**.`
+      return `${name}**KPI** (${orders.length} đơn):\n• Doanh thu: **${formatVnd(revenue)}**\n• AOV: **${formatVnd(aov)}**\n• Đã giao: **${delivered}**\n• Chờ xử lý: **${pending}**\n• Hủy: **${cancelRate}%**\n\nMở **Dashboard** (/manager/dashboard).`
     case 'manager_pending':
       if (!pending) return `${name}Không có đơn chờ — **ổn định**.`
       return `${name}**${pending} đơn chờ:**\n${formatOrderSummary(orders.filter((o) => o.status === 'pending').slice(0, 5), 5)}`
@@ -592,7 +628,7 @@ function buildManagerIntent(ctx: ChatContext, intent: ChatIntent, _raw: string):
       return `${name}**Phân khúc doanh thu:**\n${lines || '• Chưa đủ dữ liệu'}\n\n**Phân tích**.`
     }
     case 'manager_whatif': {
-      return `${name}**What-if giảm giá theo sản phẩm** thuộc module **Người bán** (API \`/api/dss/what-if/seller\`).\n\n• Manager: dùng **Doanh thu sàn** + **Looker Studio** (/manager/platform-revenue, /manager/dss).\n• Seller: mở **/seller/dss/what-if** để mô phỏng % giảm giá / hòa vốn / lợi nhuận.\n\nGợi ý hỏi: "KPI tháng này", "đơn chờ", "doanh thu sàn".`
+      return `${name}**What-if giảm giá theo sản phẩm** thuộc module **Người bán** (API \`/api/dss/what-if/seller\`).\n\n• Manager: mở **Dashboard** (/manager/dashboard) — doanh thu sàn + Looker.\n• Seller: mở **/seller/dss/what-if** để mô phỏng % giảm giá / hòa vốn / lợi nhuận.\n\nGợi ý hỏi: "KPI tháng này", "đơn chờ", "doanh thu sàn".`
     }
     case 'manager_trend': {
       const cats = new Map<string, number>()
@@ -604,7 +640,7 @@ function buildManagerIntent(ctx: ChatContext, intent: ChatIntent, _raw: string):
       return `${name}Doanh thu **${formatVnd(revenue)}** / **${orders.length}** đơn. AOV **${formatVnd(aov)}**.`
     case 'manager_insights': {
       if (ctx.managerInsights.length) {
-        return `${name}**DSS Quản lý:**\n${ctx.managerInsights.slice(0, 5).map((i) => `• **${i.title}** (${i.impact}): ${i.description}`).join('\n')}\n\n**DSS Quản lý** · **Phân tích**.`
+        return `${name}**Insight sàn:**\n${ctx.managerInsights.slice(0, 5).map((i) => `• **${i.title}** (${i.impact}): ${i.description}`).join('\n')}\n\nMở **Dashboard** (/manager/dashboard).`
       }
       return `${name}Chưa có insights — xem **Dashboard** khi có thêm đơn hàng.`
     }

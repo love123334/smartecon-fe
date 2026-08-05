@@ -78,7 +78,7 @@ function followUps(intent: ChatIntent | null, role: ChatContext['role']): string
     recommend: '\n\n👉 Hỏi "chỗ nào bán …" để xem đúng shop bán SP.',
     seller_dss_demand: '\n\n👉 Thử thêm: "khuyến nghị giá" · "what-if giảm 10%"',
     seller_whatif: '\n\n👉 Mở **/seller/dss/what-if** để chỉnh % và kỳ.',
-    manager_whatif: '\n\n👉 What-if SP thuộc **seller**: đăng nhập seller → **/seller/dss/what-if**. Manager xem **/manager/platform-revenue**.',
+    manager_whatif: '\n\n👉 What-if SP thuộc **seller**: đăng nhập seller → **/seller/dss/what-if**. Manager xem **/manager/dashboard**.',
     seller_purchase_orders: '\n\n👉 Đơn bán: hỏi "đơn cần xử lý". Giỏ: "giỏ hàng của tôi".',
     product_budget: '\n\n👉 Kéo SP vào chat để so sánh, hoặc hỏi "còn hàng không".',
     product_search: '\n\n👉 Thu hẹp thêm: "dưới 2 triệu" · kéo SP để hỏi chi tiết.',
@@ -444,7 +444,8 @@ export async function generateAssistantReply(
 }
 
 export function typingDelay(content: string): number {
-  return Math.min(1800, Math.max(380, Math.floor(content.length * 8)))
+  // Snappier chat UX — still feels intentional, not sluggish
+  return Math.min(900, Math.max(180, Math.floor(content.length * 4)))
 }
 
 export function formatChatHtml(content: string): string {

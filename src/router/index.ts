@@ -78,7 +78,7 @@ const router = createRouter({
       path: '/payment/result',
       name: 'payment-result',
       component: () => import('@/views/customer/PaymentResultView.vue'),
-      meta: { roles: ['customer'], title: 'Kết quả thanh toán' },
+      meta: { title: 'Kết quả thanh toán' },
     },
     {
       path: '/orders',
@@ -165,30 +165,24 @@ const router = createRouter({
     {
       path: '/manager/dashboard',
       name: 'manager-dashboard',
-      component: () => import('@/views/manager/DashboardView.vue'),
+      component: () => import('@/views/manager/PlatformRevenueView.vue'),
       meta: { roles: ['manager'], title: 'Bảng điều khiển' },
     },
     {
       path: '/manager/analytics',
-      name: 'manager-analytics',
-      component: () => import('@/views/manager/AnalyticsView.vue'),
-      meta: { roles: ['manager'], title: 'Phân tích' },
+      redirect: { name: 'manager-dashboard' },
     },
     {
       path: '/manager/platform-revenue',
-      name: 'manager-platform-revenue',
-      component: () => import('@/views/manager/PlatformRevenueView.vue'),
-      meta: { roles: ['manager'], title: 'Platform Revenue' },
+      redirect: { name: 'manager-dashboard' },
     },
     {
       path: '/manager/dss',
-      name: 'manager-dss',
-      component: () => import('@/views/manager/ManagerDssView.vue'),
-      meta: { roles: ['manager'], title: 'DSS Quản lý' },
+      redirect: { name: 'manager-dashboard' },
     },
     {
       path: '/manager/dss/what-if',
-      redirect: { name: 'manager-dss' },
+      redirect: { name: 'manager-dashboard' },
     },
     {
       path: '/admin/users',

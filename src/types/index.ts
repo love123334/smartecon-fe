@@ -134,7 +134,12 @@ export interface SystemMetric {
 export interface Recommendation {
   productId: string
   score: number
+  /** Primary one-line reason */
   reason: string
+  /** Explainable checklist (DSS) */
+  reasons?: string[]
+  /** Score contribution labels (0–100 scale points) */
+  breakdown?: { label: string; points: number }[]
 }
 
 export interface ProductReview {

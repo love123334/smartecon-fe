@@ -20,6 +20,10 @@ function hasBackendToken(): boolean {
 }
 
 function isDirectLlmConfigured(): boolean {
+  // Production builds should not ship browser API keys — prefer BE proxy only
+  if (import.meta.env.PROD && import.meta.env.VITE_ALLOW_BROWSER_AI !== 'true') {
+    return false
+  }
   return apiConfig.aiEnabled && Boolean(apiConfig.aiApiKey?.trim())
 }
 
@@ -58,9 +62,9 @@ export async function callChatLlm(
   history: ChatMessage[],
   userMessage: string,
 ): Promise<string> {
-  const recent = history.slice(-12).map((m) => ({
+  const recent = history.slice(-6).map((m) => ({
     role: m.role as 'user' | 'assistant',
-    content: m.content,
+    content: m.content.slice(0, 1200),
   }))
 
   const messages: LlmMessage[] = [

@@ -19,6 +19,7 @@ const widget = useChatWidgetStore()
 const messages = ref<ChatMessage[]>([])
 const loading = ref(false)
 const chatError = ref('')
+const lastFailedText = ref('')
 const ready = ref(false)
 
 const effectiveRole = computed<UserRole>(() => {
@@ -106,6 +107,7 @@ function onFabClick() {
 async function onSend(text: string) {
   loading.value = true
   chatError.value = ''
+  lastFailedText.value = ''
   try {
     const attached = widget.attachments.length
       ? await refreshChatProductStock([...widget.attachments])
@@ -120,16 +122,24 @@ async function onSend(text: string) {
     })
     widget.clearAttachments()
   } catch (e) {
+    lastFailedText.value = text
     chatError.value = e instanceof Error ? e.message : 'Không gửi được tin nhắn'
   } finally {
     loading.value = false
   }
 }
 
+async function retrySend() {
+  if (!lastFailedText.value || loading.value) return
+  await onSend(lastFailedText.value)
+}
+
 async function onClear() {
   await chatApi.clear(chatUserId.value)
   messages.value = []
   widget.clearAttachments()
+  chatError.value = ''
+  lastFailedText.value = ''
 }
 
 async function onAttach(product: ChatProductRef) {
@@ -203,7 +213,18 @@ function onFabDrop(e: DragEvent) {
           ×
         </button>
       </header>
-      <p v-if="chatError" class="chat-popup__error">{{ chatError }}</p>
+      <p v-if="chatError" class="chat-popup__error">
+        {{ chatError }}
+        <button
+          v-if="lastFailedText"
+          type="button"
+          class="chat-popup__retry"
+          :disabled="loading"
+          @click="retrySend"
+        >
+          Thử lại
+        </button>
+      </p>
       <ChatPanel
         v-if="ready || messages.length"
         compact
@@ -321,6 +342,26 @@ function onFabDrop(e: DragEvent) {
   background: #fef2f2;
   border-radius: var(--radius);
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.chat-popup__retry {
+  margin-left: auto;
+  border: 1px solid #fecaca;
+  background: #fff;
+  color: #991b1b;
+  border-radius: 6px;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.7rem;
+  cursor: pointer;
+}
+
+.chat-popup__retry:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .chat-popup__loading {

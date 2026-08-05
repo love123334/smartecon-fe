@@ -5,6 +5,8 @@ export interface BackendCartItem {
   id: number
   productId: number
   productName: string
+  /** Primary image from product — keep in sync with shop listing */
+  productImageUrl?: string | null
   price: number | string
   quantity: number
   totalPrice?: number | string

@@ -1,3 +1,3 @@
-/** Shared Looker Studio embed for Platform Revenue (manager). */
+/** Shared Looker Studio embed for Manager dashboard (SEDSP Dashboard). */
 export const LOOKER_STUDIO_PLATFORM_REVENUE_URL =
-  'https://datastudio.google.com/embed/reporting/8d218406-968f-42bc-85a9-dfd1f42fab43/page/ChS5F'
+  'https://datastudio.google.com/embed/reporting/88f0776f-62a9-409c-8c78-40e9cd4b9f26/page/Y0b5F'
