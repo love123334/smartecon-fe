@@ -17,6 +17,7 @@ import {
   type InventoryRecommendationResult,
   type PlanningPeriodKey,
 } from '@/utils/dssInventoryMock'
+import { buildInventoryAiInsight } from '@/utils/sellerDssModuleAi'
 
 const auth = useAuthStore()
 const products = ref<InventoryProductOption[]>(
@@ -42,6 +43,21 @@ const filteredProducts = computed(() => {
 
 const trendSeries = computed(() => result.value?.rows[0]?.historicalSales ?? [])
 const hasTrend = computed(() => trendSeries.value.length > 0)
+
+const aiInsight = computed(() => {
+  if (!result.value) return null
+  const needRows = result.value.rows.filter((r) => r.status === 'need').length
+  return buildInventoryAiInsight({
+    focusProductName: result.value.focusProductName,
+    overallStatus: result.value.overallStatus,
+    recommendationMessage: result.value.recommendationMessage,
+    currentStock: result.value.currentStock,
+    reorderPoint: result.value.reorderPoint,
+    recommendedOrderQuantity: result.value.recommendedOrderQuantity,
+    averageDailyDemand: result.value.averageDailyDemand,
+    needRowCount: needRows,
+  })
+})
 
 onMounted(async () => {
   if (!(apiConfig.useRealSeller && auth.isLoggedIn)) return
@@ -278,6 +294,37 @@ function clearError() {
             Sản phẩm trọng tâm: {{ result.focusProductName }} · Kỳ: {{ result.planningLabel }} · Tạo lúc
             {{ result.generatedAt }}
           </p>
+        </section>
+
+        <section
+          v-if="aiInsight"
+          class="dss-card dss-ai-panel"
+          :class="`dss-ai-panel--${aiInsight.tone}`"
+          aria-labelledby="inventory-ai-title"
+        >
+          <div class="dss-ai-panel__head">
+            <div>
+              <span class="dss-ai-panel__badge">{{ aiInsight.badge }}</span>
+              <h2 id="inventory-ai-title" class="dss-card__title" style="margin: 0">Nhận định AI</h2>
+            </div>
+            <p class="dss-ai-panel__method">ROP · safety stock · nhu cầu TB</p>
+          </div>
+          <h3 class="dss-ai-panel__title">{{ aiInsight.title }}</h3>
+          <p class="dss-ai-panel__summary">{{ aiInsight.summary }}</p>
+          <div class="dss-ai-panel__cols">
+            <div>
+              <h4>Kế hoạch đề xuất</h4>
+              <ol>
+                <li v-for="(a, i) in aiInsight.actions" :key="i">{{ a }}</li>
+              </ol>
+            </div>
+            <div>
+              <h4>Rủi ro cần theo dõi</h4>
+              <ul>
+                <li v-for="(r, i) in aiInsight.risks" :key="i">{{ r }}</li>
+              </ul>
+            </div>
+          </div>
         </section>
 
         <section class="dss-card">

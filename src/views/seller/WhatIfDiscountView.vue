@@ -18,6 +18,7 @@ import {
   profitInsightBadgeLabel,
   validateSellerWhatIfForm,
 } from '@/utils/sellerWhatIf'
+import { buildWhatIfAiInsight } from '@/utils/sellerDssModuleAi'
 
 interface SellerProductOption {
   id: number
@@ -61,6 +62,24 @@ const showResults = computed(() => Boolean(result.value) && !resultStale.value)
 const insightBadge = computed(() => {
   if (!result.value) return null
   return profitInsightBadge(result.value.currentProfit, result.value.expectedProfit)
+})
+
+const selectedProductName = computed(
+  () => products.value.find((p) => p.id === productId.value)?.name || '',
+)
+
+const aiInsight = computed(() => {
+  if (!result.value || resultStale.value) return null
+  return buildWhatIfAiInsight({
+    productName: selectedProductName.value,
+    discountPercentage: result.value.discountPercentage,
+    currentProfit: result.value.currentProfit,
+    expectedProfit: result.value.expectedProfit,
+    breakEvenQuantity: result.value.breakEvenQuantity,
+    additionalUnitsRequired: result.value.additionalUnitsRequired,
+    predictedDemand: result.value.predictedDemand,
+    businessInsight: result.value.businessInsight,
+  })
 })
 
 watch([productId, discountPercentage, simulationPeriod], () => {
@@ -403,9 +422,17 @@ function retrySubmit() {
         </div>
       </section>
 
-      <section class="dss-card dss-insight-card" aria-labelledby="whatif-insight-title">
-        <div class="dss-insight-card__head">
-          <h2 id="whatif-insight-title" class="dss-card__title" style="margin: 0">Business Insight</h2>
+      <section
+        v-if="aiInsight"
+        class="dss-card dss-ai-panel"
+        :class="`dss-ai-panel--${aiInsight.tone}`"
+        aria-labelledby="whatif-insight-title"
+      >
+        <div class="dss-ai-panel__head">
+          <div>
+            <span class="dss-ai-panel__badge">{{ aiInsight.badge }}</span>
+            <h2 id="whatif-insight-title" class="dss-card__title" style="margin: 0">Nhận định AI</h2>
+          </div>
           <span
             v-if="insightBadge"
             class="dss-badge"
@@ -414,7 +441,22 @@ function retrySubmit() {
             {{ profitInsightBadgeLabel(insightBadge) }}
           </span>
         </div>
-        <p class="dss-insight-text">{{ result.businessInsight }}</p>
+        <h3 class="dss-ai-panel__title">{{ aiInsight.title }}</h3>
+        <p class="dss-ai-panel__summary">{{ aiInsight.summary }}</p>
+        <div class="dss-ai-panel__cols">
+          <div>
+            <h4>Kế hoạch đề xuất</h4>
+            <ol>
+              <li v-for="(a, i) in aiInsight.actions" :key="i">{{ a }}</li>
+            </ol>
+          </div>
+          <div>
+            <h4>Rủi ro cần theo dõi</h4>
+            <ul>
+              <li v-for="(r, i) in aiInsight.risks" :key="i">{{ r }}</li>
+            </ul>
+          </div>
+        </div>
       </section>
 
       <section class="dss-card" aria-labelledby="whatif-compare-title">

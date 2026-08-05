@@ -19,6 +19,7 @@ import {
   todayIsoDate,
   validatePricePredictionForm,
 } from '@/utils/pricePrediction'
+import { buildPricePredictionAiInsight } from '@/utils/sellerDssModuleAi'
 
 interface SellerProductOption {
   id: number
@@ -58,6 +59,18 @@ const canSubmit = computed(
 )
 
 const showResults = computed(() => Boolean(result.value) && !resultStale.value)
+
+const aiInsight = computed(() => {
+  if (!result.value || resultStale.value) return null
+  return buildPricePredictionAiInsight({
+    productName: result.value.productName,
+    currentPrice: result.value.currentPrice,
+    cost: result.value.cost,
+    averageElasticity: result.value.averageElasticity,
+    totalQuantitySold: result.value.totalQuantitySold,
+    best: result.value.bestScenario,
+  })
+})
 
 watch([productId, fromDate, toDate], () => {
   if (skipStaleWatch) return
@@ -389,6 +402,37 @@ function retrySubmit() {
             </span>
             <strong>{{ formatVndCurrency(result.bestScenario.expectedProfit) }}</strong>
           </article>
+        </div>
+      </section>
+
+      <section
+        v-if="aiInsight"
+        class="dss-card dss-ai-panel"
+        :class="`dss-ai-panel--${aiInsight.tone}`"
+        aria-labelledby="price-ai-title"
+      >
+        <div class="dss-ai-panel__head">
+          <div>
+            <span class="dss-ai-panel__badge">{{ aiInsight.badge }}</span>
+            <h2 id="price-ai-title" class="dss-card__title" style="margin: 0">Nhận định AI</h2>
+          </div>
+          <p class="dss-ai-panel__method">Từ elasticity + best scenario backend</p>
+        </div>
+        <h3 class="dss-ai-panel__title">{{ aiInsight.title }}</h3>
+        <p class="dss-ai-panel__summary">{{ aiInsight.summary }}</p>
+        <div class="dss-ai-panel__cols">
+          <div>
+            <h4>Kế hoạch đề xuất</h4>
+            <ol>
+              <li v-for="(a, i) in aiInsight.actions" :key="i">{{ a }}</li>
+            </ol>
+          </div>
+          <div>
+            <h4>Rủi ro cần theo dõi</h4>
+            <ul>
+              <li v-for="(r, i) in aiInsight.risks" :key="i">{{ r }}</li>
+            </ul>
+          </div>
         </div>
       </section>
 

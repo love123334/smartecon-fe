@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { dssApi } from '@/api/services'
-import type { DssInsight } from '@/types'
+import type { DssInsight, Product } from '@/types'
 import type { DssInsightPlanApi } from '@/api/real/dss'
 import { useAuthStore } from '@/stores/auth'
 import PageHeader from '@/components/PageHeader.vue'
@@ -11,12 +11,16 @@ import {
   buildSellerAiInsightsSummary,
   sanitizeDssCommentary,
 } from '@/utils/dssCommentary'
+import { buildSellerDssModuleCards } from '@/utils/sellerDssModuleAi'
+import { loadSellerCatalogForDss } from '@/utils/sellerCatalog'
 
 const auth = useAuthStore()
 const insights = ref<DssInsight[]>([])
+const products = ref<Product[]>([])
 const plan = ref<DssInsightPlanApi | null>(null)
 const planError = ref('')
 const planLoading = ref(false)
+const hubLoading = ref(true)
 
 const sellerKey = computed(() => auth.user?.backendId ?? auth.user?.id)
 const embedUrl = computed(() => plan.value?.powerBiEmbedUrl?.trim() || '')
@@ -38,15 +42,31 @@ const commentarySections = computed(() => {
   })
 })
 
+const moduleCards = computed(() =>
+  buildSellerDssModuleCards({
+    insights: insights.value,
+    products: products.value,
+  }),
+)
+
 onMounted(async () => {
-  insights.value = await dssApi.sellerInsights(sellerKey.value)
+  hubLoading.value = true
   planLoading.value = true
   planError.value = ''
   try {
-    plan.value = await dssApi.insightPlan()
-  } catch (e) {
-    planError.value = e instanceof Error ? e.message : 'Không tải được kế hoạch DSS'
+    const [ins, catalog, planRes] = await Promise.all([
+      dssApi.sellerInsights(sellerKey.value),
+      loadSellerCatalogForDss({ sellerId: sellerKey.value, withStock: true }),
+      dssApi.insightPlan().catch((e: unknown) => {
+        planError.value = e instanceof Error ? e.message : 'Không tải được kế hoạch DSS'
+        return null
+      }),
+    ])
+    insights.value = ins
+    products.value = catalog.products
+    if (planRes) plan.value = planRes
   } finally {
+    hubLoading.value = false
     planLoading.value = false
   }
 })
@@ -57,7 +77,7 @@ onMounted(async () => {
     <PageHeader
       eyebrow="Người bán"
       title="Hỗ trợ quyết định (DSS)"
-      lead="Dự báo nhu cầu, gợi ý giá và khuyến nghị tồn kho — kèm nhận định AI từ số liệu bán hàng."
+      lead="Bốn module DSS kèm nhận định AI bám số liệu bán hàng / tồn kho của shop."
     />
     <AiShortcutBar
       title="Tiếp theo:"
@@ -95,30 +115,29 @@ onMounted(async () => {
       </div>
     </section>
 
-    <div class="dss-hub">
-      <RouterLink class="dss-hub__card" to="/seller/dss/demand">
-        <span class="dss-hub__tag">Dự báo</span>
-        <h2>Dự báo nhu cầu</h2>
-        <p>Dự báo từ lịch sử bán hàng · KPI tóm tắt.</p>
-        <span class="dss-hub__cta">Mở →</span>
-      </RouterLink>
-      <RouterLink class="dss-hub__card" to="/seller/dss/price">
-        <span class="dss-hub__tag">Giá bán</span>
-        <h2>Gợi ý giá</h2>
-        <p>Hệ số co giãn · bảng scenario · best recommendation.</p>
-        <span class="dss-hub__cta">Mở →</span>
-      </RouterLink>
-      <RouterLink class="dss-hub__card" to="/seller/dss/inventory">
-        <span class="dss-hub__tag">Tồn kho</span>
-        <h2>Khuyến nghị tồn kho</h2>
-        <p>ROP · safety stock · SL đề xuất nhập theo kỳ hoạch định.</p>
-        <span class="dss-hub__cta">Mở →</span>
-      </RouterLink>
-      <RouterLink class="dss-hub__card" to="/seller/dss/what-if">
-        <span class="dss-hub__tag">What-if</span>
-        <h2>Giảm giá &amp; lợi nhuận</h2>
-        <p>Mô phỏng % giảm giá · hòa vốn · lợi nhuận kỳ vọng.</p>
-        <span class="dss-hub__cta">Mở →</span>
+    <h3 class="dss-hub__section">Module DSS · nhận định AI theo shop</h3>
+    <p v-if="hubLoading" class="muted" role="status">Đang đọc catalog &amp; insight…</p>
+    <div v-else class="dss-hub">
+      <RouterLink
+        v-for="card in moduleCards"
+        :key="card.key"
+        class="dss-hub__card"
+        :class="`dss-hub__card--${card.aiTone}`"
+        :to="card.to"
+      >
+        <div class="dss-hub__top">
+          <span class="dss-hub__tag">{{ card.tag }}</span>
+          <span class="dss-hub__ai-badge" :class="`dss-hub__ai-badge--${card.aiTone}`">
+            {{ card.aiBadge }}
+          </span>
+        </div>
+        <h2>{{ card.title }}</h2>
+        <p class="dss-hub__blurb">{{ card.blurb }}</p>
+        <div class="dss-hub__ai">
+          <strong>{{ card.aiTitle }}</strong>
+          <span>{{ card.aiSummary }}</span>
+        </div>
+        <span class="dss-hub__cta">Mở module →</span>
       </RouterLink>
     </div>
 
@@ -130,6 +149,7 @@ onMounted(async () => {
         <p>{{ i.description }}</p>
         <small>{{ i.category }}</small>
       </article>
+      <p v-if="!insights.length" class="muted">Chưa có gợi ý dashboard — chạy các module DSS để có tín hiệu rõ hơn.</p>
     </div>
   </div>
 </template>
@@ -202,19 +222,40 @@ onMounted(async () => {
   margin-bottom: 1.5rem;
 }
 .dss-hub__card {
-  display: block;
-  padding: 1.25rem 1.35rem;
-  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  padding: 1.2rem 1.25rem 1.15rem;
+  border-radius: 14px;
   border: 1px solid #e3e8ef;
   background: #fff;
   box-shadow: 0 2px 8px rgba(25, 118, 210, 0.08);
   text-decoration: none;
   color: inherit;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+  min-height: 100%;
 }
 .dss-hub__card:hover {
   border-color: #90caf9;
-  box-shadow: 0 4px 14px rgba(25, 118, 210, 0.14);
+  box-shadow: 0 6px 18px rgba(25, 118, 210, 0.14);
+  transform: translateY(-1px);
+}
+.dss-hub__card--warn {
+  border-color: #ffcc80;
+  background: linear-gradient(180deg, #fff8e1 0%, #fff 55%);
+}
+.dss-hub__card--strong {
+  border-color: #90caf9;
+  background: linear-gradient(180deg, #e8f1fb 0%, #fff 55%);
+}
+.dss-hub__card--ok {
+  border-color: #a5d6a7;
+  background: linear-gradient(180deg, #f1f8f4 0%, #fff 55%);
+}
+.dss-hub__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
 }
 .dss-hub__tag {
   display: inline-block;
@@ -227,25 +268,81 @@ onMounted(async () => {
   padding: 0.2rem 0.5rem;
   border-radius: 999px;
 }
-.dss-hub__card h2 {
-  margin: 0.55rem 0 0.35rem;
-  font-size: 1.15rem;
+.dss-hub__ai-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: #eceff1;
+  color: #455a64;
 }
-.dss-hub__card p {
+.dss-hub__ai-badge--strong {
+  background: #0d47a1;
+  color: #fff;
+}
+.dss-hub__ai-badge--steady {
+  background: #1565c0;
+  color: #fff;
+}
+.dss-hub__ai-badge--soft {
+  background: #ef6c00;
+  color: #fff;
+}
+.dss-hub__ai-badge--warn {
+  background: #c62828;
+  color: #fff;
+}
+.dss-hub__ai-badge--ok {
+  background: #2e7d32;
+  color: #fff;
+}
+.dss-hub__card h2 {
+  margin: 0.55rem 0 0.3rem;
+  font-size: 1.12rem;
+  color: #0d47a1;
+}
+.dss-hub__blurb {
   margin: 0;
   color: #64748b;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   line-height: 1.45;
+}
+.dss-hub__ai {
+  margin-top: 0.85rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid #e8eef8;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  flex: 1;
+}
+.dss-hub__ai strong {
+  font-size: 0.875rem;
+  color: #0f172a;
+  line-height: 1.35;
+}
+.dss-hub__ai span {
+  font-size: 0.8125rem;
+  color: #475569;
+  line-height: 1.5;
 }
 .dss-hub__cta {
   display: inline-block;
-  margin-top: 0.75rem;
+  margin-top: 0.85rem;
   font-size: 0.8125rem;
   font-weight: 700;
   color: #1565c0;
 }
 .dss-hub__section {
   margin: 0 0 0.75rem;
+  font-size: 1rem;
+  color: #0d47a1;
 }
 .insight .impact {
   display: inline-block;
