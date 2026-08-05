@@ -5,6 +5,8 @@ import {
   formatViNumber,
   mapDemandPredictionError,
   validateDemandPredictionForm,
+  buildDemandPredictionAiInsight,
+  buildFlatForecastSeries,
 } from '@/utils/demandPrediction'
 
 describe('validateDemandPredictionForm', () => {
@@ -95,5 +97,42 @@ describe('mapDemandPredictionError', () => {
 
     expect(formatViNumber(successData.predictedDemand)).toMatch(/300/)
     expect(formatViDateTime(successData.generatedAt)).not.toBe('—')
+  })
+})
+
+describe('buildDemandPredictionAiInsight', () => {
+  it('classifies strong demand and returns actions', () => {
+    const insight = buildDemandPredictionAiInsight({
+      productName: 'Noise Cancelling Headphones',
+      historicalDays: 90,
+      forecastPeriod: 30,
+      averageDailyDemand: 8.46,
+      predictedDemand: 253.8,
+    })
+    expect(insight.tone).toBe('strong')
+    expect(insight.badge).toMatch(/cao/i)
+    expect(insight.actions.length).toBeGreaterThan(0)
+    expect(insight.risks.length).toBeGreaterThan(0)
+    expect(insight.summary).toMatch(/253/)
+  })
+
+  it('classifies sparse demand when average is near zero', () => {
+    const insight = buildDemandPredictionAiInsight({
+      productName: 'SKU chậm',
+      historicalDays: 30,
+      forecastPeriod: 14,
+      averageDailyDemand: 0,
+      predictedDemand: 0,
+    })
+    expect(insight.tone).toBe('sparse')
+  })
+})
+
+describe('buildFlatForecastSeries', () => {
+  it('builds daily points from average demand', () => {
+    const rows = buildFlatForecastSeries(2.5, 7, 10)
+    expect(rows).toHaveLength(7)
+    expect(rows[0]).toEqual({ day: 10, qty: 2.5 })
+    expect(rows[6].day).toBe(16)
   })
 })
