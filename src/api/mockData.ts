@@ -13,7 +13,13 @@ export interface DemoAccount {
   fullName: string
   email: string
   description: string
+  /** Override demo password when different from DEMO_PASSWORD(_BACKEND) */
+  password?: string
 }
+
+/** DSS platform-revenue demo (Flyway V43) — password is literally "password" */
+export const DSS_DEMO_SELLER_EMAIL = 'seller.dss.demo@example.com'
+export const DSS_DEMO_PASSWORD = 'password'
 
 export const DEMO_ACCOUNTS: DemoAccount[] = [
   {
@@ -29,6 +35,14 @@ export const DEMO_ACCOUNTS: DemoAccount[] = [
     fullName: 'Trần Thị Bán',
     email: 'seller@sedsp.vn',
     description: 'SP, tồn kho, DSS kế hoạch & trợ lý AI',
+  },
+  {
+    role: 'seller',
+    label: 'Seller DSS',
+    fullName: 'DSS Demo Seller',
+    email: DSS_DEMO_SELLER_EMAIL,
+    description: 'Platform revenue / DSS dataset',
+    password: DSS_DEMO_PASSWORD,
   },
   {
     role: 'manager',

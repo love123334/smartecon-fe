@@ -26,8 +26,9 @@ const demoPassword = computed(() =>
 )
 
 function fillDemo(accountEmail: string) {
+  const account = DEMO_ACCOUNTS.find((d) => d.email === accountEmail)
   email.value = accountEmail
-  password.value = demoPassword.value
+  password.value = account?.password ?? demoPassword.value
 }
 
 async function checkBackend() {
@@ -65,7 +66,7 @@ onMounted(() => {
 async function submit() {
   localError.value = ''
   try {
-    await auth.login(email.value, password.value)
+    await auth.login(email.value.trim(), password.value)
     if (auth.user?.role === 'customer' || auth.user?.role === 'seller') await cart.refresh()
     const redirect = (route.query.redirect as string) || undefined
     await router.push(resolvePostLoginPath(auth.user?.role ?? 'guest', redirect))
@@ -133,6 +134,7 @@ async function submit() {
             Mật khẩu chung: <code>{{ demoPassword }}</code>
             <span v-if="apiConfig.useRealAuth" class="demo-hint">(backend)</span>
             <span v-else class="demo-hint">(mock)</span>
+            · Seller DSS: <code>password</code>
           </p>
           <div class="demo-grid">
             <button
