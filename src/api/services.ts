@@ -600,6 +600,7 @@ export const productApi = {
     data: Omit<Product, 'id' | 'sellerId' | 'createdAt' | 'soldCount' | 'rating'> & {
       categoryId?: number
       imagePublicId?: string
+      images?: { imageUrl: string; publicId?: string; isPrimary?: boolean }[]
     },
   ): Promise<Product> {
     if (apiConfig.useRealProducts && hasBackendToken()) {
@@ -615,6 +616,7 @@ export const productApi = {
         categoryId,
         imageUrl: data.imageUrl,
         imagePublicId: data.imagePublicId,
+        images: data.images,
       })
       if (data.stock > 0 && apiConfig.useRealInventory) {
         await realInventory.adjustInventory(created.id, data.stock, 'MANUAL_ADJUST')
@@ -632,7 +634,12 @@ export const productApi = {
 
   async update(
     id: string,
-    patch: Partial<Product> & { categoryId?: number; stockDelta?: number },
+    patch: Partial<Product> & {
+      categoryId?: number
+      stockDelta?: number
+      imagePublicId?: string
+      images?: { imageUrl: string; publicId?: string; isPrimary?: boolean }[]
+    },
   ): Promise<Product> {
     if (apiConfig.useRealProducts && hasBackendToken()) {
       let categoryId = patch.categoryId
@@ -645,6 +652,9 @@ export const productApi = {
         description: patch.description,
         price: patch.price,
         categoryId,
+        imageUrl: patch.imageUrl,
+        imagePublicId: patch.imagePublicId,
+        images: patch.images,
       })
       if (patch.stock != null && apiConfig.useRealInventory) {
         const inv = await realInventory.getInventory(id)

@@ -142,7 +142,7 @@ export async function apiUpload<T>(path: string, formData: FormData): Promise<T>
 
   let res: Response
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS)
+  const timeoutId = setTimeout(() => controller.abort(), 60_000)
   try {
     res = await fetch(url, {
       method: 'POST',

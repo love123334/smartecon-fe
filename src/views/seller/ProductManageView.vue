@@ -8,6 +8,14 @@ import ProductCard from '@/components/ProductCard.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import EmptyState from '@/components/EmptyState.vue'
 
+const MIN_IMAGES = 3
+const MAX_IMAGES = 5
+
+interface FormImage {
+  url: string
+  publicId: string
+}
+
 const auth = useAuthStore()
 const products = ref<Product[]>([])
 const categories = ref<Category[]>([])
@@ -27,8 +35,7 @@ const form = ref({
   price: 0,
   stock: 0,
   categoryId: '',
-  imageUrl: '',
-  imagePublicId: '',
+  images: [] as FormImage[],
 })
 
 const filtered = computed(() => {
@@ -47,6 +54,8 @@ const filtered = computed(() => {
   else list = [...list].sort((a, b) => Number(b.id) - Number(a.id) || a.name.localeCompare(b.name))
   return list
 })
+
+const canAddMoreImages = computed(() => form.value.images.length < MAX_IMAGES)
 
 async function loadCategories() {
   categories.value = await categoryApi.list(true)
@@ -101,8 +110,7 @@ function startCreate() {
     price: 0,
     stock: 0,
     categoryId: categories.value[0]?.id ?? '',
-    imageUrl: '',
-    imagePublicId: '',
+    images: [],
   }
 }
 
@@ -113,34 +121,63 @@ function startEdit(p: Product) {
   const cat = categories.value.find(
     (c) => c.name.toLowerCase() === p.category.toLowerCase(),
   )
+  const urls = (p.imageUrls?.length ? p.imageUrls : [p.imageUrl]).filter(Boolean).slice(0, MAX_IMAGES)
   form.value = {
     name: p.name,
     description: p.description,
     price: p.price,
     stock: p.stock,
     categoryId: cat?.id ?? categories.value[0]?.id ?? '',
-    imageUrl: p.imageUrl,
-    imagePublicId: '',
+    images: urls.map((url, i) => ({ url, publicId: `existing-${p.id}-${i}` })),
   }
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
-async function onImagePick(e: Event) {
+async function onImagesPick(e: Event) {
   const input = e.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (!file) return
+  const files = [...(input.files ?? [])]
+  if (!files.length) return
+
+  const room = MAX_IMAGES - form.value.images.length
+  if (room <= 0) {
+    error.value = `Tối đa ${MAX_IMAGES} ảnh mỗi sản phẩm`
+    input.value = ''
+    return
+  }
+
+  const selected = files.slice(0, room)
   uploading.value = true
   error.value = ''
   try {
-    const uploaded = await productApi.uploadImage(file)
-    form.value.imageUrl = uploaded.url
-    form.value.imagePublicId = uploaded.publicId
+    for (const file of selected) {
+      if (file.size > 5 * 1024 * 1024) {
+        throw new Error(`Ảnh «${file.name}» vượt 5MB`)
+      }
+      if (!file.type.startsWith('image/')) {
+        throw new Error(`«${file.name}» không phải file ảnh`)
+      }
+      const uploaded = await productApi.uploadImage(file)
+      form.value.images.push({
+        url: uploaded.url,
+        publicId: uploaded.publicId,
+      })
+    }
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Upload thất bại'
   } finally {
     uploading.value = false
     input.value = ''
   }
+}
+
+function removeImage(index: number) {
+  form.value.images.splice(index, 1)
+}
+
+function setPrimary(index: number) {
+  if (index <= 0 || index >= form.value.images.length) return
+  const [img] = form.value.images.splice(index, 1)
+  form.value.images.unshift(img)
 }
 
 async function save() {
@@ -153,15 +190,20 @@ async function save() {
     error.value = 'Vui lòng chọn danh mục'
     return
   }
+  if (form.value.images.length > MAX_IMAGES) {
+    error.value = `Tối đa ${MAX_IMAGES} ảnh`
+    return
+  }
+
   saving.value = true
   error.value = ''
   try {
     const cat = categories.value.find((c) => c.id === form.value.categoryId)
-    const imageUrl =
-      form.value.imageUrl ||
-      `https://picsum.photos/seed/${encodeURIComponent(form.value.name || 'sp')}/400/300`
-    const imagePublicId =
-      form.value.imagePublicId || `ext-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    const images = form.value.images.map((img, i) => ({
+      imageUrl: img.url,
+      publicId: img.publicId,
+      isPrimary: i === 0,
+    }))
 
     if (editing.value) {
       await productApi.update(editing.value.id, {
@@ -170,8 +212,10 @@ async function save() {
         price: form.value.price,
         category: cat?.name ?? editing.value.category,
         categoryId: Number(form.value.categoryId),
-        imageUrl,
         stock: form.value.stock,
+        images: images.length ? images : undefined,
+        imageUrl: images[0]?.imageUrl,
+        imagePublicId: images[0]?.publicId,
       })
     } else {
       await productApi.create(auth.user.backendId ?? auth.user.id, {
@@ -181,8 +225,9 @@ async function save() {
         stock: form.value.stock,
         category: cat?.name ?? 'Khác',
         categoryId: Number(form.value.categoryId),
-        imageUrl,
-        imagePublicId,
+        images: images.length ? images : undefined,
+        imageUrl: images[0]?.imageUrl,
+        imagePublicId: images[0]?.publicId,
         shopName: auth.user.fullName,
         shopLocation: 'TP.HCM',
       })
@@ -273,12 +318,40 @@ async function remove(id: string) {
           </p>
         </div>
         <div class="form-group">
-          <label>Ảnh sản phẩm {{ uploading ? '(đang upload…)' : '' }}</label>
-          <input type="file" accept="image/*" :disabled="uploading" @change="onImagePick" />
+          <label>
+            Ảnh sản phẩm ({{ form.images.length }}/{{ MAX_IMAGES }})
+            {{ uploading ? '— đang upload…' : '' }}
+          </label>
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            :disabled="uploading || !canAddMoreImages"
+            @change="onImagesPick"
+          />
           <p class="hint">
-            Nên upload ảnh (Cloudinary). Nếu bỏ trống sẽ dùng ảnh placeholder + publicId tự sinh.
+            Upload <strong>{{ MIN_IMAGES }}–{{ MAX_IMAGES }} ảnh</strong> (≤5MB/ảnh). Ảnh đầu là ảnh
+            chính. Có thể chọn nhiều file cùng lúc.
           </p>
-          <img v-if="form.imageUrl" :src="form.imageUrl" alt="Preview" class="preview" />
+          <div v-if="form.images.length" class="img-grid">
+            <div v-for="(img, i) in form.images" :key="img.publicId + '-' + i" class="img-tile">
+              <img :src="img.url" :alt="`Ảnh ${i + 1}`" />
+              <span v-if="i === 0" class="img-tile__badge">Chính</span>
+              <div class="img-tile__actions">
+                <button
+                  v-if="i > 0"
+                  type="button"
+                  class="btn btn-outline btn-sm"
+                  @click="setPrimary(i)"
+                >
+                  Đặt chính
+                </button>
+                <button type="button" class="btn btn-sm img-tile__remove" @click="removeImage(i)">
+                  Xóa
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="actions">
           <button type="submit" class="btn btn-primary" :disabled="saving || uploading">
@@ -395,7 +468,7 @@ async function remove(id: string) {
 .form-edit {
   margin-top: 0.5rem;
   padding: 1.25rem;
-  max-width: 560px;
+  max-width: 640px;
 }
 
 .form-row {
@@ -408,13 +481,6 @@ async function remove(id: string) {
   display: flex;
   gap: 0.5rem;
   margin-top: 0.75rem;
-}
-
-.preview {
-  display: block;
-  margin-top: 0.5rem;
-  max-width: 160px;
-  border-radius: 8px;
 }
 
 .hint {
@@ -433,6 +499,53 @@ async function remove(id: string) {
 .cat-create .input {
   flex: 1;
   min-width: 140px;
+}
+
+.img-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+}
+
+.img-tile {
+  position: relative;
+  border: 1px solid var(--slate-200, #e2e8f0);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.img-tile img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+}
+
+.img-tile__badge {
+  position: absolute;
+  top: 0.35rem;
+  left: 0.35rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: #0f172a;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+.img-tile__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0.35rem;
+}
+
+.img-tile__remove {
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  background: #fff;
 }
 
 .seller-product-tile {
