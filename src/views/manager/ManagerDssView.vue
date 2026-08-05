@@ -1,32 +1,50 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { dssApi } from '@/api/services'
 import type { DssInsight } from '@/types'
-import type { DssInsightPlanApi } from '@/api/real/dss'
 import PageHeader from '@/components/PageHeader.vue'
 import AiShortcutBar from '@/components/AiShortcutBar.vue'
-import { sanitizeDssCommentary } from '@/utils/dssCommentary'
+import { LOOKER_STUDIO_PLATFORM_REVENUE_URL } from '@/constants/lookerStudio'
+import { buildManagerDssCommentary } from '@/utils/dssCommentary'
 
 const insights = ref<DssInsight[]>([])
-const plan = ref<DssInsightPlanApi | null>(null)
-const planError = ref('')
 const planLoading = ref(false)
-const embedUrl = computed(() => plan.value?.powerBiEmbedUrl?.trim() || '')
-const planCommentary = computed(() => sanitizeDssCommentary(plan.value?.commentary || ''))
+const planError = ref('')
+const lookerLoaded = ref(false)
+const lookerFailed = ref(false)
+let lookerTimer: ReturnType<typeof setTimeout> | null = null
+
+const commentary = computed(() => buildManagerDssCommentary(insights.value))
 
 onMounted(async () => {
-  insights.value = await dssApi.managerInsights()
+  lookerTimer = setTimeout(() => {
+    if (!lookerLoaded.value) lookerFailed.value = true
+  }, 12_000)
+
   planLoading.value = true
   planError.value = ''
   try {
-    plan.value = await dssApi.insightPlan()
+    insights.value = await dssApi.managerInsights()
   } catch (e) {
-    planError.value = e instanceof Error ? e.message : 'Không tải được kế hoạch DSS'
+    planError.value = e instanceof Error ? e.message : 'Không tải được gợi ý DSS quản lý'
   } finally {
     planLoading.value = false
   }
 })
+
+onUnmounted(() => {
+  if (lookerTimer) clearTimeout(lookerTimer)
+})
+
+function onLookerLoad() {
+  lookerLoaded.value = true
+  lookerFailed.value = false
+  if (lookerTimer) {
+    clearTimeout(lookerTimer)
+    lookerTimer = null
+  }
+}
 </script>
 
 <template>
@@ -34,55 +52,87 @@ onMounted(async () => {
     <PageHeader
       eyebrow="Quản lý"
       title="DSS Quản lý"
-      lead="Gợi ý vận hành và mô phỏng what-if khuyến mãi cho toàn sàn."
+      lead="Theo dõi doanh thu sàn qua Looker Studio và nhận gợi ý vận hành toàn nền tảng."
     />
     <AiShortcutBar
       title="Tiếp theo:"
       :links="[
         { to: '/manager/platform-revenue', label: 'Doanh thu sàn', highlight: true },
-        { to: '/manager/dss/what-if', label: 'What-if khuyến mãi', highlight: true },
-        { to: '/manager/dashboard', label: 'Dashboard KPI' },
+        { to: '/manager/dashboard', label: 'Dashboard KPI', highlight: true },
         { to: '/manager/analytics', label: 'Phân tích' },
       ]"
     />
+
+    <section class="dss-looker card" aria-label="Looker Studio — Platform Revenue">
+      <div class="dss-looker__head">
+        <div>
+          <h2 class="dss-looker__title">Looker Studio — Doanh thu sàn</h2>
+          <p class="muted dss-looker__lead">
+            Báo cáo Platform Revenue Management nhúng trực tiếp (cùng nguồn với trang Doanh thu sàn).
+          </p>
+        </div>
+        <a
+          class="btn btn-outline btn-sm"
+          :href="LOOKER_STUDIO_PLATFORM_REVENUE_URL"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Mở full báo cáo
+        </a>
+      </div>
+      <div class="dss-looker__frame-wrap">
+        <p v-if="!lookerLoaded && !lookerFailed" class="dss-looker__loading muted" role="status">
+          Đang tải Looker Studio…
+        </p>
+        <div v-if="lookerFailed && !lookerLoaded" class="dss-looker__fallback" role="status">
+          <p>Không nhúng được Looker trong trang.</p>
+          <a
+            class="btn btn-outline btn-sm"
+            :href="LOOKER_STUDIO_PLATFORM_REVENUE_URL"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Mở full báo cáo
+          </a>
+        </div>
+        <iframe
+          class="dss-looker__frame"
+          title="Platform Revenue Management — Looker Studio"
+          :src="LOOKER_STUDIO_PLATFORM_REVENUE_URL"
+          loading="lazy"
+          referrerpolicy="no-referrer-when-downgrade"
+          allowfullscreen
+          @load="onLookerLoad"
+        />
+      </div>
+    </section>
+
     <section class="dss-brain">
       <div class="dss-brain__head">
-        <h3>Nhận xét & kế hoạch</h3>
-        <small v-if="plan">{{ plan.generatedAt }}</small>
+        <h3>Nhận xét & kế hoạch vận hành</h3>
       </div>
       <p v-if="planLoading">Đang tổng hợp số liệu…</p>
       <p v-else-if="planError" class="dss-brain__err">{{ planError }}</p>
-      <div v-else-if="plan">
-        <pre class="dss-brain__md">{{ planCommentary }}</pre>
-        <iframe
-          v-if="embedUrl"
-          class="dss-brain__embed"
-          :src="embedUrl"
-          :title="plan.powerBiReportTitle || 'Power BI'"
-          allowfullscreen
-        />
-      </div>
+      <pre v-else class="dss-brain__md">{{ commentary }}</pre>
     </section>
 
     <div class="dss-hub">
       <RouterLink class="dss-hub__card" to="/manager/platform-revenue">
         <span class="dss-hub__tag">Revenue</span>
         <h2>Platform Revenue</h2>
-        <p>GMV toàn sàn · xu hướng · top sellers/products · hoạt động nền tảng.</p>
-        <span class="dss-hub__cta">Mở →</span>
-      </RouterLink>
-      <RouterLink class="dss-hub__card" to="/manager/dss/what-if">
-        <span class="dss-hub__tag">What-if</span>
-        <h2>So sánh kịch bản khuyến mãi</h2>
-        <p>
-          So sánh mức giảm giá · nhu cầu · lợi nhuận · rủi ro tồn kho · radar đa tiêu chí.
-        </p>
+        <p>GMV toàn sàn · xu hướng · top sellers/products · Looker Studio + API live.</p>
         <span class="dss-hub__cta">Mở →</span>
       </RouterLink>
       <RouterLink class="dss-hub__card" to="/manager/analytics">
         <span class="dss-hub__tag">Phân tích</span>
         <h2>Phân tích danh mục</h2>
         <p>Theo dõi hiệu suất danh mục và xu hướng vận hành sàn.</p>
+        <span class="dss-hub__cta">Mở →</span>
+      </RouterLink>
+      <RouterLink class="dss-hub__card" to="/manager/dashboard">
+        <span class="dss-hub__tag">KPI</span>
+        <h2>Dashboard quản lý</h2>
+        <p>Tổng quan đơn hàng, doanh thu và trạng thái vận hành.</p>
         <span class="dss-hub__cta">Mở →</span>
       </RouterLink>
     </div>
@@ -95,10 +145,78 @@ onMounted(async () => {
         <span class="badge badge-confirmed">{{ i.category }}</span>
       </article>
     </div>
+
+    <p class="dss-seller-note muted">
+      Phân tích <strong>What-if giảm giá</strong> (mô phỏng lợi nhuận theo sản phẩm) dành cho
+      <strong>Người bán</strong> tại
+      <code>/seller/dss/what-if</code> — không nằm trong DSS quản lý.
+    </p>
   </div>
 </template>
 
 <style scoped>
+.dss-looker {
+  margin: 0 0 1.25rem;
+  padding: 1rem 1.1rem 1.15rem;
+  overflow: hidden;
+}
+.dss-looker__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  margin-bottom: 0.85rem;
+}
+.dss-looker__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--navy, #14275c);
+}
+.dss-looker__lead {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+}
+.dss-looker__frame-wrap {
+  position: relative;
+  width: 100%;
+  min-height: 640px;
+  border: 1px solid var(--line, #e4e9f2);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #f8fafc;
+}
+.dss-looker__loading,
+.dss-looker__fallback {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 1rem;
+  text-align: center;
+  background: rgba(248, 250, 252, 0.95);
+}
+.dss-looker__fallback {
+  gap: 0.75rem;
+  z-index: 2;
+}
+.dss-looker__frame {
+  display: block;
+  width: 100%;
+  height: 640px;
+  border: 0;
+  background: #fff;
+}
+@media (max-width: 768px) {
+  .dss-looker__frame-wrap,
+  .dss-looker__frame {
+    min-height: 520px;
+    height: 520px;
+  }
+}
 .dss-brain {
   margin-bottom: 1.5rem;
   padding: 1.15rem 1.25rem;
@@ -125,20 +243,12 @@ onMounted(async () => {
   font-size: 0.92rem;
   line-height: 1.55;
 }
-.dss-brain__embed {
-  width: 100%;
-  min-height: 420px;
-  margin-top: 1rem;
-  border: 0;
-  border-radius: 8px;
-  background: #f1f5f9;
-}
 .dss-brain__err {
   color: #b91c1c;
 }
 .dss-hub {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1rem;
   margin-bottom: 1.5rem;
 }
@@ -186,7 +296,11 @@ onMounted(async () => {
 .dss-hub__section {
   margin: 0 0 0.75rem;
 }
-@media (max-width: 720px) {
+.dss-seller-note {
+  margin: 1rem 0 0;
+  font-size: 0.85rem;
+}
+@media (max-width: 900px) {
   .dss-hub {
     grid-template-columns: 1fr;
   }

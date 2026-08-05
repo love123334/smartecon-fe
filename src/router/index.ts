@@ -188,9 +188,7 @@ const router = createRouter({
     },
     {
       path: '/manager/dss/what-if',
-      name: 'manager-dss-what-if',
-      component: () => import('@/views/manager/WhatIfPromotionView.vue'),
-      meta: { roles: ['manager'], title: 'What-if khuyến mãi' },
+      redirect: { name: 'manager-dss' },
     },
     {
       path: '/admin/users',

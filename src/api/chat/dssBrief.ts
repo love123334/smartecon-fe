@@ -6,7 +6,6 @@ import {
   generateInventoryRecommendation,
   INVENTORY_ERROR_MESSAGES,
 } from '@/utils/dssInventoryMock'
-import { generateManagerWhatIf, formatUsd } from '@/utils/dssManagerWhatIfMock'
 import { generatePriceRecommendation, type PriceProductOption } from '@/utils/dssPriceMock'
 import { generateSellerWhatIf, formatUsd as formatWhatIfUsd } from '@/utils/dssSellerWhatIfMock'
 
@@ -116,24 +115,12 @@ export function sellerWhatIfBrief(discountPct = 10): string {
   ].join('\n')
 }
 
-export function managerWhatIfBrief(discountHint = 10): string {
-  const r = generateManagerWhatIf({ category: 'electronics', durationKey: '7' })
-  const focus =
-    r.rows.find((row) => row.discountPct === discountHint) ??
-    r.rows.find((row) => row.isBestBalance) ??
-    r.rows[1]
-  const lines = [
-    `• Danh mục: **${r.categoryLabel}** · Chiến dịch **${r.durationLabel}**`,
-    `• Mức cân bằng tốt: **${r.recommendedDiscount}%** — ${r.recommendedReason}`,
-  ]
-  if (focus) {
-    lines.push(
-      `• Scenario **${focus.discountPct}%**: cầu ${focus.predictedDemand} · DT ${formatUsd(focus.revenue)} · LN ${formatUsd(focus.profit)} · rủi ro tồn **${focus.inventoryRiskLabel}**`,
-    )
-  }
-  lines.push(`• ${r.insight}`)
-  lines.push('→ **DSS Quản lý → So sánh khuyến mãi** (/manager/dss/what-if).')
-  return lines.join('\n')
+export function managerWhatIfBrief(_discountHint = 10): string {
+  return [
+    '• What-if giảm giá theo **sản phẩm** thuộc module **Người bán**.',
+    '• Manager dùng **Doanh thu sàn** + **Looker Studio** để theo dõi GMV toàn sàn.',
+    '→ Seller: **/seller/dss/what-if** · Manager: **/manager/platform-revenue**.',
+  ].join('\n')
 }
 
 /** Parse % giảm giá từ câu hỏi (vd: giảm 10%, what-if 15) */

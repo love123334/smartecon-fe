@@ -1,3 +1,5 @@
+import type { DssInsight } from '@/types'
+
 /** Làm sạch commentary DSS trước khi hiển thị (lớp bảo vệ phía FE). */
 export function sanitizeDssCommentary(raw: string): string {
   let text = (raw || '').trim()
@@ -45,4 +47,34 @@ export function sanitizeDssCommentary(raw: string): string {
   }
 
   return text.trim()
+}
+
+/** Nhận xét vận hành cho Manager DSS (không dùng what-if seller). */
+export function buildManagerDssCommentary(
+  insights: Array<Pick<DssInsight, 'title' | 'description'> & { category?: string }>,
+): string {
+  const bullets =
+    insights.length > 0
+      ? insights.map((i) => `- **${i.title}**: ${i.description}`).join('\n')
+      : '- Chưa có đủ số liệu đơn hàng để phân tích sâu — kiểm tra Doanh thu sàn / Dashboard.'
+
+  return [
+    '## Nhận xét tình hình',
+    'DSS Quản lý tập trung vào vận hành toàn sàn: GMV, đơn chờ, và hiệu suất danh mục.',
+    'What-if giảm giá theo sản phẩm thuộc phạm vi Người bán (không nằm ở đây).',
+    '',
+    '## Kế hoạch hành động',
+    '1. Mở **Doanh thu sàn** / Looker Studio để rà GMV và top seller/product.',
+    '2. Ưu tiên xử lý đơn chờ trên Dashboard để giảm tỷ lệ hủy.',
+    '3. Dùng **Phân tích** để theo dõi danh mục tăng/giảm.',
+    '4. Phối hợp seller dùng DSS (nhu cầu / giá / what-if) khi cần can thiệp SKU.',
+    '',
+    '## Điểm nổi bật từ dữ liệu',
+    bullets,
+    '',
+    '## Rủi ro cần theo dõi',
+    '- Đơn chờ tích tụ làm giảm trải nghiệm khách và doanh thu thực thu.',
+    '- GMV tăng nhưng tỷ lệ giao thành công thấp → cần kiểm tra fulfillment.',
+    '- Thiếu dữ liệu DELIVERED khiến báo cáo Looker / API lệch thực tế.',
+  ].join('\n')
 }

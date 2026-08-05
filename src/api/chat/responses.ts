@@ -5,7 +5,6 @@ import {
   demandBrief,
   extractDiscountPct,
   inventoryDssBrief,
-  managerWhatIfBrief,
   priceBrief,
   sellerWhatIfBrief,
 } from '@/api/chat/dssBrief'
@@ -593,8 +592,7 @@ function buildManagerIntent(ctx: ChatContext, intent: ChatIntent, raw: string): 
       return `${name}**Phân khúc doanh thu:**\n${lines || '• Chưa đủ dữ liệu'}\n\n**Phân tích**.`
     }
     case 'manager_whatif': {
-      const pct = extractDiscountPct(raw, 10)
-      return `${name}**What-if khuyến mãi (DSS Quản lý)**:\n${managerWhatIfBrief(pct)}`
+      return `${name}**What-if giảm giá theo sản phẩm** thuộc module **Người bán** (API \`/api/dss/what-if/seller\`).\n\n• Manager: dùng **Doanh thu sàn** + **Looker Studio** (/manager/platform-revenue, /manager/dss).\n• Seller: mở **/seller/dss/what-if** để mô phỏng % giảm giá / hòa vốn / lợi nhuận.\n\nGợi ý hỏi: "KPI tháng này", "đơn chờ", "doanh thu sàn".`
     }
     case 'manager_trend': {
       const cats = new Map<string, number>()

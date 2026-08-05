@@ -45,7 +45,7 @@ const header = computed(() => {
     return {
       eyebrow: 'Manager AI',
       title: 'Trợ lý quản lý',
-      lead: 'Phân tích KPI, phân khúc và kịch bản what-if.',
+      lead: 'Phân tích KPI, doanh thu sàn / Looker và insights vận hành.',
       placeholder: 'VD: KPI tháng này?',
     }
   }

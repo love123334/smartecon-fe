@@ -14,14 +14,14 @@ import PlatformPaymentChart from '@/components/platform-revenue/PlatformPaymentC
 import PlatformActivitySection from '@/components/platform-revenue/PlatformActivitySection.vue'
 import PlatformActivityTrendChart from '@/components/platform-revenue/PlatformActivityTrendChart.vue'
 import PlatformRankingTables from '@/components/platform-revenue/PlatformRankingTables.vue'
+import { LOOKER_STUDIO_PLATFORM_REVENUE_URL } from '@/constants/lookerStudio'
 import {
   defaultPlatformRevenueFilter,
   formatGeneratedAt,
   mapPlatformRevenueError,
 } from '@/utils/platformRevenue'
 
-const LOOKER_STUDIO_EMBED_URL =
-  'https://datastudio.google.com/embed/reporting/8d218406-968f-42bc-85a9-dfd1f42fab43/page/ChS5F'
+const LOOKER_STUDIO_EMBED_URL = LOOKER_STUDIO_PLATFORM_REVENUE_URL
 
 const filter = ref<PlatformRevenueDashboardQuery>(defaultPlatformRevenueFilter())
 const data = ref<PlatformRevenueDashboard | null>(null)

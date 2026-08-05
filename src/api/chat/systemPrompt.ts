@@ -9,7 +9,7 @@ const ROLE_GUIDE: Record<string, string> = {
   seller:
     'Hỗ trợ người bán: doanh số, dashboard, tồn kho, top SP, đơn bán, DSS (nhu cầu/giá/tồn/what-if). Seller cũng mua như khách: giỏ + đơn mua (/orders).',
   manager:
-    'Hỗ trợ quản lý: KPI đơn hàng, insights DSS, phân khúc, what-if khuyến mãi (/manager/dss/what-if), xu hướng danh mục.',
+    'Hỗ trợ quản lý: KPI đơn hàng, Doanh thu sàn / Looker Studio, insights DSS vận hành, xu hướng danh mục. What-if giảm giá theo SP thuộc seller (/seller/dss/what-if).',
   admin: 'Hỗ trợ admin: users, trạng thái hệ thống, RBAC, cảnh báo, cấu hình.',
 }
 

@@ -42,6 +42,7 @@ export function roleAccountMenuLinks(role: UserRole): NavLink[] {
         { to: '/seller/dss', label: 'DSS — Kế hoạch bán hàng', highlight: true },
         { to: '/seller/dss/demand', label: 'Dự báo nhu cầu' },
         { to: '/seller/dss/price', label: 'Gợi ý giá' },
+        { to: '/seller/dss/what-if', label: 'What-if giảm giá', highlight: true },
         { to: '/seller/sales', label: 'Bảng doanh số' },
         { to: '/seller/orders', label: 'Đơn bán' },
         { to: '/seller/inventory', label: 'Tồn kho' },
@@ -51,8 +52,7 @@ export function roleAccountMenuLinks(role: UserRole): NavLink[] {
       return [
         { to: '/manager/dashboard', label: 'Dashboard KPI' },
         { to: '/manager/platform-revenue', label: 'Doanh thu sàn', highlight: true },
-        { to: '/manager/dss', label: 'DSS & what-if', highlight: true },
-        { to: '/manager/dss/what-if', label: 'What-if khuyến mãi' },
+        { to: '/manager/dss', label: 'DSS Quản lý + Looker', highlight: true },
         { to: '/manager/analytics', label: 'Phân tích danh mục' },
       ]
     case 'admin':
@@ -75,15 +75,15 @@ export function roleChatShortcuts(role: UserRole): NavLink[] {
       ]
     case 'seller':
       return [
+        { to: '/seller/dss/what-if', label: 'What-if giảm giá' },
         { to: '/seller/sales', label: 'Doanh số' },
         { to: '/orders', label: 'Đơn mua' },
-        { to: '/search', label: 'Mua hàng' },
       ]
     case 'manager':
       return [
-        { to: '/manager/dss', label: 'DSS quản lý' },
+        { to: '/manager/platform-revenue', label: 'Doanh thu sàn' },
+        { to: '/manager/dss', label: 'DSS + Looker' },
         { to: '/manager/dashboard', label: 'Dashboard' },
-        { to: '/manager/analytics', label: 'Phân tích' },
       ]
     case 'admin':
       return [

@@ -49,9 +49,9 @@ onMounted(async () => {
       :links="[
         { to: '/seller/dss/demand', label: 'Dự báo nhu cầu', highlight: true },
         { to: '/seller/dss/price', label: 'Gợi ý giá', highlight: true },
-        { to: '/seller/sales', label: 'Bảng doanh số', highlight: true },
+        { to: '/seller/dss/what-if', label: 'What-if giảm giá', highlight: true },
+        { to: '/seller/sales', label: 'Bảng doanh số' },
         { to: '/seller/orders', label: 'Đơn bán' },
-        { to: '/orders', label: 'Đơn mua' },
       ]"
     />
     <section class="dss-brain">
@@ -86,18 +86,18 @@ onMounted(async () => {
         <p>Hệ số co giãn · bảng scenario · best recommendation · không biểu đồ.</p>
         <span class="dss-hub__cta">Mở →</span>
       </RouterLink>
-      <div class="dss-hub__card dss-hub__card--muted" aria-disabled="true" title="Dùng trang DSS riêng — không gắn trợ lý AI">
+      <RouterLink class="dss-hub__card" to="/seller/dss/inventory">
         <span class="dss-hub__tag">Tồn kho</span>
         <h2>Khuyến nghị tồn kho</h2>
-        <p>Module vẫn có tại /seller/dss/inventory — không ưu tiên trong trợ lý AI.</p>
-        <RouterLink class="dss-hub__cta" to="/seller/dss/inventory">Mở trang →</RouterLink>
-      </div>
-      <div class="dss-hub__card dss-hub__card--muted" aria-disabled="true" title="Dùng trang DSS riêng — không gắn trợ lý AI">
+        <p>ROP · safety stock · SL đề xuất nhập theo kỳ hoạch định.</p>
+        <span class="dss-hub__cta">Mở →</span>
+      </RouterLink>
+      <RouterLink class="dss-hub__card" to="/seller/dss/what-if">
         <span class="dss-hub__tag">What-if</span>
         <h2>Giảm giá & lợi nhuận</h2>
-        <p>Module vẫn có tại /seller/dss/what-if — không ưu tiên trong trợ lý AI.</p>
-        <RouterLink class="dss-hub__cta" to="/seller/dss/what-if">Mở trang →</RouterLink>
-      </div>
+        <p>Mô phỏng % giảm giá · hòa vốn · lợi nhuận kỳ vọng (API seller).</p>
+        <span class="dss-hub__cta">Mở →</span>
+      </RouterLink>
     </div>
 
     <h3 class="dss-hub__section">Gợi ý nhanh</h3>
