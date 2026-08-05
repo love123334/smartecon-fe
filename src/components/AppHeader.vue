@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
 import AccountHoverMenu from '@/components/AccountHoverMenu.vue'
 import CategoryNav from '@/components/CategoryNav.vue'
+import HeaderSearch from '@/components/HeaderSearch.vue'
 import { isShopBrowsePath, roleContactPath, roleOpsHome, roleOpsHomeLabel, canShopAsBuyer } from '@/utils/roleNav'
 
 const auth = useAuthStore()
@@ -147,16 +148,7 @@ watch(
                 </svg>
               </button>
 
-              <RouterLink
-                to="/search"
-                class="shop-icon-btn btn-interactive"
-                title="Tìm kiếm"
-                aria-label="Tìm kiếm"
-              >
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-                  <circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" />
-                </svg>
-              </RouterLink>
+              <HeaderSearch />
 
               <button
                 v-if="showCart"

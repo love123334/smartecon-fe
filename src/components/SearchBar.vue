@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { addSearchHistory } from '@/utils/searchHistory'
 
 const props = withDefaults(
   defineProps<{
@@ -33,6 +34,7 @@ watch(
 
 function submit() {
   const q = query.value.trim()
+  if (q) addSearchHistory(q)
   emit('update:modelValue', q)
   emit('search', q)
   router.push({ name: 'search', query: q ? { q } : {} })

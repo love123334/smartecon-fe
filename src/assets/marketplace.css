@@ -263,7 +263,8 @@
   box-shadow: none;
 }
 
-.mkt-cat-link.router-link-active {
+.mkt-cat-link.router-link-active,
+.mkt-cat-link--active {
   background: transparent;
   font-weight: 600;
   color: var(--navy, #14275c);
