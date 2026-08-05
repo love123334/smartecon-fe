@@ -133,10 +133,11 @@ async function placeOrder() {
       /* ignore */
     }
 
+    // Keep loading=true until navigation — tránh double-click / cảm giác “đứng”
     const pay = await orderApi.initiatePayment(order.id, 'vnpay')
     if (pay.redirectUrl) {
       if (pay.redirectUrl.startsWith('http')) {
-        window.location.href = pay.redirectUrl
+        window.location.assign(pay.redirectUrl)
         return
       }
       await router.push(pay.redirectUrl)
@@ -146,7 +147,6 @@ async function placeOrder() {
     await router.push(`/orders/${order.id}`)
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Đặt hàng / thanh toán thất bại'
-  } finally {
     loading.value = false
   }
 }

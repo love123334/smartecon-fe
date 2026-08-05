@@ -1,18 +1,24 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { formatVnd } from '@/api/services'
 import { useCartStore } from '@/stores/cart'
+import { useNoticeStore } from '@/stores/notice'
 import QuantityStepper from '@/components/QuantityStepper.vue'
 import CheckoutStepper from '@/components/CheckoutStepper.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import NewsletterBanner from '@/components/NewsletterBanner.vue'
 
+const PENDING_PAY_KEY = 'sedsp_pending_vnpay_order'
+
 const cart = useCartStore()
+const route = useRoute()
 const router = useRouter()
+const notice = useNoticeStore()
 const shipping = ref<'free' | 'express' | 'pickup'>('free')
 const coupon = ref('')
 const couponApplied = ref(false)
+const payBanner = ref<{ kind: 'ok' | 'warn' | 'err'; text: string; orderId?: string } | null>(null)
 
 const shippingFee = computed(() => {
   if (shipping.value === 'express') return 35_000
@@ -23,7 +29,77 @@ const shippingFee = computed(() => {
 const discount = computed(() => (couponApplied.value ? 25_000 : 0))
 const grandTotal = computed(() => Math.max(0, cart.total + shippingFee.value - discount.value))
 
-onMounted(() => cart.refresh())
+function consumePayQuery() {
+  const pay = String(route.query.pay ?? '').toLowerCase()
+  if (!pay) return
+  const orderId = String(route.query.orderId ?? '')
+  const gateway = String(route.query.gateway ?? 'vnpay').toUpperCase()
+
+  if (pay === 'success') {
+    try {
+      sessionStorage.removeItem(PENDING_PAY_KEY)
+    } catch {
+      /* ignore */
+    }
+    payBanner.value = {
+      kind: 'ok',
+      orderId,
+      text: orderId
+        ? `Thanh toán ${gateway} thành công — đơn #${orderId} đã ghi nhận.`
+        : `Thanh toán ${gateway} thành công.`,
+    }
+    notice.show({
+      kind: 'info',
+      title: 'Thanh toán thành công',
+      message: orderId ? `Đơn #${orderId} đã được thanh toán.` : 'Giao dịch thành công.',
+      durationMs: 3200,
+    })
+  } else if (pay === 'cancelled') {
+    payBanner.value = {
+      kind: 'warn',
+      orderId,
+      text: orderId
+        ? `Bạn đã hủy / thoát cổng ${gateway}. Đơn #${orderId} vẫn chờ — có thể thanh toán lại từ đơn hàng.`
+        : `Bạn đã hủy cổng ${gateway}.`,
+    }
+    notice.show({
+      kind: 'info',
+      title: 'Đã hủy thanh toán',
+      message: 'Đơn vẫn chờ. Mở lại VNPay từ đơn hàng nếu muốn tiếp tục.',
+      durationMs: 3600,
+    })
+  } else {
+    payBanner.value = {
+      kind: 'err',
+      orderId,
+      text: orderId
+        ? `Thanh toán ${gateway} không thành công cho đơn #${orderId}. Kiểm tra lại hoặc thử lại từ đơn hàng.`
+        : `Thanh toán ${gateway} không thành công.`,
+    }
+    notice.show({
+      kind: 'error',
+      title: 'Thanh toán thất bại',
+      message: orderId ? `Đơn #${orderId} chưa thanh toán được.` : 'Giao dịch không thành công.',
+      durationMs: 3600,
+    })
+  }
+
+  // Clean query so refresh không hiện lại banner/toast
+  const nextQuery = { ...route.query } as Record<string, string | string[]>
+  delete nextQuery.pay
+  delete nextQuery.status
+  delete nextQuery.code
+  delete nextQuery.txnRef
+  delete nextQuery.gateway
+  // giữ orderId trên banner state, bỏ khỏi URL
+  delete nextQuery.orderId
+  void router.replace({ path: '/cart', query: nextQuery })
+}
+
+onMounted(async () => {
+  consumePayQuery()
+  await cart.refresh()
+})
 
 function checkout() {
   router.push('/checkout')
@@ -41,6 +117,30 @@ function applyCoupon() {
     <div class="container elegant-page__inner">
       <h1 class="elegant-page-title">Giỏ hàng</h1>
       <CheckoutStepper :step="1" />
+
+      <div
+        v-if="payBanner"
+        class="elegant-alert"
+        :class="{
+          'elegant-alert--error': payBanner.kind === 'err',
+        }"
+        :style="
+          payBanner.kind === 'ok'
+            ? 'margin-bottom:1rem;background:#ecfdf5;border:1px solid #6ee7b7;color:#065f46'
+            : payBanner.kind === 'warn'
+              ? 'margin-bottom:1rem;background:#fff7ed;border:1px solid #fdba74;color:#9a3412'
+              : 'margin-bottom:1rem'
+        "
+      >
+        <p style="margin:0">{{ payBanner.text }}</p>
+        <div v-if="payBanner.orderId" style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:0.65rem">
+          <RouterLink class="btn-elegant-primary btn-interactive" :to="`/orders/${payBanner.orderId}`">
+            Xem đơn #{{ payBanner.orderId }}
+          </RouterLink>
+          <RouterLink class="btn-interactive" to="/orders">Đơn của tôi</RouterLink>
+          <button type="button" class="btn-interactive" @click="payBanner = null">Đóng</button>
+        </div>
+      </div>
 
       <p v-if="cart.loading" class="empty">Đang tải...</p>
       <EmptyState

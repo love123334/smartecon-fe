@@ -160,9 +160,13 @@ export async function updateOrderStatus(
   status: BackendOrderStatus,
   note?: string,
 ): Promise<Order> {
-  const data = await http.put<BackendOrderResponse>(apiPaths.orders.status(id), {
-    status,
-    note: note ?? undefined,
-  })
+  const data = await http.put<BackendOrderResponse>(
+    apiPaths.orders.status(id),
+    {
+      status,
+      note: note ?? undefined,
+    },
+    { timeoutMs: 10_000 },
+  )
   return mapBackendOrder(data)
 }

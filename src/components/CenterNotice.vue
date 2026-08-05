@@ -51,8 +51,20 @@ const { open, title, message, kind } = storeToRefs(notice)
   border: 1px solid rgba(15, 23, 42, 0.06);
 }
 
+.center-notice__box--error {
+  border-color: rgba(185, 28, 28, 0.18);
+}
+
 .center-notice__box--stock {
   border-color: rgba(185, 28, 28, 0.18);
+}
+
+.center-notice__box--error .center-notice__title {
+  color: #b91c1c;
+}
+
+.center-notice__box--error .center-notice__ok {
+  background: #b91c1c;
 }
 
 .center-notice__title {

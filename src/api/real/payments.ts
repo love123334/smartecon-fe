@@ -70,8 +70,10 @@ export async function payOrder(
   orderId: string,
   paymentMethod: BackendPaymentMethod,
 ): Promise<PaymentInfo> {
-  const data = await http.post<BackendPayment>(apiPaths.payments.payOrder(orderId), {
-    paymentMethod,
-  })
+  const data = await http.post<BackendPayment>(
+    apiPaths.payments.payOrder(orderId),
+    { paymentMethod },
+    { timeoutMs: 12_000 },
+  )
   return mapPayment(data, orderId)
 }

@@ -28,7 +28,8 @@ function authHeaders(withJsonContentType = false): HeadersInit {
   return headers
 }
 
-const DEFAULT_TIMEOUT_MS = 25_000
+/** Default snappy — long AI calls pass a higher timeoutMs. */
+const DEFAULT_TIMEOUT_MS = 14_000
 
 const CONNECTIVITY_ERROR =
   'Không kết nối được backend. Kiểm tra VITE_API_BASE_URL / VITE_BACKEND_ORIGIN.'
@@ -92,10 +93,16 @@ function unwrapApiBody<T>(res: Response, body: unknown, fallbackMessage: string)
   return body as T
 }
 
+export type ApiRequestConfig = {
+  baseUrl?: string
+  /** Override default request timeout (ms). */
+  timeoutMs?: number
+}
+
 export async function apiRequest<T>(
   path: string,
   options: RequestInit = {},
-  config?: { baseUrl?: string },
+  config?: ApiRequestConfig,
 ): Promise<T> {
   const root = (config?.baseUrl ?? apiConfig.baseUrl).replace(/\/$/, '')
   const url = `${root}/${path.replace(/^\//, '')}`
@@ -104,8 +111,9 @@ export async function apiRequest<T>(
     typeof options.body === 'string' &&
     ['POST', 'PUT', 'PATCH'].includes(method)
   let res: Response
+  const timeoutMs = config?.timeoutMs ?? DEFAULT_TIMEOUT_MS
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS)
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
   try {
     res = await fetch(url, {
       ...options,
@@ -157,20 +165,21 @@ export async function apiUpload<T>(path: string, formData: FormData): Promise<T>
 }
 
 export const http = {
-  get: <T>(path: string) => apiRequest<T>(path),
-  post: <T>(path: string, data?: unknown) =>
-    apiRequest<T>(path, { method: 'POST', body: JSON.stringify(data ?? {}) }),
+  get: <T>(path: string, config?: ApiRequestConfig) => apiRequest<T>(path, {}, config),
+  post: <T>(path: string, data?: unknown, config?: ApiRequestConfig) =>
+    apiRequest<T>(path, { method: 'POST', body: JSON.stringify(data ?? {}) }, config),
   /** POST tới base khác `/api/v1` (vd. `/api/dss/...`). */
-  postAt: <T>(baseUrl: string, path: string, data?: unknown) =>
+  postAt: <T>(baseUrl: string, path: string, data?: unknown, config?: ApiRequestConfig) =>
     apiRequest<T>(
       path,
       { method: 'POST', body: JSON.stringify(data ?? {}) },
-      { baseUrl },
+      { ...config, baseUrl },
     ),
-  put: <T>(path: string, data?: unknown) =>
-    apiRequest<T>(path, { method: 'PUT', body: JSON.stringify(data ?? {}) }),
-  patch: <T>(path: string, data?: unknown) =>
-    apiRequest<T>(path, { method: 'PATCH', body: JSON.stringify(data ?? {}) }),
-  delete: <T>(path: string) => apiRequest<T>(path, { method: 'DELETE' }),
+  put: <T>(path: string, data?: unknown, config?: ApiRequestConfig) =>
+    apiRequest<T>(path, { method: 'PUT', body: JSON.stringify(data ?? {}) }, config),
+  patch: <T>(path: string, data?: unknown, config?: ApiRequestConfig) =>
+    apiRequest<T>(path, { method: 'PATCH', body: JSON.stringify(data ?? {}) }, config),
+  delete: <T>(path: string, config?: ApiRequestConfig) =>
+    apiRequest<T>(path, { method: 'DELETE' }, config),
   upload: <T>(path: string, formData: FormData) => apiUpload<T>(path, formData),
 }

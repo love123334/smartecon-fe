@@ -45,18 +45,41 @@ async function applyStatus(order: Order) {
   if (!status) return
   updatingId.value = order.id
   error.value = ''
+  const prev = { ...order }
+  const optimistic: Order = {
+    ...order,
+    rawStatus: status,
+    status:
+      status === 'PROCESSING' || status === 'PAID'
+        ? 'confirmed'
+        : status === 'SHIPPING'
+          ? 'shipping'
+          : status === 'DELIVERED'
+            ? 'delivered'
+            : status === 'CANCELLED'
+              ? 'cancelled'
+              : order.status,
+    updatedAt: new Date().toISOString(),
+  }
+  const idx = orders.value.findIndex((o) => o.id === order.id)
+  if (idx >= 0) orders.value[idx] = optimistic
+  const nextOpt = nextBackendStatuses(status)[0]
+  if (nextOpt) selectedStatus.value[order.id] = nextOpt
+  else delete selectedStatus.value[order.id]
+
   try {
     const { order: updated } = await orderApi.updateBackendStatus(
       order.id,
       status,
       statusNotes.value[order.id]?.trim() || undefined,
     )
-    const idx = orders.value.findIndex((o) => o.id === order.id)
     if (idx >= 0) orders.value[idx] = updated
     const next = nextBackendStatuses(updated.rawStatus)[0]
     if (next) selectedStatus.value[order.id] = next
     else delete selectedStatus.value[order.id]
   } catch (e) {
+    if (idx >= 0) orders.value[idx] = prev
+    selectedStatus.value[order.id] = status
     error.value = e instanceof Error ? e.message : 'Cập nhật thất bại'
   } finally {
     updatingId.value = null

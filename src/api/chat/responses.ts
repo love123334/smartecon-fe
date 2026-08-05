@@ -564,7 +564,7 @@ function buildSellerIntent(ctx: ChatContext, intent: ChatIntent, raw: string): s
   }
 }
 
-function buildManagerIntent(ctx: ChatContext, intent: ChatIntent, raw: string): string | null {
+function buildManagerIntent(ctx: ChatContext, intent: ChatIntent, _raw: string): string | null {
   const name = greet(ctx.userName ?? '')
   const orders = ctx.orders
   const revenue = orders.reduce((s, o) => s + o.total, 0)
