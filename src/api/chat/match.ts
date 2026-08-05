@@ -97,10 +97,11 @@ export function scoreKeywords(normalizedText: string, keywords: string[]): numbe
       if (containsWholePhrase(normalizedText, part)) {
         local = part.length * 1.4
         matched++
-      } else {
+      } else if (part.length >= 4) {
+        // Fuzzy chỉ cho từ ≥4 ký tự — tránh ung≈dung, co≈complaint
         for (const tw of textWords) {
           const sim = wordSimilarity(tw, part)
-          if (sim >= 0.72) {
+          if (sim >= 0.78) {
             local = Math.max(local, sim * part.length)
             matched++
             break
@@ -131,8 +132,9 @@ export function fuzzyMatchText(normalizedText: string, keyword: string, minSim =
       matchedParts++
       continue
     }
+    if (part.length < 4) continue
     for (const tw of textWords) {
-      if (wordSimilarity(tw, part) >= minSim) {
+      if (wordSimilarity(tw, part) >= Math.max(minSim, 0.78)) {
         matchedParts++
         break
       }

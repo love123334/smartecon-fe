@@ -374,10 +374,17 @@ const COMMON: IntentRule[] = [
   },
   {
     intent: 'product_info',
-    keywords: ['thong tin', 'mo ta', 'description', 'cau hinh', 'chi tiet sp', 'product info'],
-    phrases: ['thong tin san pham', 'mo ta', 'cau hinh'],
-    minScore: 4,
-    priority: 6,
+    keywords: [
+      'thong tin', 'mo ta', 'description', 'cau hinh', 'chi tiet sp', 'product info',
+      'cong dung', 'dung lam', 'dung de', 'dung lam gi', 'tinh nang', 'dac diem',
+      'gioi thieu sp', 'sp nay la gi',
+    ],
+    phrases: [
+      'thong tin san pham', 'mo ta', 'cau hinh', 'cong dung', 'dung lam gi',
+      'dung de lam gi', 'dung lam', 'tinh nang',
+    ],
+    minScore: 3,
+    priority: 9,
   },
   {
     intent: 'product_review',
@@ -553,6 +560,16 @@ function refineIntent(
   // Rẻ nhất
   if (/re nhat|gia re nhat|cheapest|gia thap nhat|lowest price|san pham nao re|sp nao re|hang nao re/.test(normalized)) {
     return 'product_cheapest'
+  }
+
+  // Công dụng / dùng làm gì — không nhầm "ứng dụng" (platform)
+  if (
+    /cong dung|dung lam|dung de|tinh nang|dac diem|gioi thieu sp|sp nay la gi|san pham nay la gi/.test(
+      normalized,
+    ) &&
+    !/sedsp|ung dung|platform|ve sedsp|what is sedsp/.test(normalized)
+  ) {
+    return 'product_info'
   }
 
   // "món đồ hot / bán chạy / trending" → gợi ý (seller hỏi bán chạy → top SP shop)

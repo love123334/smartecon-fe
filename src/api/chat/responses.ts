@@ -402,17 +402,26 @@ function sellerRatingReply(ctx: ChatContext): string {
 
 function productInfoReply(ctx: ChatContext, raw: string): string {
   const name = greet(ctx.userName ?? '')
+  const lower = normalizeText(raw)
   const p = ctx.enrichment?.product ?? findProductsByQuery(ctx.products, raw)[0]
   if (p) {
     const inv = ctx.enrichment?.inventory
     const stock = inv ? inv.availableQuantity : p.stock
-    const desc = p.description
-      ? p.description.slice(0, 160) + (p.description.length > 160 ? '…' : '')
+    const desc = p.description?.trim()
+    const usageFocus = /cong dung|dung lam|dung de|tinh nang|dac diem|mo ta|gioi thieu|la gi/.test(lower)
+    if (usageFocus) {
+      const useLine = desc
+        ? desc.slice(0, 280) + (desc.length > 280 ? '…' : '')
+        : `${p.name} thuộc danh mục **${p.category || 'sản phẩm'}** — xem trang SP để biết chi tiết công dụng.`
+      return `${name}**${p.name}** — công dụng / mô tả:\n${useLine}\n\nGiá **${formatVnd(p.price)}** · tồn **${stock <= 0 ? 'hết hàng' : stock}** · shop **${p.shopName ?? 'SEDSP Official'}**.`
+    }
+    const descLine = desc
+      ? desc.slice(0, 160) + (desc.length > 160 ? '…' : '')
       : 'Xem mô tả đầy đủ trên trang SP.'
     const img = p.imageUrl ? `\n• Ảnh: có (xem trang SP)` : ''
-    return `${name}**${p.name}**\n• Danh mục: **${p.category}**\n• Giá: **${formatVnd(p.price)}**${p.originalPrice && p.originalPrice > p.price ? ` (gốc ${formatVnd(p.originalPrice)})` : ''}\n• Tồn: **${stock <= 0 ? 'hết hàng' : stock}**\n• Shop: **${p.shopName ?? 'SEDSP Official'}**${img}\n• ${desc}\n\n→ Chi tiết **/products/${p.id}**`
+    return `${name}**${p.name}**\n• Danh mục: **${p.category}**\n• Giá: **${formatVnd(p.price)}**${p.originalPrice && p.originalPrice > p.price ? ` (gốc ${formatVnd(p.originalPrice)})` : ''}\n• Tồn: **${stock <= 0 ? 'hết hàng' : stock}**\n• Shop: **${p.shopName ?? 'SEDSP Official'}**${img}\n• ${descLine}\n\n→ Chi tiết **/products/${p.id}**`
   }
-  return `${name}Bạn muốn biết SP nào? Hỏi tên cụ thể, vd: "thong tin tai nghe bluetooth".`
+  return `${name}Bạn muốn biết SP nào? Hỏi tên cụ thể, vd: "thong tin tai nghe bluetooth", hoặc kéo SP vào khung chat.`
 }
 
 function buildCustomerIntent(ctx: ChatContext, intent: ChatIntent, raw: string): string | null {
