@@ -1382,12 +1382,20 @@ export const dssApi = {
           })
         }
 
-        dash.recommendations.forEach((text, i) => {
+        dash.recommendations.forEach((rec, i) => {
+          const priority = String(rec.priority ?? 'INFO').toUpperCase()
           fromApi.push({
-            id: `api-rec-${i}`,
-            title: 'Gợi ý từ dashboard',
-            description: text,
-            impact: 'medium',
+            id: rec.id || `api-rec-${i}`,
+            title: rec.title || 'Gợi ý từ dashboard',
+            description: rec.message || '',
+            impact:
+              priority === 'HIGH'
+                ? 'high'
+                : priority === 'MEDIUM'
+                  ? 'medium'
+                  : priority === 'LOW'
+                    ? 'low'
+                    : 'low',
             category: 'recommendation',
           })
         })

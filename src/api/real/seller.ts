@@ -76,6 +76,15 @@ interface BackendInventorySummary {
   totalStock?: number
 }
 
+interface BackendSellerRecommendation {
+  id?: string
+  title?: string
+  message?: string
+  priority?: string
+  actionUrl?: string
+  actionLabel?: string
+}
+
 interface BackendSellerDashboard {
   revenue?: { totalRevenue?: number | string; completedOrders?: number }
   orders?: BackendOrderCounts
@@ -83,11 +92,21 @@ interface BackendSellerDashboard {
   inventory?: BackendInventorySummary
   recentOrders?: BackendRecentOrder[]
   lowStockProducts?: BackendLowStockProduct[]
-  recommendations?: string[]
+  /** Backend returns RecommendationResponse objects (not plain strings). */
+  recommendations?: Array<string | BackendSellerRecommendation>
   averageRating?: number
   totalReviews?: number
   ratingWarning?: string
   rating?: BackendSellerRating
+}
+
+export interface SellerRecommendation {
+  id: string
+  title: string
+  message: string
+  priority: string
+  actionUrl?: string
+  actionLabel?: string
 }
 
 export interface SalesPerformance {
@@ -116,7 +135,7 @@ export interface SellerDashboard {
   products: { totalProducts: number; activeProducts: number }
   inventory: { lowStockCount: number; outOfStockCount: number }
   lowStockProducts: Array<{ productId: string; productName: string; quantity: number }>
-  recommendations: string[]
+  recommendations: SellerRecommendation[]
   averageRating?: number
   totalReviews?: number
   ratingWarning?: string
@@ -157,6 +176,40 @@ function mapSalesPerformance(data: BackendSalesPerformance): SalesPerformance {
   }
 }
 
+function mapRecommendation(
+  item: string | BackendSellerRecommendation,
+  index: number,
+): SellerRecommendation {
+  if (typeof item === 'string') {
+    const trimmed = item.trim()
+    if (trimmed.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(trimmed) as BackendSellerRecommendation
+        if (parsed && typeof parsed === 'object') {
+          return mapRecommendation(parsed, index)
+        }
+      } catch {
+        /* treat as plain text */
+      }
+    }
+    return {
+      id: `rec-${index}`,
+      title: 'Gợi ý từ dashboard',
+      message: item,
+      priority: 'INFO',
+    }
+  }
+
+  return {
+    id: item.id ?? `rec-${index}`,
+    title: item.title ?? 'Gợi ý từ dashboard',
+    message: item.message ?? '',
+    priority: String(item.priority ?? 'INFO').toUpperCase(),
+    actionUrl: item.actionUrl,
+    actionLabel: item.actionLabel,
+  }
+}
+
 function mapDashboard(data: BackendSellerDashboard): SellerDashboard {
   const rating = data.rating
   return {
@@ -183,7 +236,7 @@ function mapDashboard(data: BackendSellerDashboard): SellerDashboard {
       productName: p.productName,
       quantity: p.quantity ?? 0,
     })),
-    recommendations: data.recommendations ?? [],
+    recommendations: (data.recommendations ?? []).map(mapRecommendation),
     averageRating: data.averageRating ?? rating?.averageRating,
     totalReviews: data.totalReviews ?? rating?.totalReviews,
     ratingWarning: data.ratingWarning ?? rating?.warning ?? undefined,
