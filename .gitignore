@@ -9,10 +9,11 @@ dist-ssr/
 .vite/
 *.local
 
-# Environment (keep .env.example)
+# Environment (keep .env.example + committed production API URL)
 .env
 .env.*
 !.env.example
+!.env.production
 
 # TypeScript
 *.tsbuildinfo
