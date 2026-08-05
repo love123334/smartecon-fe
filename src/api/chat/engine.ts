@@ -4,12 +4,15 @@ import { formatVnd, normalizeText } from '@/api/chat/match'
 import { toChatProducts } from '@/api/chat/productCards'
 import {
   cheapestProducts,
+  computeProductPriceStats,
   extractBudgetVnd,
   extractPriceRange,
+  extractProductFocusLabel,
   filterProductsForQuery,
   findProductsByQuery,
   formatPriceRangeLabel,
   groupProductsByShop,
+  isPriceStatsQuery,
   pickProductCatalog,
   productsUnderBudget,
   rankRecommendedProducts,
@@ -167,6 +170,35 @@ function shoppingStructuredReply(
       filter.queryText.split(/\s+/).some((w) => w.length >= 3))
 
   if (!wantsShop) return null
+
+  // "giá macbook trung bình" → tính TB / min / max, không dump cả laptop
+  if (isPriceStatsQuery(raw) || /gia.+(macbook|iphone|laptop|tai nghe|airpod)/.test(normalizeText(raw))) {
+    const focusLabel = extractProductFocusLabel(raw)
+    const statsHits = findProductsByQuery(catalog, filter.queryText || raw)
+    const stats = computeProductPriceStats(
+      statsHits.length ? statsHits : filter.products,
+      focusLabel,
+      4,
+    )
+    if (stats) {
+      const name = greet(ctx.userName ?? '')
+      const spread = stats.max - stats.min
+      const insight =
+        spread / stats.average > 0.35
+          ? `Khoảng giá khá rộng — nên chốt ngân sách trước khi chọn cấu hình.`
+          : `Mức giá trong nhóm khá sát nhau, dễ so sánh.`
+      return {
+        content:
+          `${name}**Giá ${stats.label}** trên SEDSP (theo **${stats.count}** SP đang bán):\n` +
+          `• Trung bình: **${formatVnd(stats.average)}**\n` +
+          `• Thấp nhất: **${formatVnd(stats.min)}** — **${stats.cheapest.name}**\n` +
+          `• Cao nhất: **${formatVnd(stats.max)}** — **${stats.priciest.name}**\n\n` +
+          `${insight}\n\n` +
+          `Một vài lựa chọn tiêu biểu:`,
+        products: toChatProducts(stats.products, 4),
+      }
+    }
+  }
 
   if (intent === 'product_cheapest' || (/re nhat|cheapest|gia thap nhat/.test(normalizeText(raw)) && !range)) {
     const cheap = cheapestProducts(catalog, 4)

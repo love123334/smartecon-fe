@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
+  computeProductPriceStats,
   extractBudgetVnd,
   extractPriceRange,
   filterProductsForQuery,
+  findProductsByQuery,
+  isPriceStatsQuery,
   stripPriceTokens,
 } from '@/api/chat/products'
 import type { Product } from '@/types'
@@ -69,5 +72,35 @@ describe('filterProductsForQuery', () => {
   it('strips price tokens for text search', () => {
     expect(stripPriceTokens('tai nghe dưới 2 triệu')).toContain('tai nghe')
     expect(stripPriceTokens('tai nghe dưới 2 triệu')).not.toMatch(/2/)
+  })
+})
+
+describe('macbook price stats', () => {
+  const laptops: Product[] = [
+    p({ id: 'm1', name: 'MacBook Air M3', price: 32_990_000, category: 'Laptop' }),
+    p({ id: 'm2', name: 'MacBook Pro 14', price: 48_990_000, category: 'Laptop' }),
+    p({ id: 'd1', name: 'Dell XPS 15', price: 38_990_000, category: 'Laptop' }),
+    p({ id: 'h1', name: 'HP Spectre x360', price: 35_990_000, category: 'Laptop' }),
+  ]
+
+  it('detects average-price questions', () => {
+    expect(isPriceStatsQuery('giá macbook trung bình')).toBe(true)
+    expect(isPriceStatsQuery('macbook nào ngon')).toBe(false)
+  })
+
+  it('keeps MacBook hits without dumping Dell/HP', () => {
+    const hits = findProductsByQuery(laptops, 'giá macbook trung bình')
+    expect(hits.length).toBeGreaterThan(0)
+    expect(hits.every((x) => /macbook/i.test(x.name))).toBe(true)
+    expect(hits.some((x) => /dell|hp/i.test(x.name))).toBe(false)
+  })
+
+  it('computes average / min / max for MacBooks', () => {
+    const macs = findProductsByQuery(laptops, 'macbook')
+    const stats = computeProductPriceStats(macs, 'Macbook', 4)
+    expect(stats?.count).toBe(2)
+    expect(stats?.average).toBe((32_990_000 + 48_990_000) / 2)
+    expect(stats?.min).toBe(32_990_000)
+    expect(stats?.max).toBe(48_990_000)
   })
 })

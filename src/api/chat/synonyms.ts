@@ -8,8 +8,12 @@ const SYNONYM_GROUPS: string[][] = [
   ['chuot', 'mouse', 'chuot khong day'],
   ['giay', 'sneaker', 'running', 'marathon', 'airflex', 'giay dep'],
   ['noi chien', 'air fryer', 'chien khong dau', 'noi'],
-  ['dien thoai', 'phone', 'smartphone', 'mobile', 'iphone', 'samsung'],
-  ['laptop', 'may tinh xach tay', 'notebook', 'macbook'],
+  ['dien thoai', 'phone', 'smartphone', 'mobile'],
+  // Brand riêng — không gộp macbook vào mọi laptop (tránh dump Dell/HP khi hỏi MacBook)
+  ['laptop', 'may tinh xach tay', 'notebook'],
+  ['macbook', 'mac book', 'mba', 'mbp', 'macbook air', 'macbook pro'],
+  ['iphone', 'apple phone'],
+  ['airpod', 'airpods', 'air pods'],
   // Use-case: lập trình / học IT
   ['laptop', 'lap trinh', 'programming', 'coding', 'developer', 'coder', 'sinh vien it', 'hoc code', 'vscode'],
   ['may tinh bang', 'tablet', 'ipad'],

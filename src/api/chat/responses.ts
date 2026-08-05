@@ -11,10 +11,13 @@ import {
 import { formatVnd, normalizeText } from '@/api/chat/match'
 import {
   cheapestProducts,
+  computeProductPriceStats,
   extractBudgetVnd,
+  extractProductFocusLabel,
   filterProductsForQuery,
   findProductsByQuery,
   groupProductsByShop,
+  isPriceStatsQuery,
   productsUnderBudget,
   stripPriceTokens,
 } from '@/api/chat/products'
@@ -485,6 +488,20 @@ function buildCustomerIntent(ctx: ChatContext, intent: ChatIntent, raw: string):
       break
     }
     case 'product_price': {
+      if (isPriceStatsQuery(raw)) {
+        const label = extractProductFocusLabel(raw)
+        const matched = findProductsByQuery(ctx.products, raw)
+        const stats = computeProductPriceStats(matched, label, 5)
+        if (stats) {
+          return (
+            `${name}**Giá ${stats.label}** (theo **${stats.count}** SP):\n` +
+            `• Trung bình **${formatVnd(stats.average)}**\n` +
+            `• Thấp nhất **${formatVnd(stats.min)}** (${stats.cheapest.name})\n` +
+            `• Cao nhất **${formatVnd(stats.max)}** (${stats.priciest.name})\n\n` +
+            `**Gợi ý:**\n${productLines(stats.products)}`
+          )
+        }
+      }
       const matched = findProductsByQuery(ctx.products, raw)
       if (matched.length) {
         return `${name}**Bảng giá:**\n${productLines(matched.slice(0, 5))}\n\nChi tiết tại **Cửa hàng**.`

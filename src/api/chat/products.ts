@@ -13,6 +13,7 @@ const STOP_WORDS = new Set([
   'y', 'suggest', 'recommend', 'nen', 'trong', 'tam', 'khoang', 'duoi', 'tren',
   'tu', 'den', 'toi', 'da', 'max', 'min', 'budget', 'ngan', 'sach', 'under',
   'around', 'about', 'gan', 'tam', 'gia',
+  'trung', 'binh', 'average', 'avg', 'tb', 'khoang',
   // tránh search lẫn khi hỏi đơn / tài khoản
   'don', 'order', 'orders', 'status', 'trang', 'thai', 'lich', 'su', 'theo', 'doi',
 ])
@@ -20,6 +21,66 @@ const STOP_WORDS = new Set([
 export interface PriceRange {
   min: number | null
   max: number | null
+}
+
+export interface ProductPriceStats {
+  label: string
+  count: number
+  average: number
+  min: number
+  max: number
+  cheapest: Product
+  priciest: Product
+  products: Product[]
+}
+
+/** Hỏi giá trung bình / khoảng giá / thống kê giá theo brand-SP */
+export function isPriceStatsQuery(raw: string): boolean {
+  const n = normalizeText(raw)
+  return (
+    /trung binh|gia tb|tb gia|average|avg price|gia trung|khoang gia|gia thap nhat .* cao nhat|min max gia|gia min|gia max/.test(
+      n,
+    ) || /gia\s+\w+.+(trung binh|tb|average)/.test(n) || /(trung binh|average|tb).+gia/.test(n)
+  )
+}
+
+export function computeProductPriceStats(
+  products: Product[],
+  label: string,
+  limit = 4,
+): ProductPriceStats | null {
+  const pool = products.filter((p) => Number.isFinite(p.price) && p.price > 0)
+  if (!pool.length) return null
+  const sorted = [...pool].sort((a, b) => a.price - b.price)
+  const sum = sorted.reduce((s, p) => s + p.price, 0)
+  return {
+    label: label || 'nhóm sản phẩm',
+    count: sorted.length,
+    average: sum / sorted.length,
+    min: sorted[0].price,
+    max: sorted[sorted.length - 1].price,
+    cheapest: sorted[0],
+    priciest: sorted[sorted.length - 1],
+    products: sorted.slice(0, limit),
+  }
+}
+
+/** Nhãn brand/SP từ câu hỏi (vd: macbook, iphone, tai nghe) */
+export function extractProductFocusLabel(raw: string): string {
+  const n = normalizeText(raw)
+    .replace(
+      /gia|bao nhieu|trung binh|average|avg|tb|khoang|thap nhat|cao nhat|min|max|cua|cac|sp|san pham|hang/g,
+      ' ',
+    )
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!n) return 'sản phẩm'
+  // Title-ish
+  return n
+    .split(/\s+/)
+    .slice(0, 4)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ')
 }
 
 function parseMoneyToken(numRaw: string, unitRaw?: string): number | null {
@@ -83,9 +144,10 @@ export function extractBudgetVnd(raw: string): number | null {
 export function stripPriceTokens(raw: string): string {
   return normalizeText(raw)
     .replace(
-      /(?:tu|from|khoang|duoi|under|toi da|max|tren|toi thieu|it nhat|budget|ngan sach|trong tam|tam gia)?\s*\d+[.,]?\d*\s*(trieu|tr|m|k|nghin|ngan)?(?:\s*(?:-|–|den|to|toi)\s*\d+[.,]?\d*\s*(trieu|tr|m|k|nghin|ngan)?)?/g,
+      /(?:tu|from|khoang|duoi|under|toi da|max|tren|toi thieu|it nhat|budget|ngan sach|trong tam|tam gia|trung binh|average|avg|tb)?\s*\d+[.,]?\d*\s*(trieu|tr|m|k|nghin|ngan)?(?:\s*(?:-|–|den|to|toi)\s*\d+[.,]?\d*\s*(trieu|tr|m|k|nghin|ngan)?)?/g,
       ' ',
     )
+    .replace(/\b(trung binh|average|avg|gia tb|tb gia|khoang gia)\b/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
 }
@@ -100,6 +162,10 @@ export function applyPriceRange(products: Product[], range: PriceRange | null): 
 }
 
 export function findProductsByQuery(products: Product[], query: string): Product[] {
+  const normalizedQuery = normalizeText(query)
+  const originalWords = normalizedQuery
+    .split(/\s+/)
+    .filter((w) => w.length > 2 && !STOP_WORDS.has(w))
   const expanded = expandQueryTerms(query)
   const words = expanded.filter((w) => {
     const parts = w.split(/\s+/)
@@ -110,27 +176,45 @@ export function findProductsByQuery(products: Product[], query: string): Product
 
   const scored = products
     .map((p) => {
+      const nameHay = normalizeText(p.name)
       const hay = normalizeText(
         `${p.name} ${p.category} ${p.description} ${p.shopName ?? ''} ${p.sellerEmail ?? ''}`,
       )
       let score = 0
+      let nameHit = false
+      // Ưu tiên khớp đúng từ trong câu hỏi trên TÊN SP (macbook ≠ mọi laptop)
+      for (const w of originalWords) {
+        if (nameHay.includes(w)) {
+          score += w.length * 6
+          nameHit = true
+        }
+      }
       for (const w of words) {
         if (hay.includes(w)) {
-          score += w.length * (w.includes(' ') ? 3.2 : 2.2)
+          // Match chỉ ở category/mô tả (vd: laptop) nhẹ hơn match tên
+          const inName = nameHay.includes(w)
+          score += w.length * (inName ? (w.includes(' ') ? 3.2 : 2.4) : w.includes(' ') ? 1.2 : 0.85)
           continue
         }
         for (const hw of hay.split(/\s+/)) {
           const sim = wordSimilarity(hw, w)
-          if (sim >= 0.74) score += w.length * sim
+          if (sim >= 0.74) score += w.length * sim * (nameHay.includes(hw) ? 1 : 0.55)
         }
       }
       score += Math.min(p.soldCount / 500, 1.5)
-      return { p, score }
+      // Có brand rõ trong câu hỏi mà tên SP không chứa → loại mạnh
+      if (originalWords.length && !nameHit && originalWords.some((w) => w.length >= 4)) {
+        score *= 0.25
+      }
+      return { p, score, nameHit }
     })
     .filter((x) => x.score >= 4)
-    .sort((a, b) => b.score - a.score)
+    .sort((a, b) => b.score - a.score || Number(b.nameHit) - Number(a.nameHit))
 
-  return scored.map((x) => x.p)
+  // Nếu có hit đúng tên brand → chỉ giữ nhóm đó (tránh Dell lẫn MacBook)
+  const withName = scored.filter((x) => x.nameHit)
+  const picked = withName.length ? withName : scored
+  return picked.map((x) => x.p)
 }
 
 export function pickProductCatalog(
@@ -166,6 +250,7 @@ export interface SmartProductFilterResult {
 
 /**
  * Lọc SP thông minh: khoảng giá + danh mục + từ khóa (vd: "tai nghe dưới 2 triệu").
+ * Brand rõ (macbook…) → ưu tiên text search, không fallback cả danh mục Laptop.
  */
 export function filterProductsForQuery(
   products: Product[],
@@ -176,10 +261,14 @@ export function filterProductsForQuery(
   const range = extractPriceRange(raw)
   const matchedCat = matchCategoryFromText(raw, categories)
   const queryText = stripPriceTokens(raw)
+  const brandish = /macbook|iphone|airpod|samsung|dell|hp|asus|lenovo|xiaomi|sony|logitech/.test(
+    normalizeText(raw),
+  )
 
   let pool = products.filter((p) => (p.stock ?? 0) > 0)
 
-  if (matchedCat) {
+  // Brand rõ: search trên toàn catalog trước, đừng ép cả category
+  if (!brandish && matchedCat) {
     const catNorm = normalizeText(matchedCat.name)
     const byCat = pool.filter((p) => normalizeText(p.category) === catNorm)
     if (byCat.length) pool = byCat
@@ -190,8 +279,8 @@ export function filterProductsForQuery(
   let hits: Product[] = []
   if (queryText.length >= 2) {
     hits = findProductsByQuery(pool, queryText)
-    // nếu text search quá hẹp sau khi đã lọc giá/danh mục → nới: lấy pool theo giá
-    if (!hits.length && (range || matchedCat)) {
+    // không fallback cả category khi user hỏi brand cụ thể
+    if (!hits.length && (range || matchedCat) && !brandish) {
       hits = [...pool].sort((a, b) => a.price - b.price)
     }
   } else if (range || matchedCat) {
@@ -201,7 +290,7 @@ export function filterProductsForQuery(
   return {
     products: hits.slice(0, limit),
     range,
-    categoryName: matchedCat?.name ?? null,
+    categoryName: brandish ? null : matchedCat?.name ?? null,
     queryText,
   }
 }

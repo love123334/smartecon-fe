@@ -357,10 +357,13 @@ const COMMON: IntentRule[] = [
   },
   {
     intent: 'product_price',
-    keywords: ['gia bao nhieu', 'bao nhieu tien', 'how much', 'price of', 'cost', 'don gia'],
-    phrases: ['gia bao nhieu', 'bao nhieu tien', 'how much', 'gia may'],
-    minScore: 4,
-    priority: 8,
+    keywords: [
+      'gia bao nhieu', 'bao nhieu tien', 'how much', 'price of', 'cost', 'don gia',
+      'gia trung binh', 'trung binh gia', 'average price', 'khoang gia', 'gia tb',
+    ],
+    phrases: ['gia bao nhieu', 'bao nhieu tien', 'how much', 'gia may', 'gia trung binh', 'average price'],
+    minScore: 3,
+    priority: 10,
   },
   {
     intent: 'product_stock',
