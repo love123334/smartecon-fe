@@ -20,8 +20,12 @@ function isAuthRejected(status: number): boolean {
 }
 
 export async function login(email: string, password: string): Promise<User> {
+  // Avoid sending a stale Bearer token on the public login call.
+  clearAccessToken()
+  clearUserSnapshot()
+
   const data = await http.post<BackendLoginResponse>(apiPaths.auth.login, {
-    email,
+    email: email.trim().toLowerCase(),
     password,
   })
   saveAccessToken(data.accessToken)
