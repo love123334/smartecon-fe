@@ -258,18 +258,11 @@ watch(
 </template>
 
 <style scoped>
-/* Document flow only — never pin to viewport (sticky/fixed break "scroll away") */
-.site-chrome,
-.site-chrome__bar,
-.shop-chrome,
-.ops-header {
-  position: static !important;
-  top: auto !important;
-  inset: auto !important;
-}
-
+/* Gắn với viewport khi cuộn — promo + nav + danh mục cùng dính */
 .site-chrome {
-  z-index: 1;
+  position: sticky;
+  top: 0;
+  z-index: 200;
   background: var(--paper, #fff);
 }
 

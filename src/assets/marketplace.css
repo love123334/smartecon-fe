@@ -214,20 +214,9 @@
 /* ——— Category nav (Claude rail) ——— */
 .mkt-categories {
   background: var(--paper, #fff);
-  border-bottom: none;
-  position: static !important;
-  top: auto !important;
+  border-bottom: 1px solid var(--line, #e4e9f2);
+  position: relative;
   z-index: 1;
-}
-
-/* Hard-unstick site chrome (promo + nav + categories) */
-.site-chrome,
-.shop-chrome,
-.shop-header,
-.shop-promo-bar,
-.ops-header {
-  position: static !important;
-  top: auto !important;
 }
 
 .mkt-categories__scroll {
