@@ -1,18 +1,24 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import type { ChatProductRef } from '@/types'
 import { formatVnd } from '@/api/chat/match'
+import { handleProductImageError, repairProductImageUrl } from '@/utils/productImage'
 
 const props = defineProps<{
   product: ChatProductRef
   compact?: boolean
 }>()
 
-const imgBroken = ref(false)
+const displaySrc = computed(() =>
+  repairProductImageUrl(props.product.imageUrl, {
+    seed: props.product.id,
+    category: props.product.category,
+  }),
+)
 
-function onImgError() {
-  imgBroken.value = true
+function onImgError(e: Event) {
+  handleProductImageError(e, [displaySrc.value])
 }
 
 const stockLabel = computed(() => {
@@ -33,14 +39,12 @@ const stockOut = computed(() => {
   <RouterLink :to="`/products/${product.id}`" class="chat-mini-card" :title="product.name">
     <div class="chat-mini-card__media">
       <img
-        v-if="!imgBroken"
-        :src="product.imageUrl || '/placeholder-product.png'"
+        :src="displaySrc"
         :alt="product.name"
         loading="lazy"
         decoding="async"
         @error="onImgError"
       />
-      <div v-else class="chat-mini-card__fallback" aria-hidden="true">SP</div>
     </div>
     <div class="chat-mini-card__body">
       <p class="chat-mini-card__name">{{ product.name }}</p>

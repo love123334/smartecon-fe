@@ -5,6 +5,7 @@ import { formatVnd, getDiscountPercent, productApi } from '@/api/services'
 import SellerShopTag from '@/components/SellerShopTag.vue'
 import { productToDragPayload, refreshChatProductStock, SEDSP_PRODUCT_DRAG_MIME } from '@/api/chat/productCards'
 import { useChatWidgetStore } from '@/stores/chatWidget'
+import { handleProductImageError, repairProductImageUrl } from '@/utils/productImage'
 
 const props = defineProps<{
   product: Product
@@ -19,7 +20,12 @@ const emit = defineEmits<{
 const previewOpen = ref(false)
 const detailLoading = ref(false)
 const detail = ref<Product | null>(null)
-const activeImage = ref(props.product.imageUrl)
+const activeImage = ref(
+  repairProductImageUrl(props.product.imageUrl, {
+    seed: props.product.id,
+    category: props.product.category,
+  }),
+)
 
 const discount = computed(() => getDiscountPercent(props.product))
 const isNew = computed(() => props.product.soldCount < 40)
@@ -67,7 +73,10 @@ watch(
   () => props.product.id,
   () => {
     detail.value = null
-    activeImage.value = props.product.imageUrl
+    activeImage.value = repairProductImageUrl(props.product.imageUrl, {
+      seed: props.product.id,
+      category: props.product.category,
+    })
     previewOpen.value = false
   },
 )
@@ -97,9 +106,11 @@ async function loadDetail() {
     const p = await productApi.getById(props.product.id, { withStock: false })
     if (seq !== fetchSeq || !p) return
     detail.value = p
-    const urls = p.imageUrls?.filter(Boolean) ?? []
+    const urls = (p.imageUrls?.filter(Boolean) ?? []).map((u) =>
+      repairProductImageUrl(u, { seed: p.id, category: p.category }),
+    )
     if (urls.length && !urls.includes(activeImage.value)) {
-      activeImage.value = urls[0] ?? p.imageUrl
+      activeImage.value = urls[0] ?? repairProductImageUrl(p.imageUrl, { seed: p.id, category: p.category })
     }
   } catch {
     /* keep summary */
@@ -127,7 +138,14 @@ function onLeave() {
 function pickImage(url: string, e?: Event) {
   e?.preventDefault()
   e?.stopPropagation()
-  activeImage.value = url
+  activeImage.value = repairProductImageUrl(url, {
+    seed: props.product.id,
+    category: props.product.category,
+  })
+}
+
+function onImgError(e: Event) {
+  handleProductImageError(e, gallery.value)
 }
 
 function onAdd(e: Event) {
@@ -197,6 +215,7 @@ onUnmounted(() => {
           loading="lazy"
           decoding="async"
           draggable="false"
+          @error="onImgError"
         />
       </RouterLink>
 
@@ -243,7 +262,7 @@ onUnmounted(() => {
           :aria-label="`Ảnh ${i + 1}`"
           @click="pickImage(url, $event)"
         >
-          <img :src="url" alt="" loading="lazy" decoding="async" />
+          <img :src="url" alt="" loading="lazy" decoding="async" @error="onImgError" />
         </button>
       </div>
       <p class="product-card__mini-blurb">

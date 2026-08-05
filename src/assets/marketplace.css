@@ -227,6 +227,12 @@
   overflow-x: auto;
   padding: 0;
   scrollbar-width: none;
+  cursor: grab;
+  scroll-behavior: smooth;
+}
+
+.mkt-categories__scroll:active {
+  cursor: grabbing;
 }
 
 .mkt-categories__scroll::-webkit-scrollbar {

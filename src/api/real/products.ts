@@ -1,6 +1,7 @@
 import { http } from '@/api/http/client'
 import { apiPaths } from '@/api/http/paths'
 import type { Product } from '@/types'
+import { repairProductImageUrl } from '@/utils/productImage'
 
 export interface SpringPage<T> {
   content: T[]
@@ -51,10 +52,11 @@ function num(v: number | string | undefined, fallback = 0): number {
 /** Stable placeholder set (3) when a product has no/insufficient images */
 export function placeholderImages(seed: string | number): string[] {
   const s = encodeURIComponent(String(seed))
+  // Prefer Unsplash (stable) over picsum — fewer CDN / HEAD quirks
   return [
-    `https://picsum.photos/seed/${s}-a/800/800`,
-    `https://picsum.photos/seed/${s}-b/800/800`,
-    `https://picsum.photos/seed/${s}-c/800/800`,
+    `https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&q=80&sig=${s}-a`,
+    `https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&q=80&sig=${s}-b`,
+    `https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=800&q=80&sig=${s}-c`,
   ]
 }
 
@@ -74,17 +76,21 @@ export function ensureThreeImages(urls: string[], seed: string | number): string
 }
 
 export function mapProductSummary(p: BackendProductResponse): Product {
+  const category = p.categoryName ?? 'Khác'
   const placeholders = placeholderImages(p.id)
-  const imageUrl = (p.primaryImageUrl && p.primaryImageUrl.trim()) || placeholders[0]
+  const rawPrimary = (p.primaryImageUrl && p.primaryImageUrl.trim()) || placeholders[0]
+  const imageUrl = repairProductImageUrl(rawPrimary, { seed: p.id, category })
   return {
     id: String(p.id),
     name: p.name,
     description: '',
     price: num(p.price),
     stock: 0,
-    category: p.categoryName ?? 'Khác',
+    category,
     imageUrl,
-    imageUrls: ensureThreeImages([imageUrl], p.id),
+    imageUrls: ensureThreeImages([imageUrl], p.id).map((u) =>
+      repairProductImageUrl(u, { seed: p.id, category }),
+    ),
     sellerId: p.sellerId != null ? String(p.sellerId) : '',
     sellerEmail: p.sellerEmail,
     sellerPhone: p.sellerPhone,
@@ -97,11 +103,12 @@ export function mapProductSummary(p: BackendProductResponse): Product {
 }
 
 export function mapProductDetail(p: BackendProductDetail): Product {
+  const category = p.categoryName ?? 'Khác'
   const ordered = [...(p.images ?? [])].sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary))
   const urls = ensureThreeImages(
-    ordered.map((i) => i.imageUrl),
+    ordered.map((i) => repairProductImageUrl(i.imageUrl, { seed: p.id, category })),
     p.id,
-  )
+  ).map((u) => repairProductImageUrl(u, { seed: p.id, category }))
   const primary = urls[0]
   return {
     ...mapProductSummary(p),

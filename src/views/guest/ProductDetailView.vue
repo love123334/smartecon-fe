@@ -17,6 +17,7 @@ import QuantityStepper from '@/components/QuantityStepper.vue'
 import ProductCard from '@/components/ProductCard.vue'
 import SellerShopTag from '@/components/SellerShopTag.vue'
 import NewsletterBanner from '@/components/NewsletterBanner.vue'
+import { handleProductImageError, repairProductImageUrl } from '@/utils/productImage'
 
 const route = useRoute()
 const router = useRouter()
@@ -41,10 +42,22 @@ const gallery = computed(() => {
   const urls = product.value.imageUrls?.length
     ? product.value.imageUrls
     : [product.value.imageUrl]
-  return urls.filter(Boolean).slice(0, 5)
+  return urls
+    .filter(Boolean)
+    .map((u) =>
+      repairProductImageUrl(u, {
+        seed: product.value!.id,
+        category: product.value!.category,
+      }),
+    )
+    .slice(0, 5)
 })
 
 const mainImage = computed(() => gallery.value[activeImage.value] ?? product.value?.imageUrl ?? '')
+
+function onDetailImgError(e: Event) {
+  handleProductImageError(e, gallery.value)
+}
 
 const discount = computed(() => (product.value ? getDiscountPercent(product.value) : 0))
 const isNew = computed(() => (product.value ? product.value.soldCount < 40 : false))
@@ -245,7 +258,7 @@ async function addRelated(id: string) {
               <span v-if="isNew" class="elegant-badge elegant-badge--dark">Mới</span>
               <span v-if="discount > 0" class="elegant-badge elegant-badge--green">-{{ discount }}%</span>
             </div>
-            <img :src="mainImage" :alt="product.name" />
+            <img :src="mainImage" :alt="product.name" @error="onDetailImgError" />
           </div>
           <div class="elegant-product__thumbs">
             <button
@@ -257,7 +270,7 @@ async function addRelated(id: string) {
               :aria-label="`Ảnh ${idx + 1}`"
               @click="activeImage = idx"
             >
-              <img :src="url" :alt="`${product.name} ${idx + 1}`" />
+              <img :src="url" :alt="`${product.name} ${idx + 1}`" @error="onDetailImgError" />
             </button>
           </div>
         </div>
