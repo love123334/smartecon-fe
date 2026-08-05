@@ -118,6 +118,9 @@ export interface DssInsight {
   description: string
   impact: 'high' | 'medium' | 'low'
   category: string
+  actionUrl?: string
+  actionLabel?: string
+  priorityLabel?: string
 }
 
 export interface ChartPoint {

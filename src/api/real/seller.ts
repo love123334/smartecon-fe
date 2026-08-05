@@ -176,22 +176,42 @@ function mapSalesPerformance(data: BackendSalesPerformance): SalesPerformance {
   }
 }
 
+function tryParseRecommendationJson(raw: string): BackendSellerRecommendation | null {
+  const trimmed = raw.trim()
+  if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) return null
+  try {
+    const parsed = JSON.parse(trimmed) as BackendSellerRecommendation & Record<string, unknown>
+    if (!parsed || typeof parsed !== 'object') return null
+    // Đủ dấu hiệu recommendation (tránh parse nhầm object khác)
+    if (
+      parsed.title != null ||
+      parsed.message != null ||
+      parsed.priority != null ||
+      parsed.actionLabel != null ||
+      parsed.id != null
+    ) {
+      return parsed
+    }
+  } catch {
+    /* ignore */
+  }
+  return null
+}
+
+export function normalizeSellerRecommendation(
+  item: string | BackendSellerRecommendation,
+  index = 0,
+): SellerRecommendation {
+  return mapRecommendation(item, index)
+}
+
 function mapRecommendation(
   item: string | BackendSellerRecommendation,
   index: number,
 ): SellerRecommendation {
   if (typeof item === 'string') {
-    const trimmed = item.trim()
-    if (trimmed.startsWith('{')) {
-      try {
-        const parsed = JSON.parse(trimmed) as BackendSellerRecommendation
-        if (parsed && typeof parsed === 'object') {
-          return mapRecommendation(parsed, index)
-        }
-      } catch {
-        /* treat as plain text */
-      }
-    }
+    const parsed = tryParseRecommendationJson(item)
+    if (parsed) return mapRecommendation(parsed, index)
     return {
       id: `rec-${index}`,
       title: 'Gợi ý từ dashboard',
@@ -200,13 +220,44 @@ function mapRecommendation(
     }
   }
 
+  // BE đôi khi nhét cả object JSON vào field message / title
+  const nestedFromMessage =
+    typeof item.message === 'string' ? tryParseRecommendationJson(item.message) : null
+  const nestedFromTitle =
+    typeof item.title === 'string' ? tryParseRecommendationJson(item.title) : null
+  const nested = nestedFromMessage ?? nestedFromTitle
+
+  const source = nested
+    ? {
+        ...item,
+        ...nested,
+        id: nested.id ?? item.id,
+        title: nested.title ?? (nestedFromTitle ? undefined : item.title),
+        message: nested.message ?? (nestedFromMessage ? undefined : item.message),
+        priority: nested.priority ?? item.priority,
+        actionUrl: nested.actionUrl ?? item.actionUrl,
+        actionLabel: nested.actionLabel ?? item.actionLabel,
+      }
+    : item
+
+  const title =
+    typeof source.title === 'string' && source.title.trim() && !source.title.trim().startsWith('{')
+      ? source.title.trim()
+      : 'Gợi ý từ dashboard'
+  const message =
+    typeof source.message === 'string' && !source.message.trim().startsWith('{')
+      ? source.message.trim()
+      : typeof source.message === 'string'
+        ? ''
+        : ''
+
   return {
-    id: item.id ?? `rec-${index}`,
-    title: item.title ?? 'Gợi ý từ dashboard',
-    message: item.message ?? '',
-    priority: String(item.priority ?? 'INFO').toUpperCase(),
-    actionUrl: item.actionUrl,
-    actionLabel: item.actionLabel,
+    id: source.id ?? `rec-${index}`,
+    title,
+    message: message || title,
+    priority: String(source.priority ?? 'INFO').toUpperCase(),
+    actionUrl: source.actionUrl,
+    actionLabel: source.actionLabel,
   }
 }
 

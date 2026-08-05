@@ -1384,19 +1384,55 @@ export const dssApi = {
 
         dash.recommendations.forEach((rec, i) => {
           const priority = String(rec.priority ?? 'INFO').toUpperCase()
+          // Tránh dump JSON thô lên UI nếu mapRecommendation chưa unwrap kịp
+          let title = (rec.title || '').trim()
+          let description = (rec.message || '').trim()
+          if (description.startsWith('{') && description.includes('"message"')) {
+            try {
+              const parsed = JSON.parse(description) as {
+                title?: string
+                message?: string
+                priority?: string
+                actionUrl?: string
+                actionLabel?: string
+                id?: string
+              }
+              title = (parsed.title || title || 'Gợi ý từ dashboard').trim()
+              description = (parsed.message || '').trim()
+              fromApi.push({
+                id: parsed.id || rec.id || `api-rec-${i}`,
+                title: title || 'Gợi ý từ dashboard',
+                description: description || title || 'Không có nội dung gợi ý.',
+                impact:
+                  String(parsed.priority ?? priority).toUpperCase() === 'HIGH'
+                    ? 'high'
+                    : String(parsed.priority ?? priority).toUpperCase() === 'MEDIUM'
+                      ? 'medium'
+                      : 'low',
+                category: 'recommendation',
+                actionUrl: parsed.actionUrl || rec.actionUrl,
+                actionLabel: parsed.actionLabel || rec.actionLabel,
+                priorityLabel: String(parsed.priority ?? priority).toUpperCase(),
+              })
+              return
+            } catch {
+              /* fall through */
+            }
+          }
           fromApi.push({
             id: rec.id || `api-rec-${i}`,
-            title: rec.title || 'Gợi ý từ dashboard',
-            description: rec.message || '',
+            title: title || 'Gợi ý từ dashboard',
+            description: description || 'Không có nội dung gợi ý.',
             impact:
               priority === 'HIGH'
                 ? 'high'
                 : priority === 'MEDIUM'
                   ? 'medium'
-                  : priority === 'LOW'
-                    ? 'low'
-                    : 'low',
+                  : 'low',
             category: 'recommendation',
+            actionUrl: rec.actionUrl,
+            actionLabel: rec.actionLabel,
+            priorityLabel: priority,
           })
         })
 

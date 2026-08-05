@@ -142,12 +142,21 @@ onMounted(async () => {
     </div>
 
     <h3 class="dss-hub__section">Gợi ý nhanh</h3>
-    <div class="grid grid-2">
+    <div class="grid grid-2 insight-grid">
       <article v-for="i in insights" :key="i.id" class="card insight">
-        <span :class="['impact', i.impact]">{{ i.impact }}</span>
+        <span :class="['impact', i.impact]">{{ i.priorityLabel || i.impact }}</span>
         <h3>{{ i.title }}</h3>
         <p>{{ i.description }}</p>
-        <small>{{ i.category }}</small>
+        <div class="insight__foot">
+          <small>{{ i.category }}</small>
+          <RouterLink
+            v-if="i.actionUrl && i.actionLabel"
+            :to="i.actionUrl"
+            class="insight__action"
+          >
+            {{ i.actionLabel }} →
+          </RouterLink>
+        </div>
       </article>
       <p v-if="!insights.length" class="muted">Chưa có gợi ý dashboard — chạy các module DSS để có tín hiệu rõ hơn.</p>
     </div>
@@ -359,6 +368,38 @@ onMounted(async () => {
 }
 .insight .impact.low {
   color: #2e7d32;
+}
+.insight__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.65rem;
+}
+.insight__foot small {
+  color: #94a3b8;
+  text-transform: capitalize;
+}
+.insight__action {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #1565c0;
+  text-decoration: none;
+}
+.insight__action:hover {
+  text-decoration: underline;
+}
+.insight h3 {
+  margin: 0.25rem 0 0.4rem;
+  font-size: 1.05rem;
+  color: #0d47a1;
+}
+.insight p {
+  margin: 0;
+  color: #475569;
+  line-height: 1.5;
+  font-size: 0.9rem;
 }
 @media (max-width: 720px) {
   .dss-hub {
