@@ -176,7 +176,7 @@ img.img-fade[complete] {
   }
 }
 
-/* Float + scale on hover — nút & CTA */
+/* Hover nhẹ — đổi màu / nền, không scale (tránh giật layout) */
 .btn,
 .btn-interactive,
 .mkt-cart-btn,
@@ -196,19 +196,17 @@ img.img-fade[complete] {
 .cart-flyout__view-cart,
 .elegant-tabs__btn {
   transition:
-    transform var(--dur-hover) var(--ease-float),
-    box-shadow var(--dur-hover) var(--ease-out),
-    background var(--dur-hover) var(--ease-out),
-    border-color var(--dur-hover) var(--ease-out),
-    color var(--dur-hover) var(--ease-out);
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    opacity 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .btn:hover:not(:disabled),
 .btn-interactive:hover:not(:disabled),
 .mkt-cart-btn:hover,
-.mkt-cat-link:hover,
 .mkt-search button:hover,
-.mkt-promo__card:hover,
 .mkt-detail__actions .btn-buy:hover,
 .mkt-detail__actions .btn-cart:hover,
 .mkt-section__more:hover,
@@ -219,7 +217,18 @@ img.img-fade[complete] {
 .btn-elegant-primary:hover,
 .btn-elegant-outline:hover,
 .btn-elegant-wish:hover {
-  transform: translateY(-2px) scale(1.02);
+  transform: none;
+}
+
+.mkt-cat-link:hover {
+  transform: none;
+  color: var(--navy, #14275c);
+  border-bottom-color: rgba(46, 125, 246, 0.45);
+}
+
+.mkt-promo__card:hover {
+  transform: none;
+  box-shadow: var(--shadow, 0 4px 14px rgba(0, 0, 0, 0.06));
 }
 
 .btn:active:not(:disabled),
@@ -231,12 +240,13 @@ img.img-fade[complete] {
 .mkt-detail__actions .btn-buy:active,
 .mkt-detail__actions .btn-cart:active,
 .mkt-section__more:active {
-  transform: translateY(-2px) scale(1.02);
-  transition-duration: 0.12s;
+  transform: none;
+  opacity: 0.88;
+  transition-duration: 0.08s;
 }
 
 .mkt-promo__main .btn-interactive {
-  animation: idle-float 4.2s var(--ease-out) infinite;
+  animation: none;
 }
 
 .mkt-promo__main .btn-interactive:hover {
@@ -634,12 +644,14 @@ img.img-fade[complete] {
 .home-promo__btn,
 .home-hero__nav {
   transition:
-    transform var(--dur-hover) var(--ease-float),
-    box-shadow var(--dur-hover) var(--ease-out);
+    background 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease,
+    opacity 0.15s ease;
 }
 
 .home-hero__cta:hover,
 .home-cat-card:hover,
 .home-hero__nav:hover {
-  transform: translateY(-5px) scale(1.04);
+  transform: none;
 }

@@ -267,13 +267,14 @@ function onFabDrop(e: DragEvent) {
 }
 
 .chat-fab:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+  transform: none;
+  background: #1a1a1a;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.28);
 }
 
 .chat-fab--hot {
   background: var(--primary-600, #0d9488);
-  transform: scale(1.06);
+  transform: none;
 }
 
 .chat-fab__label {

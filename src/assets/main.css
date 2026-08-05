@@ -205,7 +205,7 @@ a:hover {
 
 .card:not(.product-card):not(.card--flat):hover {
   box-shadow: var(--shadow);
-  transform: translateY(-2px);
+  transform: none;
   border-color: var(--primary-200);
 }
 

@@ -258,8 +258,9 @@
   color: var(--navy, #14275c);
   text-decoration: none;
   border: none;
-  border-bottom: 2px solid transparent;
+  border-bottom: 2px solid rgba(46, 125, 246, 0.45);
   box-shadow: none;
+  transform: none;
 }
 
 .mkt-cat-link.router-link-active,
@@ -363,7 +364,7 @@
 }
 
 .mkt-promo__card:hover {
-  transform: translateY(-2px);
+  transform: none;
   box-shadow: var(--shadow);
 }
 
@@ -3416,11 +3417,12 @@
 .home-hero__cta:hover {
   background: var(--primary-500);
   color: #fff;
-  transform: translateY(-1px);
+  transform: none;
 }
 
 .home-hero__cta:active {
-  transform: translateY(0);
+  transform: none;
+  opacity: 0.92;
 }
 
 .home-hero__controls {
@@ -3560,18 +3562,17 @@
   color: #fff;
   background: var(--navy);
   box-shadow: 0 6px 20px rgba(20, 39, 92, 0.1);
-  transition:
-    transform 0.25s var(--ease-out),
-    box-shadow 0.25s ease;
+  transition: box-shadow 0.2s ease;
 }
 
 .home-cat-chip:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 12px 28px rgba(20, 39, 92, 0.16);
+  transform: none;
+  box-shadow: 0 8px 22px rgba(20, 39, 92, 0.14);
 }
 
 .home-cat-chip:active {
-  transform: translateY(-1px);
+  transform: none;
+  opacity: 0.95;
 }
 
 .home-cat-chip img {
@@ -3580,11 +3581,10 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.45s var(--ease-out);
 }
 
 .home-cat-chip:hover img {
-  transform: scale(1.06);
+  transform: none;
 }
 
 .home-cat-chip__body {
@@ -3733,11 +3733,12 @@
 .home-promo__btn:focus-visible {
   color: #fff;
   background: var(--primary-600);
-  transform: translateY(-2px);
+  transform: none;
 }
 
 .home-promo__btn:active {
-  transform: translateY(0);
+  transform: none;
+  opacity: 0.92;
 }
 
 /* ——— Features ——— */
