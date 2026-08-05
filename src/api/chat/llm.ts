@@ -62,10 +62,19 @@ export async function callChatLlm(
   history: ChatMessage[],
   userMessage: string,
 ): Promise<string> {
-  const recent = history.slice(-6).map((m) => ({
-    role: m.role as 'user' | 'assistant',
-    content: m.content.slice(0, 1200),
-  }))
+  const recent = history.slice(-12).map((m) => {
+    let content = m.content.slice(0, 1600)
+    if (m.role === 'assistant' && m.products?.length) {
+      content += `\n[SP đang bàn: ${m.products.map((p) => p.name).join(', ')}]`
+    }
+    if (m.role === 'user' && m.attachments?.length) {
+      content += `\n[SP đính kèm: ${m.attachments.map((p) => p.name).join(', ')}]`
+    }
+    return {
+      role: m.role as 'user' | 'assistant',
+      content,
+    }
+  })
 
   const messages: LlmMessage[] = [
     { role: 'system', content: systemPrompt },

@@ -124,6 +124,16 @@ function serializeContext(ctx: ChatContext): string {
   }
 
   const e = ctx.enrichment
+  if (e?.product) {
+    const p = e.product
+    lines.push('=== SP ĐANG FOCUS (bắt buộc nhớ khi trả lời follow-up) ===')
+    lines.push(
+      `- Tên: ${p.name} | Danh mục: ${p.category || '—'} | Giá: ${formatVnd(p.price)} | Tồn: ${p.stock} | Shop: ${p.shopName ?? 'SEDSP'}`,
+    )
+    if (p.description?.trim()) {
+      lines.push(`- Mô tả/công dụng: ${p.description.trim().slice(0, 360)}`)
+    }
+  }
   if (e?.searchResults?.length) {
     lines.push('Kết quả tìm kiếm gần nhất:')
     for (const p of e.searchResults.slice(0, 6)) {
@@ -146,11 +156,12 @@ export function buildSystemPrompt(ctx: ChatContext): string {
 NHIỆM VỤ: ${ROLE_GUIDE[ctx.role] ?? ROLE_GUIDE.customer}
 
 QUY TẮC BẮT BUỘC:
-- Trả lời tiếng Việt (hoặc English nếu user hỏi English), ngắn gọn, thân thiện.
-- Khi hỏi "chỗ nào bán / ai bán / shop nào / SP nào ngon": LUÔN nêu rõ **tên shop/seller** bán SP đó (lấy từ CONTEXT), kèm giá nếu có.
+- Trả lời tiếng Việt (hoặc English nếu user hỏi English), ngắn gọn, đúng ý câu hỏi.
+- LUÔN giữ ngữ cảnh hội thoại: nếu có **SP ĐANG FOCUS** và user hỏi công dụng / giá / còn hàng / đánh giá / "là gì" / "dùng làm gì" → trả lời về ĐÚNG sản phẩm đó. Không giải thích SEDSP là gì.
+- Khi hỏi "chỗ nào bán / ai bán / shop nào / SP nào ngon": LUÔN nêu rõ **tên shop/seller** (từ CONTEXT), kèm giá nếu có.
 - Mỗi lần gợi ý SP: ghi shop bán (vd: "Laptop X — shop **Minh Electronics**").
-- Ưu tiên số liệu trong CONTEXT; không bịa shop/giá/tồn.
-- KHÔNG viết ghi chú kỹ thuật kiểu "(dữ liệu API)", "(API backend)", "mock", "hybrid" trong câu trả lời.
+- Ưu tiên số liệu trong CONTEXT; không bịa shop/giá/tồn/mã đơn.
+- KHÔNG viết ghi chú kỹ thuật kiểu "(dữ liệu API)", "(API backend)", "mock", "hybrid".
 - Thanh toán: COD và VNPay (không nhắc MoMo).
 - Thiếu dữ liệu → hướng dẫn xem **Cửa hàng** hoặc CSKH customer@sedsp.vn.
 - Dùng **in đậm** cho tên shop, giá, số tồn quan trọng.
