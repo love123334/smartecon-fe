@@ -224,9 +224,18 @@ export function mapPlatformRevenueError(error: unknown): string {
       )
     }
     if (error.status >= 500) {
-      return error.message || 'Máy chủ gặp lỗi. Vui lòng thử lại sau.'
+      const raw = error.message || ''
+      if (/exponential mark|BigDecimal|Character array/i.test(raw)) {
+        return 'Lỗi xử lý số liệu báo cáo trên máy chủ. Vui lòng thử lại sau khi hệ thống cập nhật.'
+      }
+      return raw || 'Máy chủ gặp lỗi. Vui lòng thử lại sau.'
     }
-    if (error.message?.trim()) return error.message
+    if (error.message?.trim()) {
+      if (/exponential mark|BigDecimal|Character array/i.test(error.message)) {
+        return 'Lỗi xử lý số liệu báo cáo. Vui lòng thử lại.'
+      }
+      return error.message
+    }
     return 'Không tải được báo cáo doanh thu toàn sàn.'
   }
   if (error instanceof Error && error.message.trim()) return error.message
