@@ -936,7 +936,8 @@
 
 /* ——— Shop page layout ——— */
 .page--shop {
-  padding: 0 0 2rem;
+  padding: 0 0 2.5rem;
+  background: #fff;
 }
 
 .page--shop .container {
@@ -1900,19 +1901,30 @@
 
 .elegant-page {
   background: #fff;
+  width: 100%;
 }
 
 .elegant-page__inner {
-  padding: 2rem 0 3rem;
+  padding: 1.75rem 0 3rem;
+  /* App.vue đã bọc .container — tránh nested container làm “hộp xám 2 bên” */
+  max-width: none;
+  width: 100%;
+  padding-left: 0;
+  padding-right: 0;
 }
 
 .elegant-page-title {
   margin: 0 0 1.5rem;
-  font-size: clamp(1.75rem, 3vw, 2.25rem);
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 3vw, 2rem);
   font-weight: 700;
   letter-spacing: -0.03em;
+  text-align: left;
+  color: var(--navy, #14275c);
+}
+
+.elegant-page-title--center {
   text-align: center;
-  color: var(--slate-900);
 }
 
 .elegant-crumb {
@@ -2045,17 +2057,18 @@
 .elegant-product__main {
   position: relative;
   aspect-ratio: 1;
-  background: var(--surface-muted);
-  border-radius: var(--radius);
+  background: #f7f8fa;
+  border-radius: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .elegant-product__main img {
-  width: 78%;
-  height: 78%;
+  width: 88%;
+  height: 88%;
   object-fit: contain;
 }
 
@@ -2921,16 +2934,37 @@
 .elegant-status-badge {
   display: inline-flex;
   padding: 0.35rem 0.75rem;
-  border-radius: var(--radius-pill);
+  border-radius: 4px;
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: 0.02em;
   background: var(--slate-100);
   color: var(--slate-700);
 }
 
 .elegant-status-badge[data-status='delivered'] {
+  background: var(--navy, #14275c);
+  color: #fff;
+}
+
+.elegant-status-badge[data-status='shipping'] {
+  background: var(--primary-100);
+  color: var(--primary-800);
+}
+
+.elegant-status-badge[data-status='pending'] {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.elegant-status-badge[data-status='confirmed'] {
   background: var(--primary-50);
   color: var(--primary-800);
+}
+
+.elegant-status-badge[data-status='cancelled'] {
+  background: #fef2f2;
+  color: #b91c1c;
 }
 
 /* ——— Pill quantity stepper ——— */
@@ -3270,7 +3304,7 @@
 }
 
 .page--catalog {
-  background: var(--surface-muted);
+  background: #fff;
 }
 
 /* ——— Hero carousel ——— */

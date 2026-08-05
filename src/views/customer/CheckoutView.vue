@@ -154,8 +154,8 @@ async function placeOrder() {
 
 <template>
   <div class="elegant-page">
-    <div class="container elegant-page__inner">
-      <h1 class="elegant-page-title">Thanh toán</h1>
+    <div class="elegant-page__inner">
+      <h1 class="elegant-page-title elegant-page-title--center">Thanh toán</h1>
       <CheckoutStepper :step="2" />
 
       <p v-if="!cart.lines.length && !pendingOrderId" class="empty">

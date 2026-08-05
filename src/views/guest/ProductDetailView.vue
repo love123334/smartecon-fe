@@ -239,7 +239,7 @@ async function addRelated(id: string) {
 
 <template>
   <div v-if="product" class="elegant-page">
-    <div class="container elegant-page__inner">
+    <div class="elegant-page__inner">
       <nav class="elegant-crumb" aria-label="Breadcrumb">
         <RouterLink to="/">Trang chủ</RouterLink>
         <span class="elegant-crumb__sep">›</span>

@@ -103,8 +103,17 @@ onMounted(async () => {
   padding: 0;
 }
 
+.page--shop {
+  background: #fff;
+}
+
 .page--shop-wide {
   padding: 0;
+  background: transparent;
+}
+
+.page--home {
+  background: transparent;
 }
 
 .page-bleed-wrap {

@@ -163,9 +163,9 @@ async function onReviewSubmitted(productId: string) {
 
 <template>
   <div v-if="order" class="elegant-page">
-    <div class="container elegant-page__inner">
+    <div class="elegant-page__inner">
       <template v-if="isFreshOrder && order.status !== 'cancelled'">
-        <h1 class="elegant-page-title">Đặt hàng thành công</h1>
+        <h1 class="elegant-page-title elegant-page-title--center">Đặt hàng thành công</h1>
         <CheckoutStepper :step="3" />
 
         <div class="elegant-complete">
@@ -230,36 +230,44 @@ async function onReviewSubmitted(productId: string) {
           <span class="elegant-crumb__sep">›</span>
           <RouterLink to="/orders">Đơn hàng</RouterLink>
           <span class="elegant-crumb__sep">›</span>
-          <span>{{ order.id }}</span>
+          <span>#{{ order.id }}</span>
         </nav>
 
-        <div class="elegant-order-detail">
-          <div class="elegant-order-detail__head">
+        <div class="order-detail">
+          <header class="order-detail__head">
             <div>
-              <h1 class="elegant-page-title" style="margin-bottom: 0.35rem">Đơn hàng #{{ order.id }}</h1>
-              <p class="elegant-muted">
-                Đặt ngày {{ new Date(order.createdAt).toLocaleString('vi-VN') }}
+              <p class="order-detail__eyebrow">Chi tiết đơn</p>
+              <h1 class="order-detail__title">Đơn #{{ order.id }}</h1>
+              <p class="order-detail__date">
+                Đặt {{ new Date(order.createdAt).toLocaleString('vi-VN') }}
               </p>
             </div>
             <span class="elegant-status-badge" :data-status="order.status">
               {{ statusLabel[order.status] }}
             </span>
-          </div>
+          </header>
 
-          <section class="order-track-panel" aria-labelledby="track-heading">
-            <h2 id="track-heading" class="order-track-panel__title">Theo dõi đơn hàng</h2>
+          <section class="order-detail__track" aria-labelledby="track-heading">
+            <h2 id="track-heading" class="order-detail__section-title">Tiến trình</h2>
             <OrderTrackStepper :status="order.status" show-hint />
-            <p v-if="statusNote" class="elegant-muted" style="margin-top: 0.5rem">
-              Ghi chú: {{ statusNote }}
-            </p>
+            <p v-if="statusNote" class="order-detail__note">{{ statusNote }}</p>
           </section>
 
-          <p><strong>Địa chỉ giao:</strong> {{ order.shippingAddress || '—' }}</p>
-          <p><strong>Thanh toán:</strong> {{ paymentLabel }}</p>
+          <section class="order-detail__meta" aria-label="Thông tin giao nhận">
+            <div>
+              <span class="order-detail__meta-label">Giao tới</span>
+              <p>{{ order.shippingAddress || '—' }}</p>
+            </div>
+            <div>
+              <span class="order-detail__meta-label">Thanh toán</span>
+              <p>{{ paymentLabel }}</p>
+            </div>
+          </section>
+
           <p v-if="payError" class="elegant-alert elegant-alert--error">{{ payError }}</p>
           <div
             v-if="order.rawStatus === 'PENDING' || order.status === 'pending'"
-            style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.75rem 0"
+            class="order-detail__pay-actions"
           >
             <button
               type="button"
@@ -270,79 +278,79 @@ async function onReviewSubmitted(productId: string) {
               {{ paying ? 'Đang mở cổng...' : 'Thanh toán VNPay' }}
             </button>
             <RouterLink
-              class="btn-interactive"
+              class="btn-elegant-outline btn-interactive"
               :to="`/payment/result?gateway=vnpay&orderId=${order.id}&status=pending`"
             >
               Tôi đã thanh toán — Xác nhận
             </RouterLink>
           </div>
 
-          <div class="elegant-cart-table elegant-cart-table--order">
-            <div class="elegant-cart-table__head">
-              <span>Sản phẩm</span>
-              <span>Số lượng</span>
-              <span>Đơn giá</span>
-              <span>Thành tiền</span>
-            </div>
-            <div v-for="item in order.items" :key="item.productId" class="elegant-cart-row">
-              <div class="elegant-cart-row__product">
-                <RouterLink :to="{ name: 'product-detail', params: { id: item.productId } }">
-                  <img
-                    :src="productsById[item.productId]?.imageUrl ?? 'https://placehold.co/80x80/f3f5f7/737373?text=SP'"
-                    :alt="item.productName"
-                  />
+          <section class="order-detail__items" aria-labelledby="items-heading">
+            <h2 id="items-heading" class="order-detail__section-title">Sản phẩm</h2>
+            <article
+              v-for="item in order.items"
+              :key="item.productId"
+              class="order-line"
+            >
+              <RouterLink
+                class="order-line__media"
+                :to="{ name: 'product-detail', params: { id: item.productId } }"
+              >
+                <img
+                  :src="productsById[item.productId]?.imageUrl ?? 'https://placehold.co/80x80/f3f5f7/737373?text=SP'"
+                  :alt="item.productName"
+                />
+              </RouterLink>
+              <div class="order-line__body">
+                <RouterLink
+                  class="order-line__name"
+                  :to="{ name: 'product-detail', params: { id: item.productId } }"
+                >
+                  {{ item.productName }}
                 </RouterLink>
-                <div>
-                  <div class="elegant-cart-row__name">
-                    <RouterLink
-                      class="order-item-product-link"
-                      :to="{ name: 'product-detail', params: { id: item.productId } }"
-                    >
-                      {{ item.productName }}
-                    </RouterLink>
-                  </div>
-                  <SellerShopTag
-                    v-if="productsById[item.productId]"
-                    :product="productsById[item.productId]"
-                    size="sm"
-                    class="order-item-seller-tag"
+                <SellerShopTag
+                  v-if="productsById[item.productId]"
+                  :product="productsById[item.productId]"
+                  size="sm"
+                  class="order-line__shop"
+                />
+                <p class="order-line__qty">
+                  × {{ item.quantity }} · {{ formatVnd(item.unitPrice) }}
+                </p>
+                <template v-if="order.status === 'delivered'">
+                  <OrderProductReview
+                    v-if="itemReviewState(item.productId).canReview"
+                    :product-id="item.productId"
+                    :product-name="item.productName"
+                    @submitted="onReviewSubmitted(item.productId)"
                   />
-                  <template v-if="order.status === 'delivered'">
-                    <OrderProductReview
-                      v-if="itemReviewState(item.productId).canReview"
-                      :product-id="item.productId"
-                      :product-name="item.productName"
-                      @submitted="onReviewSubmitted(item.productId)"
-                    />
-                    <span
-                      v-else
-                      class="review-link review-link--muted"
-                      :title="itemReviewState(item.productId).message"
-                    >
-                      {{ itemReviewState(item.productId).label }}
-                    </span>
-                  </template>
-                </div>
+                  <span
+                    v-else
+                    class="order-line__review-muted"
+                    :title="itemReviewState(item.productId).message"
+                  >
+                    {{ itemReviewState(item.productId).label }}
+                  </span>
+                </template>
               </div>
-              <span>{{ item.quantity }}</span>
-              <span class="elegant-cart-row__unit">{{ formatVnd(item.unitPrice) }}</span>
-              <strong class="elegant-cart-row__subtotal">
+              <strong class="order-line__subtotal">
                 {{ formatVnd(item.unitPrice * item.quantity) }}
               </strong>
-            </div>
-          </div>
+            </article>
+          </section>
 
-          <div class="elegant-summary__total" style="justify-content: flex-end; margin-top: 1.5rem">
-            <span>Tổng</span>
+          <div class="order-detail__total">
+            <span>Tổng cộng</span>
             <strong>{{ formatVnd(order.total) }}</strong>
           </div>
 
-          <div v-if="order.status === 'delivered'" class="elegant-order-actions" style="margin-top: 1rem">
-            <p class="elegant-muted">{{ reviewWindowNote }}</p>
-          </div>
+          <p v-if="order.status === 'delivered' && reviewWindowNote" class="order-detail__review-window">
+            {{ reviewWindowNote }}
+          </p>
 
-          <div v-if="canCancel" class="elegant-order-actions" style="margin-top: 1.25rem">
+          <div class="order-detail__footer">
             <button
+              v-if="canCancel"
               type="button"
               class="btn-elegant-outline btn-interactive"
               :disabled="cancelling"
@@ -350,11 +358,10 @@ async function onReviewSubmitted(productId: string) {
             >
               {{ cancelling ? 'Đang hủy...' : 'Hủy đơn hàng' }}
             </button>
+            <RouterLink to="/orders" class="btn-elegant-outline btn-interactive">
+              ← Quay lại đơn hàng
+            </RouterLink>
           </div>
-
-          <RouterLink to="/orders" class="btn-elegant-outline btn-interactive" style="margin-top: 1.5rem; display: inline-flex">
-            ← Quay lại đơn hàng
-          </RouterLink>
         </div>
       </template>
     </div>
@@ -365,39 +372,202 @@ async function onReviewSubmitted(productId: string) {
 </template>
 
 <style scoped>
-.order-track-panel {
-  margin: 1.25rem 0 1.5rem;
-  padding: 1rem 1.15rem;
-  background: var(--surface-muted, #f8fafc);
-  border-radius: 10px;
+.order-detail__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.75rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--line, #e4e9f2);
 }
 
-.order-track-panel__title {
+.order-detail__eyebrow {
   margin: 0 0 0.35rem;
-  font-size: 1rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--slate-500, #5b6c93);
 }
 
-.order-item-seller-tag {
-  display: inline-flex;
-  margin: 0.35rem 0 0.25rem;
+.order-detail__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.45rem, 2.8vw, 1.85rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--navy, #14275c);
 }
 
-.order-item-product-link {
-  color: inherit;
-  text-decoration: none;
-  font-weight: 600;
+.order-detail__date {
+  margin: 0.35rem 0 0;
+  font-size: 0.875rem;
+  color: var(--slate-500, #5b6c93);
 }
 
-.order-item-product-link:hover {
-  color: var(--primary-600, #2e7df6);
-  text-decoration: underline;
-  text-underline-offset: 2px;
+.order-detail__section-title {
+  margin: 0 0 0.75rem;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--navy, #14275c);
 }
 
-.review-link--muted {
-  color: var(--slate-400, #94a3b8);
-  cursor: default;
-  text-decoration: none;
+.order-detail__track {
+  margin-bottom: 1.75rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--line, #e4e9f2);
+}
+
+.order-detail__note {
+  margin: 0.65rem 0 0;
   font-size: 0.8125rem;
+  color: var(--slate-500, #5b6c93);
+}
+
+.order-detail__meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.order-detail__meta-label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--slate-500, #5b6c93);
+}
+
+.order-detail__meta p {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--navy, #14275c);
+  line-height: 1.45;
+}
+
+.order-detail__pay-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0 0 1.5rem;
+}
+
+.order-detail__items {
+  margin-bottom: 1.25rem;
+}
+
+.order-line {
+  display: grid;
+  grid-template-columns: 72px 1fr auto;
+  gap: 1rem;
+  align-items: start;
+  padding: 1.1rem 0;
+  border-top: 1px solid var(--line, #e4e9f2);
+}
+
+.order-line:last-child {
+  border-bottom: 1px solid var(--line, #e4e9f2);
+}
+
+.order-line__media {
+  display: block;
+  width: 72px;
+  height: 72px;
+  overflow: hidden;
+  background: #f7f8fa;
+}
+
+.order-line__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.order-line__name {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--navy, #14275c);
+  text-decoration: none;
+}
+
+.order-line__name:hover {
+  color: var(--primary-600, #2e7df6);
+}
+
+.order-line__shop {
+  display: inline-flex;
+  margin: 0.35rem 0 0.2rem;
+}
+
+.order-line__qty {
+  margin: 0.2rem 0 0.45rem;
+  font-size: 0.8125rem;
+  color: var(--slate-500, #5b6c93);
+}
+
+.order-line__subtotal {
+  font-size: 0.95rem;
+  color: var(--navy, #14275c);
+  white-space: nowrap;
+}
+
+.order-line__review-muted {
+  font-size: 0.8125rem;
+  color: var(--slate-400, #94a3b8);
+}
+
+.order-detail__total {
+  display: flex;
+  justify-content: flex-end;
+  align-items: baseline;
+  gap: 1rem;
+  margin: 0.5rem 0 1rem;
+  padding-top: 0.75rem;
+  font-family: var(--font-display);
+}
+
+.order-detail__total span {
+  font-size: 0.875rem;
+  color: var(--slate-500, #5b6c93);
+}
+
+.order-detail__total strong {
+  font-size: 1.35rem;
+  letter-spacing: -0.02em;
+  color: var(--navy, #14275c);
+}
+
+.order-detail__review-window {
+  margin: 0 0 1.25rem;
+  font-size: 0.875rem;
+  color: var(--slate-500, #5b6c93);
+  text-align: right;
+}
+
+.order-detail__footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 0.5rem;
+}
+
+@media (max-width: 560px) {
+  .order-line {
+    grid-template-columns: 64px 1fr;
+  }
+
+  .order-line__subtotal {
+    grid-column: 2;
+  }
 }
 </style>

@@ -144,8 +144,8 @@ function applyCoupon() {
 
 <template>
   <div class="elegant-page">
-    <div class="container elegant-page__inner">
-      <h1 class="elegant-page-title">Giỏ hàng</h1>
+    <div class="elegant-page__inner">
+      <h1 class="elegant-page-title elegant-page-title--center">Giỏ hàng</h1>
       <CheckoutStepper :step="1" />
 
       <div
