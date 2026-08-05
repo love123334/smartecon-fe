@@ -67,8 +67,8 @@ async function payAgain() {
 }
 
 const statusLabel: Record<OrderStatus, string> = {
-  pending: 'Chờ xác nhận',
-  confirmed: 'Đã xác nhận',
+  pending: 'Chờ xác nhận / thanh toán',
+  confirmed: 'Đã thanh toán / xác nhận',
   shipping: 'Đang giao hàng',
   delivered: 'Đã giao',
   cancelled: 'Đã hủy',
@@ -257,16 +257,25 @@ async function onReviewSubmitted(productId: string) {
           <p><strong>Địa chỉ giao:</strong> {{ order.shippingAddress || '—' }}</p>
           <p><strong>Thanh toán:</strong> {{ paymentLabel }}</p>
           <p v-if="payError" class="elegant-alert elegant-alert--error">{{ payError }}</p>
-          <button
+          <div
             v-if="order.rawStatus === 'PENDING' || order.status === 'pending'"
-            type="button"
-            class="btn-elegant-primary btn-interactive"
-            style="margin: 0.75rem 0"
-            :disabled="paying"
-            @click="payAgain"
+            style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.75rem 0"
           >
-            {{ paying ? 'Đang mở cổng...' : 'Thanh toán MoMo / VNPay' }}
-          </button>
+            <button
+              type="button"
+              class="btn-elegant-primary btn-interactive"
+              :disabled="paying"
+              @click="payAgain"
+            >
+              {{ paying ? 'Đang mở cổng...' : 'Thanh toán VNPay' }}
+            </button>
+            <RouterLink
+              class="btn-interactive"
+              :to="`/payment/result?gateway=vnpay&orderId=${order.id}&status=pending`"
+            >
+              Tôi đã thanh toán — Xác nhận
+            </RouterLink>
+          </div>
 
           <div class="elegant-cart-table elegant-cart-table--order">
             <div class="elegant-cart-table__head">

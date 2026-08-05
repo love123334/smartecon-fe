@@ -23,7 +23,7 @@ const address = ref('')
 const city = ref('')
 const state = ref('')
 const zip = ref('')
-const payment = ref<'vnpay' | 'cod'>('cod')
+const payment = ref<'vnpay' | 'cod'>('vnpay')
 const coupon = ref('')
 const couponApplied = ref(false)
 const error = ref('')
@@ -177,6 +177,12 @@ async function placeOrder() {
           >
             {{ resuming ? 'Đang mở VNPay…' : 'Tiếp tục VNPay' }}
           </button>
+          <RouterLink
+            class="btn-interactive"
+            :to="`/payment/result?gateway=vnpay&orderId=${pendingOrderId}&status=pending`"
+          >
+            Tôi đã thanh toán
+          </RouterLink>
           <RouterLink class="btn-interactive" :to="`/orders/${pendingOrderId}`">Xem đơn</RouterLink>
           <button type="button" class="btn-interactive" @click="clearPendingOrder">Bỏ qua</button>
         </div>
@@ -235,15 +241,17 @@ async function placeOrder() {
           <section class="elegant-form-section">
             <h2>Phương thức thanh toán</h2>
             <p class="elegant-muted" style="margin-bottom: 0.75rem; font-size: 0.9rem">
-              Chọn <strong>COD</strong> (trả khi nhận hàng) hoặc cổng <strong>VNPay</strong>.
+              Chọn <strong>VNPay</strong> (ATM / QR / thẻ) hoặc <strong>COD</strong> (trả khi nhận hàng).
+              Với VNPay: sau khi quét QR / chuyển khoản thành công, bạn sẽ được đưa về trang xác nhận;
+              nếu thoát sớm hãy bấm «Tôi đã thanh toán» trên trang kết quả.
             </p>
+            <label class="elegant-payment" :class="{ 'elegant-payment--active': payment === 'vnpay' }">
+              <input v-model="payment" type="radio" value="vnpay" name="pay" />
+              <span>VNPay (ATM / QR / thẻ) — khuyến nghị</span>
+            </label>
             <label class="elegant-payment" :class="{ 'elegant-payment--active': payment === 'cod' }">
               <input v-model="payment" type="radio" value="cod" name="pay" />
               <span>Thanh toán khi nhận hàng (COD)</span>
-            </label>
-            <label class="elegant-payment" :class="{ 'elegant-payment--active': payment === 'vnpay' }">
-              <input v-model="payment" type="radio" value="vnpay" name="pay" />
-              <span>VNPay (ATM / QR / thẻ)</span>
             </label>
           </section>
 
