@@ -1,4 +1,4 @@
-import { http } from '@/api/http/client'
+import { ApiError, http } from '@/api/http/client'
 import { apiPaths } from '@/api/http/paths'
 import type { User } from '@/types'
 import {
@@ -36,12 +36,33 @@ export async function login(email: string, password: string): Promise<User> {
 export async function getCurrentUser(): Promise<User | null> {
   const token = localStorage.getItem('sedsp_access_token')
   if (!token) return null
-  try {
+
+  const fetchMe = async () => {
     const me = await http.get<BackendMeResponse>(apiPaths.auth.me)
     return mapBackendUser(me)
-  } catch {
-    clearAccessToken()
-    return null
+  }
+
+  try {
+    return await fetchMe()
+  } catch (e) {
+    const status = e instanceof ApiError ? e.status : 0
+    // Only wipe JWT on real auth rejection — keep session across network blips
+    // (VNPay return reload + brief /auth/me timeout must not log the user out)
+    if (status === 401 || status === 403) {
+      clearAccessToken()
+      return null
+    }
+    // One retry for transient failures right after payment-gateway return
+    try {
+      await new Promise((r) => setTimeout(r, 450))
+      return await fetchMe()
+    } catch (e2) {
+      const status2 = e2 instanceof ApiError ? e2.status : 0
+      if (status2 === 401 || status2 === 403) {
+        clearAccessToken()
+      }
+      return null
+    }
   }
 }
 
