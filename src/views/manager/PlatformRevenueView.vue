@@ -23,6 +23,9 @@ import {
 
 const LOOKER_STUDIO_EMBED_URL = LOOKER_STUDIO_PLATFORM_REVENUE_URL
 
+/** Tạm ẩn báo cáo native (bộ lọc / KPI / chart) — chỉ hiện Looker nhúng phía trên. */
+const SHOW_NATIVE_PLATFORM_REPORT = false
+
 const filter = ref<PlatformRevenueDashboardQuery>(defaultPlatformRevenueFilter())
 const data = ref<PlatformRevenueDashboard | null>(null)
 const initialLoading = ref(true)
@@ -50,7 +53,11 @@ onMounted(() => {
   lookerTimer = setTimeout(() => {
     if (!lookerLoaded.value) lookerFailed.value = true
   }, 12_000)
-  void loadDashboard(filter.value, true)
+  if (SHOW_NATIVE_PLATFORM_REPORT) {
+    void loadDashboard(filter.value, true)
+  } else {
+    initialLoading.value = false
+  }
 })
 
 onUnmounted(() => {
@@ -110,10 +117,10 @@ function retry() {
     <PageHeader
       eyebrow="Quản lý"
       title="Bảng điều khiển"
-      lead="Doanh thu sàn, KPI vận hành và báo cáo Looker Studio — gom một chỗ."
+      lead="Báo cáo Looker Studio nhúng — tổng quan doanh thu sàn."
     >
-      <template #actions>
-        <p v-if="data" class="pr-generated muted">
+      <template v-if="SHOW_NATIVE_PLATFORM_REPORT && data" #actions>
+        <p class="pr-generated muted">
           Báo cáo tạo lúc: <strong>{{ generatedAt }}</strong>
         </p>
       </template>
@@ -163,58 +170,60 @@ function retry() {
       </div>
     </section>
 
-    <PlatformRevenueFilter v-model="filter" :loading="loading" @apply="onApply" />
+    <template v-if="SHOW_NATIVE_PLATFORM_REPORT">
+      <PlatformRevenueFilter v-model="filter" :loading="loading" @apply="onApply" />
 
-    <div v-if="error" class="card pr-error-card" role="alert">
-      <p>{{ error }}</p>
-      <button type="button" class="btn btn-outline btn-sm" :disabled="loading" @click="retry">
-        Thử lại
-      </button>
-    </div>
-
-    <p v-if="initialLoading && !data" class="muted" role="status">Đang tải báo cáo toàn sàn…</p>
-
-    <template v-else-if="data">
-      <div v-if="filterLoading" class="pr-loading-bar" role="status">Đang cập nhật theo bộ lọc…</div>
-
-      <PlatformRevenueKpis :overview="data.overview" />
-
-      <div class="pr-grid-2">
-        <PlatformRevenueTrendChart
-          :trend="revenueTrend"
-          :granularity="filter.granularity"
-        />
-        <PlatformOrderStatusChart :items="orderStatus" />
+      <div v-if="error" class="card pr-error-card" role="alert">
+        <p>{{ error }}</p>
+        <button type="button" class="btn btn-outline btn-sm" :disabled="loading" @click="retry">
+          Thử lại
+        </button>
       </div>
 
-      <PlatformPaymentChart :items="payments" />
+      <p v-if="initialLoading && !data" class="muted" role="status">Đang tải báo cáo toàn sàn…</p>
 
-      <PlatformActivitySection
-        v-if="data.platformActivity"
-        :activity="data.platformActivity"
-      />
+      <template v-else-if="data">
+        <div v-if="filterLoading" class="pr-loading-bar" role="status">Đang cập nhật theo bộ lọc…</div>
 
-      <PlatformActivityTrendChart
-        :trend="activityTrend"
-        :granularity="filter.granularity"
-      />
+        <PlatformRevenueKpis :overview="data.overview" />
 
-      <PlatformRankingTables
-        :sellers="sellers"
-        :products="products"
-        :categories="categories"
-      />
+        <div class="pr-grid-2">
+          <PlatformRevenueTrendChart
+            :trend="revenueTrend"
+            :granularity="filter.granularity"
+          />
+          <PlatformOrderStatusChart :items="orderStatus" />
+        </div>
+
+        <PlatformPaymentChart :items="payments" />
+
+        <PlatformActivitySection
+          v-if="data.platformActivity"
+          :activity="data.platformActivity"
+        />
+
+        <PlatformActivityTrendChart
+          :trend="activityTrend"
+          :granularity="filter.granularity"
+        />
+
+        <PlatformRankingTables
+          :sellers="sellers"
+          :products="products"
+          :categories="categories"
+        />
+      </template>
+
+      <div
+        v-else-if="!initialLoading && !error"
+        class="card"
+        role="status"
+      >
+        <p class="muted" style="margin: 0">
+          Chưa có dữ liệu báo cáo. Điều chỉnh bộ lọc rồi bấm “Áp dụng”.
+        </p>
+      </div>
     </template>
-
-    <div
-      v-else-if="!initialLoading && !error"
-      class="card"
-      role="status"
-    >
-      <p class="muted" style="margin: 0">
-        Chưa có dữ liệu báo cáo. Điều chỉnh bộ lọc rồi bấm “Áp dụng”.
-      </p>
-    </div>
   </div>
 </template>
 
