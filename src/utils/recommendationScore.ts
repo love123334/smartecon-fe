@@ -95,9 +95,15 @@ export function rankForUseCase(
   raw: string,
   limit = 6,
 ): Product[] {
-  const q = raw.toLowerCase()
+  const q = raw
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/đ/g, 'd')
   const wantCheap = /re|cheap|budget|gia re|tiet kiem|duoi|ngan sach/.test(q)
   const wantQuality = /tot|ngon|chat luong|tot nhat|dang mua|good|best/.test(q)
+  const wantHot =
+    /(?:^|\s)hot(?:\s|$)|dang hot|ban chay|best ?seller|trending|noi bat|thinh hanh|pho bien/.test(q)
   const wantDev =
     /lap trinh|programming|code|developer|coder|sinh vien it|hoc code|vscode|dev/.test(q)
 
@@ -107,6 +113,7 @@ export function rankForUseCase(
       let s = p.rating * 14 + Math.min(p.soldCount, 250) / 18
       if (wantCheap) s += Math.max(0, 18 - p.price / 1_000_000)
       if (wantQuality) s += p.rating * 4
+      if (wantHot) s += Math.min(p.soldCount, 500) / 8 + (p.isFlashSale ? 6 : 0)
       if (wantDev) {
         const cat = p.category.toLowerCase()
         const name = p.name.toLowerCase()

@@ -297,10 +297,16 @@ const COMMON: IntentRule[] = [
       'what should i buy', 'best product', 'goi y mua', 'ngon', 'tot nhat',
       'dang mua', 'chat luong', 'sp nao ngon', 'hang nao ngon', 'nen chon',
       'goi y sp', 'tu van mua',
+      // trending / hot — tránh nhầm với hotline (match.ts yêu cầu substring ≥4 ký tự)
+      'hot', 'dang hot', 'mon do hot', 'san pham hot', 'sp hot', 'hang hot',
+      'ban chay', 'top ban chay', 'best seller', 'bestseller', 'trending',
+      'noi bat', 'pho bien', 'dang thinh hanh',
     ],
     phrases: [
       'nen mua', 'goi y san pham', 'what should i buy', 'sp nao ngon',
       'hang nao ngon', 'tot nhat', 'nen chon',
+      'mon do hot', 'san pham hot', 'dang hot', 'ban chay', 'top ban chay',
+      'best seller', 'dang thinh hanh',
     ],
     minScore: 3,
     priority: 8,
@@ -547,6 +553,18 @@ function refineIntent(
   // Rẻ nhất
   if (/re nhat|gia re nhat|cheapest|gia thap nhat|lowest price|san pham nao re|sp nao re|hang nao re/.test(normalized)) {
     return 'product_cheapest'
+  }
+
+  // "món đồ hot / bán chạy / trending" → gợi ý (seller hỏi bán chạy → top SP shop)
+  if (
+    /(?:^|\s)hot(?:\s|$)|dang hot|mon do hot|san pham hot|sp hot|hang hot|gi hot|trending|best ?seller|bestseller|ban chay|top ban chay|noi bat|dang thinh hanh|pho bien/.test(
+      normalized,
+    )
+  ) {
+    if (role === 'seller' && /ban chay|top product|best ?seller|sp ban nhieu/.test(normalized)) {
+      return 'seller_top_products'
+    }
+    return 'recommend'
   }
 
   // seller contact ưu tiên hơn escalate chung

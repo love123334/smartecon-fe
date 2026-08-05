@@ -15,6 +15,15 @@ export function normalizeText(text: string): string {
     .trim()
 }
 
+/** Khớp cụm theo ranh giới từ — tránh "hot" khớp trong "hotline" */
+export function containsWholePhrase(normalizedText: string, phrase: string): boolean {
+  const p = normalizeText(phrase)
+  if (!p || !normalizedText) return false
+  if (normalizedText === p) return true
+  const escaped = p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+')
+  return new RegExp(`(?:^|\\s)${escaped}(?:\\s|$)`).test(normalizedText)
+}
+
 /** Levenshtein distance — hỗ trợ typo / thiếu dấu gần đúng */
 export function levenshtein(a: string, b: string): number {
   if (a === b) return 0
@@ -39,7 +48,12 @@ export function levenshtein(a: string, b: string): number {
 export function wordSimilarity(a: string, b: string): number {
   if (!a || !b) return 0
   if (a === b) return 1
-  if (a.includes(b) || b.includes(a)) return 0.92
+  // Substring chỉ tính khi từ ngắn đủ dài — tránh "co"⊂"complaint", "hot"⊂"hotline"
+  const shorter = a.length <= b.length ? a : b
+  const longer = a.length <= b.length ? b : a
+  if (shorter.length >= 4 && longer.includes(shorter)) {
+    return 0.92
+  }
   const dist = levenshtein(a, b)
   return 1 - dist / Math.max(a.length, b.length)
 }
@@ -49,7 +63,7 @@ export function phraseBoost(normalizedText: string, phrases: string[]): number {
   let boost = 0
   for (const p of phrases) {
     const np = normalizeText(p)
-    if (np.length >= 3 && normalizedText.includes(np)) {
+    if (np.length >= 3 && containsWholePhrase(normalizedText, np)) {
       boost = Math.max(boost, np.length * 2.5 + 20)
     }
   }
@@ -67,7 +81,7 @@ export function scoreKeywords(normalizedText: string, keywords: string[]): numbe
       best = Math.max(best, nk.length + 40)
       continue
     }
-    if (normalizedText.includes(nk)) {
+    if (containsWholePhrase(normalizedText, nk)) {
       best = Math.max(best, nk.length + 18 + Math.min(nk.split(/\s+/).length * 4, 16))
       continue
     }
@@ -80,7 +94,7 @@ export function scoreKeywords(normalizedText: string, keywords: string[]): numbe
     let matched = 0
     for (const part of parts) {
       let local = 0
-      if (normalizedText.includes(part)) {
+      if (containsWholePhrase(normalizedText, part)) {
         local = part.length * 1.4
         matched++
       } else {
@@ -105,7 +119,7 @@ export function scoreKeywords(normalizedText: string, keywords: string[]): numbe
 export function fuzzyMatchText(normalizedText: string, keyword: string, minSim = 0.68): boolean {
   const nk = normalizeText(keyword)
   if (!nk) return false
-  if (normalizedText.includes(nk)) return true
+  if (containsWholePhrase(normalizedText, nk)) return true
 
   const kwParts = nk.split(/\s+/).filter((p: string) => p.length > 2)
   if (!kwParts.length) return false
@@ -113,7 +127,7 @@ export function fuzzyMatchText(normalizedText: string, keyword: string, minSim =
   const textWords = normalizedText.split(/\s+/).filter((w: string) => w.length > 1)
   let matchedParts = 0
   for (const part of kwParts) {
-    if (normalizedText.includes(part)) {
+    if (containsWholePhrase(normalizedText, part)) {
       matchedParts++
       continue
     }
