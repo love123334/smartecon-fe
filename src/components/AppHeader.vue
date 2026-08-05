@@ -258,15 +258,16 @@ watch(
 </template>
 
 <style scoped>
+/* Sticky trên toàn bộ chrome — sticky trên __bar không hiệu lực vì
+   parent .site-chrome chỉ bọc header rồi cuộn khỏi viewport. */
 .site-chrome {
-  position: relative;
-  z-index: 100;
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  background: var(--paper, #fff);
 }
 
 .site-chrome__bar {
-  position: sticky;
-  top: 0;
-  z-index: 100;
   background: var(--paper, #fff);
   box-shadow: 0 1px 0 rgba(15, 23, 42, 0.06);
 }
