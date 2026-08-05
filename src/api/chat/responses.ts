@@ -522,7 +522,7 @@ function buildSellerIntent(ctx: ChatContext, intent: ChatIntent, raw: string): s
       const dash = ctx.sellerDashboard
       if (dash?.lowStockProducts.length) {
         const lines = dash.lowStockProducts.slice(0, 6).map((p) => `• ${p.productName} — còn **${p.quantity}**`).join('\n')
-        return `${name}**Tồn kho thấp:**\n${lines}\n\nCập nhật **Tồn kho** · hoặc hỏi **"khuyến nghị tồn kho"** (DSS).`
+        return `${name}**Tồn kho thấp:**\n${lines}\n\nCập nhật số lượng trong **Quản lý SP** · hoặc hỏi **"khuyến nghị tồn kho"** (DSS).`
       }
       const low = catalog.filter((p) => p.stock > 0 && p.stock < 20).sort((a, b) => a.stock - b.stock)
       const out = catalog.filter((p) => p.stock <= 0)
@@ -530,7 +530,7 @@ function buildSellerIntent(ctx: ChatContext, intent: ChatIntent, raw: string): s
         let msg = `${name}**Cảnh báo tồn kho:**\n`
         if (low.length) msg += `Sắp hết:\n${productLines(low.slice(0, 4))}\n`
         if (out.length) msg += `\nHết hàng:\n${productLines(out.slice(0, 3))}\n`
-        return msg + `\n**Tồn kho** / **DSS → Khuyến nghị tồn kho**.`
+        return msg + `\n**Quản lý SP** / **DSS → Khuyến nghị tồn kho**.`
       }
       if (ctx.sellerInsights.length) {
         const inv = ctx.sellerInsights.filter((i) => i.category === 'inventory').slice(0, 3)
@@ -538,7 +538,7 @@ function buildSellerIntent(ctx: ChatContext, intent: ChatIntent, raw: string): s
           return `${name}**DSS tồn kho:**\n${inv.map((i) => `• ${i.title}: ${i.description}`).join('\n')}`
         }
       }
-      return `${name}Tồn kho **ổn định**. Theo dõi **Tồn kho** hoặc hỏi **"khuyến nghị tồn kho"**.`
+      return `${name}Tồn kho **ổn định**. Theo dõi **Quản lý SP** hoặc hỏi **"khuyến nghị tồn kho"**.`
     }
     case 'seller_pricing':
       return `${name}**Khuyến nghị giá (DSS)**:\n${ctx.enrichment?.dssBriefText ?? priceBrief(catalog)}`

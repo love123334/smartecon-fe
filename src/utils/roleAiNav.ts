@@ -45,7 +45,6 @@ export function roleAccountMenuLinks(role: UserRole): NavLink[] {
         { to: '/seller/dss/what-if', label: 'What-if giảm giá', highlight: true },
         { to: '/seller/sales', label: 'Bảng doanh số' },
         { to: '/seller/orders', label: 'Đơn bán' },
-        { to: '/seller/inventory', label: 'Tồn kho' },
         { to: '/seller/products', label: 'Quản lý sản phẩm' },
       ]
     case 'manager':

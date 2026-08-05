@@ -116,9 +116,7 @@ const router = createRouter({
     },
     {
       path: '/seller/inventory',
-      name: 'seller-inventory',
-      component: () => import('@/views/seller/InventoryView.vue'),
-      meta: { roles: ['seller'], title: 'Tồn kho' },
+      redirect: { name: 'seller-products' },
     },
     {
       path: '/seller/sales',
