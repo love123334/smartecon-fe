@@ -377,9 +377,14 @@ async function addRelated(id: string) {
           <p class="elegant-muted">Chưa có câu hỏi nào. Hãy là người đầu tiên đặt câu hỏi về sản phẩm này.</p>
         </div>
 
-        <div v-else class="elegant-tabs__panel">
+        <div v-else class="elegant-tabs__panel elegant-tabs__panel--reviews">
           <div class="elegant-reviews-head">
-            <h2>Đánh giá khách hàng</h2>
+            <div>
+              <h2>Đánh giá khách hàng</h2>
+              <p v-if="displayReviews.length" class="elegant-reviews-head__meta">
+                {{ displayRating.toFixed(1) }}★ · {{ reviewCount || displayReviews.length }} nhận xét
+              </p>
+            </div>
             <button
               type="button"
               class="btn-elegant-outline btn-interactive"
@@ -388,6 +393,14 @@ async function addRelated(id: string) {
             >
               {{ eligibility.canReview ? (showReviewForm ? 'Đóng form' : 'Viết đánh giá') : 'Viết đánh giá' }}
             </button>
+          </div>
+
+          <div v-if="displayReviews.length" class="elegant-reviews-summary" aria-hidden="true">
+            <span class="elegant-reviews-summary__score">{{ displayRating.toFixed(1) }}</span>
+            <div>
+              <StarRating :model-value="Math.round(displayRating)" readonly size="sm" />
+              <p>{{ reviewCount || displayReviews.length }} đánh giá</p>
+            </div>
           </div>
 
           <div class="review-eligibility-note" role="note">
@@ -419,13 +432,16 @@ async function addRelated(id: string) {
           </form>
           <p v-else-if="reviewError" class="form-error">{{ reviewError }}</p>
 
-          <p v-if="!displayReviews.length" class="elegant-muted">Chưa có đánh giá nào.</p>
+          <div v-if="!displayReviews.length" class="elegant-reviews-empty">
+            <p>Chưa có đánh giá cho sản phẩm này.</p>
+            <p>Sau khi đơn được giao, bạn có thể chia sẻ trải nghiệm tại đây.</p>
+          </div>
           <article v-for="r in displayReviews" :key="r.id" class="elegant-review">
             <div class="elegant-review__avatar">{{ r.user[0] }}</div>
             <div>
               <div class="elegant-review__top">
                 <strong>{{ r.user }}</strong>
-                <span class="elegant-review__stars">{{ starDisplay(r.rating) }}</span>
+                <StarRating :model-value="r.rating" readonly size="sm" />
                 <span class="elegant-muted">{{ r.date }}</span>
               </div>
               <p class="elegant-review__text">{{ r.text }}</p>

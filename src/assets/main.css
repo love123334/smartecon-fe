@@ -7,12 +7,12 @@
   --paper: #ffffff;
   --line: #e4e9f2;
 
-  --font-display: 'DM Sans', 'Inter', system-ui, -apple-system, sans-serif;
-  --font-body: 'DM Sans', 'Inter', system-ui, -apple-system, sans-serif;
-  --font-brand: 'DM Sans', 'Inter', system-ui, sans-serif;
+  --font-display: 'Syne', 'Outfit', system-ui, sans-serif;
+  --font-body: 'Outfit', system-ui, -apple-system, sans-serif;
+  --font-brand: 'Syne', 'Outfit', system-ui, sans-serif;
   --font: var(--font-body);
 
-  --surface-muted: #eef1f6;
+  --surface-muted: #f3f5f8;
 
   /* Blue — CTA, giá, badge */
   --primary-50: #eaf2ff;

@@ -64,8 +64,8 @@ async function addToCart(id: string) {
       <div class="container">
         <div class="home-section-head">
           <div>
-            <p class="home-flash__badge">Flash Sale</p>
-            <h2 id="flash-title" class="home-section-head__title">Deal sốc hôm nay</h2>
+            <p class="home-flash__badge">Ưu đãi</p>
+            <h2 id="flash-title" class="home-section-head__title">Giảm giá hôm nay</h2>
           </div>
           <RouterLink to="/search" class="home-section-head__link btn-interactive">
             Xem cửa hàng →
@@ -87,8 +87,8 @@ async function addToCart(id: string) {
       <div class="container">
         <div class="home-section-head">
           <div>
-            <h2 id="best-title" class="home-section-head__title">Bán chạy nhất</h2>
-            <p class="home-section-head__sub">Được nhiều người chọn mua tuần này</p>
+            <h2 id="best-title" class="home-section-head__title">Bán chạy</h2>
+            <p class="home-section-head__sub">Được chọn mua nhiều gần đây</p>
           </div>
         </div>
 
@@ -115,14 +115,15 @@ async function addToCart(id: string) {
       </div>
     </section>
 
-    <section class="home-promo reveal-up">
+    <section class="home-promo">
       <div class="container home-promo__inner">
         <div>
-          <h2>Trợ lý SEDSP — hỏi nhanh trong hộp chat</h2>
-          <p>Mở nút AI góc phải để hỏi sản phẩm, giá, ngân sách. Không cần trang gợi ý riêng.</p>
+          <p class="home-promo__eyebrow">Trợ lý SEDSP</p>
+          <h2>Cần gợi ý nhanh?</h2>
+          <p>Hỏi sản phẩm, so sánh giá hoặc kiểm tra đơn — mở chat góc phải màn hình.</p>
         </div>
         <button type="button" class="home-promo__btn" @click="openChat">
-          Mở trợ lý AI
+          Mở trợ lý
         </button>
       </div>
     </section>

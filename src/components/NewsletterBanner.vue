@@ -22,8 +22,8 @@ function onSubmit() {
   <section class="shop-newsletter" aria-label="Đăng ký nhận tin">
     <div class="container shop-newsletter__inner">
       <div class="shop-newsletter__copy">
-        <h2>Tham gia bản tin SEDSP</h2>
-        <p>Nhận tin khuyến mãi và gợi ý sản phẩm mỗi tuần.</p>
+        <h2>Bản tin SEDSP</h2>
+        <p>Ưu đãi và sản phẩm mới — gửi vào hộp thư mỗi tuần.</p>
       </div>
       <form class="shop-newsletter__form" @submit.prevent="onSubmit">
         <label for="nl-email" class="sr-only">Email</label>
