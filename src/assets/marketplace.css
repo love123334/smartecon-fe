@@ -85,7 +85,7 @@
   background: var(--secondary-900);
   color: var(--primary-500);
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: 700;
   font-size: 1.1rem;
   border-radius: var(--radius);
 }
@@ -94,8 +94,8 @@
   display: block;
   font-family: var(--font-display);
   font-size: 1.15rem;
-  font-weight: 800;
-  letter-spacing: -0.03em;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   line-height: 1.1;
   color: var(--slate-900);
   text-transform: uppercase;
@@ -197,7 +197,7 @@
   background: var(--primary-600);
   color: #fff;
   font-size: 0.625rem;
-  font-weight: 800;
+  font-weight: 700;
   border-radius: 999px;
   display: flex;
   align-items: center;
@@ -331,7 +331,7 @@
   font-family: var(--font-display);
   font-size: clamp(1.5rem, 3vw, 2rem);
   font-weight: 700;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.01em;
   position: relative;
   z-index: 1;
 }
@@ -423,7 +423,7 @@
   font-size: 1.25rem;
   font-weight: 700;
   color: var(--slate-900);
-  letter-spacing: -0.03em;
+  letter-spacing: -0.01em;
 }
 
 .mkt-section__title--flash {
@@ -1084,7 +1084,7 @@
   gap: 0.55rem;
   font-family: var(--font-brand);
   font-size: 1.2rem;
-  font-weight: 800;
+  font-weight: 700;
   color: var(--navy, #14275c);
   text-decoration: none;
   letter-spacing: 0.01em;
@@ -1267,7 +1267,7 @@
   margin: 0;
   font-size: clamp(2rem, 4vw, 2.75rem);
   font-weight: 700;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.01em;
   color: var(--slate-900);
 }
 
@@ -1305,7 +1305,7 @@
   margin: 0 0 1rem;
   font-size: 0.6875rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
   color: var(--slate-500);
 }
@@ -1712,7 +1712,7 @@
   background: #000;
   color: #fff;
   font-size: 0.62rem;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.02em;
   display: flex;
   align-items: center;
@@ -1765,7 +1765,7 @@
 .product-card__stars {
   margin: 0 0 0.35rem;
   font-size: 0.6875rem;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.02em;
   color: var(--slate-900);
 }
 
@@ -1809,7 +1809,7 @@
   margin: 0 0 0.35rem;
   font-size: 1.25rem;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: normal;
 }
 
 .shop-newsletter__copy p {
@@ -1918,7 +1918,7 @@
   font-family: var(--font-display);
   font-size: clamp(1.5rem, 3vw, 2rem);
   font-weight: 700;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.01em;
   text-align: left;
   color: var(--navy, #14275c);
 }
@@ -2130,7 +2130,7 @@
 .elegant-product__stars {
   margin: 0 0 0.5rem;
   font-size: 0.75rem;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.02em;
   color: var(--slate-900);
 }
 
@@ -2144,7 +2144,7 @@
   margin: 0 0 0.65rem;
   font-size: 1.75rem;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: normal;
   line-height: 1.2;
 }
 
@@ -2322,7 +2322,7 @@
   margin: 0;
   font-family: var(--font-display);
   font-size: 1.2rem;
-  letter-spacing: -0.02em;
+  letter-spacing: normal;
   color: var(--navy);
 }
 
@@ -2345,8 +2345,8 @@
 .elegant-reviews-summary__score {
   font-family: var(--font-display);
   font-size: 2.25rem;
-  font-weight: 800;
-  letter-spacing: -0.04em;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   line-height: 1;
   color: var(--navy);
 }
@@ -2403,7 +2403,7 @@
 
 .elegant-review__stars {
   font-size: 0.6875rem;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.02em;
 }
 
 .elegant-review__text {
@@ -2865,7 +2865,7 @@
   margin: 0.35rem 0 1.5rem;
   font-size: 1.5rem;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: normal;
 }
 
 .elegant-complete__thumbs {
@@ -3365,8 +3365,8 @@
   margin: 0 0 0.85rem;
   font-family: var(--font-brand);
   font-size: clamp(1.75rem, 4vw, 2.35rem);
-  font-weight: 800;
-  letter-spacing: -0.04em;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   line-height: 1;
   color: #fff;
 }
@@ -3377,7 +3377,7 @@
   font-family: var(--font-display);
   font-size: clamp(1.65rem, 3.6vw, 2.45rem);
   font-weight: 700;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.01em;
   line-height: 1.12;
 }
 
@@ -3493,7 +3493,7 @@
   font-family: var(--font-display);
   font-size: clamp(1.35rem, 2.4vw, 1.65rem);
   font-weight: 700;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.01em;
   color: var(--navy);
 }
 
@@ -3601,7 +3601,7 @@
   font-family: var(--font-display);
   font-size: 1rem;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: normal;
 }
 
 .home-cat-chip__body em {
@@ -3623,7 +3623,7 @@
   font-size: 0.7rem;
   font-weight: 700;
   color: var(--primary-700);
-  letter-spacing: 0.08em;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
 }
 
@@ -3690,7 +3690,7 @@
   margin: 0 0 0.4rem;
   font-size: 0.7rem;
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.55);
 }
@@ -3700,7 +3700,7 @@
   font-family: var(--font-display);
   font-size: 1.4rem;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: normal;
 }
 
 .home-promo__inner p {
@@ -3772,7 +3772,7 @@
   font-family: var(--font-display);
   font-size: 0.75rem;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.02em;
   color: var(--primary-600);
 }
 
@@ -3781,7 +3781,7 @@
   font-family: var(--font-display);
   font-size: 1rem;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: normal;
   color: var(--navy);
 }
 

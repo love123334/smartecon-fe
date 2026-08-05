@@ -27,7 +27,7 @@
   font-size: clamp(1.5rem, 2.5vw, 1.85rem);
   font-weight: 700;
   color: #0d47a1;
-  letter-spacing: -0.02em;
+  letter-spacing: normal;
 }
 
 .dss-page__sub {
@@ -250,7 +250,7 @@
   font-size: 0.8rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.02em;
   color: #1565c0;
 }
 
@@ -461,7 +461,7 @@
 .dss-recommend-card__value {
   margin: 0.25rem 0 0;
   font-size: 2.5rem;
-  font-weight: 800;
+  font-weight: 700;
   color: #0d47a1;
   line-height: 1.1;
 }
