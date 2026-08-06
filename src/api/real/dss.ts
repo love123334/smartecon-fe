@@ -178,6 +178,6 @@ export function recommendInventory(planningDays: number, productId?: string | nu
 }
 
 export function insightPlan() {
-  // AI commentary can be slow — fail fast to local fallback instead of hanging UI
-  return http.get<DssInsightPlanApi>(apiPaths.dss.insightsPlan, { timeoutMs: 16_000 })
+  // AI commentary: fail fast (≤2s) → local fallback, không treo UI
+  return http.get<DssInsightPlanApi>(apiPaths.dss.insightsPlan, { timeoutMs: 2_000 })
 }

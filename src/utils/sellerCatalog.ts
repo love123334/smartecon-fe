@@ -33,7 +33,7 @@ export async function loadSellerCatalogForDss(opts: {
   const meta = await productApi.listWithMeta({
     sellerId,
     withStock: opts.withStock ?? false,
-    size: 100,
+    size: 48,
   })
 
   if (apiConfig.useRealProducts && meta.catalogSource === 'mock') {
@@ -48,12 +48,11 @@ export async function loadSellerCatalogForDss(opts: {
 
   let products = uniqueById(meta.products)
 
-  // Nếu API sellerId không trả SP (một số backend chỉ lọc khi đúng numeric id),
-  // thử lấy list rộng rồi lọc client theo sellerId / email.
+  // Một lần gọi phụ tối đa — tránh N lần list làm DSS >2s
   if (!products.length && sellerId) {
     const broad = await productApi.listWithMeta({
-      withStock: opts.withStock ?? false,
-      size: 120,
+      withStock: false,
+      size: 60,
     })
     if (!(apiConfig.useRealProducts && broad.catalogSource === 'mock')) {
       const key = sellerId.toLowerCase()

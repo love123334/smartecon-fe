@@ -101,20 +101,33 @@ export async function callChatLlm(
   }
 
   const url = `${apiConfig.aiBaseUrl.replace(/\/$/, '')}/chat/completions`
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiConfig.aiApiKey}`,
-    },
-    body: JSON.stringify({
-      model: apiConfig.aiModel,
-      messages,
-      temperature: 0.75,
-      max_tokens: 900,
-      top_p: 0.9,
-    }),
-  })
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 2_000)
+  let res: Response
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiConfig.aiApiKey}`,
+      },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model: apiConfig.aiModel,
+        messages,
+        temperature: 0.75,
+        max_tokens: 900,
+        top_p: 0.9,
+      }),
+    })
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'AbortError') {
+      throw new Error('LLM timeout (>2s)')
+    }
+    throw e
+  } finally {
+    clearTimeout(timer)
+  }
 
   let body: ChatCompletionResponse
   try {

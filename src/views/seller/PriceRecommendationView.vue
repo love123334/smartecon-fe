@@ -181,7 +181,7 @@ function retrySubmit() {
       </nav>
       <h1>Khuyến nghị giá</h1>
       <p class="dss-page__sub">
-        So sánh kịch bản giá theo hệ số co giãn — form, thẻ KPI và bảng scenario, không dùng biểu đồ.
+        So sánh kịch bản giá theo hệ số co giãn cầu — form, thẻ chỉ số và bảng kịch bản.
       </p>
     </header>
 
@@ -220,7 +220,7 @@ function retrySubmit() {
           </label>
 
           <label class="dss-field">
-            <span id="from-label">From Date</span>
+            <span id="from-label">Từ ngày</span>
             <input
               v-model="fromDate"
               type="date"
@@ -239,7 +239,7 @@ function retrySubmit() {
           </label>
 
           <label class="dss-field">
-            <span id="to-label">To Date</span>
+            <span id="to-label">Đến ngày</span>
             <input
               v-model="toDate"
               type="date"
@@ -318,8 +318,8 @@ function retrySubmit() {
         <p>
           {{
             resultStale
-              ? 'Product hoặc khoảng thời gian đã đổi. Submit lại để lấy kịch bản mới từ backend.'
-              : 'Chọn sản phẩm, From/To Date rồi bấm “Tạo khuyến nghị giá”. API chỉ được gọi khi submit.'
+              ? 'Sản phẩm hoặc khoảng thời gian đã đổi. Bấm tạo lại để lấy kịch bản mới.'
+              : 'Chọn sản phẩm, khoảng từ ngày–đến ngày rồi bấm “Tạo khuyến nghị giá”.'
           }}
         </p>
       </div>
@@ -333,22 +333,22 @@ function retrySubmit() {
         <p class="dss-meta"><span>Khoảng thời gian</span>{{ result.fromDate }} → {{ result.toDate }}</p>
         <div class="dss-kpi-grid">
           <article class="dss-kpi">
-            <span class="dss-kpi__label">Current Price</span>
+            <span class="dss-kpi__label">Giá hiện tại</span>
             <strong>{{ formatVndCurrency(result.currentPrice) }}</strong>
           </article>
           <article class="dss-kpi">
-            <span class="dss-kpi__label">Cost</span>
+            <span class="dss-kpi__label">Giá vốn</span>
             <strong>{{ formatVndCurrency(result.cost) }}</strong>
           </article>
           <article class="dss-kpi">
-            <span class="dss-kpi__label">Average Elasticity</span>
+            <span class="dss-kpi__label">Hệ số co giãn TB</span>
             <strong :title="'Hệ số co giãn giá — thường là số âm'">
               {{ formatElasticity(result.averageElasticity) }}
             </strong>
             <small class="dss-hint">Thường là số âm (cầu giảm khi giá tăng).</small>
           </article>
           <article class="dss-kpi">
-            <span class="dss-kpi__label">Total Quantity Sold</span>
+            <span class="dss-kpi__label">Tổng số lượng đã bán</span>
             <strong>{{ formatQuantity(result.totalQuantitySold) }}</strong>
           </article>
         </div>
@@ -362,16 +362,16 @@ function retrySubmit() {
       >
         <div class="dss-best-card__head">
           <h2 id="price-best-title" class="dss-card__title" style="margin: 0">
-            Best Price Recommendation
+            Khuyến nghị giá tốt nhất
           </h2>
           <span class="dss-badge dss-badge--best">Khuyến nghị</span>
         </div>
         <p class="dss-hint" style="margin-bottom: 0.85rem">
-          Kịch bản tối ưu theo expected profit từ backend — không tự chọn lại trên frontend.
+          Kịch bản tối ưu theo lợi nhuận kỳ vọng từ hệ thống.
         </p>
         <div class="dss-kpi-grid dss-kpi-grid--6">
           <article class="dss-kpi dss-kpi--accent">
-            <span class="dss-kpi__label">% Price Change</span>
+            <span class="dss-kpi__label">% thay đổi giá</span>
             <strong>{{ formatSignedPercent(result.bestScenario.priceChangePercent) }}</strong>
             <span
               class="dss-badge"
@@ -381,24 +381,24 @@ function retrySubmit() {
             </span>
           </article>
           <article class="dss-kpi">
-            <span class="dss-kpi__label">Cost</span>
+            <span class="dss-kpi__label">Giá vốn</span>
             <strong>{{ formatVndCurrency(result.bestScenario.cost) }}</strong>
           </article>
           <article class="dss-kpi">
-            <span class="dss-kpi__label">New Price</span>
+            <span class="dss-kpi__label">Giá mới</span>
             <strong>{{ formatVndCurrency(result.bestScenario.newPrice) }}</strong>
           </article>
           <article class="dss-kpi">
-            <span class="dss-kpi__label" title="Profit/sp = New Price − Cost">Profit/sp</span>
+            <span class="dss-kpi__label" title="Lợi nhuận/sp = Giá mới − Giá vốn">LN / sản phẩm</span>
             <strong>{{ formatVndCurrency(result.bestScenario.profitPerProduct) }}</strong>
           </article>
           <article class="dss-kpi">
-            <span class="dss-kpi__label">Predicted Demand</span>
+            <span class="dss-kpi__label">Nhu cầu dự báo</span>
             <strong>{{ formatQuantity(result.bestScenario.predictedDemand) }}</strong>
           </article>
           <article class="dss-kpi dss-kpi--accent">
-            <span class="dss-kpi__label" title="Expected Profit = Profit/sp × Predicted Demand">
-              Expected Profit
+            <span class="dss-kpi__label" title="Lợi nhuận kỳ vọng = LN/sp × Nhu cầu dự báo">
+              Lợi nhuận kỳ vọng
             </span>
             <strong>{{ formatVndCurrency(result.bestScenario.expectedProfit) }}</strong>
           </article>
@@ -416,7 +416,7 @@ function retrySubmit() {
             <span class="dss-ai-panel__badge">{{ aiInsight.badge }}</span>
             <h2 id="price-ai-title" class="dss-card__title" style="margin: 0">Nhận định AI</h2>
           </div>
-          <p class="dss-ai-panel__method">Từ elasticity + best scenario backend</p>
+          <p class="dss-ai-panel__method">Theo hệ số co giãn + kịch bản tốt nhất</p>
         </div>
         <h3 class="dss-ai-panel__title">{{ aiInsight.title }}</h3>
         <p class="dss-ai-panel__summary">{{ aiInsight.summary }}</p>
@@ -438,31 +438,31 @@ function retrySubmit() {
 
       <!-- 4. Scenario table -->
       <section class="dss-card" aria-labelledby="price-table-title">
-        <h2 id="price-table-title" class="dss-card__title">Scenario Comparison</h2>
+        <h2 id="price-table-title" class="dss-card__title">So sánh kịch bản</h2>
         <p class="dss-hint" style="margin-bottom: 0.85rem">
-          <span title="Profit/sp = New Price − Cost">Profit/sp = New Price − Cost</span>
+          <span title="LN/sp = Giá mới − Giá vốn">LN/sp = Giá mới − Giá vốn</span>
           ·
-          <span title="Expected Profit = Profit/sp × Predicted Demand">
-            Expected Profit = Profit/sp × Predicted Demand
+          <span title="Lợi nhuận kỳ vọng = LN/sp × Nhu cầu dự báo">
+            Lợi nhuận kỳ vọng = LN/sp × Nhu cầu dự báo
           </span>
         </p>
 
         <div v-if="!scenarios.length" class="dss-empty" role="status">
-          <h2>Không có scenario</h2>
-          <p>Backend trả về danh sách scenarios rỗng.</p>
+          <h2>Không có kịch bản</h2>
+          <p>Hệ thống trả về danh sách kịch bản rỗng.</p>
         </div>
 
-        <div v-else class="dss-table-wrap" role="region" aria-label="Bảng so sánh scenario" tabindex="0">
+        <div v-else class="dss-table-wrap" role="region" aria-label="Bảng so sánh kịch bản" tabindex="0">
           <table class="dss-table">
             <thead>
               <tr>
-                <th scope="col">% Price Change</th>
-                <th scope="col">Cost</th>
-                <th scope="col">New Price</th>
-                <th scope="col" title="Profit/sp = New Price − Cost">Profit/sp</th>
-                <th scope="col">Predicted Demand</th>
-                <th scope="col" title="Expected Profit = Profit/sp × Predicted Demand">
-                  Expected Profit
+                <th scope="col">% đổi giá</th>
+                <th scope="col">Giá vốn</th>
+                <th scope="col">Giá mới</th>
+                <th scope="col" title="LN/sp = Giá mới − Giá vốn">LN / sp</th>
+                <th scope="col">Nhu cầu dự báo</th>
+                <th scope="col" title="Lợi nhuận kỳ vọng = LN/sp × Nhu cầu dự báo">
+                  LN kỳ vọng
                 </th>
               </tr>
             </thead>

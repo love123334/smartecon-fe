@@ -63,7 +63,7 @@ onMounted(async () => {
           <strong>{{ performance?.summary.completedOrders ?? dashboard?.revenue.completedOrders ?? 0 }}</strong>
         </div>
         <div>
-          <span class="sales-hero__label">AOV</span>
+          <span class="sales-hero__label">Giá trị đơn TB</span>
           <strong>{{ formatVnd(performance?.summary.averageOrderValue ?? 0) }}</strong>
         </div>
         <div v-if="dashboard">

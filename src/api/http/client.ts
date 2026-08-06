@@ -28,8 +28,8 @@ function authHeaders(withJsonContentType = false): HeadersInit {
   return headers
 }
 
-/** Default snappy — long AI calls pass a higher timeoutMs. */
-const DEFAULT_TIMEOUT_MS = 14_000
+/** Default ≤2s — long AI / payment / upload pass a higher timeoutMs. */
+const DEFAULT_TIMEOUT_MS = 2_000
 
 const CONNECTIVITY_ERROR =
   'Không kết nối được backend. Kiểm tra VITE_API_BASE_URL / VITE_BACKEND_ORIGIN.'

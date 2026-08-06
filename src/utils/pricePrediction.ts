@@ -74,17 +74,17 @@ export function validatePricePredictionForm(
     errors.productId = 'Vui lòng chọn sản phẩm hợp lệ.'
   }
   if (!fromDate) {
-    errors.fromDate = 'From Date phải có định dạng YYYY-MM-DD.'
+    errors.fromDate = 'Từ ngày phải có định dạng YYYY-MM-DD.'
   }
   if (!toDate) {
-    errors.toDate = 'To Date phải có định dạng YYYY-MM-DD.'
+    errors.toDate = 'Đến ngày phải có định dạng YYYY-MM-DD.'
   }
 
   if (fromDate && toDate && fromDate > toDate) {
-    errors.fromDate = 'From Date không được lớn hơn To Date.'
+    errors.fromDate = 'Từ ngày không được lớn hơn Đến ngày.'
   }
   if (toDate && toDate > today) {
-    errors.toDate = 'To Date không được thuộc tương lai.'
+    errors.toDate = 'Đến ngày không được thuộc tương lai.'
   }
 
   if (errors.productId || errors.fromDate || errors.toDate) {

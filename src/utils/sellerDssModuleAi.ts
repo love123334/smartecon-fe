@@ -95,14 +95,14 @@ export function buildSellerDssModuleCards(input: {
     to: '/seller/dss/price',
     tag: 'Giá bán',
     title: 'Gợi ý giá',
-    blurb: 'Elasticity · scenario · best recommendation.',
+    blurb: 'Hệ số co giãn · kịch bản · khuyến nghị tốt nhất.',
     aiBadge: priceTone === 'warn' ? 'Cần xem giá' : priceTone === 'steady' ? 'Tối ưu biên' : 'Khám phá',
     aiTone: priceTone,
     aiTitle: priceHints[0]?.title || (top ? `Rà giá cho ${topName}` : 'Chưa có tín hiệu giá'),
     aiSummary: priceHints[0]
-      ? priceHints[0].description || 'Dashboard đang cảnh báo liên quan biên/giá — mở Gợi ý giá để chạy scenario.'
+      ? priceHints[0].description || 'Dashboard đang cảnh báo liên quan biên/giá — mở Gợi ý giá để chạy kịch bản.'
       : top
-        ? `${topName} giá hiện ~${formatViNumber(top.price)}đ · rating ${formatViNumber(top.rating)}. Chạy elasticity để chọn % đổi giá tối ưu lợi nhuận.`
+        ? `${topName} giá hiện ~${formatViNumber(top.price)}đ · rating ${formatViNumber(top.rating)}. Chạy hệ số co giãn để chọn % đổi giá tối ưu lợi nhuận.`
         : 'Thêm sản phẩm có lịch sử bán rồi tạo khuyến nghị giá.',
   }
 
@@ -191,12 +191,12 @@ export function buildPricePredictionAiInsight(input: {
   if (!best) {
     return {
       tone: 'soft',
-      badge: 'Thiếu scenario',
+      badge: 'Thiếu kịch bản',
       title: `${name}: chưa chọn được kịch bản tối ưu`,
       summary:
-        'Backend chưa trả best scenario. Kiểm tra khoảng ngày có đủ đơn bán, rồi submit lại.',
-      actions: ['Nới khoảng From–To Date', 'Chọn SKU có lịch sử bán rõ', 'Đối chiếu bảng doanh số'],
-      risks: ['Đổi giá khi thiếu elasticity dễ lệch cầu thực tế.'],
+        'Hệ thống chưa trả kịch bản tốt nhất. Kiểm tra khoảng ngày có đủ đơn bán, rồi tạo lại.',
+      actions: ['Nới khoảng từ ngày–đến ngày', 'Chọn sản phẩm có lịch sử bán rõ', 'Đối chiếu bảng doanh số'],
+      risks: ['Đổi giá khi thiếu hệ số co giãn dễ lệch cầu thực tế.'],
     }
   }
   const pct = Number(best.priceChangePercent)
@@ -210,7 +210,7 @@ export function buildPricePredictionAiInsight(input: {
         : pct < -2
           ? `${name}: giảm ~${formatViNumber(Math.abs(pct))}% để kéo cầu`
           : `${name}: giá hiện tại đã gần tối ưu`,
-    summary: `Elasticity ${formatViNumber(e)} · đã bán ${formatViNumber(input.totalQuantitySold)} sp. Kịch bản tốt nhất: giá mới ${formatViNumber(best.newPrice)}đ · cầu dự kiến ${formatViNumber(best.predictedDemand)} · LN/sp ${formatViNumber(best.profitPerProduct)}đ · LN kỳ vọng ${formatViNumber(best.expectedProfit)}đ.`,
+    summary: `Hệ số co giãn ${formatViNumber(e)} · đã bán ${formatViNumber(input.totalQuantitySold)} sp. Kịch bản tốt nhất: giá mới ${formatViNumber(best.newPrice)}đ · cầu dự kiến ${formatViNumber(best.predictedDemand)} · LN/sp ${formatViNumber(best.profitPerProduct)}đ · LN kỳ vọng ${formatViNumber(best.expectedProfit)}đ.`,
     actions: [
       pct < -2
         ? 'Mô phỏng thêm trên What-if trước khi chạy KM thật.'
@@ -220,10 +220,10 @@ export function buildPricePredictionAiInsight(input: {
     ],
     risks: [
       Math.abs(e) < 0.2
-        ? 'Elasticity gần 0 — mẫu dữ liệu có thể mỏng, đừng đổi giá quá mạnh.'
-        : 'Cầu thực tế có thể lệch scenario nếu có flash sale sàn.',
+        ? 'Hệ số co giãn gần 0 — mẫu dữ liệu có thể mỏng, đừng đổi giá quá mạnh.'
+        : 'Cầu thực tế có thể lệch kịch bản nếu có flash sale sàn.',
       best.profitPerProduct <= 0
-        ? 'Profit/sp ≤ 0 — không nên theo scenario này.'
+        ? 'LN/sp ≤ 0 — không nên theo kịch bản này.'
         : 'Lead time / tồn mỏng có thể làm mất doanh thu khi cầu tăng.',
     ],
   }

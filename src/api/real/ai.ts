@@ -18,5 +18,6 @@ export function getAiStatus() {
 }
 
 export function chat(messages: { role: string; content: string }[]) {
-  return http.post<AiChatResult>(apiPaths.ai.chat, { messages })
+  // Chat AI: cap 2s — hết giờ thì FE fallback rule-based, không treo
+  return http.post<AiChatResult>(apiPaths.ai.chat, { messages }, { timeoutMs: 2_000 })
 }
