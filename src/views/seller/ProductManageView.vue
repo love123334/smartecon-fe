@@ -67,7 +67,7 @@ async function load() {
   error.value = ''
   try {
     const sellerKey = auth.user.backendId ?? auth.user.id
-    products.value = await productApi.list({ sellerId: sellerKey, withStock: true })
+    products.value = await productApi.list({ sellerId: sellerKey, withStock: false })
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Không tải được sản phẩm'
   } finally {
@@ -75,9 +75,8 @@ async function load() {
   }
 }
 
-onMounted(async () => {
-  await loadCategories()
-  await load()
+onMounted(() => {
+  void Promise.all([loadCategories(), load()])
 })
 
 async function createCategory() {

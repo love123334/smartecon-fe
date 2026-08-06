@@ -24,7 +24,7 @@ async function loadProducts() {
   try {
     products.value = await productApi.list({
       sellerId: auth.user.backendId ?? auth.user.id,
-      withStock: true,
+      withStock: false,
     })
   } catch (e) {
     products.value = []

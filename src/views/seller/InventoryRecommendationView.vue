@@ -65,7 +65,7 @@ onMounted(async () => {
     const sellerKey = auth.user?.backendId ?? auth.user?.id
     const { products: list, error } = await loadSellerCatalogForDss({
       sellerId: sellerKey,
-      withStock: true,
+      withStock: false,
     })
     if (error) {
       catalogError.value = error

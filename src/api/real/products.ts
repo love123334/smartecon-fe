@@ -24,6 +24,7 @@ export interface BackendProductResponse {
   sellerEmail?: string
   sellerPhone?: string
   primaryImageUrl?: string | null
+  availableQuantity?: number | null
   createdAt?: string
 }
 
@@ -85,7 +86,7 @@ export function mapProductSummary(p: BackendProductResponse): Product {
     name: p.name,
     description: '',
     price: num(p.price),
-    stock: 0,
+    stock: p.availableQuantity != null ? Number(p.availableQuantity) : 0,
     category,
     imageUrl,
     imageUrls: ensureThreeImages([imageUrl], p.id).map((u) =>

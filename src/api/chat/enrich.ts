@@ -146,7 +146,7 @@ export async function enrichChatContext(
     tasks.push(
       (async () => {
         const q = searchQ ?? raw
-        enrichment.searchResults = await productApi.list({ q, withStock: true })
+        enrichment.searchResults = await productApi.list({ q, withStock: false })
       })(),
     )
   }
@@ -164,7 +164,7 @@ export async function enrichChatContext(
       (async () => {
         enrichment.categoryProducts = await productApi.list({
           category: matchedCat.name,
-          withStock: true,
+          withStock: false,
         })
       })(),
     )

@@ -96,7 +96,7 @@ async function loadProducts(sellerId?: string): Promise<{
   backendUnreachable?: boolean
 }> {
   try {
-    return await productApi.listWithMeta({ sellerId, withStock: true })
+    return await productApi.listWithMeta({ sellerId, withStock: false })
   } catch {
     return { products: [], catalogSource: 'mock', backendUnreachable: true }
   }

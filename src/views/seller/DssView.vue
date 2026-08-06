@@ -56,7 +56,7 @@ onMounted(async () => {
   try {
     const [ins, catalog, planRes] = await Promise.all([
       dssApi.sellerInsights(sellerKey.value),
-      loadSellerCatalogForDss({ sellerId: sellerKey.value, withStock: true }),
+      loadSellerCatalogForDss({ sellerId: sellerKey.value, withStock: false }),
       dssApi.insightPlan().catch((e: unknown) => {
         planError.value = e instanceof Error ? e.message : 'Không tải được kế hoạch DSS'
         return null

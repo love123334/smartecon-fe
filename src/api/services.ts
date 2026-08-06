@@ -552,7 +552,7 @@ async function listProductsHybridInternal(
     }
 
     let enriched = list.map(enrichProduct)
-    // Catalog browse: skip per-SKU inventory (N+1). Opt-in withStock only when needed.
+    // Stock is included in product list API (availableQuantity). Only refresh when explicitly requested.
     if (apiConfig.useRealInventory && params?.withStock === true && hasBackendToken()) {
       enriched = await realInventory.attachStockToProducts(enriched)
     }
@@ -596,9 +596,10 @@ export const productApi = {
         let p = await realProducts.getProductById(id)
         if (!p) return null
         p = enrichProduct(p)
+        // Detail API now includes availableQuantity; only force-refresh when asked
         if (
           apiConfig.useRealInventory &&
-          opts?.withStock !== false &&
+          opts?.withStock === true &&
           hasBackendToken()
         ) {
           const [withStock] = await realInventory.attachStockToProducts([p])
@@ -1487,7 +1488,7 @@ export const dssApi = {
     try {
       products = await listProductsHybrid({
         sellerId: sellerKey,
-        withStock: true,
+        withStock: false,
       })
     } catch {
       products = []

@@ -38,6 +38,18 @@ export async function getInventory(productId: string): Promise<InventoryInfo> {
   return mapInventory(data)
 }
 
+export async function getInventoriesByProductIds(productIds: string[]): Promise<InventoryInfo[]> {
+  const ids = [...new Set(productIds.map((id) => String(id).trim()).filter(Boolean))]
+  if (!ids.length) return []
+  const qs = new URLSearchParams()
+  for (const id of ids) qs.append('productIds', id)
+  const data = await http.get<BackendInventory[]>(
+    `${apiPaths.inventory.batch}?${qs.toString()}`,
+    { timeoutMs: 12_000 },
+  )
+  return (data ?? []).map(mapInventory)
+}
+
 export async function adjustInventory(
   productId: string,
   adjustmentQuantity: number,
@@ -50,15 +62,34 @@ export async function adjustInventory(
   return mapInventory(data)
 }
 
+/** One batch request instead of N inventory GETs (was the main catalog lag). */
 export async function attachStockToProducts(products: Product[]): Promise<Product[]> {
-  return Promise.all(
-    products.map(async (p) => {
-      try {
-        const inv = await getInventory(p.id)
-        return { ...p, stock: inv.availableQuantity }
-      } catch {
-        return { ...p, stock: p.stock ?? 0 }
-      }
-    }),
-  )
+  if (!products.length) return products
+  try {
+    const inventories = await getInventoriesByProductIds(products.map((p) => p.id))
+    const byId = new Map(inventories.map((inv) => [inv.productId, inv.availableQuantity]))
+    return products.map((p) => ({
+      ...p,
+      stock: byId.has(p.id) ? (byId.get(p.id) as number) : (p.stock ?? 0),
+    }))
+  } catch {
+    // Fallback: small concurrent chunks if batch endpoint unavailable
+    const out: Product[] = []
+    const chunkSize = 6
+    for (let i = 0; i < products.length; i += chunkSize) {
+      const chunk = products.slice(i, i + chunkSize)
+      const mapped = await Promise.all(
+        chunk.map(async (p) => {
+          try {
+            const inv = await getInventory(p.id)
+            return { ...p, stock: inv.availableQuantity }
+          } catch {
+            return { ...p, stock: p.stock ?? 0 }
+          }
+        }),
+      )
+      out.push(...mapped)
+    }
+    return out
+  }
 }

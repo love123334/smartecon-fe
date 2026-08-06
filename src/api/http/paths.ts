@@ -45,6 +45,8 @@ export const apiPaths = {
   inventory: {
     byProduct: (id: string) => `inventory/${id}`,
     update: (id: string) => `inventory/${id}`,
+    /** GET inventory?productIds=1,2,3 */
+    batch: 'inventory',
   },
   cart: {
     mine: 'cart',
