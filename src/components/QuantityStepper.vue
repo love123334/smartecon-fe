@@ -23,23 +23,33 @@ function decrement() {
 function increment() {
   emit('update:modelValue', clamp(props.modelValue + 1))
 }
-
-function onInput(e: Event) {
-  const raw = Number((e.target as HTMLInputElement).value)
-  emit('update:modelValue', clamp(Number.isFinite(raw) ? raw : 1))
-}
 </script>
 
 <template>
-  <div class="qty-stepper" :class="{ 'qty-stepper--pill': variant === 'pill' }">
-    <button type="button" :disabled="modelValue <= (min ?? 1)" aria-label="Giảm" @click="decrement">−</button>
-    <input
-      type="number"
-      :value="modelValue"
-      :min="min ?? 1"
-      :max="max"
-      @change="onInput"
-    />
-    <button type="button" :disabled="max !== undefined && modelValue >= max" aria-label="Tăng" @click="increment">+</button>
+  <div
+    class="qty-stepper"
+    :class="{ 'qty-stepper--pill': variant === 'pill' }"
+    role="group"
+    aria-label="Số lượng"
+  >
+    <button
+      type="button"
+      class="qty-stepper__btn"
+      :disabled="modelValue <= (min ?? 1)"
+      aria-label="Giảm số lượng"
+      @click="decrement"
+    >
+      −
+    </button>
+    <span class="qty-stepper__value" aria-live="polite" aria-atomic="true">{{ modelValue }}</span>
+    <button
+      type="button"
+      class="qty-stepper__btn"
+      :disabled="max !== undefined && modelValue >= max"
+      aria-label="Tăng số lượng"
+      @click="increment"
+    >
+      +
+    </button>
   </div>
 </template>

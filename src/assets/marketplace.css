@@ -822,40 +822,55 @@
 /* ——— Quantity stepper ——— */
 .qty-stepper {
   display: inline-flex;
-  align-items: center;
-  border: 1px solid var(--slate-200);
-  border-radius: var(--radius-sm);
+  align-items: stretch;
+  height: 40px;
+  border: 1px solid #dbe3ef;
+  border-radius: 12px;
   overflow: hidden;
-}
-
-.qty-stepper button {
-  width: 32px;
-  height: 32px;
-  border: none;
   background: #fff;
-  font-size: 1rem;
-  cursor: pointer;
-  color: var(--slate-600);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
-.qty-stepper button:disabled {
-  opacity: 0.4;
+.qty-stepper__btn {
+  width: 40px;
+  border: none;
+  background: #f8fafc;
+  font-size: 1.15rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  color: #334155;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.qty-stepper__btn:disabled {
+  opacity: 0.35;
   cursor: not-allowed;
 }
 
-.qty-stepper button:hover:not(:disabled) {
-  background: var(--slate-50);
+.qty-stepper__btn:hover:not(:disabled) {
+  background: #eef2ff;
+  color: #1d4ed8;
 }
 
-.qty-stepper input {
-  width: 48px;
-  height: 32px;
-  border: none;
-  border-left: 1px solid var(--slate-200);
-  border-right: 1px solid var(--slate-200);
-  text-align: center;
-  font: inherit;
-  font-size: 0.875rem;
+.qty-stepper__btn:active:not(:disabled) {
+  background: #e0e7ff;
+}
+
+.qty-stepper__value {
+  min-width: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.55rem;
+  border-left: 1px solid #e2e8f0;
+  border-right: 1px solid #e2e8f0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #0f172a;
+  background: #fff;
+  user-select: none;
 }
 
 /* ——— Order status stepper ——— */
@@ -2188,12 +2203,14 @@
   display: flex;
   align-items: center;
   gap: 1rem;
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.35rem;
 }
 
 .elegant-product__qty-label {
-  font-size: 0.875rem;
-  font-weight: 600;
+  font-size: 0.9rem;
+  font-weight: 650;
+  color: #0f172a;
+  letter-spacing: -0.01em;
 }
 
 .elegant-product__actions {
@@ -2969,22 +2986,32 @@
 
 /* ——— Pill quantity stepper ——— */
 .qty-stepper--pill {
-  border-radius: var(--radius-pill);
-  border-color: var(--slate-300);
+  height: 44px;
+  border-radius: 999px;
+  border-color: #cbd5e1;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
 }
 
-.qty-stepper--pill button {
-  width: 28px;
-  height: 28px;
-  font-size: 0.875rem;
+.qty-stepper--pill .qty-stepper__btn {
+  width: 44px;
+  background: transparent;
+  font-size: 1.25rem;
+  color: #1e293b;
 }
 
-.qty-stepper--pill input {
-  width: 36px;
-  height: 28px;
-  font-size: 0.8125rem;
-  border-left-color: var(--slate-300);
-  border-right-color: var(--slate-300);
+.qty-stepper--pill .qty-stepper__btn:hover:not(:disabled) {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.qty-stepper--pill .qty-stepper__value {
+  min-width: 52px;
+  border-left-color: #e2e8f0;
+  border-right-color: #e2e8f0;
+  font-size: 1rem;
+  font-weight: 750;
+  letter-spacing: -0.01em;
 }
 
 /* ——— Cart flyout ——— */
