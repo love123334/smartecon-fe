@@ -117,7 +117,7 @@ export function forecastDemand(
 }
 
 export function createDemandPrediction(body: CreateDemandPredictionRequest) {
-  return http.post<DemandPredictionApi>(apiPaths.dss.demandPredictions, body)
+  return http.post<DemandPredictionApi>(apiPaths.dss.demandPredictions, body, { timeoutMs: 15_000 })
 }
 
 export function recommendPrice(productId: string | number, lookbackDays = 30) {
@@ -127,7 +127,7 @@ export function recommendPrice(productId: string | number, lookbackDays = 30) {
 }
 
 export function createPricePrediction(body: CreatePricePredictionRequest) {
-  return http.post<PricePredictionApi>(apiPaths.dss.pricePredictions, body)
+  return http.post<PricePredictionApi>(apiPaths.dss.pricePredictions, body, { timeoutMs: 15_000 })
 }
 
 /** POST /api/v1/dss/price-predictions — kept above; seller what-if is under /api/dss */
@@ -159,11 +159,12 @@ export async function analyzeSellerWhatIf(body: SellerWhatIfRequest) {
       apiRootWithoutVersion(),
       apiPaths.dss.whatIfSeller,
       body,
+      { timeoutMs: 15_000 },
     )
   } catch (e) {
     // Fallback: some BE branches mount the same handler under /api/v1
     if (e instanceof ApiError && (e.status === 404 || e.status === 405)) {
-      return http.post<SellerWhatIfApi>(apiPaths.dss.whatIfSeller, body)
+      return http.post<SellerWhatIfApi>(apiPaths.dss.whatIfSeller, body, { timeoutMs: 15_000 })
     }
     throw e
   }
@@ -174,10 +175,12 @@ export function recommendInventory(planningDays: number, productId?: string | nu
   if (productId != null && productId !== '' && productId !== 'all') {
     qs.set('productId', String(productId))
   }
-  return http.get<InventoryRecommendationApi>(`${apiPaths.dss.inventory}?${qs}`)
+  return http.get<InventoryRecommendationApi>(`${apiPaths.dss.inventory}?${qs}`, {
+    timeoutMs: 15_000,
+  })
 }
 
 export function insightPlan() {
-  // AI commentary: fail fast (≤2s) → local fallback, không treo UI
-  return http.get<DssInsightPlanApi>(apiPaths.dss.insightsPlan, { timeoutMs: 2_000 })
+  // AI commentary: fail fast → local fallback
+  return http.get<DssInsightPlanApi>(apiPaths.dss.insightsPlan, { timeoutMs: 4_000 })
 }

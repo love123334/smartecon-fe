@@ -130,5 +130,6 @@ export function getPlatformRevenueDashboard(query: PlatformRevenueDashboardQuery
   })
   return http.get<PlatformRevenueDashboard>(
     `${apiPaths.manager.platformRevenueDashboard}?${qs}`,
+    { timeoutMs: 20_000 },
   )
 }

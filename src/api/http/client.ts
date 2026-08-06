@@ -28,8 +28,8 @@ function authHeaders(withJsonContentType = false): HeadersInit {
   return headers
 }
 
-/** Default ≤2s — long AI / payment / upload pass a higher timeoutMs. */
-const DEFAULT_TIMEOUT_MS = 2_000
+/** Default for normal API calls. Heavy dashboards / payments override timeoutMs. */
+const DEFAULT_TIMEOUT_MS = 8_000
 
 const CONNECTIVITY_ERROR =
   'Không kết nối được backend. Kiểm tra VITE_API_BASE_URL / VITE_BACKEND_ORIGIN.'
@@ -124,7 +124,7 @@ export async function apiRequest<T>(
     const aborted = e instanceof DOMException && e.name === 'AbortError'
     throw new ApiError(
       aborted
-        ? 'Backend không phản hồi (timeout). Kiểm tra API đang chạy và CORS.'
+        ? 'Backend phản hồi chậm (timeout). Thử lại — nếu kéo dài, kiểm tra Railway API.'
         : CONNECTIVITY_ERROR,
       0,
     )
