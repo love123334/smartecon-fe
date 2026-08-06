@@ -2,18 +2,37 @@
 import { computed } from 'vue'
 import type { OrderStatus } from '@/types'
 
-const props = defineProps<{
-  status: OrderStatus
-  compact?: boolean
-  /** Hiện ghi chú theo dõi ngắn */
-  showHint?: boolean
-}>()
+const props = withDefaults(
+  defineProps<{
+    status: OrderStatus
+    compact?: boolean
+    /** Hiện ghi chú theo dõi ngắn */
+    showHint?: boolean
+    /** Gợi ý theo góc nhìn khách / seller */
+    perspective?: 'customer' | 'seller'
+  }>(),
+  { perspective: 'customer' },
+)
 
-const steps: { key: OrderStatus; label: string; hint: string }[] = [
-  { key: 'pending', label: 'Chờ xác nhận', hint: 'Shop đang xem đơn của bạn' },
-  { key: 'confirmed', label: 'Đã xác nhận', hint: 'Shop đã nhận đơn, chuẩn bị hàng' },
-  { key: 'shipping', label: 'Đang giao', hint: 'Đơn đang trên đường giao' },
-  { key: 'delivered', label: 'Đã giao', hint: 'Giao thành công — có thể đánh giá trong 30 ngày' },
+const customerHints: Record<Exclude<OrderStatus, 'cancelled'>, string> = {
+  pending: 'Shop đang xem đơn của bạn',
+  confirmed: 'Shop đã nhận đơn, chuẩn bị hàng',
+  shipping: 'Đơn đang trên đường giao',
+  delivered: 'Giao thành công — có thể đánh giá trong 30 ngày',
+}
+
+const sellerHints: Record<Exclude<OrderStatus, 'cancelled'>, string> = {
+  pending: 'Khách đang chờ bạn xác nhận đơn',
+  confirmed: 'Chuẩn bị hàng rồi chuyển sang đang giao',
+  shipping: 'Đơn đang giao — cập nhật khi khách nhận',
+  delivered: 'Đã hoàn tất — không còn bước cập nhật',
+}
+
+const steps: { key: Exclude<OrderStatus, 'cancelled'>; label: string }[] = [
+  { key: 'pending', label: 'Chờ xác nhận' },
+  { key: 'confirmed', label: 'Đã xác nhận' },
+  { key: 'shipping', label: 'Đang giao' },
+  { key: 'delivered', label: 'Đã giao' },
 ]
 
 const index = computed(() => {
@@ -22,10 +41,14 @@ const index = computed(() => {
 })
 
 const activeHint = computed(() => {
-  if (props.status === 'cancelled') return 'Đơn đã bị hủy'
+  if (props.status === 'cancelled') {
+    return props.perspective === 'seller' ? 'Đơn đã hủy' : 'Đơn đã bị hủy'
+  }
   const i = index.value
   if (i < 0) return ''
-  return steps[i]?.hint ?? ''
+  const key = steps[i]?.key
+  if (!key) return ''
+  return (props.perspective === 'seller' ? sellerHints : customerHints)[key]
 })
 
 function stepClass(i: number) {
@@ -38,7 +61,9 @@ function stepClass(i: number) {
 
 <template>
   <div class="order-track" :class="{ 'order-track--compact': compact }">
-    <p v-if="status === 'cancelled'" class="order-track__cancelled">Đơn đã hủy — không còn theo dõi giao hàng.</p>
+    <p v-if="status === 'cancelled'" class="order-track__cancelled">
+      {{ perspective === 'seller' ? 'Đơn đã hủy — không cập nhật thêm.' : 'Đơn đã hủy — không còn theo dõi giao hàng.' }}
+    </p>
     <ol v-else class="order-track__list" aria-label="Tiến trình đơn hàng">
       <li
         v-for="(step, i) in steps"
@@ -56,7 +81,7 @@ function stepClass(i: number) {
 
 <style scoped>
 .order-track {
-  margin: 1rem 0 1.25rem;
+  margin: 0;
 }
 
 .order-track__list {
@@ -89,31 +114,31 @@ function stepClass(i: number) {
 }
 
 .order-track__step--done {
-  color: var(--primary-600, #0d9488);
+  color: var(--primary-600);
 }
 
 .order-track__step--done .order-track__dot {
-  background: var(--primary-600, #0d9488);
+  background: var(--primary-600);
   color: #fff;
   border-color: transparent;
 }
 
 .order-track__step--active {
-  color: var(--slate-900, #0f172a);
+  color: var(--slate-900);
   font-weight: 600;
 }
 
 .order-track__step--active .order-track__dot {
-  border-color: var(--slate-900, #0f172a);
-  background: var(--slate-900, #0f172a);
+  border-color: var(--primary-700);
+  background: var(--primary-600);
   color: #fff;
 }
 
 .order-track__hint,
 .order-track__cancelled {
-  margin: 0.65rem 0 0;
+  margin: 0.55rem 0 0;
   font-size: 0.8125rem;
-  color: var(--slate-500, #64748b);
+  color: var(--slate-500);
 }
 
 .order-track--compact .order-track__label {
