@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { formatVnd, orderApi, productApi, reviewApi } from '@/api/services'
 import type { Order, OrderStatus, Product, ProductReview } from '@/types'
@@ -78,26 +78,28 @@ const canCancel = computed(() => order.value?.status === 'pending')
 
 const forceDetailView = ref(false)
 
-/** Chỉ hiện màn “Đặt hàng thành công” ngay sau checkout (?placed=1), không áp cho đơn từ lịch sử / đã giao. */
+/**
+ * Chỉ hiện “Đặt hàng thành công” khi vừa checkout xong (?placed=1) và đơn còn pending.
+ * Mọi lối vào từ lịch sử / đánh giá / đơn đã tiến triển → luôn trang chi tiết.
+ */
 const showCheckoutSuccess = computed(() => {
   if (!order.value) return false
   if (forceDetailView.value) return false
-  if (route.query.view === 'detail' || route.query.review != null) return false
-  if (route.hash === '#reviews' || route.hash === '#track') return false
-  if (route.query.placed !== '1') return false
-  // Không bao giờ hiện success cho đơn đã giao / đang giao / hủy
-  if (
-    order.value.status === 'delivered' ||
-    order.value.status === 'shipping' ||
-    order.value.status === 'cancelled'
-  ) {
-    return false
-  }
-  return true
+  if (String(route.query.placed ?? '') !== '1') return false
+  // Chỉ pending mới được màn chúc mừng — confirmed/shipping/delivered luôn là chi tiết
+  return order.value.status === 'pending'
 })
 
 function openOrderTracking() {
   forceDetailView.value = true
+  if (route.query.placed === '1') {
+    void router.replace({
+      name: 'order-detail',
+      params: { id: route.params.id },
+      query: { view: 'detail' },
+      hash: '#track',
+    })
+  }
   void nextTick(() => {
     document.getElementById('track-heading')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   })
@@ -108,6 +110,10 @@ function scrollToReviews() {
   void nextTick(() => {
     document.getElementById('items-heading')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   })
+}
+
+function preferDetailView() {
+  forceDetailView.value = true
 }
 
 const reviewWindowNote = computed(() => {
@@ -149,20 +155,33 @@ function itemReviewState(productId: string) {
   return { canReview: false, label: 'Không đánh giá được', message: result.message }
 }
 
-onMounted(async () => {
+async function loadOrderPage() {
+  // Lối vào từ lịch sử / đánh giá → luôn chi tiết
   if (
     route.query.view === 'detail' ||
     route.query.review != null ||
     route.hash === '#reviews' ||
-    route.hash === '#track'
+    route.hash === '#track' ||
+    String(route.query.placed ?? '') !== '1'
   ) {
-    forceDetailView.value = true
+    preferDetailView()
   }
 
   order.value = await orderApi.getById(route.params.id as string)
   if (!order.value) return
 
-  // Chỉ tải ảnh từng SP trong đơn — tránh list cả catalog (chậm)
+  // Đơn đã tiến triển không bao giờ hiện màn “đặt thành công”
+  if (order.value.status !== 'pending') {
+    preferDetailView()
+    if (route.query.placed === '1') {
+      void router.replace({
+        name: 'order-detail',
+        params: { id: String(order.value.id) },
+        query: { view: 'detail' },
+      })
+    }
+  }
+
   const map: Record<string, Product> = {}
   await Promise.all(
     order.value.items.map(async (item) => {
@@ -187,7 +206,19 @@ onMounted(async () => {
   } else if (route.hash === '#track') {
     openOrderTracking()
   }
+}
+
+onMounted(() => {
+  void loadOrderPage()
 })
+
+// Cùng component /orders/:id khi đổi mã đơn hoặc query — phải reload
+watch(
+  () => [route.params.id, route.query.placed, route.query.view, route.query.review, route.hash] as const,
+  () => {
+    void loadOrderPage()
+  },
+)
 
 async function cancelOrder() {
   if (!order.value || !canCancel.value) return
