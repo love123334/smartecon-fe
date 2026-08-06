@@ -110,7 +110,7 @@ export async function callChatLlm(
     body: JSON.stringify({
       model: apiConfig.aiModel,
       messages,
-      temperature: 0.6,
+      temperature: 0.75,
       max_tokens: 900,
       top_p: 0.9,
     }),

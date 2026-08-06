@@ -115,8 +115,8 @@ function wrapReply(payload: AssistantReplyPayload): AssistantReplyPayload {
 
 function followUps(intent: ChatIntent | null, role: ChatContext['role']): string {
   const tips: Partial<Record<ChatIntent, string>> = {
-    shop_overview: '\n\nBạn có thể hỏi tiếp: điện thoại, laptop, hoặc sp rẻ nhất.',
-    product_price: '\n\nMuốn biết thêm: còn hàng không, review, hoặc liên hệ người bán.',
+    shop_overview: '\n\nMuốn mình gợi ý điện thoại, laptop, hay sp rẻ nhất không?',
+    product_price: '\n\nCần mình check còn hàng, review, hoặc liên hệ shop giúp không?',
     product_stock: '\n\nThêm vào giỏ trên trang sản phẩm, hoặc hỏi mình cách đặt hàng.',
     cart_summary: '\n\nSẵn sàng thì thanh toán, hoặc hỏi chính sách giao hàng.',
     orders: '\n\nHỏi chi tiết đơn #… hoặc hủy đơn nếu cần.',

@@ -496,6 +496,11 @@ const catalogListCache = new Map<string, { at: number; products: Product[] }>()
 const categoryNamesCache = { at: 0, names: [] as string[] }
 const CATEGORY_CACHE_MS = 120_000
 
+/** Clear product list cache after create/update/delete so seller UI refreshes immediately. */
+export function invalidateProductCatalogCache() {
+  catalogListCache.clear()
+}
+
 export interface ProductListResult {
   products: Product[]
   catalogSource: CatalogSource
@@ -631,6 +636,7 @@ export const productApi = {
         imagePublicId: data.imagePublicId,
         images: data.images,
       })
+      invalidateProductCatalogCache()
       if (data.stock > 0 && apiConfig.useRealInventory) {
         await realInventory.adjustInventory(created.id, data.stock, 'MANUAL_ADJUST')
       }
@@ -669,6 +675,7 @@ export const productApi = {
         imagePublicId: patch.imagePublicId,
         images: patch.images,
       })
+      invalidateProductCatalogCache()
       if (patch.stock != null && apiConfig.useRealInventory) {
         const inv = await realInventory.getInventory(id)
         const delta = patch.stock - inv.availableQuantity
@@ -687,9 +694,11 @@ export const productApi = {
   async remove(id: string): Promise<void> {
     if (apiConfig.useRealProducts && hasBackendToken()) {
       await realProducts.deleteProduct(id)
+      invalidateProductCatalogCache()
       return
     }
-    return mockProductApi.remove(id)
+    await mockProductApi.remove(id)
+    invalidateProductCatalogCache()
   },
 
   async categories(): Promise<string[]> {

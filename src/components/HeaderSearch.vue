@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { productApi } from '@/api/services'
+import { formatVnd, productApi } from '@/api/services'
+import type { Product } from '@/types'
 import {
   addSearchHistory,
   buildSearchTrends,
@@ -17,10 +18,14 @@ const open = ref(false)
 const query = ref('')
 const history = ref<string[]>([])
 const categories = ref<string[]>([])
+const suggestions = ref<Product[]>([])
+const searching = ref(false)
 const inputEl = ref<HTMLInputElement | null>(null)
 const rootEl = ref<HTMLElement | null>(null)
+let searchTimer: ReturnType<typeof setTimeout> | null = null
 
 const trends = computed(() => buildSearchTrends(categories.value))
+const showProductCards = computed(() => query.value.trim().length >= 1)
 
 onMounted(async () => {
   history.value = getSearchHistory()
@@ -46,6 +51,27 @@ watch(open, async (v) => {
   inputEl.value?.select()
 })
 
+watch(query, (q) => {
+  if (searchTimer) clearTimeout(searchTimer)
+  const term = q.trim()
+  if (!term) {
+    suggestions.value = []
+    searching.value = false
+    return
+  }
+  searching.value = true
+  searchTimer = setTimeout(async () => {
+    try {
+      const list = await productApi.list({ q: term, size: 8 })
+      suggestions.value = list.slice(0, 6)
+    } catch {
+      suggestions.value = []
+    } finally {
+      searching.value = false
+    }
+  }, 220)
+})
+
 function toggle() {
   open.value = !open.value
 }
@@ -64,6 +90,12 @@ function goSearch(raw: string) {
   history.value = addSearchHistory(q)
   query.value = q
   router.push({ name: 'search', query: { q } })
+  close()
+}
+
+function goProduct(p: Product) {
+  history.value = addSearchHistory(p.name)
+  router.push({ name: 'product-detail', params: { id: p.id } })
   close()
 }
 
@@ -109,6 +141,7 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('pointerdown', onDocPointerDown)
   document.removeEventListener('keydown', onKeydown)
+  if (searchTimer) clearTimeout(searchTimer)
 })
 </script>
 
@@ -153,42 +186,74 @@ onUnmounted(() => {
         </button>
       </form>
 
-      <div v-if="history.length" class="header-search__block">
+      <div v-if="showProductCards" class="header-search__block">
         <div class="header-search__block-head">
-          <span>Đã tìm gần đây</span>
-          <button type="button" class="header-search__clear" @click="onClearHistory">Xóa</button>
+          <span>Sản phẩm</span>
+          <span v-if="searching" class="header-search__hint">Đang tìm…</span>
         </div>
-        <ul class="header-search__list">
-          <li v-for="term in history" :key="`h-${term}`">
-            <button type="button" class="header-search__chip" @click="pickHistory(term)">
-              <span class="header-search__chip-ico" aria-hidden="true">🕐</span>
-              <span class="header-search__chip-text">{{ term }}</span>
-            </button>
-            <button
-              type="button"
-              class="header-search__remove"
-              :aria-label="`Xóa «${term}»`"
-              @click="onRemoveHistory(term, $event)"
-            >
-              ×
+        <ul v-if="suggestions.length" class="header-search__products">
+          <li v-for="p in suggestions" :key="p.id">
+            <button type="button" class="header-search__product" @click="goProduct(p)">
+              <img :src="p.imageUrl" :alt="p.name" width="48" height="48" loading="lazy" />
+              <span class="header-search__product-meta">
+                <span class="header-search__product-name">{{ p.name }}</span>
+                <span class="header-search__product-sub">
+                  {{ formatVnd(p.price) }}
+                  <template v-if="p.shopName"> · {{ p.shopName }}</template>
+                </span>
+              </span>
             </button>
           </li>
         </ul>
+        <p v-else-if="!searching" class="header-search__empty">Không thấy sản phẩm khớp «{{ query.trim() }}»</p>
+        <button
+          v-if="query.trim()"
+          type="button"
+          class="header-search__see-all"
+          @click="submit"
+        >
+          Xem tất cả kết quả →
+        </button>
       </div>
 
-      <div class="header-search__block">
-        <div class="header-search__block-head">
-          <span>Xu hướng tìm kiếm</span>
+      <template v-else>
+        <div v-if="history.length" class="header-search__block">
+          <div class="header-search__block-head">
+            <span>Đã tìm gần đây</span>
+            <button type="button" class="header-search__clear" @click="onClearHistory">Xóa</button>
+          </div>
+          <ul class="header-search__list">
+            <li v-for="term in history" :key="`h-${term}`">
+              <button type="button" class="header-search__chip" @click="pickHistory(term)">
+                <span class="header-search__chip-ico" aria-hidden="true">🕐</span>
+                <span class="header-search__chip-text">{{ term }}</span>
+              </button>
+              <button
+                type="button"
+                class="header-search__remove"
+                :aria-label="`Xóa «${term}»`"
+                @click="onRemoveHistory(term, $event)"
+              >
+                ×
+              </button>
+            </li>
+          </ul>
         </div>
-        <ul class="header-search__trends">
-          <li v-for="(term, i) in trends" :key="`t-${term}`">
-            <button type="button" class="header-search__trend" @click="pickTrend(term)">
-              <span class="header-search__rank" :class="{ 'header-search__rank--hot': i < 3 }">{{ i + 1 }}</span>
-              <span>{{ term }}</span>
-            </button>
-          </li>
-        </ul>
-      </div>
+
+        <div class="header-search__block">
+          <div class="header-search__block-head">
+            <span>Xu hướng tìm kiếm</span>
+          </div>
+          <ul class="header-search__trends">
+            <li v-for="(term, i) in trends" :key="`t-${term}`">
+              <button type="button" class="header-search__trend" @click="pickTrend(term)">
+                <span class="header-search__rank" :class="{ 'header-search__rank--hot': i < 3 }">{{ i + 1 }}</span>
+                <span>{{ term }}</span>
+              </button>
+            </li>
+          </ul>
+        </div>
+      </template>
     </div>
   </div>
 </template>
@@ -203,7 +268,9 @@ onUnmounted(() => {
   top: calc(100% + 8px);
   right: 0;
   z-index: 220;
-  width: min(360px, calc(100vw - 1.5rem));
+  width: min(400px, calc(100vw - 1.5rem));
+  max-height: min(70vh, 520px);
+  overflow: auto;
   padding: 0.85rem;
   background: #fff;
   border: 1px solid var(--line, #e4e9f2);
@@ -270,6 +337,13 @@ onUnmounted(() => {
   color: var(--navy-soft, #5b6c93);
   text-transform: uppercase;
   letter-spacing: 0.02em;
+}
+
+.header-search__hint {
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--slate-400, #94a3b8);
 }
 
 .header-search__clear {
@@ -391,5 +465,90 @@ onUnmounted(() => {
 
 .header-search__rank--hot {
   color: #e11d48;
+}
+
+.header-search__products {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.header-search__product {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.45rem;
+  border: 1px solid var(--line, #eef2f7);
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+
+.header-search__product:hover {
+  border-color: #bfdbfe;
+  background: #f8fbff;
+}
+
+.header-search__product img {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 8px;
+  background: #f1f5f9;
+  flex-shrink: 0;
+}
+
+.header-search__product-meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.header-search__product-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--navy, #14275c);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.header-search__product-sub {
+  font-size: 0.78rem;
+  color: var(--slate-500, #64748b);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.header-search__empty {
+  margin: 0.35rem 0;
+  font-size: 0.85rem;
+  color: var(--slate-500, #64748b);
+}
+
+.header-search__see-all {
+  margin-top: 0.55rem;
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 0.45rem;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--blue, #2e7df6);
+  cursor: pointer;
+  text-align: center;
+}
+
+.header-search__see-all:hover {
+  text-decoration: underline;
 }
 </style>

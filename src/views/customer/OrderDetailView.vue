@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { formatVnd, orderApi, productApi, reviewApi } from '@/api/services'
 import type { Order, OrderStatus, Product, ProductReview } from '@/types'
@@ -76,11 +76,21 @@ const statusLabel: Record<OrderStatus, string> = {
 
 const canCancel = computed(() => order.value?.status === 'pending')
 
+const forceDetailView = ref(false)
+
 const isFreshOrder = computed(() => {
   if (!order.value) return false
+  if (forceDetailView.value) return false
   const age = Date.now() - new Date(order.value.createdAt).getTime()
   return age < 1000 * 60 * 30
 })
+
+function openOrderTracking() {
+  forceDetailView.value = true
+  void nextTick(() => {
+    document.getElementById('track-heading')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  })
+}
 
 const reviewWindowNote = computed(() => {
   if (!order.value || order.value.status !== 'delivered') return ''
@@ -214,9 +224,13 @@ async function onReviewSubmitted(productId: string) {
               </div>
             </dl>
 
-            <RouterLink :to="`/orders/${order.id}`" class="btn-elegant-primary btn-block btn-interactive">
+            <button
+              type="button"
+              class="btn-elegant-primary btn-block btn-interactive"
+              @click="openOrderTracking"
+            >
               Theo dõi đơn hàng
-            </RouterLink>
+            </button>
             <RouterLink to="/orders" class="btn-elegant-outline btn-block btn-interactive" style="margin-top: 0.75rem">
               Lịch sử mua hàng
             </RouterLink>

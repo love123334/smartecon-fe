@@ -712,7 +712,7 @@ export function buildIntentReply(ctx: ChatContext, intent: ChatIntent, raw: stri
 
   switch (intent) {
     case 'greeting':
-      return `${name}Chào bạn! Tôi trợ lý **SEDSP** (role **${ctx.role}**). ${roleHelpHints(ctx.role)}`
+      return `${name}Chào bạn! Mình hỗ trợ mua sắm SEDSP đây. ${roleHelpHints(ctx.role)}`
     case 'thanks':
       return `${name}Không có gì! Cần thêm cứ hỏi nhé.`
     case 'help':

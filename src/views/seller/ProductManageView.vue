@@ -118,19 +118,28 @@ function startEdit(p: Product) {
   editing.value = p
   showForm.value = true
   error.value = ''
+  void hydrateEditForm(p)
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+async function hydrateEditForm(p: Product) {
   const cat = categories.value.find(
     (c) => c.name.toLowerCase() === p.category.toLowerCase(),
   )
-  const urls = (p.imageUrls?.length ? p.imageUrls : [p.imageUrl]).filter(Boolean).slice(0, MAX_IMAGES)
+  // List API omits description — fetch detail so edit form shows/saves mô tả correctly
+  const detail = await productApi.getById(p.id).catch(() => null)
+  const src = detail ?? p
+  const urls = (src.imageUrls?.length ? src.imageUrls : [src.imageUrl])
+    .filter(Boolean)
+    .slice(0, MAX_IMAGES)
   form.value = {
-    name: p.name,
-    description: p.description,
-    price: p.price,
-    stock: p.stock,
+    name: src.name,
+    description: src.description ?? '',
+    price: src.price,
+    stock: src.stock,
     categoryId: cat?.id ?? categories.value[0]?.id ?? '',
     images: urls.map((url, i) => ({ url, publicId: `existing-${p.id}-${i}` })),
   }
-  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 async function onImagesPick(e: Event) {
@@ -245,10 +254,13 @@ async function save() {
 async function remove(id: string) {
   if (!confirm('Xóa sản phẩm?')) return
   error.value = ''
+  const prev = products.value
+  products.value = products.value.filter((p) => p.id !== id)
   try {
     await productApi.remove(id)
     await load()
   } catch (e) {
+    products.value = prev
     error.value = e instanceof Error ? e.message : 'Không xóa được sản phẩm'
   }
 }
