@@ -78,17 +78,35 @@ const canCancel = computed(() => order.value?.status === 'pending')
 
 const forceDetailView = ref(false)
 
-const isFreshOrder = computed(() => {
+/** Chỉ hiện màn “Đặt hàng thành công” ngay sau checkout (?placed=1), không áp cho đơn từ lịch sử / đã giao. */
+const showCheckoutSuccess = computed(() => {
   if (!order.value) return false
   if (forceDetailView.value) return false
-  const age = Date.now() - new Date(order.value.createdAt).getTime()
-  return age < 1000 * 60 * 30
+  if (route.query.view === 'detail' || route.query.review != null) return false
+  if (route.hash === '#reviews' || route.hash === '#track') return false
+  if (route.query.placed !== '1') return false
+  // Không bao giờ hiện success cho đơn đã giao / đang giao / hủy
+  if (
+    order.value.status === 'delivered' ||
+    order.value.status === 'shipping' ||
+    order.value.status === 'cancelled'
+  ) {
+    return false
+  }
+  return true
 })
 
 function openOrderTracking() {
   forceDetailView.value = true
   void nextTick(() => {
     document.getElementById('track-heading')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  })
+}
+
+function scrollToReviews() {
+  forceDetailView.value = true
+  void nextTick(() => {
+    document.getElementById('items-heading')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   })
 }
 
@@ -132,12 +150,26 @@ function itemReviewState(productId: string) {
 }
 
 onMounted(async () => {
+  if (
+    route.query.view === 'detail' ||
+    route.query.review != null ||
+    route.hash === '#reviews' ||
+    route.hash === '#track'
+  ) {
+    forceDetailView.value = true
+  }
+
   order.value = await orderApi.getById(route.params.id as string)
   if (!order.value) return
 
-  const products = await productApi.list()
+  // Chỉ tải ảnh từng SP trong đơn — tránh list cả catalog (chậm)
   const map: Record<string, Product> = {}
-  for (const p of products) map[p.id] = p
+  await Promise.all(
+    order.value.items.map(async (item) => {
+      const p = await productApi.getById(item.productId, { withStock: false }).catch(() => null)
+      if (p) map[item.productId] = p
+    }),
+  )
   productsById.value = map
 
   if (canShopAsBuyer(auth.role) && order.value.status === 'delivered') {
@@ -148,6 +180,12 @@ onMounted(async () => {
       }),
     )
     reviewsByProductId.value = Object.fromEntries(entries)
+  }
+
+  if (route.query.review != null || route.hash === '#reviews') {
+    scrollToReviews()
+  } else if (route.hash === '#track') {
+    openOrderTracking()
   }
 })
 
@@ -174,7 +212,7 @@ async function onReviewSubmitted(productId: string) {
 <template>
   <div v-if="order" class="elegant-page">
     <div class="elegant-page__inner">
-      <template v-if="isFreshOrder && order.status !== 'cancelled'">
+      <template v-if="showCheckoutSuccess">
         <h1 class="elegant-page-title elegant-page-title--center">Đặt hàng thành công</h1>
         <CheckoutStepper :step="3" />
 

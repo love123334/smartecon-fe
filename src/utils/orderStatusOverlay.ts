@@ -71,15 +71,35 @@ export function frontendStatusFromRaw(raw: BackendOrderStatus): OrderStatus {
   return RAW_TO_FE[raw] ?? 'pending'
 }
 
-/** Áp overlay lên 1 đơn — buyer/seller/manager cùng thấy trạng thái đã cập nhật */
+/** Áp overlay lên 1 đơn — không để overlay cũ kéo lùi trạng thái đã có trên API. */
 export function applyOrderOverlay(order: Order): Order {
   const o = getOrderOverlay(order.id)
   if (!o) return order
+
+  const rank: Record<OrderStatus, number> = {
+    pending: 1,
+    confirmed: 2,
+    shipping: 3,
+    delivered: 4,
+    cancelled: 0,
+  }
+  const apiRank = rank[order.status] ?? 0
+  const overlayRank = rank[o.status] ?? 0
+  // Overlay chỉ thắng khi tiến xa hơn API (vd. seller cập nhật offline), không regress DELIVERED → PENDING
+  const useOverlayStatus =
+    overlayRank > apiRank ||
+    (o.status === 'cancelled' &&
+      order.status !== 'delivered' &&
+      order.status !== 'shipping' &&
+      Date.parse(o.updatedAt) >= Date.parse(order.updatedAt || order.createdAt || 0))
+
   return {
     ...order,
-    status: o.status,
-    rawStatus: o.rawStatus,
-    updatedAt: o.updatedAt,
+    status: useOverlayStatus ? o.status : order.status,
+    rawStatus: useOverlayStatus ? o.rawStatus : (order.rawStatus ?? o.rawStatus),
+    updatedAt: useOverlayStatus
+      ? o.updatedAt
+      : order.updatedAt || o.updatedAt || order.createdAt,
     customerName: order.customerName || o.customerName || '',
     shippingAddress: order.shippingAddress || o.shippingAddress || '',
     items: order.items?.length ? order.items : o.items ?? order.items,

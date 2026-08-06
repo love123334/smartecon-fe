@@ -122,7 +122,7 @@ async function placeOrder() {
 
     if (payment.value === 'cod') {
       clearPendingOrder()
-      await router.push(`/orders/${order.id}`)
+      await router.push({ path: `/orders/${order.id}`, query: { placed: '1' } })
       return
     }
 
@@ -144,7 +144,7 @@ async function placeOrder() {
       return
     }
 
-    await router.push(`/orders/${order.id}`)
+    await router.push({ path: `/orders/${order.id}`, query: { placed: '1' } })
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Đặt hàng / thanh toán thất bại'
     loading.value = false

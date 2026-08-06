@@ -1,121 +1,66 @@
-/** Tóm tắt DSS demo cho chatbot — dùng chung engine với màn DSS seller/manager */
+/** Tóm tắt DSS cho chatbot — ưu tiên API thật, không bịa số mock. */
 import { formatVnd } from '@/api/chat/match'
 import type { Product } from '@/types'
-import { generateDemandForecast } from '@/utils/dssDemandMock'
-import {
-  generateInventoryRecommendation,
-  INVENTORY_ERROR_MESSAGES,
-} from '@/utils/dssInventoryMock'
-import { generatePriceRecommendation, type PriceProductOption } from '@/utils/dssPriceMock'
-import { generateSellerWhatIf, formatUsd as formatWhatIfUsd } from '@/utils/dssSellerWhatIfMock'
 
 function pickFocusProduct(catalog: Product[]): Product | null {
   if (!catalog.length) return null
   return [...catalog].sort((a, b) => b.soldCount - a.soldCount)[0]
 }
 
-function toPriceOption(p: Product): PriceProductOption {
-  return { id: p.id, name: p.name, currentPrice: p.price }
-}
-
 export function demandBrief(catalog: Product[]): string {
   const focus = pickFocusProduct(catalog)
-  const name = focus?.name ?? 'Tai nghe Bluetooth Pro ANC'
-  const id = focus?.id ?? '1'
-  const result = generateDemandForecast({
-    productId: id,
-    productName: name,
-    forecastKey: '30',
-    historicalKey: '90',
-  })
-  if (!result) {
-    return `• SP **${name}**: chưa đủ dữ liệu lịch sử để dự báo.`
+  if (!focus) {
+    return '• Chưa có sản phẩm trong catalog để dự báo. Mở **DSS → Dự báo nhu cầu** sau khi có đơn DELIVERED.'
   }
   return [
-    `• SP trọng tâm: **${result.productName}**`,
-    `• Cửa sổ lịch sử: ${result.historicalWindowLabel} · Kỳ dự báo: ${result.forecastPeriodLabel}`,
-    `• Nhu cầu TB/ngày: **${result.averageDailyDemand}**`,
-    `• Dự báo kỳ tới: **${result.predictedDemand}** đơn vị`,
-    `→ Mở **DSS → Dự báo nhu cầu** để chỉnh kỳ / SP.`,
+    `• SP trọng tâm (catalog): **${focus.name}**`,
+    `• Chatbot không tự bịa số dự báo — cần chạy **API DSS** trên đơn đã giao.`,
+    `→ Mở **DSS → Dự báo nhu cầu** và chọn SP này.`,
   ].join('\n')
 }
 
 export function priceBrief(catalog: Product[]): string {
   const focus = pickFocusProduct(catalog)
-  const product = focus
-    ? toPriceOption(focus)
-    : { id: '1', name: 'Tai nghe Bluetooth Pro ANC', currentPrice: 1_890_000 }
-  const to = new Date()
-  const from = new Date()
-  from.setDate(from.getDate() - 30)
-  const r = generatePriceRecommendation({
-    product,
-    fromDate: from.toISOString().slice(0, 10),
-    toDate: to.toISOString().slice(0, 10),
-  })
-  const action =
-    r.recommendationAction === 'increase'
-      ? 'tăng giá'
-      : r.recommendationAction === 'decrease'
-        ? 'giảm giá'
-        : 'giữ giá'
+  if (!focus) {
+    return '• Chưa có sản phẩm để gợi ý giá. Chạy **DSS → Khuyến nghị giá** trên SP thật.'
+  }
   return [
-    `• SP: **${r.productName}**`,
-    `• Giá hiện tại: **${formatVnd(r.currentPrice)}** → đề xuất **${formatVnd(r.recommendedPrice)}** (${r.priceChangePct > 0 ? '+' : ''}${r.priceChangePct}%)`,
-    `• Elasticity: **${r.priceElasticity}** · Nhu cầu kỳ vọng: **${r.predictedDemand}**`,
-    `• Doanh thu kỳ vọng: **${formatVnd(r.expectedRevenue)}**`,
-    `• Hành động: **${action}** — ${r.insightBody}`,
-    `→ **DSS → Khuyến nghị giá** để xem biểu đồ.`,
+    `• SP: **${focus.name}** · giá hiện tại **${formatVnd(focus.price)}**`,
+    `• Chưa có số liệu elasticity từ API — không dùng mock.`,
+    `→ **DSS → Khuyến nghị giá** để tính trên lịch sử giá / bán thật.`,
   ].join('\n')
 }
 
 export function inventoryDssBrief(catalog: Product[]): string {
-  const result = generateInventoryRecommendation({ productId: 'all', planningKey: '14' })
-  if (!result.ok) {
-    return `• ${INVENTORY_ERROR_MESSAGES[result.error]}`
+  const lowLive = catalog.filter((p) => p.stock > 0 && p.stock < 20).slice(0, 5)
+  const out = catalog.filter((p) => p.stock <= 0).slice(0, 5)
+  const lines = ['• Tồn kho theo catalog hiện tại (không dùng mock DSS):']
+  if (!catalog.length) {
+    return '• Chưa tải được catalog seller. Đăng nhập lại rồi mở **DSS → Khuyến nghị tồn kho**.'
   }
-  const d = result.data
-  const need = d.rows.filter((r) => r.status === 'need')
-  const lowLive = catalog.filter((p) => p.stock > 0 && p.stock < 20).slice(0, 3)
-  const lines = [
-    `• Kỳ hoạch định: **${d.planningLabel}** · Trạng thái: **${d.overallStatusLabel}**`,
-    `• ${d.recommendationMessage}`,
-  ]
-  if (need.length) {
-    lines.push('**Cần bổ sung (DSS):**')
-    for (const r of need.slice(0, 4)) {
-      lines.push(
-        `• ${r.productName}: tồn ${r.currentStock} · ROP ${r.reorderPoint} · đề xuất nhập **${r.recommendedOrder}**`,
-      )
-    }
+  if (out.length) {
+    lines.push('**Hết hàng:**')
+    for (const p of out) lines.push(`• ${p.name}: **0**`)
   }
   if (lowLive.length) {
-    lines.push('**Tồn thấp trên catalog shop:**')
-    for (const p of lowLive) {
-      lines.push(`• ${p.name}: còn **${p.stock}**`)
-    }
+    lines.push('**Tồn thấp:**')
+    for (const p of lowLive) lines.push(`• ${p.name}: còn **${p.stock}**`)
+  }
+  if (!out.length && !lowLive.length) {
+    lines.push('• Các SP đang xem có tồn ổn định — chạy API DSS để có ROP chính xác.')
   }
   lines.push('→ **DSS → Khuyến nghị tồn kho**.')
   return lines.join('\n')
 }
 
 export function sellerWhatIfBrief(discountPct = 10): string {
-  const r = generateSellerWhatIf({
-    productId: 'headphones',
-    discountPct,
-    periodKey: '30',
-  })
   return [
-    `• SP demo: **${r.productName}** · Giảm **${r.discountPct}%** · Kỳ **${r.periodLabel}**`,
-    `• Giá mới: **${formatWhatIfUsd(r.predictedNewPrice)}** (gốc ${formatWhatIfUsd(r.currentPrice)})`,
-    `• Nhu cầu: ${r.currentDemand} → **${r.predictedDemand}** (+${r.demandLiftPct}%)`,
-    `• LN kỳ vọng: **${formatWhatIfUsd(r.expectedProfit)}** · Break-even qty: **${r.breakEvenQuantity}**`,
-    `• Insight: ${r.insight}`,
-    `→ **DSS → What-if giảm giá** (/seller/dss/what-if).`,
+    `• What-if giảm **${discountPct}%** cần API trên SP có dự báo nhu cầu + giá.`,
+    `• Không dùng số demo giả — mở **/seller/dss/what-if** và chọn SP thật.`,
   ].join('\n')
 }
 
-/** Live DSS via backend — falls back to mock briefs if API unavailable. */
+/** Live DSS via backend — báo lỗi thật, không fallback số liệu bịa. */
 export async function demandBriefLive(catalog: Product[]): Promise<string> {
   const focus = pickFocusProduct(catalog)
   if (!focus?.id || !/^\d+$/.test(focus.id)) return demandBrief(catalog)
@@ -136,8 +81,12 @@ export async function demandBriefLive(catalog: Product[]): Promise<string> {
     ]
       .filter(Boolean)
       .join('\n')
-  } catch {
-    return demandBrief(catalog)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'API không phản hồi'
+    return [
+      `• Chưa lấy được dự báo từ dữ liệu thật cho **${focus.name}**: ${msg}`,
+      `• Cần đơn **DELIVERED** đủ cửa sổ lịch sử — mở **DSS → Dự báo nhu cầu**.`,
+    ].join('\n')
   }
 }
 
@@ -158,8 +107,12 @@ export async function priceBriefLive(catalog: Product[]): Promise<string> {
     ]
       .filter(Boolean)
       .join('\n')
-  } catch {
-    return priceBrief(catalog)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'API không phản hồi'
+    return [
+      `• Chưa lấy được gợi ý giá từ API cho **${focus.name}**: ${msg}`,
+      `• Cần lịch sử giá / bán thật — mở **DSS → Khuyến nghị giá**.`,
+    ].join('\n')
   }
 }
 
@@ -183,8 +136,11 @@ export async function inventoryDssBriefLive(catalog: Product[]): Promise<string>
     }
     lines.push('→ **DSS → Khuyến nghị tồn kho**.')
     return lines.join('\n')
-  } catch {
-    return inventoryDssBrief(catalog)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'API không phản hồi'
+    return [`• API tồn kho chưa trả được khuyến nghị: ${msg}`, inventoryDssBrief(catalog)].join(
+      '\n',
+    )
   }
 }
 
@@ -213,15 +169,12 @@ export async function sellerWhatIfBriefLive(
       .filter(Boolean)
       .join('\n')
   } catch (e) {
-    const msg = e instanceof Error ? e.message : ''
-    if (/demand|price|elastic|du lieu|dữ liệu|prediction/i.test(msg)) {
-      return [
-        `• Chưa chạy được what-if cho **${focus.name}**: ${msg}`,
-        `• Hãy mở **Dự báo nhu cầu** rồi **Khuyến nghị giá**, sau đó thử lại what-if.`,
-        `→ **/seller/dss/what-if**`,
-      ].join('\n')
-    }
-    return sellerWhatIfBrief(discountPct)
+    const msg = e instanceof Error ? e.message : 'API không phản hồi'
+    return [
+      `• Chưa chạy được what-if cho **${focus.name}**: ${msg}`,
+      `• Cần chạy **Dự báo nhu cầu** + **Khuyến nghị giá** trước (dữ liệu DELIVERED).`,
+      `→ **/seller/dss/what-if**`,
+    ].join('\n')
   }
 }
 

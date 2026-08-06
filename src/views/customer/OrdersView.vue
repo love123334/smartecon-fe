@@ -154,12 +154,15 @@ function showItems(order: Order): boolean {
           </button>
           <RouterLink
             v-if="o.status === 'delivered'"
-            :to="`/orders/${o.id}`"
+            :to="{ path: `/orders/${o.id}`, query: { view: 'detail', review: '1' }, hash: '#reviews' }"
             class="btn btn-outline btn-sm"
           >
             Đánh giá đơn
           </RouterLink>
-          <RouterLink :to="`/orders/${o.id}`" class="btn btn-primary btn-sm">
+          <RouterLink
+            :to="{ path: `/orders/${o.id}`, query: { view: 'detail' } }"
+            class="btn btn-primary btn-sm"
+          >
             Chi tiết &amp; theo dõi
           </RouterLink>
         </div>

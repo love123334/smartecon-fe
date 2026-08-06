@@ -164,8 +164,10 @@ function applyCoupon() {
       >
         <p style="margin:0">{{ payBanner.text }}</p>
         <div v-if="payBanner.orderId" style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:0.65rem">
-          <RouterLink class="btn-elegant-primary btn-interactive" :to="`/orders/${payBanner.orderId}`">
-            Xem đơn #{{ payBanner.orderId }}
+          <RouterLink
+            class="btn-elegant-primary btn-interactive"
+            :to="{ path: `/orders/${payBanner.orderId}`, query: { view: 'detail' } }"
+          >            Xem đơn #{{ payBanner.orderId }}
           </RouterLink>
           <RouterLink class="btn-interactive" to="/orders">Đơn của tôi</RouterLink>
           <button type="button" class="btn-interactive" @click="payBanner = null">Đóng</button>
