@@ -4,8 +4,10 @@ import {
   extractBudgetVnd,
   extractPriceRange,
   extractProductFocusLabel,
+  extractSellerNameQuery,
   filterProductsForQuery,
   findProductsByQuery,
+  findProductsBySellerName,
   isPriceStatsQuery,
   stripPriceTokens,
 } from '@/api/chat/products'
@@ -145,5 +147,51 @@ describe('tai nghe giá cả trung bình', () => {
     expect(stats?.max).toBe(1_890_000)
     expect(stats?.cheapest.name).toMatch(/tai nghe/i)
     expect(stats?.priciest.name).toMatch(/tai nghe/i)
+  })
+})
+
+describe('seller name product search', () => {
+  const withShops: Product[] = [
+    p({
+      id: 's1',
+      name: 'Serum Vitamin C',
+      price: 299_000,
+      category: 'Chăm sóc da',
+      shopName: 'Trần Thị Bán',
+    }),
+    p({
+      id: 's2',
+      name: 'Áo thun basic',
+      price: 199_000,
+      category: 'Thời trang',
+      shopName: 'Trần Thị Bán',
+    }),
+    p({
+      id: 'o1',
+      name: 'Crop Top Basic',
+      price: 299_000,
+      category: 'Thời trang',
+      shopName: 'SEDSP Fashion',
+    }),
+  ]
+
+  it('extracts seller name from "sản phẩm của …"', () => {
+    expect(extractSellerNameQuery('Cho tôi xem sản phẩm của Trần Thị Bán')).toBe('tran thi ban')
+    expect(extractSellerNameQuery('sản phẩm nào rẻ nhất')).toBeNull()
+  })
+
+  it('filters products by shop / seller full name', () => {
+    const hits = findProductsBySellerName(withShops, 'tran thi ban')
+    expect(hits.map((x) => x.id).sort()).toEqual(['s1', 's2'])
+  })
+
+  it('filterProductsForQuery uses seller path', () => {
+    const { products, queryText } = filterProductsForQuery(
+      withShops,
+      'Cho tôi xem sản phẩm của Trần Thị Bán',
+    )
+    expect(queryText).toBe('tran thi ban')
+    expect(products.every((x) => x.shopName === 'Trần Thị Bán')).toBe(true)
+    expect(products.some((x) => x.id === 'o1')).toBe(false)
   })
 })

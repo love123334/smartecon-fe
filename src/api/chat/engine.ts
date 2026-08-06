@@ -8,8 +8,10 @@ import {
   extractBudgetVnd,
   extractPriceRange,
   extractProductFocusLabel,
+  extractSellerNameQuery,
   filterProductsForQuery,
   findProductsByQuery,
+  findProductsBySellerName,
   formatPriceRangeLabel,
   groupProductsByShop,
   isPriceStatsQuery,
@@ -160,8 +162,10 @@ function shoppingStructuredReply(
 
   const range = extractPriceRange(raw)
   const filter = filterProductsForQuery(catalog, raw, ctx.categories, 8)
+  const sellerQ = extractSellerNameQuery(raw)
   const wantsShop =
     Boolean(range) ||
+    Boolean(sellerQ) ||
     (intent != null && SHOPPING_INTENTS.has(intent)) ||
     // Chỉ search mù khi chưa nhận ra intent và câu có từ khóa sản phẩm rõ
     (intent == null &&
@@ -170,6 +174,24 @@ function shoppingStructuredReply(
       filter.queryText.split(/\s+/).some((w) => w.length >= 3))
 
   if (!wantsShop) return null
+
+  // "sản phẩm của [tên seller/shop]" — ưu tiên trước rẻ nhất / stats
+  if (sellerQ) {
+    const hits = findProductsBySellerName(catalog, sellerQ)
+    const label = sellerQ
+      .split(/\s+/)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ')
+    if (hits.length) {
+      return {
+        content: cardsIntro(ctx, `Sản phẩm của **${label}**:`, hits.length),
+        products: toChatProducts(hits, 6),
+      }
+    }
+    return {
+      content: `${greet(ctx.userName ?? '')}Chưa thấy shop/người bán **${label}** đang bán trên SEDSP. Thử đúng tên shop trên thẻ sản phẩm nhé.`,
+    }
+  }
 
   // "giá macbook/tai nghe trung bình" → tính TB / min / max đúng nhóm SP
   if (isPriceStatsQuery(raw) || /gia.+(macbook|iphone|laptop|tai nghe|airpod)/.test(normalizeText(raw))) {
@@ -201,7 +223,7 @@ function shoppingStructuredReply(
     }
   }
 
-  if (intent === 'product_cheapest' || (/re nhat|cheapest|gia thap nhat/.test(normalizeText(raw)) && !range)) {
+  if (intent === 'product_cheapest' || (/re nhat|cheapest|gia thap nhat/.test(normalizeText(raw)) && !range && !sellerQ)) {
     const cheap = cheapestProducts(catalog, 4)
     if (!cheap.length) return null
     const floor = formatVnd(cheap[0].price)

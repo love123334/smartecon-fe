@@ -110,7 +110,11 @@ export function scoreKeywords(normalizedText: string, keywords: string[]): numbe
       }
       partScore += local
     }
-    if (matched / parts.length >= 0.55) {
+    // Multi-word keywords must match all parts — otherwise "san pham nao re"
+    // falsely scores on any sentence that only contains "san pham".
+    const ratio = matched / parts.length
+    const ok = parts.length >= 2 ? ratio >= 0.999 : ratio >= 0.55
+    if (ok) {
       best = Math.max(best, partScore)
     }
   }

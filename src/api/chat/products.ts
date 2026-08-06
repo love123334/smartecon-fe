@@ -334,6 +334,18 @@ export function filterProductsForQuery(
 
   pool = applyPriceRange(pool, range)
 
+  // Ưu tiên lọc theo tên shop/seller ("sản phẩm của Trần Thị Bán")
+  const sellerQ = extractSellerNameQuery(raw)
+  if (sellerQ) {
+    const bySeller = findProductsBySellerName(pool, sellerQ)
+    return {
+      products: bySeller.slice(0, limit),
+      range,
+      categoryName: null,
+      queryText: sellerQ,
+    }
+  }
+
   let hits: Product[] = []
   if (queryText.length >= 2) {
     hits = findProductsByQuery(pool, queryText)
@@ -360,6 +372,71 @@ export function formatPriceRangeLabel(range: PriceRange): string {
   if (range.max != null) return `≤ ${formatCompactVnd(range.max)}`
   if (range.min != null) return `≥ ${formatCompactVnd(range.min)}`
   return ''
+}
+
+/**
+ * "Cho tôi xem sản phẩm của Trần Thị Bán" → "tran thi ban"
+ * Giữ nguyên "ban" trong tên (không dùng STOP_WORDS).
+ */
+export function extractSellerNameQuery(raw: string): string | null {
+  const n = normalizeText(raw)
+  const patterns = [
+    /(?:cho\s+(?:toi|minh)\s+)?(?:xem|tim|liet ke|show)?\s*(?:san pham|sp|hang)\s+cua\s+(?:shop\s+)?(.+)/,
+    /(?:san pham|sp|hang)\s+(?:tu|o)\s+(?:shop\s+)?(.+)/,
+    /cua\s+shop\s+(.+)/,
+    /shop\s+(.+?)\s+(?:ban gi|co gi|co nhung|dang ban)/,
+  ]
+  for (const re of patterns) {
+    const m = n.match(re)
+    if (!m?.[1]) continue
+    const name = m[1]
+      .replace(
+        /\b(xem|cho|toi|minh|voi|nhe|nha|di|da|ah|a|please|giup|ho|duoc|khong|ko|nhe|em|anh|chi)\b/g,
+        ' ',
+      )
+      .replace(/\s+/g, ' ')
+      .trim()
+    // Tên seller/shop tối thiểu 2 token hoặc 1 token ≥4 (tránh "cua ban" = you)
+    const words = name.split(/\s+/).filter(Boolean)
+    if (words.length >= 2) return name
+    if (words.length === 1 && words[0].length >= 4 && words[0] !== 'ban') return name
+  }
+  return null
+}
+
+export function findProductsBySellerName(products: Product[], sellerQuery: string): Product[] {
+  const q = normalizeText(sellerQuery)
+  const qWords = q.split(/\s+/).filter((w) => w.length >= 2)
+  if (!qWords.length) return []
+
+  return products
+    .map((p) => {
+      const shop = normalizeText(p.shopName ?? '')
+      const email = normalizeText(p.sellerEmail ?? '')
+      if (!shop && !email) return { p, score: 0 }
+
+      let score = 0
+      if (shop === q) score += 80
+      else if (shop.includes(q) || (q.includes(shop) && shop.length >= 5)) score += 55
+
+      const shopWords = shop.split(/\s+/).filter(Boolean)
+      let hit = 0
+      for (const w of qWords) {
+        if (shopWords.some((sw) => sw === w || (w.length >= 3 && (sw.includes(w) || w.includes(sw))))) {
+          score += w.length * 6
+          hit++
+        } else if (email.includes(w)) {
+          score += w.length * 2
+          hit++
+        }
+      }
+      // Multi-word seller names: need most tokens (keeps "tran thi ban")
+      if (qWords.length >= 2 && hit < Math.ceil(qWords.length * 0.6)) score = 0
+      return { p, score }
+    })
+    .filter((x) => x.score >= 12)
+    .sort((a, b) => b.score - a.score)
+    .map((x) => x.p)
 }
 
 /** Gộp SP theo shop — dùng khi hỏi "chỗ nào bán…" */

@@ -33,4 +33,14 @@ describe('chat intent: hot vs complaint', () => {
     const hit = detectIntent('san pham ban chay', 'customer')
     expect(hit?.intent).toBe('recommend')
   })
+
+  it('maps "sản phẩm của Trần Thị Bán" to product_search, not cheapest', () => {
+    const hit = detectIntent('Cho tôi xem sản phẩm của Trần Thị Bán', 'customer')
+    expect(hit?.intent).toBe('product_search')
+  })
+
+  it('still maps rẻ nhất to product_cheapest', () => {
+    const hit = detectIntent('sản phẩm nào rẻ nhất', 'customer')
+    expect(hit?.intent).toBe('product_cheapest')
+  })
 })

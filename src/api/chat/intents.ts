@@ -146,22 +146,30 @@ const COMMON: IntentRule[] = [
   },
   {
     intent: 'product_search',
-    keywords: ['tim kiem', 'tim sp', 'search for', 'find product', 'kiem san pham', 'lookup'],
-    phrases: ['tim kiem', 'search for', 'find product'],
+    keywords: [
+      'tim kiem', 'tim sp', 'search for', 'find product', 'kiem san pham', 'lookup',
+      'san pham cua', 'sp cua', 'hang cua', 'cua shop', 'shop cua',
+      'xem san pham cua', 'tim san pham cua', 'san pham tu shop',
+    ],
+    phrases: [
+      'tim kiem', 'search for', 'find product',
+      'san pham cua', 'sp cua', 'cua shop', 'xem san pham cua', 'tim san pham cua',
+    ],
     minScore: 4,
-    priority: 6,
+    priority: 15,
   },
   {
     intent: 'product_cheapest',
     keywords: [
-      're nhat', 'gia re nhat', 'cheapest', 're nhat la gi', 'sp re', 'hang re',
-      'gia thap nhat', 'lowest price', 're nhat shop', 'san pham nao re', 'sp nao re',
-    ],
-    phrases: [
-      're nhat', 'gia re nhat', 'cheapest', 'lowest price',
+      're nhat', 'gia re nhat', 'cheapest', 're nhat la gi',
+      'gia thap nhat', 'lowest price', 're nhat shop',
       'san pham nao re nhat', 'sp nao re nhat', 'hang nao re nhat',
     ],
-    minScore: 3,
+    phrases: [
+      're nhat', 'gia re nhat', 'cheapest', 'lowest price', 'gia thap nhat',
+      'san pham nao re nhat', 'sp nao re nhat', 'hang nao re nhat',
+    ],
+    minScore: 4,
     priority: 14,
   },
   {
@@ -560,8 +568,17 @@ function refineIntent(
     return 'orders'
   }
 
-  // Rẻ nhất
-  if (/re nhat|gia re nhat|cheapest|gia thap nhat|lowest price|san pham nao re|sp nao re|hang nao re/.test(normalized)) {
+  // SP theo tên shop/seller — trước "rẻ nhất" (tránh "sản phẩm của…" nhầm cheapest)
+  if (/(?:san pham|sp|hang)\s+cua\s+\S+|(?:san pham|sp)\s+(?:tu|o)\s+shop\s+\S+|cua\s+shop\s+\S+/.test(normalized)) {
+    return 'product_search'
+  }
+
+  // Rẻ nhất — bắt buộc có "rẻ nhất" / "nào rẻ", không khớp nhầm "sản phẩm của…"
+  if (
+    /re nhat|gia re nhat|cheapest|gia thap nhat|lowest price|(?:san pham|sp|hang)\s+nao\s+re\b/.test(
+      normalized,
+    )
+  ) {
     return 'product_cheapest'
   }
 
