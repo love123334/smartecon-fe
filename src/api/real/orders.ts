@@ -141,18 +141,20 @@ export async function cancelOrder(id: string): Promise<void> {
   await http.put<void>(`${apiPaths.orders.byId(id)}/cancel`)
 }
 
-export async function listSellerOrders(page = 0, size = 50): Promise<Order[]> {
+export async function listSellerOrders(page = 0, size = 20): Promise<Order[]> {
   const data = await http.get<SpringPage<BackendOrderResponse>>(
     `${apiPaths.orders.seller}?page=${page}&size=${size}`,
+    { timeoutMs: 20_000 },
   )
-  return data.content.map((o) => mapBackendOrder(o))
+  return (data?.content ?? []).map((o) => mapBackendOrder(o))
 }
 
 export async function listManagedOrders(page = 0, size = 100): Promise<Order[]> {
   const data = await http.get<SpringPage<BackendOrderResponse>>(
     `${apiPaths.orders.manage}?page=${page}&size=${size}`,
+    { timeoutMs: 20_000 },
   )
-  return data.content.map((o) => mapBackendOrder(o))
+  return (data?.content ?? []).map((o) => mapBackendOrder(o))
 }
 
 export async function updateOrderStatus(

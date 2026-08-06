@@ -1082,10 +1082,12 @@ export const orderApi = {
     let source: SellerOrdersSource = 'mock'
 
     if (apiConfig.useRealOrders && hasBackendToken()) {
+      let apiError: unknown
       try {
-        orders = await realOrders.listSellerOrders(0, 50)
+        orders = await realOrders.listSellerOrders(0, 20)
         source = 'api'
-      } catch {
+      } catch (e) {
+        apiError = e
         try {
           const dash = await realSeller.getDashboard()
           if (dash.recentOrders.length) {
@@ -1093,8 +1095,14 @@ export const orderApi = {
             source = 'dashboard'
           }
         } catch {
-          /* fallback mock */
+          /* keep apiError */
         }
+      }
+      // Real mode: never silently treat API failure as “no orders”
+      if (!orders.length && apiError) {
+        throw apiError instanceof Error
+          ? apiError
+          : new Error('Không tải được đơn hàng seller')
       }
     }
 
