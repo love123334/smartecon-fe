@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { chatApi } from '@/api/services'
 import { quickPromptsForRole, welcomeMessage } from '@/api/chat/prompts'
@@ -9,7 +9,7 @@ import { useChatWidgetStore } from '@/stores/chatWidget'
 import { isChatPage, roleChatPath } from '@/utils/roleAiNav'
 import { isShopBrowsePath } from '@/utils/roleNav'
 import ChatPanel from '@/components/ChatPanel.vue'
-import { parseDraggedProduct, refreshChatProductStock, SEDSP_PRODUCT_DRAG_MIME } from '@/api/chat/productCards'
+import { parseDraggedProduct, refreshChatProductStock } from '@/api/chat/productCards'
 
 const auth = useAuthStore()
 const route = useRoute()
@@ -89,7 +89,16 @@ watch(
 
 onMounted(() => {
   if (widget.open) void loadHistory()
+  document.addEventListener('keydown', onKeydown)
 })
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', onKeydown)
+})
+
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && widget.open) widget.hide()
+}
 
 function onFabClick() {
   if (!auth.isLoggedIn && !showFab.value) {
@@ -152,16 +161,10 @@ function onRemoveAttachment(id: string) {
 }
 
 function onFabDragOver(e: DragEvent) {
-  if (!e.dataTransfer) return
-  const types = [...e.dataTransfer.types]
-  if (
-    types.includes(SEDSP_PRODUCT_DRAG_MIME) ||
-    types.includes('application/json') ||
-    types.includes('text/plain')
-  ) {
-    e.preventDefault()
-    widget.dragOver = true
-  }
+  // Chrome often hides custom MIME in types until drop — always allow when dragging
+  e.preventDefault()
+  if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
+  widget.dragOver = true
 }
 
 function onFabDrop(e: DragEvent) {
@@ -206,10 +209,10 @@ function onFabDrop(e: DragEvent) {
         <div>
           <h2 class="chat-popup__title">{{ title }}</h2>
           <p class="chat-popup__hint-inline">
-            Kéo sản phẩm từ cửa hàng vào khung chat để hỏi / so sánh
+            Kéo ảnh SP / nút AI vào khung chat · Esc hoặc × để đóng
           </p>
         </div>
-        <button type="button" class="chat-popup__close" aria-label="Đóng" @click="widget.hide()">
+        <button type="button" class="chat-popup__close" aria-label="Đóng trợ lý AI" @click.stop="widget.hide()">
           ×
         </button>
       </header>
@@ -249,7 +252,7 @@ function onFabDrop(e: DragEvent) {
   position: fixed;
   right: 1.25rem;
   bottom: 1.25rem;
-  z-index: 120;
+  z-index: 10040;
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
@@ -285,7 +288,7 @@ function onFabDrop(e: DragEvent) {
   position: fixed;
   right: 1.1rem;
   bottom: 1.1rem;
-  z-index: 130;
+  z-index: 10050;
   display: flex;
   flex-direction: column;
   width: min(420px, calc(100vw - 1.5rem));
@@ -323,16 +326,23 @@ function onFabDrop(e: DragEvent) {
 }
 
 .chat-popup__close {
-  width: 2rem;
-  height: 2rem;
-  border: none;
-  border-radius: 8px;
-  background: var(--slate-100);
-  font-size: 1.25rem;
+  width: 2.15rem;
+  height: 2.15rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  font-size: 1.35rem;
   line-height: 1;
   cursor: pointer;
-  color: var(--slate-700);
+  color: #0f172a;
   flex-shrink: 0;
+  position: relative;
+  z-index: 2;
+}
+
+.chat-popup__close:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
 }
 
 .chat-popup__error {

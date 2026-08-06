@@ -209,7 +209,12 @@ onUnmounted(() => {
     @mouseenter="onEnter"
     @mouseleave="onLeave"
   >
-    <div class="product-card__media">
+    <div
+      class="product-card__media"
+      draggable="true"
+      title="Kéo vào trợ lý AI để hỏi / so sánh"
+      @dragstart="onDragStart"
+    >
       <button type="button" class="product-card__img-link" :aria-label="`Xem ${product.name}`" @click="goDetail">
         <img
           :src="activeImage || product.imageUrl"

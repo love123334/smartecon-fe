@@ -3,7 +3,7 @@ import { nextTick, ref, watch } from 'vue'
 import type { ChatMessage, ChatProductRef } from '@/types'
 import type { QuickPrompt } from '@/api/chat/prompts'
 import { formatChatHtml } from '@/api/chat/engine'
-import { parseDraggedProduct, SEDSP_PRODUCT_DRAG_MIME } from '@/api/chat/productCards'
+import { parseDraggedProduct } from '@/api/chat/productCards'
 import ChatProductMiniCard from '@/components/ChatProductMiniCard.vue'
 
 const props = defineProps<{
@@ -53,19 +53,16 @@ function usePrompt(p: QuickPrompt) {
 }
 
 function onDragOver(e: DragEvent) {
-  if (!e.dataTransfer) return
-  const types = [...e.dataTransfer.types]
-  if (
-    types.includes(SEDSP_PRODUCT_DRAG_MIME) ||
-    types.includes('application/json') ||
-    types.includes('text/plain')
-  ) {
-    e.preventDefault()
-    dropActive.value = true
-  }
+  e.preventDefault()
+  if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
+  dropActive.value = true
 }
 
-function onDragLeave() {
+function onDragLeave(e: DragEvent) {
+  // Only clear when leaving the panel itself (not child nodes)
+  const root = e.currentTarget as HTMLElement
+  const related = e.relatedTarget as Node | null
+  if (related && root.contains(related)) return
   dropActive.value = false
 }
 

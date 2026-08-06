@@ -1733,17 +1733,22 @@
   align-items: center;
   justify-content: center;
   box-shadow: var(--shadow-xs);
-  cursor: pointer;
-  opacity: 0;
-  transform: translateY(4px);
+  cursor: grab;
+  opacity: 1;
+  transform: none;
   transition:
-    opacity 0.25s ease,
-    transform 0.25s var(--ease-float);
+    background 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.product-card__ai:hover {
+  background: #1e293b;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
 }
 
 .product-card--elegant:hover .product-card__ai {
   opacity: 1;
-  transform: translateY(0);
+  transform: none;
 }
 
 .product-card__overlay {
