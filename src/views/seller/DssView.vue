@@ -85,8 +85,6 @@ onMounted(async () => {
         { to: '/seller/dss/demand', label: 'Dự báo nhu cầu', highlight: true },
         { to: '/seller/dss/price', label: 'Gợi ý giá', highlight: true },
         { to: '/seller/dss/what-if', label: 'What-if giảm giá', highlight: true },
-        { to: '/seller/sales', label: 'Bảng doanh số' },
-        { to: '/seller/orders', label: 'Đơn bán' },
       ]"
     />
 
