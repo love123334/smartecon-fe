@@ -35,6 +35,7 @@ const SYNONYM_GROUPS: string[][] = [
   ['gia dung', 'nha cua'],
   ['dien tu', 'electronics'],
   ['sach', 'book', 'books'],
+  ['kinh', 'mat kinh', 'glasses', 'eyewear', 'kinh mat', 'kinh can', 'kinh mat thoi trang'],
 ]
 
 const ALIAS_LOOKUP = new Map<string, string[]>()

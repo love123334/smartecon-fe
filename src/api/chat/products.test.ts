@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  affordableProductsForQuery,
   computeProductPriceStats,
+  extractAffordableSearchTerms,
   extractBudgetVnd,
   extractPriceRange,
   extractProductFocusLabel,
@@ -8,7 +10,9 @@ import {
   filterProductsForQuery,
   findProductsByQuery,
   findProductsBySellerName,
+  isAffordableProductQuery,
   isPriceStatsQuery,
+  stripAffordableMarkers,
   stripPriceTokens,
 } from '@/api/chat/products'
 import type { Product } from '@/types'
@@ -55,6 +59,28 @@ describe('extractPriceRange', () => {
 
   it('extractBudgetVnd stays compatible', () => {
     expect(extractBudgetVnd('budget 500k')).toBe(500_000)
+  })
+})
+
+describe('affordable product queries', () => {
+  it('detects "kính rẻ" without numeric budget', () => {
+    expect(isAffordableProductQuery('kính rẻ')).toBe(true)
+    expect(isAffordableProductQuery('kính giá rẻ')).toBe(true)
+    expect(isAffordableProductQuery('tai nghe dưới 2 triệu')).toBe(false)
+  })
+
+  it('extracts product keyword from affordable phrase', () => {
+    expect(extractAffordableSearchTerms('kính giá rẻ')).toEqual(['kinh'])
+    expect(stripAffordableMarkers('tai nghe giá rẻ')).toContain('tai nghe')
+  })
+
+  it('sorts matches by ascending price', () => {
+    const glasses: Product[] = [
+      p({ id: 'g1', name: 'Kính mát UV400', price: 890_000, category: 'Phụ kiện' }),
+      p({ id: 'g2', name: 'Kính cận gọng nhẹ', price: 450_000, category: 'Phụ kiện' }),
+    ]
+    const hits = affordableProductsForQuery(glasses, 'kính rẻ', 4)
+    expect(hits.map((x) => x.id)).toEqual(['g2', 'g1'])
   })
 })
 

@@ -1,7 +1,7 @@
 import { http } from '@/api/http/client'
 import { apiPaths } from '@/api/http/paths'
 
-export type BackendPaymentMethod = 'MOMO' | 'VNPAY'
+export type BackendPaymentMethod = 'MOMO' | 'MOMO_QR' | 'VNPAY'
 /** Legacy values still may appear in older mock overlays */
 export type LegacyBackendPaymentMethod = BackendPaymentMethod | 'COD' | 'BANK'
 
@@ -52,6 +52,7 @@ function mapPayment(data: BackendPayment, orderIdFallback?: string): PaymentInfo
 export function mapPaymentMethodLabel(method?: LegacyBackendPaymentMethod | string): string {
   if (method === 'VNPAY' || method === 'BANK') return 'VNPay'
   if (method === 'MOMO') return 'Ví MoMo'
+  if (method === 'MOMO_QR') return 'Chuyển MoMo tới shop'
   if (method === 'COD') return 'Thanh toán khi nhận hàng (COD)'
   return '—'
 }

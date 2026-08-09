@@ -194,6 +194,7 @@ export function paymentMethodLabel(method: string): string {
   const key = String(method ?? '').toUpperCase()
   if (key === 'VNPAY') return 'VNPay'
   if (key === 'MOMO') return 'MoMo'
+  if (key === 'MOMO_QR') return 'MoMo QR (shop)'
   if (key === 'COD') return 'COD'
   return method
 }

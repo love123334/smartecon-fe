@@ -2,10 +2,10 @@ import { http } from '@/api/http/client'
 import { apiPaths } from '@/api/http/paths'
 import type { BackendOrderStatus } from '@/utils/backendOrderStatus'
 import type { SpringPage } from '@/api/real/products'
-import type { Order, OrderItem, OrderStatus } from '@/types'
+import type { MomoTransferInfo, Order, OrderItem, OrderStatus } from '@/types'
 
 export type { BackendOrderStatus }
-export type BackendPaymentMethod = 'MOMO' | 'VNPAY' | 'COD' | 'BANK'
+export type BackendPaymentMethod = 'MOMO' | 'MOMO_QR' | 'VNPAY' | 'COD' | 'BANK'
 
 export interface BackendOrderItem {
   productId: number
@@ -28,10 +28,20 @@ export interface BackendOrderResponse {
   items?: BackendOrderItem[]
 }
 
+export interface BackendMomoTransferInfo {
+  amount: number | string
+  transferNote: string
+  sellerMomoPhone?: string | null
+  sellerMomoQrUrl?: string | null
+  sellerStoreName?: string | null
+  configured?: boolean
+}
+
 export interface BackendOrderDetailResponse {
   order: BackendOrderResponse
   shippingAddress: string
   paymentMethod?: BackendPaymentMethod
+  momoTransfer?: BackendMomoTransferInfo | null
   tracking?: unknown[]
 }
 
@@ -65,8 +75,21 @@ function mapItems(items: BackendOrderItem[] | undefined): OrderItem[] {
 function mapPaymentToFrontend(method?: BackendPaymentMethod): Order['paymentMethod'] {
   if (method === 'VNPAY' || method === 'BANK') return 'vnpay'
   if (method === 'MOMO') return 'momo'
+  if (method === 'MOMO_QR') return 'momo_qr'
   if (method === 'COD') return 'cod'
   return undefined
+}
+
+function mapMomoTransfer(raw?: BackendMomoTransferInfo | null): MomoTransferInfo | undefined {
+  if (!raw) return undefined
+  return {
+    amount: num(raw.amount),
+    transferNote: raw.transferNote,
+    sellerMomoPhone: raw.sellerMomoPhone ?? undefined,
+    sellerMomoQrUrl: raw.sellerMomoQrUrl ?? undefined,
+    sellerStoreName: raw.sellerStoreName ?? undefined,
+    configured: raw.configured ?? true,
+  }
 }
 
 function formatTimestamp(createdAt?: string | null): string {
@@ -103,16 +126,17 @@ export function mapBackendOrder(
 }
 
 export function toBackendPayment(
-  method: 'momo' | 'vnpay' | 'cod' | 'bank' | 'card',
-): 'MOMO' | 'VNPAY' | 'COD' {
+  method: 'momo' | 'momo_qr' | 'vnpay' | 'cod' | 'bank' | 'card',
+): 'MOMO' | 'MOMO_QR' | 'VNPAY' | 'COD' {
   if (method === 'cod') return 'COD'
-  // UI chỉ còn VNPay; momo/card map sang VNPAY để tránh gọi gateway đã bỏ
+  if (method === 'momo_qr') return 'MOMO_QR'
+  if (method === 'momo' || method === 'card') return 'MOMO'
   return 'VNPAY'
 }
 
 export async function createOrder(
   shippingAddress: string,
-  paymentMethod: 'MOMO' | 'VNPAY' | 'COD',
+  paymentMethod: 'MOMO' | 'MOMO_QR' | 'VNPAY' | 'COD',
   voucherCode?: string,
 ): Promise<Order> {
   const data = await http.post<BackendOrderResponse>(apiPaths.orders.list, {
@@ -133,10 +157,20 @@ export async function listMyOrders(page = 0, size = 20): Promise<Order[]> {
 export async function getOrderById(id: string): Promise<Order | null> {
   const data = await http.get<BackendOrderDetailResponse>(apiPaths.orders.byId(id))
   if (!data?.order) return null
-  return mapBackendOrder(data.order, {
+  const order = mapBackendOrder(data.order, {
     shippingAddress: data.shippingAddress,
     paymentMethod: data.paymentMethod,
   })
+  const transfer = mapMomoTransfer(data.momoTransfer)
+  return transfer ? { ...order, momoTransfer: transfer } : order
+}
+
+export async function confirmMomoTransfer(id: string): Promise<Order> {
+  const data = await http.post<BackendOrderResponse>(
+    `${apiPaths.orders.byId(id)}/confirm-momo`,
+    {},
+  )
+  return mapBackendOrder(data)
 }
 
 export async function cancelOrder(id: string): Promise<void> {

@@ -36,6 +36,8 @@ export const apiPaths = {
   seller: {
     dashboard: 'seller/dashboard',
     salesPerformance: 'seller/sales-performance',
+    myMomo: 'sellers/me/momo',
+    publicMomo: (sellerId: string | number) => `sellers/${sellerId}/momo`,
   },
   categories: {
     list: 'categories',

@@ -12,6 +12,7 @@ import * as realAuth from '@/api/real/auth'
 import * as realProducts from '@/api/real/products'
 import * as realCart from '@/api/real/cart'
 import * as realOrders from '@/api/real/orders'
+import * as realSellerMomo from '@/api/real/sellerMomo'
 import * as realPayments from '@/api/real/payments'
 import * as realCategories from '@/api/real/categories'
 import * as realInventory from '@/api/real/inventory'
@@ -377,6 +378,27 @@ export const authApi = apiConfig.useRealAuth
       },
     }
 
+function sortCatalogProducts(
+  list: Product[],
+  sort?: realProducts.ProductCatalogSort,
+): Product[] {
+  const copy = [...list]
+  switch (sort) {
+    case 'price-asc':
+      return copy.sort((a, b) => a.price - b.price)
+    case 'price-desc':
+      return copy.sort((a, b) => b.price - a.price)
+    case 'newest':
+      return copy.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    case 'rating-desc':
+      return copy.sort((a, b) => b.rating - a.rating || b.reviewCount! - a.reviewCount!)
+    case 'rating-asc':
+      return copy.sort((a, b) => a.rating - b.rating || a.reviewCount! - b.reviewCount!)
+    default:
+      return copy.sort((a, b) => b.soldCount - a.soldCount)
+  }
+}
+
 const mockProductApi = {
   async list(params?: {
     q?: string
@@ -522,12 +544,23 @@ async function listProductsHybridInternal(
     withStock?: boolean
     size?: number
     page?: number
+    sort?: realProducts.ProductCatalogSort
   },
 ): Promise<ProductListResult> {
   if (!apiConfig.useRealProducts) {
+    let list = await mockProductApi.list(params)
+    list = sortCatalogProducts(list, params?.sort)
+    const page = params?.page ?? 0
+    const size = params?.size ?? 12
+    const start = page * size
+    const slice = list.slice(start, start + size)
     return {
-      products: await mockProductApi.list(params),
+      products: slice,
       catalogSource: 'mock',
+      totalElements: list.length,
+      totalPages: Math.max(1, Math.ceil(list.length / size)),
+      page,
+      size,
     }
   }
   try {
@@ -548,6 +581,7 @@ async function listProductsHybridInternal(
       categoryId,
       size: params?.size ?? 12,
       page: params?.page ?? 0,
+      sort: params?.sort,
     })
     let list = pageResult.products
 
@@ -592,6 +626,7 @@ async function listProductsHybrid(params?: {
   withStock?: boolean
   size?: number
   page?: number
+  sort?: realProducts.ProductCatalogSort
 }): Promise<Product[]> {
   const cacheKey = JSON.stringify(params ?? {})
   const hit = catalogListCache.get(cacheKey)
@@ -1002,7 +1037,7 @@ const mockOrderApi = {
   async placeOrder(
     customerId: string,
     shippingAddress: string,
-    _payment?: 'momo' | 'vnpay' | 'cod' | 'bank' | 'card',
+    _payment?: 'momo' | 'momo_qr' | 'vnpay' | 'cod' | 'bank' | 'card',
   ): Promise<Order> {
     await delay()
     const user = getUsers().find((u) => u.id === customerId)
@@ -1175,7 +1210,7 @@ export const orderApi = {
   async placeOrder(
     customerId: string,
     shippingAddress: string,
-    payment: 'momo' | 'vnpay' | 'cod' | 'bank' | 'card' = 'cod',
+    payment: 'momo' | 'momo_qr' | 'vnpay' | 'cod' | 'bank' | 'card' = 'cod',
     voucherCode?: string,
   ): Promise<Order> {
     let order: Order
@@ -1185,7 +1220,6 @@ export const orderApi = {
         realOrders.toBackendPayment(payment),
         voucherCode,
       )
-      // Backend tạo PENDING — đảm bảo FE và seller cùng thấy chờ xác nhận
       order = {
         ...order,
         status: order.status || 'pending',
@@ -1194,9 +1228,21 @@ export const orderApi = {
         paymentMethod:
           payment === 'cod'
             ? 'cod'
-            : payment === 'momo' || payment === 'card'
-              ? 'momo'
-              : 'vnpay',
+            : payment === 'momo_qr'
+              ? 'momo_qr'
+              : payment === 'momo' || payment === 'card'
+                ? 'momo'
+                : 'vnpay',
+      }
+      if (payment === 'momo_qr') {
+        const detail = await realOrders.getOrderById(String(order.id))
+        if (detail) {
+          order = {
+            ...order,
+            paymentMethod: detail.paymentMethod ?? 'momo_qr',
+            momoTransfer: detail.momoTransfer,
+          }
+        }
       }
     } else {
       order = await mockOrderApi.placeOrder(customerId, shippingAddress, payment)
@@ -1205,7 +1251,7 @@ export const orderApi = {
     return applyOrderOverlay(order)
   },
 
-  /** Gọi gateway VNPay (MoMo giữ tương thích cũ, UI đã bỏ) */
+  /** Gọi gateway VNPay hoặc MoMo */
   async initiatePayment(
     orderId: string,
     method: 'momo' | 'vnpay' = 'vnpay',
@@ -1353,6 +1399,26 @@ export const orderApi = {
       persistedOnBackend: false,
     }
   },
+
+  async confirmMomoTransfer(orderId: string): Promise<Order> {
+    if (apiConfig.useRealOrders && hasBackendToken()) {
+      const order = await realOrders.confirmMomoTransfer(orderId)
+      saveOrderOverlay({
+        orderId,
+        status: 'confirmed',
+        rawStatus: 'PAID',
+        note: 'Seller xác nhận đã nhận MoMo',
+        updatedByRole: 'seller',
+        customerName: order.customerName,
+        total: order.total,
+        shippingAddress: order.shippingAddress,
+        items: order.items,
+        createdAt: order.createdAt,
+      })
+      return applyOrderOverlay(order)
+    }
+    throw new Error('Xác nhận MoMo chỉ khả dụng khi kết nối backend')
+  },
 }
 
 // ——— Seller (dashboard & sales) ———
@@ -1378,6 +1444,12 @@ export const sellerApi = {
     }
     return null
   },
+}
+
+export const sellerMomoApi = {
+  getMySettings: realSellerMomo.getMyMomoSettings,
+  updateSettings: realSellerMomo.updateMyMomoSettings,
+  getPublic: realSellerMomo.getSellerMomoPublic,
 }
 
 // ——— Reviews ———

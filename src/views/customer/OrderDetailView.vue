@@ -34,9 +34,27 @@ const paymentLabel = computed(() => {
   const m = order.value?.paymentMethod
   if (m === 'vnpay' || m === 'bank') return 'VNPay'
   if (m === 'cod') return 'Thanh toán khi nhận hàng (COD)'
-  if (m === 'momo' || m === 'card') return 'Ví MoMo (legacy)'
+  if (m === 'momo_qr') return 'Chuyển MoMo tới shop'
+  if (m === 'momo' || m === 'card') return 'Ví MoMo'
   return '—'
 })
+
+const isMomoQrPending = computed(
+  () =>
+    order.value?.paymentMethod === 'momo_qr' &&
+    (order.value.status === 'pending' || order.value.rawStatus === 'PENDING'),
+)
+
+const onlineGateway = computed((): 'momo' | 'vnpay' | null => {
+  const m = order.value?.paymentMethod
+  if (m === 'momo' || m === 'card') return 'momo'
+  if (m === 'vnpay' || m === 'bank') return 'vnpay'
+  return null
+})
+
+const onlineGatewayLabel = computed(() =>
+  onlineGateway.value === 'momo' ? 'MoMo' : onlineGateway.value === 'vnpay' ? 'VNPay' : '',
+)
 
 const paying = ref(false)
 const payError = ref('')
@@ -74,16 +92,17 @@ async function pollPaymentStatus(maxAttempts = 8) {
 }
 
 async function payAgain() {
-  if (!order.value) return
+  if (!order.value || !onlineGateway.value) return
   paying.value = true
   payError.value = ''
   try {
     try {
-      sessionStorage.setItem('sedsp_pending_vnpay_order', String(order.value.id))
+      sessionStorage.setItem('sedsp_pending_pay_order', String(order.value.id))
+      sessionStorage.setItem('sedsp_pending_pay_method', onlineGateway.value)
     } catch {
       /* ignore */
     }
-    const pay = await orderApi.initiatePayment(order.value.id, 'vnpay')
+    const pay = await orderApi.initiatePayment(order.value.id, onlineGateway.value)
     if (pay.redirectUrl?.startsWith('http')) {
       window.location.href = pay.redirectUrl
       return
@@ -207,12 +226,13 @@ async function loadOrderPage() {
   // Tự kiểm tra thanh toán VNPay thay vì bắt người dùng bấm xác nhận thủ công
   if (
     order.value.status === 'pending' &&
-    (order.value.paymentMethod === 'vnpay' || order.value.paymentMethod === 'bank')
+    (order.value.paymentMethod === 'vnpay' ||
+      order.value.paymentMethod === 'bank' ||
+      order.value.paymentMethod === 'momo' ||
+      order.value.paymentMethod === 'card')
   ) {
     void pollPaymentStatus(6)
   }
-
-  // Đơn đã tiến triển không bao giờ hiện màn “đặt thành công”
   if (order.value.status !== 'pending') {
     preferDetailView()
     if (route.query.placed === '1') {
@@ -339,9 +359,26 @@ async function onReviewSubmitted(productId: string) {
               </div>
             </dl>
 
+            <RouterLink
+              v-if="order.paymentMethod === 'momo_qr'"
+              :to="`/orders/${order.id}/pay-momo`"
+              class="btn-elegant-primary btn-block btn-interactive"
+            >
+              Xem hướng dẫn chuyển MoMo
+            </RouterLink>
             <button
+              v-else
               type="button"
               class="btn-elegant-primary btn-block btn-interactive"
+              @click="openOrderTracking"
+            >
+              Theo dõi đơn hàng
+            </button>
+            <button
+              v-if="order.paymentMethod === 'momo_qr'"
+              type="button"
+              class="btn-elegant-outline btn-block btn-interactive"
+              style="margin-top: 0.75rem"
               @click="openOrderTracking"
             >
               Theo dõi đơn hàng
@@ -393,10 +430,31 @@ async function onReviewSubmitted(productId: string) {
             </div>
           </section>
 
+          <section
+            v-if="isMomoQrPending && order.momoTransfer"
+            class="order-detail__momo"
+            aria-label="Hướng dẫn chuyển MoMo"
+          >
+            <h2 class="order-detail__section-title">Chuyển MoMo tới shop</h2>
+            <p class="order-detail__note">
+              Chuyển <strong>{{ formatVnd(order.momoTransfer.amount) }}</strong>, nội dung
+              <code>{{ order.momoTransfer.transferNote }}</code>
+              <template v-if="order.momoTransfer.sellerStoreName">
+                tới {{ order.momoTransfer.sellerStoreName }}.
+              </template>
+            </p>
+            <RouterLink
+              :to="`/orders/${order.id}/pay-momo`"
+              class="btn-elegant-primary btn-interactive"
+            >
+              Mở trang hướng dẫn & QR
+            </RouterLink>
+          </section>
+
           <p v-if="payError" class="elegant-alert elegant-alert--error">{{ payError }}</p>
           <p v-if="verifyingPayment" class="order-detail__verify-hint">Đang kiểm tra trạng thái thanh toán…</p>
           <div
-            v-if="order.rawStatus === 'PENDING' || order.status === 'pending'"
+            v-if="(order.rawStatus === 'PENDING' || order.status === 'pending') && onlineGateway"
             class="order-detail__pay-actions"
           >
             <button
@@ -405,7 +463,7 @@ async function onReviewSubmitted(productId: string) {
               :disabled="paying || verifyingPayment"
               @click="payAgain"
             >
-              {{ paying ? 'Đang mở cổng...' : 'Thanh toán VNPay' }}
+              {{ paying ? 'Đang mở cổng...' : `Thanh toán ${onlineGatewayLabel}` }}
             </button>
           </div>
 

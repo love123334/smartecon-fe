@@ -110,6 +110,7 @@ export function footerLinksForRole(role: UserRole): FooterLink[] {
   if (role === 'seller') {
     links.push({ to: '/seller/products', label: 'Quản lý SP' })
     links.push({ to: '/seller/orders', label: 'Đơn bán' })
+    links.push({ to: '/seller/momo-settings', label: 'MoMo shop' })
   }
   if (role === 'manager') {
     links.push({ to: '/manager/dashboard', label: 'Dashboard' })

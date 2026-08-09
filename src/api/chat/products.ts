@@ -34,6 +34,8 @@ const FOCUS_PHRASES = [
   'noi chien',
   'giay',
   'serum',
+  'kinh',
+  'mat kinh',
 ] as const
 
 export interface PriceRange {
@@ -180,6 +182,47 @@ export function stripPriceTokens(raw: string): string {
     .replace(/\b(gia|ca)\b/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
+}
+
+const AFFORDABLE_PHRASES =
+  /\b(gia re|re nhat|re hon|tiet kiem|gia tot|gia mem|muc re|cheap|affordable)\b/
+
+/** Bỏ cụm "giá rẻ / rẻ" khỏi câu để lấy tên SP (vd: "kính giá rẻ" → "kính") */
+export function stripAffordableMarkers(raw: string): string {
+  return normalizeText(raw)
+    .replace(AFFORDABLE_PHRASES, ' ')
+    .replace(/\b(re)\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+export function extractAffordableSearchTerms(raw: string): string[] {
+  const q = stripAffordableMarkers(stripPriceTokens(raw))
+  return q.split(/\s+/).filter((w) => w.length >= 3 && !STOP_WORDS.has(w))
+}
+
+/** "kính rẻ", "tai nghe giá rẻ" — không có số tiền cụ thể */
+export function isAffordableProductQuery(raw: string): boolean {
+  const n = normalizeText(raw)
+  if (extractPriceRange(raw)) return false
+  const hasAffordableCue =
+    AFFORDABLE_PHRASES.test(n) ||
+    /\b\w{3,}\s+re\b/.test(n) ||
+    /\bre\s+\w{3,}\b/.test(n)
+  if (!hasAffordableCue) return false
+  return extractAffordableSearchTerms(raw).length > 0
+}
+
+export function affordableProductsForQuery(
+  products: Product[],
+  raw: string,
+  limit = 6,
+): Product[] {
+  const query = extractAffordableSearchTerms(raw).join(' ')
+  if (!query) return []
+  return [...findProductsByQuery(products, query)]
+    .sort((a, b) => a.price - b.price)
+    .slice(0, limit)
 }
 
 export function applyPriceRange(products: Product[], range: PriceRange | null): Product[] {

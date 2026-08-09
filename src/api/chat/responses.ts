@@ -10,6 +10,7 @@ import {
 } from '@/api/chat/dssBrief'
 import { formatVnd, normalizeText } from '@/api/chat/match'
 import {
+  affordableProductsForQuery,
   cheapestProducts,
   computeProductPriceStats,
   extractBudgetVnd,
@@ -17,6 +18,7 @@ import {
   filterProductsForQuery,
   findProductsByQuery,
   groupProductsByShop,
+  isAffordableProductQuery,
   isPriceStatsQuery,
   productsUnderBudget,
   stripPriceTokens,
@@ -264,6 +266,14 @@ function budgetReply(ctx: ChatContext, raw: string): string {
   const name = greet(ctx.userName ?? '')
   const budget = extractBudgetVnd(raw)
   if (!budget) {
+    if (isAffordableProductQuery(raw)) {
+      const label = extractProductFocusLabel(raw)
+      const hits = affordableProductsForQuery(ctx.products, raw, 6)
+      if (hits.length) {
+        return `${name}**${label}** giá tốt trên SEDSP:\n${productLines(hits, 6)}\n\n→ Bấm card bên dưới hoặc mở **Cửa hàng**.`
+      }
+      return `${name}Chưa thấy **${label}** trên shop. Thử từ khóa khác hoặc mở **Cửa hàng** nhé.`
+    }
     return `${name}Cho mình biết ngân sách, vd: **"dưới 2 triệu"** hoặc **"budget 500k"**.`
   }
   const hits = productsUnderBudget(ctx.products, budget, 6)

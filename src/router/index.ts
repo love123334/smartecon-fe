@@ -87,6 +87,12 @@ const router = createRouter({
       meta: { roles: ['customer'], title: 'Đơn hàng' },
     },
     {
+      path: '/orders/:id/pay-momo',
+      name: 'order-pay-momo',
+      component: () => import('@/views/customer/MomoTransferPayView.vue'),
+      meta: { roles: ['customer'], title: 'Chuyển MoMo' },
+    },
+    {
       path: '/orders/:id',
       name: 'order-detail',
       component: () => import('@/views/customer/OrderDetailView.vue'),
@@ -131,6 +137,12 @@ const router = createRouter({
       name: 'seller-orders',
       component: () => import('@/views/seller/SellerOrdersView.vue'),
       meta: { roles: ['seller'], title: 'Đơn hàng' },
+    },
+    {
+      path: '/seller/momo-settings',
+      name: 'seller-momo-settings',
+      component: () => import('@/views/seller/SellerMomoSettingsView.vue'),
+      meta: { roles: ['seller'], title: 'MoMo shop' },
     },
     {
       path: '/seller/inventory',

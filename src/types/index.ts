@@ -67,6 +67,15 @@ export interface OrderItem {
   unitPrice: number
 }
 
+export interface MomoTransferInfo {
+  amount: number
+  transferNote: string
+  sellerMomoPhone?: string | null
+  sellerMomoQrUrl?: string | null
+  sellerStoreName?: string | null
+  configured: boolean
+}
+
 export interface Order {
   id: string
   customerId: string
@@ -75,9 +84,11 @@ export interface Order {
   total: number
   status: OrderStatus
   shippingAddress: string
-  paymentMethod?: 'momo' | 'vnpay' | 'cod' | 'bank' | 'card'
+  paymentMethod?: 'momo' | 'momo_qr' | 'vnpay' | 'cod' | 'bank' | 'card'
   /** Trạng thái gốc từ backend (PENDING, PROCESSING, …) */
   rawStatus?: string
+  /** Hướng dẫn chuyển MoMo tới shop (MOMO_QR) */
+  momoTransfer?: MomoTransferInfo
   createdAt: string
   updatedAt: string
 }

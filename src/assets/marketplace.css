@@ -2809,6 +2809,15 @@
   border-color: var(--slate-900);
 }
 
+.elegant-payment--momo.elegant-payment--active {
+  border-color: #a50064;
+  background: #fff5fb;
+}
+
+.elegant-payment--momo input {
+  accent-color: #a50064;
+}
+
 .elegant-payment input {
   accent-color: var(--slate-900);
 }

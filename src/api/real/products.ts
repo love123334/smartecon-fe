@@ -25,6 +25,9 @@ export interface BackendProductResponse {
   sellerPhone?: string
   primaryImageUrl?: string | null
   availableQuantity?: number | null
+  averageRating?: number | null
+  reviewCount?: number | null
+  soldCount?: number | null
   createdAt?: string
 }
 
@@ -146,8 +149,9 @@ export function mapProductSummary(p: BackendProductResponse): Product {
     sellerPhone: p.sellerPhone,
     shopName: p.sellerStoreName ?? 'Cửa hàng SEDSP',
     shopLocation: 'Việt Nam',
-    rating: 4.5,
-    soldCount: 0,
+    rating: p.averageRating != null && p.averageRating > 0 ? Number(p.averageRating) : 0,
+    reviewCount: p.reviewCount != null ? Number(p.reviewCount) : 0,
+    soldCount: p.soldCount != null ? Number(p.soldCount) : 0,
     createdAt: p.createdAt ?? new Date().toISOString(),
   }
 }
@@ -186,12 +190,21 @@ export interface ProductPageResult {
   size: number
 }
 
+export type ProductCatalogSort =
+  | 'popular'
+  | 'newest'
+  | 'price-asc'
+  | 'price-desc'
+  | 'rating-desc'
+  | 'rating-asc'
+
 export async function listProductsPage(params?: {
   q?: string
   categoryId?: number
   sellerId?: number
   page?: number
   size?: number
+  sort?: ProductCatalogSort
 }): Promise<ProductPageResult> {
   const query = new URLSearchParams()
   if (params?.q) query.set('keyword', params.q)
@@ -199,6 +212,7 @@ export async function listProductsPage(params?: {
   if (params?.sellerId) query.set('sellerId', String(params.sellerId))
   query.set('page', String(params?.page ?? 0))
   query.set('size', String(params?.size ?? 12))
+  if (params?.sort) query.set('sort', params.sort)
 
   const path = `${apiPaths.products.list}?${query}`
   const page = await http.get<SpringPage<BackendProductResponse>>(path)

@@ -173,7 +173,7 @@ QUY TẮC DỮ LIỆU:
 - Gợi ý SP: kèm shop (vd: "MacBook Air — shop **Minh Điện tử**").
 - Chỉ dùng số liệu trong CONTEXT; không bịa SKU/giá/tồn.
 - Không ghi chú kỹ thuật (API, mock, backend).
-- Thanh toán: COD và VNPay (không nhắc MoMo).
+- Thanh toán: COD, VNPay và MoMo.
 - **In đậm** tên shop / giá / tồn khi hữu ích.
 
 CONTEXT:

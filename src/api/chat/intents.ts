@@ -176,7 +176,6 @@ const COMMON: IntentRule[] = [
     intent: 'product_budget',
     keywords: [
       'duoi', 'under', 'ngan sach', 'budget', 'toi da', 'trong khoang',
-      'gia re', 'tiet kiem', 're hon',
     ],
     phrases: ['duoi', 'ngan sach', 'budget', 'under'],
     minScore: 3,
@@ -626,7 +625,18 @@ function refineIntent(
   ) {
     return 'shop_overview'
   }
-  // ngân sách / khoảng giá rõ ràng
+  // "kính rẻ / tai nghe giá rẻ" — tìm SP + sort giá, không hỏi ngân sách
+  if (
+    detected.intent === 'product_budget' &&
+    !/\d/.test(normalized) &&
+    (/\b(gia re|re hon|tiet kiem|gia tot|gia mem)\b/.test(normalized) ||
+      /\b\w{3,}\s+re\b/.test(normalized))
+  ) {
+    const terms = normalized.split(/\s+/).filter((w) => w.length >= 3 && !['gia', 'ca', 'mem'].includes(w))
+    if (terms.length) return 'product_search'
+  }
+
+  // ngân sách / khoảng giá rõ ràng (có số)
   if (
     detected.intent !== 'product_budget' &&
     /duoi\s+\d|under\s+\d|budget|ngan sach|toi da\s+\d|trong tam|tam gia|\d+\s*(trieu|tr|k).*(den|to|-|–)\s*\d+|tu\s+\d+.+(den|to)\s*\d/.test(

@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { productApi } from '@/api/services'
+import type { ProductCatalogSort } from '@/api/real/products'
 import type { Product } from '@/types'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
@@ -28,7 +29,9 @@ const cats = useCategoryStore()
 const q = ref((route.query.q as string) ?? '')
 const category = ref((route.query.category as string) ?? '')
 const priceRange = ref('')
-const sort = ref('popular')
+const sort = ref<ProductCatalogSort>(
+  ((route.query.sort as string) || 'popular') as ProductCatalogSort,
+)
 const results = ref<Product[]>([])
 const loading = ref(false)
 const page = ref(Number(route.query.page ?? 0) || 0)
@@ -38,13 +41,9 @@ let syncingFromRoute = false
 
 const categories = computed(() => cats.names)
 
-const filtered = computed(() => {
-  let list = results.value.filter((p) => matchesPriceRange(p.price, priceRange.value))
-  if (sort.value === 'price-asc') list = [...list].sort((a, b) => a.price - b.price)
-  else if (sort.value === 'price-desc') list = [...list].sort((a, b) => b.price - a.price)
-  else list = [...list].sort((a, b) => b.soldCount - a.soldCount)
-  return list
-})
+const filtered = computed(() =>
+  results.value.filter((p) => matchesPriceRange(p.price, priceRange.value)),
+)
 
 const sectionTitle = computed(() => category.value || (q.value ? `Kết quả «${q.value}»` : 'Tất cả sản phẩm'))
 
@@ -52,12 +51,21 @@ function syncUrl() {
   const nextQuery: Record<string, string> = {
     ...(q.value ? { q: q.value } : {}),
     ...(category.value ? { category: category.value } : {}),
+    ...(sort.value !== 'popular' ? { sort: sort.value } : {}),
     ...(page.value > 0 ? { page: String(page.value) } : {}),
   }
   const curQ = typeof route.query.q === 'string' ? route.query.q : ''
   const curCat = typeof route.query.category === 'string' ? route.query.category : ''
+  const curSort = typeof route.query.sort === 'string' ? route.query.sort : 'popular'
   const curPage = Number(route.query.page ?? 0) || 0
-  if (curQ === (nextQuery.q ?? '') && curCat === (nextQuery.category ?? '') && curPage === page.value) return
+  if (
+    curQ === (nextQuery.q ?? '') &&
+    curCat === (nextQuery.category ?? '') &&
+    curSort === (nextQuery.sort ?? 'popular') &&
+    curPage === page.value
+  ) {
+    return
+  }
   router.replace({ query: nextQuery })
 }
 
@@ -69,6 +77,7 @@ async function search(opts?: { recordHistory?: boolean }) {
       category: category.value || undefined,
       size: PAGE_SIZE,
       page: page.value,
+      sort: sort.value,
     })
     results.value = meta.products
     totalPages.value = Math.max(1, meta.totalPages ?? 1)
@@ -88,6 +97,7 @@ watch(
     syncingFromRoute = true
     q.value = (route.query.q as string) ?? ''
     category.value = (route.query.category as string) ?? ''
+    sort.value = ((route.query.sort as string) || 'popular') as ProductCatalogSort
     page.value = Number(route.query.page ?? 0) || 0
     await search()
     syncingFromRoute = false
@@ -96,6 +106,12 @@ watch(
 )
 
 watch(category, async (next, prev) => {
+  if (syncingFromRoute || next === prev) return
+  page.value = 0
+  await search()
+})
+
+watch(sort, async (next, prev) => {
   if (syncingFromRoute || next === prev) return
   page.value = 0
   await search()
@@ -162,6 +178,9 @@ async function onPageChange(next: number) {
             <span class="sr-only">Sắp xếp</span>
             <select v-model="sort">
               <option value="popular">Bán chạy</option>
+              <option value="newest">Mới nhất</option>
+              <option value="rating-desc">Đánh giá cao → thấp</option>
+              <option value="rating-asc">Đánh giá thấp → cao</option>
               <option value="price-asc">Giá thấp → cao</option>
               <option value="price-desc">Giá cao → thấp</option>
             </select>

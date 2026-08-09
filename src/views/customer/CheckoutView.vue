@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { formatVnd, orderApi, voucherApi } from '@/api/services'
+import { formatVnd, orderApi, productApi, sellerMomoApi, voucherApi } from '@/api/services'
+import type { SellerMomoPublic } from '@/api/real/sellerMomo'
 import type { ValidateVoucherResult } from '@/api/real/vouchers'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
@@ -10,7 +11,10 @@ import QuantityStepper from '@/components/QuantityStepper.vue'
 import CheckoutStepper from '@/components/CheckoutStepper.vue'
 import NewsletterBanner from '@/components/NewsletterBanner.vue'
 
-const PENDING_PAY_KEY = 'sedsp_pending_vnpay_order'
+type CheckoutPayment = 'vnpay' | 'momo' | 'momo_qr' | 'cod'
+
+const PENDING_PAY_ORDER_KEY = 'sedsp_pending_pay_order'
+const PENDING_PAY_METHOD_KEY = 'sedsp_pending_pay_method'
 
 const auth = useAuthStore()
 const cart = useCartStore()
@@ -24,7 +28,8 @@ const address = ref('')
 const city = ref('')
 const state = ref('')
 const zip = ref('')
-const payment = ref<'vnpay' | 'cod'>('vnpay')
+const payment = ref<CheckoutPayment>('vnpay')
+const pendingPayMethod = ref<'momo' | 'vnpay'>('vnpay')
 const coupon = ref('')
 const couponApplied = ref(false)
 const couponInfo = ref<ValidateVoucherResult | null>(null)
@@ -34,26 +39,119 @@ const error = ref('')
 const loading = ref(false)
 const pendingOrderId = ref('')
 const resuming = ref(false)
+const sellerMomo = ref<SellerMomoPublic | null>(null)
+const sellerMomoLoading = ref(false)
+
+const cartSellerIds = computed(() => {
+  const ids = new Set<string>()
+  for (const line of cart.lines) {
+    const sid = line.product.sellerId?.trim()
+    if (sid) ids.add(sid)
+  }
+  return [...ids]
+})
+
+const singleSellerId = computed(() =>
+  cartSellerIds.value.length === 1 ? cartSellerIds.value[0] : null,
+)
+
+const canUseMomoQr = computed(() => {
+  if (!sellerMomo.value?.configured) return false
+  if (cartSellerIds.value.length > 1) return false
+  return cart.lines.length > 0
+})
 
 const shippingFee = computed(() => (cart.total >= 500_000 ? 0 : 30_000))
 const discount = computed(() => (couponApplied.value ? couponInfo.value?.discountAmount ?? 0 : 0))
 const grandTotal = computed(() => Math.max(0, cart.total + shippingFee.value - discount.value))
 
+const paymentGatewayLabel = computed(() => {
+  if (payment.value === 'momo_qr') return 'MoMo shop'
+  if (payment.value === 'momo') return 'MoMo'
+  if (payment.value === 'vnpay') return 'VNPay'
+  return 'COD'
+})
+
 function readPendingOrder() {
   try {
-    pendingOrderId.value = sessionStorage.getItem(PENDING_PAY_KEY) ?? ''
+    pendingOrderId.value =
+      sessionStorage.getItem(PENDING_PAY_ORDER_KEY) ??
+      sessionStorage.getItem('sedsp_pending_vnpay_order') ??
+      ''
+    const method = sessionStorage.getItem(PENDING_PAY_METHOD_KEY)
+    pendingPayMethod.value =
+      method === 'momo' || method === 'vnpay' ? method : 'vnpay'
   } catch {
     pendingOrderId.value = ''
+    pendingPayMethod.value = 'vnpay'
   }
+}
+
+function storePendingPay(orderId: string, method: 'momo' | 'vnpay') {
+  try {
+    sessionStorage.setItem(PENDING_PAY_ORDER_KEY, orderId)
+    sessionStorage.setItem(PENDING_PAY_METHOD_KEY, method)
+  } catch {
+    /* ignore */
+  }
+  pendingOrderId.value = orderId
+  pendingPayMethod.value = method
 }
 
 function clearPendingOrder() {
   try {
-    sessionStorage.removeItem(PENDING_PAY_KEY)
+    sessionStorage.removeItem(PENDING_PAY_ORDER_KEY)
+    sessionStorage.removeItem(PENDING_PAY_METHOD_KEY)
+    sessionStorage.removeItem('sedsp_pending_vnpay_order')
   } catch {
     /* ignore */
   }
   pendingOrderId.value = ''
+  pendingPayMethod.value = 'vnpay'
+}
+
+async function redirectToGateway(orderId: string, method: 'momo' | 'vnpay') {
+  const pay = await orderApi.initiatePayment(orderId, method)
+  if (pay.redirectUrl?.startsWith('http')) {
+    window.location.assign(pay.redirectUrl)
+    return true
+  }
+  if (pay.redirectUrl) {
+    await router.push(pay.redirectUrl)
+    return true
+  }
+  return false
+}
+
+async function loadSellerMomoPreview() {
+  sellerMomo.value = null
+  let sid = singleSellerId.value
+  if ((!sid || !/^\d+$/.test(sid)) && cart.lines.length) {
+    for (const line of cart.lines) {
+      if (line.product.sellerId && /^\d+$/.test(line.product.sellerId)) {
+        sid = line.product.sellerId
+        break
+      }
+      try {
+        const p = await productApi.getById(line.product.id, { withStock: false })
+        if (p?.sellerId && /^\d+$/.test(p.sellerId)) {
+          sid = p.sellerId
+          break
+        }
+      } catch {
+        /* try next line */
+      }
+    }
+  }
+  if (!sid || !/^\d+$/.test(sid)) return
+  sellerMomoLoading.value = true
+  try {
+    sellerMomo.value = await sellerMomoApi.getPublic(sid)
+  } catch {
+    sellerMomo.value = null
+  } finally {
+    sellerMomoLoading.value = false
+  }
 }
 
 function onPageShow(e: PageTransitionEvent) {
@@ -65,6 +163,7 @@ onMounted(async () => {
   window.addEventListener('pageshow', onPageShow)
   readPendingOrder()
   await cart.refresh()
+  await loadSellerMomoPreview()
   if (auth.user) {
     const parts = (auth.user.fullName ?? '').trim().split(/\s+/)
     lastName.value = parts.pop() ?? ''
@@ -77,6 +176,20 @@ onMounted(async () => {
 
 onUnmounted(() => {
   window.removeEventListener('pageshow', onPageShow)
+})
+
+watch(singleSellerId, () => {
+  if (loading.value) return
+  if (payment.value === 'momo_qr' && !canUseMomoQr.value) {
+    payment.value = 'vnpay'
+  }
+  void loadSellerMomoPreview()
+})
+
+watch(canUseMomoQr, (ok) => {
+  if (ok && payment.value === 'vnpay') {
+    payment.value = 'momo_qr'
+  }
 })
 
 async function applyCoupon() {
@@ -112,18 +225,15 @@ async function resumePendingPay() {
   resuming.value = true
   error.value = ''
   try {
-    const pay = await orderApi.initiatePayment(pendingOrderId.value, 'vnpay')
-    if (pay.redirectUrl?.startsWith('http')) {
-      window.location.href = pay.redirectUrl
-      return
+    const ok = await redirectToGateway(pendingOrderId.value, pendingPayMethod.value)
+    if (!ok) {
+      error.value = `Không nhận được link ${pendingPayMethod.value === 'momo' ? 'MoMo' : 'VNPay'}. Thử lại hoặc xem đơn hàng.`
     }
-    if (pay.redirectUrl) {
-      await router.push(pay.redirectUrl)
-      return
-    }
-    error.value = 'Không nhận được link VNPay. Thử lại hoặc xem đơn hàng.'
   } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Không thể tiếp tục thanh toán VNPay'
+    error.value =
+      e instanceof Error
+        ? e.message
+        : `Không thể tiếp tục thanh toán ${pendingPayMethod.value === 'momo' ? 'MoMo' : 'VNPay'}`
   } finally {
     resuming.value = false
   }
@@ -135,6 +245,7 @@ async function placeOrder() {
     error.value = 'Vui lòng nhập địa chỉ giao hàng'
     return
   }
+  const selectedPayment = payment.value
   loading.value = true
   error.value = ''
   try {
@@ -142,38 +253,32 @@ async function placeOrder() {
     const order = await orderApi.placeOrder(
       auth.user.id,
       fullAddress || address.value,
-      payment.value,
+      selectedPayment,
       couponApplied.value ? coupon.value.trim() : undefined,
     )
     await cart.refresh()
 
-    if (payment.value === 'cod') {
+    if (selectedPayment === 'cod') {
       clearPendingOrder()
       await router.push({ path: `/orders/${order.id}`, query: { placed: '1' } })
       return
     }
 
-    try {
-      sessionStorage.setItem(PENDING_PAY_KEY, String(order.id))
-      pendingOrderId.value = String(order.id)
-    } catch {
-      /* ignore */
-    }
-
-    // Keep loading=true until navigation — tránh double-click / cảm giác “đứng”
-    const pay = await orderApi.initiatePayment(order.id, 'vnpay')
-    if (pay.redirectUrl) {
-      if (pay.redirectUrl.startsWith('http')) {
-        window.location.assign(pay.redirectUrl)
-        return
-      }
-      await router.push(pay.redirectUrl)
+    if (selectedPayment === 'momo_qr') {
+      clearPendingOrder()
+      await router.push({ path: `/orders/${order.id}/pay-momo`, query: { placed: '1' } })
       return
     }
+
+    storePendingPay(String(order.id), selectedPayment)
+
+    const ok = await redirectToGateway(order.id, selectedPayment)
+    if (ok) return
 
     await router.push({ path: `/orders/${order.id}`, query: { placed: '1' } })
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Đặt hàng / thanh toán thất bại'
+  } finally {
     loading.value = false
   }
 }
@@ -194,7 +299,9 @@ async function placeOrder() {
         class="elegant-alert"
         style="margin-bottom: 1rem; background: #fff7ed; border: 1px solid #fdba74; color: #9a3412"
       >
-        Bạn có đơn <strong>#{{ pendingOrderId }}</strong> đang chờ VNPay (thường do bấm Back từ cổng thanh toán).
+        Bạn có đơn <strong>#{{ pendingOrderId }}</strong> đang chờ
+        {{ pendingPayMethod === 'momo' ? 'MoMo' : 'VNPay' }}
+        (thường do bấm Back từ cổng thanh toán).
         <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.65rem">
           <button
             type="button"
@@ -202,7 +309,11 @@ async function placeOrder() {
             :disabled="resuming"
             @click="resumePendingPay"
           >
-            {{ resuming ? 'Đang mở VNPay…' : 'Tiếp tục VNPay' }}
+            {{
+              resuming
+                ? `Đang mở ${pendingPayMethod === 'momo' ? 'MoMo' : 'VNPay'}…`
+                : `Tiếp tục ${pendingPayMethod === 'momo' ? 'MoMo' : 'VNPay'}`
+            }}
           </button>
           <RouterLink class="btn-interactive" :to="`/orders/${pendingOrderId}?view=detail`">
             Xem đơn &amp; kiểm tra thanh toán
@@ -264,15 +375,36 @@ async function placeOrder() {
           <section class="elegant-form-section">
             <h2>Phương thức thanh toán</h2>
             <p class="elegant-muted" style="margin-bottom: 0.75rem; font-size: 0.9rem">
-              Chọn <strong>VNPay</strong> (ATM / QR / thẻ sandbox hoặc thật) hoặc <strong>COD</strong> (trả khi nhận hàng).
-              VNPay cần cấu hình <code>VNPAY_TMN_CODE</code> / secret trên Backend — xem
-              <strong>docs/PAYMENT_VNPAY.md</strong>. Sau khi thanh toán xong bạn được đưa về trang xác nhận;
-              nếu thoát sớm, mở lại đơn và bấm tiếp tục VNPay.
+              Chọn <strong>VNPay</strong> (ATM / QR / thẻ), <strong>MoMo</strong> (ví điện tử),
+              <strong>Chuyển MoMo tới shop</strong> (chuyển thủ công tới ví người bán) hoặc
+              <strong>COD</strong>. Cổng online cần cấu hình env trên Backend
+              (<code>VNPAY_*</code> / <code>MOMO_*</code>).
             </p>
             <label class="elegant-payment" :class="{ 'elegant-payment--active': payment === 'vnpay' }">
               <input v-model="payment" type="radio" value="vnpay" name="pay" />
-              <span>VNPay (ATM / QR / thẻ) — khuyến nghị</span>
+              <span>VNPay (ATM / QR / thẻ)</span>
             </label>
+            <label class="elegant-payment elegant-payment--momo" :class="{ 'elegant-payment--active': payment === 'momo' }">
+              <input v-model="payment" type="radio" value="momo" name="pay" />
+              <span>Ví MoMo (cổng)</span>
+            </label>
+            <label
+              v-if="canUseMomoQr"
+              class="elegant-payment elegant-payment--momo"
+              :class="{ 'elegant-payment--active': payment === 'momo_qr' }"
+            >
+              <input v-model="payment" type="radio" value="momo_qr" name="pay" />
+              <span>
+                Chuyển MoMo tới shop
+                <template v-if="sellerMomo?.storeName"> ({{ sellerMomo.storeName }})</template>
+              </span>
+            </label>
+            <p v-else-if="cartSellerIds.length > 1" class="elegant-muted" style="font-size: 0.85rem; margin: 0.35rem 0">
+              MoMo shop chỉ dùng khi giỏ hàng có sản phẩm từ một shop.
+            </p>
+            <p v-else-if="sellerMomoLoading" class="elegant-muted" style="font-size: 0.85rem; margin: 0.35rem 0">
+              Đang kiểm tra MoMo shop…
+            </p>
             <label class="elegant-payment" :class="{ 'elegant-payment--active': payment === 'cod' }">
               <input v-model="payment" type="radio" value="cod" name="pay" />
               <span>Thanh toán khi nhận hàng (COD)</span>
@@ -289,10 +421,14 @@ async function placeOrder() {
               loading
                 ? payment === 'cod'
                   ? 'Đang đặt hàng...'
-                  : 'Đang chuyển cổng thanh toán...'
+                  : payment === 'momo_qr'
+                    ? 'Đang tạo đơn…'
+                    : 'Đang chuyển cổng thanh toán...'
                 : payment === 'cod'
                   ? 'Đặt hàng (COD)'
-                  : 'Đặt hàng & thanh toán VNPay'
+                  : payment === 'momo_qr'
+                    ? 'Đặt hàng & xem hướng dẫn MoMo'
+                    : `Đặt hàng & thanh toán ${paymentGatewayLabel}`
             }}
           </button>
         </div>
