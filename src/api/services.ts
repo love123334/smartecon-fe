@@ -21,6 +21,7 @@ import * as realReviews from '@/api/real/reviews'
 import * as realDss from '@/api/real/dss'
 import * as realPlatformRevenue from '@/api/real/platformRevenue'
 import * as realVouchers from '@/api/real/vouchers'
+import * as realNotifications from '@/api/real/notifications'
 import { fetchSystemHealthMetrics } from '@/api/real/systemHealth'
 import * as realProductImages from '@/api/real/productImages'
 import { typingDelay } from '@/api/chat/engine'
@@ -1500,9 +1501,12 @@ export const dssApi = {
 
         if (fromApi.length) return fromApi
       } catch {
-        /* fallback hybrid below */
+        /* no mock fallback in real mode */
       }
+      if (apiConfig.useRealSeller && !apiConfig.useMock) return []
     }
+
+    if (apiConfig.useRealSeller && !apiConfig.useMock) return []
 
     let products: Product[] = []
     try {
@@ -1666,9 +1670,11 @@ export const dssApi = {
         const chart = categoryRevenueChart(orders, products)
         if (chart.length) return chart
       } catch {
-        /* fallback mock below */
+        /* no mock fallback in real mode */
       }
+      if (!apiConfig.useMock) return []
     }
+    if (!apiConfig.useMock) return []
     const map = new Map<string, number>()
     for (const p of getProducts()) {
       map.set(p.category, (map.get(p.category) ?? 0) + p.soldCount * p.price * 0.01)
@@ -1787,41 +1793,25 @@ export const dssApi = {
   },
 
   async insightPlan(): Promise<realDss.DssInsightPlanApi> {
-    const fallback = (note: string): realDss.DssInsightPlanApi => ({
-      source: 'local-fallback',
-      commentary: [
-        '## Nhận xét & kế hoạch (fallback)',
-        note,
-        '',
-        '## Gợi ý nhanh',
-        '1. Mở **Dự báo nhu cầu** / **Gợi ý giá** để chạy DSS trên sản phẩm của bạn.',
-        '2. Theo dõi **Doanh số** và đơn bán để bổ sung dữ liệu DELIVERED.',
-        '3. Đăng nhập lại nếu phiên JWT hết hạn — rồi tải lại trang DSS.',
-      ].join('\n'),
-      metrics: {},
-      powerBiEmbedUrl: '',
-      powerBiReportTitle: 'SEDSP Decision Dashboard',
-      powerBiFeedHint: 'GET /api/v1/analytics/powerbi/sales (Bearer JWT)',
-      generatedAt: new Date().toISOString(),
-    })
-
     if (!hasBackendToken()) {
-      return fallback(
-        'Chưa có token backend. Đăng nhập seller thật (JWT) để lấy nhận xét từ API.',
-      )
+      if (apiConfig.useMock) {
+        return {
+          source: 'local-fallback',
+          commentary: [
+            '## Nhận xét & kế hoạch (demo)',
+            'Chưa có token backend. Đăng nhập seller thật (JWT) để lấy nhận xét từ API.',
+          ].join('\n'),
+          metrics: {},
+          powerBiEmbedUrl: '',
+          powerBiReportTitle: 'SEDSP Decision Dashboard',
+          powerBiFeedHint: 'GET /api/v1/analytics/powerbi/sales (Bearer JWT)',
+          generatedAt: new Date().toISOString(),
+        }
+      }
+      throw new ApiError('Chưa có token backend. Đăng nhập seller để lấy kế hoạch DSS.', 401)
     }
 
-    try {
-      return await realDss.insightPlan()
-    } catch (e) {
-      if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
-        return fallback(
-          'Phiên đăng nhập hết hạn hoặc thiếu quyền (Authentication failed). Hãy **đăng xuất → đăng nhập lại** rồi mở DSS.',
-        )
-      }
-      const msg = e instanceof Error ? e.message : 'Không tải được kế hoạch từ API'
-      return fallback(msg)
-    }
+    return realDss.insightPlan()
   },
 }
 
@@ -1906,6 +1896,25 @@ export const adminApi = {
   },
 }
 
+function notificationCursorKey(userId: string): string {
+  return `sedsp_notif_cursor_${userId}`
+}
+
+function readNotificationCursor(userId: string): number {
+  const raw = localStorage.getItem(notificationCursorKey(userId))
+  const n = raw ? Number(raw) : 0
+  return Number.isFinite(n) && n > 0 ? n : 0
+}
+
+function writeNotificationCursor(userId: string, id: number): void {
+  if (!Number.isFinite(id) || id <= 0) return
+  localStorage.setItem(notificationCursorKey(userId), String(id))
+}
+
+function formatOrderNotificationMessage(n: realNotifications.CustomerNotification): string {
+  return `**${n.title}**\n${n.message}`
+}
+
 // ——— Chatbot (LLM Groq/OpenAI + fallback engine local) ———
 export const chatApi = {
   isLlmEnabled: isLlmConfigured,
@@ -1985,6 +1994,72 @@ export const chatApi = {
     const map = getChatMap()
     delete map[userId]
     saveChatMap(map)
+  },
+
+  async syncProactiveNotifications(userId: string): Promise<{
+    messages: ChatMessage[]
+    appended: number
+    unread: number
+  }> {
+    if (!hasBackendToken()) {
+      return { messages: getChatMap()[userId] ?? [], appended: 0, unread: 0 }
+    }
+    try {
+      const afterId = readNotificationCursor(userId)
+      const pending = await realNotifications.listUnreadNotifications(afterId || undefined)
+      const map = getChatMap()
+      const history = map[userId] ?? []
+      const knownIds = new Set(
+        history
+          .map((m) => m.meta?.notificationId)
+          .filter((id): id is number => typeof id === 'number'),
+      )
+
+      let appended = 0
+      let maxId = afterId
+      const next = [...history]
+
+      for (const n of pending) {
+        maxId = Math.max(maxId, n.id)
+        if (knownIds.has(n.id)) continue
+        next.push({
+          id: `n-${n.id}`,
+          role: 'assistant',
+          content: formatOrderNotificationMessage(n),
+          timestamp: n.createdAt || new Date().toISOString(),
+          meta: {
+            source: 'local',
+            kind: 'order_update',
+            notificationId: n.id,
+            orderId: n.orderId ?? undefined,
+          },
+        })
+        appended += 1
+        try {
+          await realNotifications.markNotificationRead(n.id)
+        } catch {
+          /* keep cursor — will retry */
+        }
+      }
+
+      if (maxId > afterId) writeNotificationCursor(userId, maxId)
+      if (appended) {
+        map[userId] = next
+        saveChatMap(map)
+      }
+
+      let unread = 0
+      try {
+        const countRes = await realNotifications.getUnreadNotificationCount()
+        unread = Number(countRes.count) || 0
+      } catch {
+        unread = 0
+      }
+
+      return { messages: appended ? next : history, appended, unread }
+    } catch {
+      return { messages: getChatMap()[userId] ?? [], appended: 0, unread: 0 }
+    }
   },
 }
 

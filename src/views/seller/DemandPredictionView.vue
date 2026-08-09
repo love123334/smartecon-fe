@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import DemandTrendChart from '@/components/dss/DemandTrendChart.vue'
+import { apiConfig } from '@/api/config'
 import { dssApi } from '@/api/services'
 import type { DemandPredictionApi } from '@/api/real/dss'
 import { useAuthStore } from '@/stores/auth'
@@ -45,6 +46,7 @@ const result = ref<DemandPredictionApi | null>(null)
 const historicalSeries = ref<SeriesPoint[]>([])
 const forecastSeries = ref<SeriesPoint[]>([])
 const chartFromApi = ref(false)
+const chartError = ref('')
 
 let requestSeq = 0
 
@@ -132,6 +134,7 @@ async function loadChartSeries(payload: {
   averageDailyDemand: number
 }) {
   chartFromApi.value = false
+  chartError.value = ''
   historicalSeries.value = []
   forecastSeries.value = []
   try {
@@ -148,16 +151,23 @@ async function loadChartSeries(payload: {
       chartFromApi.value = true
       return
     }
-  } catch {
-    /* fallback flat series below */
+    chartError.value =
+      'Backend chưa trả chuỗi lịch sử/dự báo — chỉ hiển thị KPI từ POST dự báo nhu cầu.'
+  } catch (e) {
+    chartError.value =
+      e instanceof Error
+        ? e.message
+        : 'Không tải được biểu đồ từ API. KPI phía trên vẫn từ backend.'
   }
-  const start = payload.historicalDays + 1
-  forecastSeries.value = buildFlatForecastSeries(
-    payload.averageDailyDemand,
-    Math.min(payload.forecastPeriod, 30),
-    start,
-  )
-  historicalSeries.value = []
+  if (apiConfig.useMock) {
+    const start = payload.historicalDays + 1
+    forecastSeries.value = buildFlatForecastSeries(
+      payload.averageDailyDemand,
+      Math.min(payload.forecastPeriod, 30),
+      start,
+    )
+    historicalSeries.value = []
+  }
 }
 
 async function onSubmit() {
@@ -215,6 +225,7 @@ function resetResult() {
   historicalSeries.value = []
   forecastSeries.value = []
   chartFromApi.value = false
+  chartError.value = ''
 }
 </script>
 
@@ -447,6 +458,7 @@ function resetResult() {
         </div>
         <DemandTrendChart :historical="historicalSeries" :forecast="forecastSeries" />
       </section>
+      <p v-else-if="result && chartError" class="form-error demand-chart-note">{{ chartError }}</p>
     </template>
   </div>
 </template>

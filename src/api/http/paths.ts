@@ -118,4 +118,10 @@ export const apiPaths = {
     metrics: 'admin/metrics',
     logs: 'admin/logs',
   },
+  notifications: {
+    list: 'notifications',
+    unreadCount: 'notifications/unread-count',
+    read: (id: string) => `notifications/${id}/read`,
+    readAll: 'notifications/read-all',
+  },
 } as const

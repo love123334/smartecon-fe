@@ -124,7 +124,12 @@ async function generate() {
         recommendedOrder: Number(r.recommendedOrder),
         status: (r.status === 'need' ? 'need' : 'sufficient') as 'need' | 'sufficient',
         statusLabel: r.statusLabel,
-        historicalSales: [] as { day: number; qty: number }[],
+        historicalSales: Array.isArray(r.historicalSales)
+          ? r.historicalSales.map((pt: { day?: number; qty?: number }) => ({
+              day: Number(pt.day),
+              qty: Number(pt.qty),
+            }))
+          : ([] as { day: number; qty: number }[]),
       }))
       if (!rows.length) {
         errorCode.value = 'failed'

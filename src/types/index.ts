@@ -116,6 +116,9 @@ export interface ChatMessage {
   attachments?: ChatProductRef[]
   meta?: {
     source?: 'llm' | 'local'
+    kind?: 'order_update' | 'system'
+    notificationId?: number
+    orderId?: number
   }
 }
 

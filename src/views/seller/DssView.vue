@@ -95,7 +95,10 @@ onMounted(async () => {
         <small v-if="plan">{{ plan.generatedAt }}</small>
       </div>
       <p v-if="planLoading" class="dss-brain__loading">Đang tổng hợp số liệu…</p>
-      <p v-else-if="planError && !planCommentary" class="dss-brain__err">{{ planError }}</p>
+      <p v-else-if="planError" class="dss-brain__err">{{ planError }}</p>
+      <p v-else-if="plan && plan.source === 'local-fallback'" class="dss-brain__err">
+        Chưa lấy được kế hoạch DSS từ backend — thử đăng nhập lại hoặc tải lại trang.
+      </p>
       <div v-else class="dss-brain__body">
         <div v-if="commentarySections.length" class="dss-ai-sections">
           <article v-for="(sec, idx) in commentarySections" :key="idx" class="dss-ai-sec">

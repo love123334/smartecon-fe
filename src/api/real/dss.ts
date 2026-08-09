@@ -92,6 +92,7 @@ export interface InventoryRecommendationApi {
     recommendedOrder: number
     status: 'need' | 'sufficient' | string
     statusLabel: string
+    historicalSales?: { day: number; qty: number }[]
   }>
   generatedAt: string
 }

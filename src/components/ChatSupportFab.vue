@@ -21,6 +21,11 @@ const loading = ref(false)
 const chatError = ref('')
 const lastFailedText = ref('')
 const ready = ref(false)
+let notifyTimer: ReturnType<typeof setInterval> | undefined
+
+const shouldPollNotifications = computed(
+  () => auth.isLoggedIn && auth.role === 'customer',
+)
 
 const effectiveRole = computed<UserRole>(() => {
   if (auth.role === 'seller') return 'seller'
@@ -70,13 +75,63 @@ async function loadHistory() {
   await chatApi.ensureAiReady()
   messages.value = await chatApi.getHistory(chatUserId.value)
   ready.value = true
+  if (shouldPollNotifications.value) {
+    await pullProactiveNotifications(true)
+  }
+}
+
+async function pullProactiveNotifications(silent = false) {
+  if (!shouldPollNotifications.value) return
+  try {
+    const res = await chatApi.syncProactiveNotifications(chatUserId.value)
+    widget.setUnreadBadge(res.unread)
+    if (res.appended > 0) {
+      messages.value = res.messages
+      if (!silent && !widget.open) {
+        widget.show()
+      }
+    } else if (res.unread === 0 && widget.unreadBadge > 0 && res.appended === 0) {
+      widget.setUnreadBadge(res.unread)
+    }
+  } catch {
+    /* ignore polling errors */
+  }
+}
+
+function startNotificationPolling() {
+  stopNotificationPolling()
+  if (!shouldPollNotifications.value) return
+  void pullProactiveNotifications(true)
+  notifyTimer = setInterval(() => {
+    void pullProactiveNotifications(true)
+  }, 25_000)
+}
+
+function stopNotificationPolling() {
+  if (notifyTimer) {
+    clearInterval(notifyTimer)
+    notifyTimer = undefined
+  }
 }
 
 watch(
   () => widget.open,
   async (isOpen) => {
     if (isOpen) await loadHistory()
+    else if (shouldPollNotifications.value) void pullProactiveNotifications(true)
   },
+)
+
+watch(
+  () => [auth.isLoggedIn, auth.role, auth.user?.id] as const,
+  () => {
+    if (shouldPollNotifications.value) startNotificationPolling()
+    else {
+      stopNotificationPolling()
+      widget.setUnreadBadge(0)
+    }
+  },
+  { immediate: true },
 )
 
 watch(
@@ -94,6 +149,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('keydown', onKeydown)
+  stopNotificationPolling()
 })
 
 function onKeydown(e: KeyboardEvent) {
@@ -195,6 +251,9 @@ function onFabDrop(e: DragEvent) {
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
       </svg>
+      <span v-if="widget.unreadBadge > 0" class="chat-fab__badge" aria-label="Thông báo đơn hàng mới">
+        {{ widget.unreadBadge > 9 ? '9+' : widget.unreadBadge }}
+      </span>
       <span class="chat-fab__label">Chat</span>
     </button>
 
@@ -282,6 +341,23 @@ function onFabDrop(e: DragEvent) {
 
 .chat-fab__label {
   letter-spacing: 0.04em;
+}
+
+.chat-fab__badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.25rem;
+  border-radius: 999px;
+  background: #dc2626;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 800;
+  line-height: 1.15rem;
+  text-align: center;
+  box-shadow: 0 0 0 2px #fff;
 }
 
 .chat-popup {

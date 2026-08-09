@@ -107,7 +107,11 @@ defineExpose({ scrollToEnd: scrollEnd })
         <div
           v-for="m in messages"
           :key="m.id"
-          :class="['chat-bubble', m.role === 'user' ? 'user' : 'assistant']"
+          :class="[
+            'chat-bubble',
+            m.role === 'user' ? 'user' : 'assistant',
+            m.meta?.kind === 'order_update' ? 'chat-bubble--order' : '',
+          ]"
         >
           <div v-if="m.attachments?.length" class="chat-bubble__attach">
             <ChatProductMiniCard
@@ -125,7 +129,10 @@ defineExpose({ scrollToEnd: scrollEnd })
               :product="p"
             />
           </div>
-          <span v-if="m.meta?.source === 'llm'" class="chat-bubble__tag">AI</span>
+          <span v-if="m.meta?.kind === 'order_update'" class="chat-bubble__tag chat-bubble__tag--order">
+            Cập nhật đơn
+          </span>
+          <span v-else-if="m.meta?.source === 'llm'" class="chat-bubble__tag">AI</span>
           <time class="chat-bubble__time">{{
             new Date(m.timestamp).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
           }}</time>
@@ -305,6 +312,16 @@ defineExpose({ scrollToEnd: scrollEnd })
 .chat-bubble.user .chat-bubble__attach {
   margin-top: 0;
   margin-bottom: 0.45rem;
+}
+
+.chat-bubble--order {
+  border-color: #93c5fd;
+  background: linear-gradient(180deg, #eff6ff 0%, #f8fafc 100%);
+}
+
+.chat-bubble__tag--order {
+  background: #1d4ed8;
+  color: #fff;
 }
 
 .chat-bubble__tag {

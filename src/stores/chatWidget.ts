@@ -6,6 +6,11 @@ export const useChatWidgetStore = defineStore('chatWidget', () => {
   const open = ref(false)
   const attachments = ref<ChatProductRef[]>([])
   const dragOver = ref(false)
+  const unreadBadge = ref(0)
+
+  function setUnreadBadge(count: number) {
+    unreadBadge.value = Math.max(0, count)
+  }
 
   function toggle() {
     open.value = !open.value
@@ -45,6 +50,7 @@ export const useChatWidgetStore = defineStore('chatWidget', () => {
     open,
     attachments,
     dragOver,
+    unreadBadge,
     toggle,
     show,
     hide,
@@ -52,5 +58,6 @@ export const useChatWidgetStore = defineStore('chatWidget', () => {
     removeAttachment,
     clearAttachments,
     setAttachments,
+    setUnreadBadge,
   }
 })
