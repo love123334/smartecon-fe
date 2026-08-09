@@ -40,6 +40,38 @@ const paymentLabel = computed(() => {
 
 const paying = ref(false)
 const payError = ref('')
+const verifyingPayment = ref(false)
+const loading = ref(true)
+
+async function verifyPaymentStatus() {
+  if (!order.value) return false
+  verifyingPayment.value = true
+  payError.value = ''
+  try {
+    const payment = await orderApi.getPayment(order.value.id)
+    if (payment?.status === 'SUCCESS') {
+      order.value = (await orderApi.getById(order.value.id)) ?? order.value
+      return true
+    }
+    if (payment?.status === 'FAILED') {
+      payError.value = 'Thanh toán chưa thành công hoặc đã hết hạn.'
+    }
+    return false
+  } catch (e) {
+    payError.value = e instanceof Error ? e.message : 'Không kiểm tra được trạng thái thanh toán'
+    return false
+  } finally {
+    verifyingPayment.value = false
+  }
+}
+
+async function pollPaymentStatus(maxAttempts = 8) {
+  for (let i = 0; i < maxAttempts; i += 1) {
+    const ok = await verifyPaymentStatus()
+    if (ok) return
+    await new Promise((r) => window.setTimeout(r, 2500))
+  }
+}
 
 async function payAgain() {
   if (!order.value) return
@@ -156,6 +188,8 @@ function itemReviewState(productId: string) {
 }
 
 async function loadOrderPage() {
+  loading.value = true
+  try {
   // Lối vào từ lịch sử / đánh giá → luôn chi tiết
   if (
     route.query.view === 'detail' ||
@@ -169,6 +203,14 @@ async function loadOrderPage() {
 
   order.value = await orderApi.getById(route.params.id as string)
   if (!order.value) return
+
+  // Tự kiểm tra thanh toán VNPay thay vì bắt người dùng bấm xác nhận thủ công
+  if (
+    order.value.status === 'pending' &&
+    (order.value.paymentMethod === 'vnpay' || order.value.paymentMethod === 'bank')
+  ) {
+    void pollPaymentStatus(6)
+  }
 
   // Đơn đã tiến triển không bao giờ hiện màn “đặt thành công”
   if (order.value.status !== 'pending') {
@@ -206,6 +248,9 @@ async function loadOrderPage() {
   } else if (route.hash === '#track') {
     openOrderTracking()
   }
+  } finally {
+    loading.value = false
+  }
 }
 
 onMounted(() => {
@@ -241,7 +286,8 @@ async function onReviewSubmitted(productId: string) {
 </script>
 
 <template>
-  <div v-if="order" class="elegant-page">
+  <div v-if="loading" class="empty container">Đang tải đơn hàng…</div>
+  <div v-else-if="order" class="elegant-page">
     <div class="elegant-page__inner">
       <template v-if="showCheckoutSuccess">
         <h1 class="elegant-page-title elegant-page-title--center">Đặt hàng thành công</h1>
@@ -348,6 +394,7 @@ async function onReviewSubmitted(productId: string) {
           </section>
 
           <p v-if="payError" class="elegant-alert elegant-alert--error">{{ payError }}</p>
+          <p v-if="verifyingPayment" class="order-detail__verify-hint">Đang kiểm tra trạng thái thanh toán…</p>
           <div
             v-if="order.rawStatus === 'PENDING' || order.status === 'pending'"
             class="order-detail__pay-actions"
@@ -355,17 +402,11 @@ async function onReviewSubmitted(productId: string) {
             <button
               type="button"
               class="btn-elegant-primary btn-interactive"
-              :disabled="paying"
+              :disabled="paying || verifyingPayment"
               @click="payAgain"
             >
               {{ paying ? 'Đang mở cổng...' : 'Thanh toán VNPay' }}
             </button>
-            <RouterLink
-              class="btn-elegant-outline btn-interactive"
-              :to="`/payment/result?gateway=vnpay&orderId=${order.id}&status=pending`"
-            >
-              Tôi đã thanh toán — Xác nhận
-            </RouterLink>
           </div>
 
           <section class="order-detail__items" aria-labelledby="items-heading">

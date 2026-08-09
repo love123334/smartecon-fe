@@ -30,7 +30,12 @@ const activeImage = ref(
 )
 
 const discount = computed(() => getDiscountPercent(props.product))
-const isNew = computed(() => props.product.soldCount < 40)
+const isNew = computed(() => {
+  const created = Date.parse(props.product.createdAt)
+  if (!Number.isFinite(created)) return false
+  const ageDays = (Date.now() - created) / (1000 * 60 * 60 * 24)
+  return ageDays <= 21
+})
 const display = computed(() => detail.value ?? props.product)
 
 const gallery = computed(() => {

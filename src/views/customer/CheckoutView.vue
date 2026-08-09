@@ -177,13 +177,9 @@ async function placeOrder() {
           >
             {{ resuming ? 'Đang mở VNPay…' : 'Tiếp tục VNPay' }}
           </button>
-          <RouterLink
-            class="btn-interactive"
-            :to="`/payment/result?gateway=vnpay&orderId=${pendingOrderId}&status=pending`"
-          >
-            Tôi đã thanh toán
+          <RouterLink class="btn-interactive" :to="`/orders/${pendingOrderId}?view=detail`">
+            Xem đơn &amp; kiểm tra thanh toán
           </RouterLink>
-          <RouterLink class="btn-interactive" :to="`/orders/${pendingOrderId}`">Xem đơn</RouterLink>
           <button type="button" class="btn-interactive" @click="clearPendingOrder">Bỏ qua</button>
         </div>
       </div>

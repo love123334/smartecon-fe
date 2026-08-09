@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
+import { useCategoryStore } from '@/stores/categories'
 import PromoDemandColumnChart from '@/components/dss/PromoDemandColumnChart.vue'
 import PromoProfitLineChart from '@/components/dss/PromoProfitLineChart.vue'
 import PromoRadarChart from '@/components/dss/PromoRadarChart.vue'
 import {
-  MANAGER_CATEGORIES,
   CAMPAIGN_DURATIONS,
   defaultManagerWhatIf,
   generateManagerWhatIf,
@@ -14,25 +14,37 @@ import {
   type CampaignDurationKey,
 } from '@/utils/dssManagerWhatIfMock'
 
-const category = ref('coffee')
+const cats = useCategoryStore()
+const categoryOptions = computed(() =>
+  cats.items.slice(0, 8).map((c) => ({
+    value: c.slug || c.name.toLowerCase().replace(/\s+/g, '-'),
+    label: c.name,
+  })),
+)
+
+const category = ref('')
 const durationKey = ref<CampaignDurationKey>('7')
 const result = ref<ManagerWhatIfResult | null>(null)
 const running = ref(false)
 
+onMounted(async () => {
+  await cats.load()
+  category.value = categoryOptions.value[0]?.value ?? 'electronics'
+  result.value = defaultManagerWhatIf(categoryOptions.value[0]?.label)
+})
+
 function generate() {
   running.value = true
+  const label = categoryOptions.value.find((c) => c.value === category.value)?.label
   window.setTimeout(() => {
     result.value = generateManagerWhatIf({
       category: category.value,
+      categoryLabel: label,
       durationKey: durationKey.value,
     })
     running.value = false
   }, 350)
 }
-
-onMounted(() => {
-  result.value = defaultManagerWhatIf()
-})
 </script>
 
 <template>
@@ -57,7 +69,7 @@ onMounted(() => {
         <label class="dss-field">
           <span>Danh mục sản phẩm</span>
           <select v-model="category" class="dss-input">
-            <option v-for="c in MANAGER_CATEGORIES" :key="c.value" :value="c.value">
+            <option v-for="c in categoryOptions" :key="c.value" :value="c.value">
               {{ c.label }}
             </option>
           </select>

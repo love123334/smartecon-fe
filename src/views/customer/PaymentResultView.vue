@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * Public bridge after VNPay/MoMo return.
- * Saves pay status then routes to /cart (or login → cart) so cancel never “kicks” users away.
+ * Redirects to order detail (success/cancel) or cart (failed).
  */
 import { onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -19,17 +19,18 @@ onMounted(async () => {
   }
 
   const status = String(route.query.status ?? route.query.pay ?? 'failed').toLowerCase()
+  const orderId = String(route.query.orderId ?? '')
   const pay =
     status === 'success'
       ? 'success'
-      : status === 'cancelled' || status === 'pending' || status === '24'
+      : status === 'cancelled' || status === '24'
         ? 'cancelled'
         : 'failed'
 
   const payload = {
     pay,
     gateway: String(route.query.gateway ?? 'vnpay'),
-    orderId: String(route.query.orderId ?? ''),
+    orderId,
     code: String(route.query.code ?? ''),
     txnRef: String(route.query.txnRef ?? ''),
   }
@@ -41,10 +42,18 @@ onMounted(async () => {
   }
 
   if (!auth.isLoggedIn) {
-    // Keep user in-flow: login then back to cart (banner restored from sessionStorage)
+    const redirect = orderId ? `/orders/${orderId}?view=detail` : '/cart'
     void router.replace({
       name: 'login',
-      query: { redirect: '/cart' },
+      query: { redirect },
+    })
+    return
+  }
+
+  if (orderId) {
+    void router.replace({
+      path: `/orders/${orderId}`,
+      query: { view: 'detail', pay },
     })
     return
   }
@@ -65,7 +74,7 @@ onMounted(async () => {
 <template>
   <div class="elegant-page">
     <div class="container elegant-page__inner" style="max-width: 480px">
-      <p class="empty">Đang chuyển về giỏ hàng…</p>
+      <p class="empty">Đang chuyển hướng…</p>
     </div>
   </div>
 </template>

@@ -5,31 +5,38 @@ import { productApi } from '@/api/services'
 import type { Product } from '@/types'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
+import { useCategoryStore } from '@/stores/categories'
 import { matchesPriceRange } from '@/utils/priceFilter'
 import { canShopAsBuyer } from '@/utils/roleNav'
 import ShopHero from '@/components/ShopHero.vue'
 import ShopSidebar from '@/components/ShopSidebar.vue'
 import ProductCard from '@/components/ProductCard.vue'
 import ProductSkeletonGrid from '@/components/ProductSkeletonGrid.vue'
+import ShopPagination from '@/components/ShopPagination.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import NewsletterBanner from '@/components/NewsletterBanner.vue'
 import { addSearchHistory } from '@/utils/searchHistory'
+
+const PAGE_SIZE = 12
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const cart = useCartStore()
+const cats = useCategoryStore()
 
 const q = ref((route.query.q as string) ?? '')
 const category = ref((route.query.category as string) ?? '')
 const priceRange = ref('')
 const sort = ref('popular')
-const categories = ref<string[]>([])
 const results = ref<Product[]>([])
 const loading = ref(false)
-const visibleCount = ref(12)
-/** Tránh vòng lặp route ↔ local state khi sync URL. */
+const page = ref(Number(route.query.page ?? 0) || 0)
+const totalPages = ref(1)
+const totalElements = ref(0)
 let syncingFromRoute = false
+
+const categories = computed(() => cats.names)
 
 const filtered = computed(() => {
   let list = results.value.filter((p) => matchesPriceRange(p.price, priceRange.value))
@@ -39,35 +46,38 @@ const filtered = computed(() => {
   return list
 })
 
-const visibleProducts = computed(() => filtered.value.slice(0, visibleCount.value))
-
 const sectionTitle = computed(() => category.value || (q.value ? `Kết quả «${q.value}»` : 'Tất cả sản phẩm'))
 
 function syncUrl() {
   const nextQuery: Record<string, string> = {
     ...(q.value ? { q: q.value } : {}),
     ...(category.value ? { category: category.value } : {}),
+    ...(page.value > 0 ? { page: String(page.value) } : {}),
   }
   const curQ = typeof route.query.q === 'string' ? route.query.q : ''
   const curCat = typeof route.query.category === 'string' ? route.query.category : ''
-  if (curQ === (nextQuery.q ?? '') && curCat === (nextQuery.category ?? '')) return
+  const curPage = Number(route.query.page ?? 0) || 0
+  if (curQ === (nextQuery.q ?? '') && curCat === (nextQuery.category ?? '') && curPage === page.value) return
   router.replace({ query: nextQuery })
 }
 
 async function search(opts?: { recordHistory?: boolean }) {
   loading.value = true
   try {
-    results.value = await productApi.list({
+    const meta = await productApi.listWithMeta({
       q: q.value || undefined,
       category: category.value || undefined,
-      size: 48,
+      size: PAGE_SIZE,
+      page: page.value,
     })
+    results.value = meta.products
+    totalPages.value = Math.max(1, meta.totalPages ?? 1)
+    totalElements.value = meta.totalElements ?? meta.products.length
     if (opts?.recordHistory && q.value.trim()) {
       addSearchHistory(q.value.trim())
     }
   } finally {
     loading.value = false
-    visibleCount.value = 12
     if (!syncingFromRoute) syncUrl()
   }
 }
@@ -78,6 +88,7 @@ watch(
     syncingFromRoute = true
     q.value = (route.query.q as string) ?? ''
     category.value = (route.query.category as string) ?? ''
+    page.value = Number(route.query.page ?? 0) || 0
     await search()
     syncingFromRoute = false
   },
@@ -86,14 +97,14 @@ watch(
 
 watch(category, async (next, prev) => {
   if (syncingFromRoute || next === prev) return
+  page.value = 0
   await search()
 })
 
-productApi.categories().then((c) => {
-  categories.value = c
-})
+void cats.load()
 
 async function submitInlineSearch() {
+  page.value = 0
   await search({ recordHistory: true })
 }
 
@@ -109,8 +120,10 @@ async function addToCart(id: string) {
   }
 }
 
-function showMore() {
-  visibleCount.value += 12
+async function onPageChange(next: number) {
+  page.value = next
+  await search()
+  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 </script>
 
@@ -162,21 +175,22 @@ function showMore() {
           :description="q ? `Không tìm thấy «${q}»` : 'Thử đổi bộ lọc khác'"
         />
         <template v-else>
-          <p class="shop-result-count">{{ filtered.length }} sản phẩm</p>
+          <p class="shop-result-count">{{ totalElements || filtered.length }} sản phẩm</p>
           <div class="mkt-grid mkt-grid--shop grid-stagger">
             <ProductCard
-              v-for="p in visibleProducts"
+              v-for="p in filtered"
               :key="p.id"
               :product="p"
               :show-add="auth.role === 'guest' || canShopAsBuyer(auth.role)"
               @add="addToCart"
             />
           </div>
-          <div v-if="visibleCount < filtered.length" class="shop-more-wrap">
-            <button type="button" class="btn-show-more btn-interactive" @click="showMore">
-              Xem thêm
-            </button>
-          </div>
+          <ShopPagination
+            :page="page"
+            :total-pages="totalPages"
+            :total-elements="totalElements"
+            @change="onPageChange"
+          />
         </template>
       </div>
     </div>

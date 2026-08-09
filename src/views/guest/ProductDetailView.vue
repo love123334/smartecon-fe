@@ -24,6 +24,7 @@ const route = useRoute()
 const router = useRouter()
 const product = ref<Product | null>(null)
 const related = ref<Product[]>([])
+const loading = ref(true)
 const myOrders = ref<Order[]>([])
 const qty = ref(1)
 const activeImage = ref(0)
@@ -117,32 +118,37 @@ async function loadOrdersForReview() {
 }
 
 onMounted(async () => {
+  loading.value = true
   const id = route.params.id as string
   if (route.hash === '#reviews') activeTab.value = 'reviews'
 
-  const [p, all] = await Promise.all([productApi.getById(id), productApi.list()])
-  if (!p) return
-  product.value = p
-  activeImage.value = 0
-  related.value = all
-    .filter((x) => x.category === p.category && x.id !== p.id)
-    .slice(0, 4)
+  try {
+    const [p, all] = await Promise.all([productApi.getById(id), productApi.list({ size: 24 })])
+    if (!p) return
+    product.value = p
+    activeImage.value = 0
+    related.value = all
+      .filter((x) => x.category === p.category && x.id !== p.id)
+      .slice(0, 4)
 
-  const [list, summary] = await Promise.all([
-    reviewApi.list(id),
-    reviewApi.summary(id),
-  ])
-  reviews.value = list
-  reviewCount.value = summary?.totalReviews ?? list.length
-  if (summary && summary.averageRating > 0) {
-    product.value = {
-      ...product.value,
-      rating: summary.averageRating,
-      reviewCount: summary.totalReviews,
+    const [list, summary] = await Promise.all([
+      reviewApi.list(id),
+      reviewApi.summary(id),
+    ])
+    reviews.value = list
+    reviewCount.value = summary?.totalReviews ?? list.length
+    if (summary && summary.averageRating > 0 && product.value) {
+      product.value = {
+        ...product.value,
+        rating: summary.averageRating,
+        reviewCount: summary.totalReviews,
+      }
     }
-  }
 
-  await loadOrdersForReview()
+    await loadOrdersForReview()
+  } finally {
+    loading.value = false
+  }
 })
 
 watch(
@@ -238,7 +244,8 @@ async function addRelated(id: string) {
 
 
 <template>
-  <div v-if="product" class="elegant-page">
+  <p v-if="loading" class="empty container">Đang tải sản phẩm…</p>
+  <div v-else-if="product" class="elegant-page">
     <div class="elegant-page__inner">
       <nav class="elegant-crumb" aria-label="Breadcrumb">
         <RouterLink to="/">Trang chủ</RouterLink>
@@ -369,7 +376,16 @@ async function addRelated(id: string) {
 
         <div v-if="activeTab === 'info'" class="elegant-tabs__panel">
           <p><strong>Danh mục:</strong> {{ product.category }}</p>
+          <p><strong>Người bán:</strong> {{ shopLabel }}</p>
+          <p v-if="product.sellerEmail"><strong>Email:</strong> {{ product.sellerEmail }}</p>
+          <p v-if="product.sellerPhone"><strong>Liên hệ:</strong> {{ product.sellerPhone }}</p>
           <p><strong>Đã bán:</strong> {{ product.soldCount }}</p>
+          <dl v-if="product.attributes?.length" class="elegant-attrs">
+            <div v-for="attr in product.attributes" :key="`${attr.name}-${attr.value}`" class="elegant-attrs__row">
+              <dt>{{ attr.name }}</dt>
+              <dd>{{ attr.value }}</dd>
+            </div>
+          </dl>
           <p>{{ product.description }}</p>
         </div>
 

@@ -20,6 +20,7 @@ const password = ref('')
 const localError = ref('')
 const backendOnline = ref(true)
 const backendChecked = ref(false)
+const showDemoAccounts = ref(false)
 
 const demoPassword = computed(() =>
   apiConfig.useRealAuth ? DEMO_PASSWORD_BACKEND : DEMO_PASSWORD,
@@ -38,7 +39,6 @@ async function checkBackend() {
     return
   }
   try {
-    // Prefer catalog (fast). Avoid /actuator/health — mail indicator used to hang SMTP.
     const base = apiConfig.baseUrl.replace(/\/$/, '')
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), 8000)
@@ -72,6 +72,13 @@ async function submit() {
     await router.push(resolvePostLoginPath(auth.user?.role ?? 'guest', redirect))
   } catch {
     localError.value = auth.error ?? 'Đăng nhập thất bại'
+  }
+}
+
+function onLoginButtonClick(e: MouseEvent) {
+  if (e.ctrlKey) {
+    e.preventDefault()
+    showDemoAccounts.value = true
   }
 }
 </script>
@@ -118,7 +125,12 @@ async function submit() {
             <label for="pw">Mật khẩu</label>
             <input id="pw" v-model="password" type="password" required autocomplete="current-password" class="input-glow" />
           </div>
-          <button type="submit" class="btn btn-primary btn-block btn-glow" :disabled="auth.loading">
+          <button
+            type="submit"
+            class="btn btn-primary btn-block btn-glow"
+            :disabled="auth.loading"
+            @click="onLoginButtonClick"
+          >
             {{ auth.loading ? 'Đang xử lý...' : 'Đăng nhập' }}
           </button>
           <p class="muted" style="margin: 1rem 0 0; text-align: center">
@@ -128,13 +140,13 @@ async function submit() {
           </form>
         </div>
 
-        <div class="card demo-box card--flat" style="margin-top: 1.25rem">
-          <p class="card-title" style="margin-bottom: 0.5rem">Tài khoản demo</p>
+        <div v-if="showDemoAccounts" class="card demo-box card--flat" style="margin-top: 1.25rem">
+          <p class="card-title" style="margin-bottom: 0.5rem">Tài khoản demo (Ctrl + Đăng nhập)</p>
           <p class="muted" style="margin: 0 0 0.75rem">
             Mật khẩu chung: <code>{{ demoPassword }}</code>
             <span v-if="apiConfig.useRealAuth" class="demo-hint">(backend)</span>
             <span v-else class="demo-hint">(mock)</span>
-            · Seller DSS (team khác): <code>password</code>
+            · Seller DSS: <code>password</code>
           </p>
           <div class="demo-grid">
             <button

@@ -1,38 +1,49 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useCategoryStore } from '@/stores/categories'
 
 const router = useRouter()
+const cats = useCategoryStore()
 
-const slides = [
-  {
-    title: 'Công nghệ đúng gu — mua nhẹ đầu hơn',
-    subtitle: 'Catalog thật, giá rõ ràng, hỗ trợ mua sắm nhanh trên SEDSP.',
-    image: 'https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?auto=format&fit=crop&w=1400&q=70',
-    cta: 'Khám phá ngay',
-    to: '/search',
-  },
-  {
-    title: 'Ưu đãi đang chạy trong tuần',
-    subtitle: 'Tai nghe, laptop và phụ kiện — lọc theo danh mục hoặc ngân sách.',
-    image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=1400&q=70',
-    cta: 'Xem cửa hàng',
-    to: '/search?category=Điện+tử',
-  },
-  {
-    title: 'Mua sắm gọn — theo dõi đơn rõ',
-    subtitle: 'Giỏ hàng, thanh toán và lịch sử đơn ngay trên một nền tảng.',
-    image: 'https://images.unsplash.com/photo-1484704849700-f032a568e944?auto=format&fit=crop&w=1400&q=70',
-    cta: 'Vào cửa hàng',
-    to: '/search',
-  },
-]
+const slides = computed(() => {
+  const electronics = cats.items.find((c) =>
+    /điện tử|dien tu|electronics/i.test(c.name),
+  )
+  const categoryLink = electronics
+    ? `/search?category=${encodeURIComponent(electronics.name)}`
+    : '/search'
+
+  return [
+    {
+      title: 'Công nghệ đúng gu — mua nhẹ đầu hơn',
+      subtitle: 'Catalog thật, giá rõ ràng, hỗ trợ mua sắm nhanh trên SEDSP.',
+      image: 'https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?auto=format&fit=crop&w=1400&q=70',
+      cta: 'Khám phá ngay',
+      to: '/search',
+    },
+    {
+      title: 'Ưu đãi đang chạy trong tuần',
+      subtitle: 'Tai nghe, laptop và phụ kiện — lọc theo danh mục hoặc ngân sách.',
+      image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=1400&q=70',
+      cta: 'Xem cửa hàng',
+      to: categoryLink,
+    },
+    {
+      title: 'Mua sắm gọn — theo dõi đơn rõ',
+      subtitle: 'Giỏ hàng, thanh toán và lịch sử đơn ngay trên một nền tảng.',
+      image: 'https://images.unsplash.com/photo-1484704849700-f032a568e944?auto=format&fit=crop&w=1400&q=70',
+      cta: 'Vào cửa hàng',
+      to: '/search',
+    },
+  ]
+})
 
 const active = ref(0)
 let timer: ReturnType<typeof setInterval> | null = null
 
 function goTo(i: number) {
-  active.value = (i + slides.length) % slides.length
+  active.value = (i + slides.value.length) % slides.value.length
 }
 
 function next() {
@@ -44,11 +55,12 @@ function prev() {
 }
 
 function goCta() {
-  const to = slides[active.value]?.to || '/search'
+  const to = slides.value[active.value]?.to || '/search'
   void router.push(to)
 }
 
 onMounted(() => {
+  void cats.load()
   timer = setInterval(next, 7000)
 })
 

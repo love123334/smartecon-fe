@@ -97,15 +97,19 @@ const COFFEE_ROWS: Omit<PromoScenarioRow, 'inventoryRiskLabel'>[] = [
   },
 ]
 
-export function defaultManagerWhatIf(): ManagerWhatIfResult {
-  return generateManagerWhatIf({ category: 'coffee', durationKey: '7' })
+export function defaultManagerWhatIf(categoryLabel?: string): ManagerWhatIfResult {
+  return generateManagerWhatIf({ category: 'coffee', categoryLabel, durationKey: '7' })
 }
 
 export function generateManagerWhatIf(input: {
   category: string
+  categoryLabel?: string
   durationKey: CampaignDurationKey
 }): ManagerWhatIfResult {
-  const cat = MANAGER_CATEGORIES.find((c) => c.value === input.category) ?? MANAGER_CATEGORIES[2]
+  const catLabel =
+    input.categoryLabel
+    ?? MANAGER_CATEGORIES.find((c) => c.value === input.category)?.label
+    ?? input.category
   const duration = CAMPAIGN_DURATIONS.find((d) => d.value === input.durationKey) ?? CAMPAIGN_DURATIONS[1]
 
   // Slight variation by category/duration for demo feel; coffee+7 matches brief
@@ -145,7 +149,7 @@ export function generateManagerWhatIf(input: {
   }))
 
   return {
-    categoryLabel: cat.label,
+    categoryLabel: catLabel,
     durationLabel: duration.label,
     rows,
     recommendedDiscount: best.discountPct,

@@ -41,6 +41,13 @@ export interface Product {
   soldCount: number
   isFlashSale?: boolean
   createdAt: string
+  /** Thuộc tính bổ sung từ backend (Thương hiệu, Xuất xứ, …) */
+  attributes?: ProductAttribute[]
+}
+
+export interface ProductAttribute {
+  name: string
+  value: string
 }
 
 export type OrderStatus =

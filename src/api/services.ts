@@ -84,10 +84,9 @@ export function getDiscountPercent(product: Product): number {
 
 export function enrichProduct(p: Product): Product {
   return {
-    shopName: p.shopName ?? 'SEDSP Official',
-    shopLocation: p.shopLocation ?? 'TP.HCM',
-    originalPrice: p.originalPrice ?? Math.round(p.price * 1.12),
-    reviewCount: p.reviewCount ?? Math.max(1, Math.floor(p.soldCount * 0.4)),
+    shopName: p.shopName ?? 'Cửa hàng SEDSP',
+    shopLocation: p.shopLocation ?? 'Việt Nam',
+    reviewCount: p.reviewCount ?? (p.soldCount > 0 ? Math.max(1, Math.floor(p.soldCount * 0.4)) : 0),
     isFlashSale: p.isFlashSale ?? false,
     ...p,
   }
@@ -506,6 +505,10 @@ export interface ProductListResult {
   catalogSource: CatalogSource
   /** Backend không phản hồi — đã fallback mock */
   backendUnreachable?: boolean
+  totalElements?: number
+  totalPages?: number
+  page?: number
+  size?: number
 }
 
 async function listProductsHybridInternal(
@@ -515,6 +518,7 @@ async function listProductsHybridInternal(
     sellerId?: string
     withStock?: boolean
     size?: number
+    page?: number
   },
 ): Promise<ProductListResult> {
   if (!apiConfig.useRealProducts) {
@@ -535,12 +539,14 @@ async function listProductsHybridInternal(
       categoryId = realCategories.resolveCategoryId(cats, params.category)
     }
 
-    let list = await realProducts.listProducts({
+    const pageResult = await realProducts.listProductsPage({
       q: params?.q,
       sellerId: sellerNum,
       categoryId,
-      size: params?.size ?? 48,
+      size: params?.size ?? 12,
+      page: params?.page ?? 0,
     })
+    let list = pageResult.products
 
     if (params?.category && !categoryId) {
       list = list.filter(
@@ -556,7 +562,14 @@ async function listProductsHybridInternal(
     if (apiConfig.useRealInventory && params?.withStock === true && hasBackendToken()) {
       enriched = await realInventory.attachStockToProducts(enriched)
     }
-    return { products: enriched, catalogSource: 'backend' }
+    return {
+      products: enriched,
+      catalogSource: 'backend',
+      totalElements: pageResult.totalElements,
+      totalPages: pageResult.totalPages,
+      page: pageResult.page,
+      size: pageResult.size,
+    }
   } catch (e) {
     if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
       throw e
@@ -575,6 +588,7 @@ async function listProductsHybrid(params?: {
   sellerId?: string
   withStock?: boolean
   size?: number
+  page?: number
 }): Promise<Product[]> {
   const cacheKey = JSON.stringify(params ?? {})
   const hit = catalogListCache.get(cacheKey)

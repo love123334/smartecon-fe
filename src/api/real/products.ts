@@ -1,6 +1,6 @@
 import { http } from '@/api/http/client'
 import { apiPaths } from '@/api/http/paths'
-import type { Product } from '@/types'
+import type { Product, ProductAttribute } from '@/types'
 import { repairProductImageUrl } from '@/utils/productImage'
 
 export interface SpringPage<T> {
@@ -43,6 +43,13 @@ export interface BackendProductDetail extends BackendProductResponse {
   sellerPhone?: string
   updatedAt?: string
   images?: BackendProductImage[]
+  attributes?: BackendProductAttribute[]
+}
+
+export interface BackendProductAttribute {
+  id: number
+  attributeName: string
+  attributeValue: string
 }
 
 function num(v: number | string | undefined, fallback = 0): number {
@@ -76,6 +83,48 @@ export function ensureThreeImages(urls: string[], seed: string | number): string
   return out
 }
 
+const ATTRIBUTE_LABEL_VI: Record<string, string> = {
+  Brand: 'Thương hiệu',
+  Origin: 'Xuất xứ',
+  Warranty: 'Bảo hành',
+  Compatibility: 'Tương thích',
+  Material: 'Chất liệu',
+  Size: 'Kích cỡ',
+  'Skin Type': 'Loại da',
+  Usage: 'Công dụng',
+  Supplier: 'Nhà cung cấp',
+  'Nhà cung cấp': 'Nhà cung cấp',
+}
+
+function isBadAttributeValue(name: string, value: string): boolean {
+  const v = value.trim().toLowerCase()
+  if (!v) return true
+  if (/vnshop|example\.com|localhost|changeme/.test(v)) return true
+  if (/^https?:\/\//.test(v) && /supplier|nhà cung cấp|cung cấp/i.test(name)) return true
+  return false
+}
+
+export function mapProductAttributes(
+  attrs: BackendProductAttribute[] | undefined,
+  shopName?: string,
+): ProductAttribute[] {
+  if (!attrs?.length) return []
+  const out: ProductAttribute[] = []
+  for (const a of attrs) {
+    const name = a.attributeName?.trim()
+    const value = a.attributeValue?.trim()
+    if (!name || !value) continue
+    if (isBadAttributeValue(name, value)) continue
+    const label = ATTRIBUTE_LABEL_VI[name] ?? name
+    let displayValue = value
+    if (/supplier|nhà cung cấp|cung cấp/i.test(name) && shopName) {
+      displayValue = shopName
+    }
+    out.push({ name: label, value: displayValue })
+  }
+  return out
+}
+
 export function mapProductSummary(p: BackendProductResponse): Product {
   const category = p.categoryName ?? 'Khác'
   const placeholders = placeholderImages(p.id)
@@ -96,7 +145,7 @@ export function mapProductSummary(p: BackendProductResponse): Product {
     sellerEmail: p.sellerEmail,
     sellerPhone: p.sellerPhone,
     shopName: p.sellerStoreName ?? 'Cửa hàng SEDSP',
-    shopLocation: 'TP.HCM',
+    shopLocation: 'Việt Nam',
     rating: 4.5,
     soldCount: 0,
     createdAt: p.createdAt ?? new Date().toISOString(),
@@ -111,6 +160,9 @@ export function mapProductDetail(p: BackendProductDetail): Product {
     p.id,
   ).map((u) => repairProductImageUrl(u, { seed: p.id, category }))
   const primary = urls[0]
+  const shopName = p.sellerStoreName ?? 'Cửa hàng SEDSP'
+  const cost = p.costPrice ? num(p.costPrice) : 0
+  const price = num(p.price)
   return {
     ...mapProductSummary(p),
     description: p.description ?? '',
@@ -119,8 +171,43 @@ export function mapProductDetail(p: BackendProductDetail): Product {
     sellerId: p.sellerId != null ? String(p.sellerId) : '',
     sellerEmail: p.sellerEmail,
     sellerPhone: p.sellerPhone,
-    shopName: p.sellerStoreName ?? 'Cửa hàng SEDSP',
-    originalPrice: p.costPrice ? Math.round(num(p.price) * 1.12) : undefined,
+    shopName,
+    shopLocation: 'Việt Nam',
+    originalPrice: cost > 0 && cost < price ? Math.round(price * 1.08) : undefined,
+    attributes: mapProductAttributes(p.attributes, shopName),
+  }
+}
+
+export interface ProductPageResult {
+  products: Product[]
+  totalElements: number
+  totalPages: number
+  page: number
+  size: number
+}
+
+export async function listProductsPage(params?: {
+  q?: string
+  categoryId?: number
+  sellerId?: number
+  page?: number
+  size?: number
+}): Promise<ProductPageResult> {
+  const query = new URLSearchParams()
+  if (params?.q) query.set('keyword', params.q)
+  if (params?.categoryId) query.set('categoryId', String(params.categoryId))
+  if (params?.sellerId) query.set('sellerId', String(params.sellerId))
+  query.set('page', String(params?.page ?? 0))
+  query.set('size', String(params?.size ?? 12))
+
+  const path = `${apiPaths.products.list}?${query}`
+  const page = await http.get<SpringPage<BackendProductResponse>>(path)
+  return {
+    products: page.content.map(mapProductSummary),
+    totalElements: page.totalElements,
+    totalPages: page.totalPages,
+    page: page.number,
+    size: page.size,
   }
 }
 
