@@ -22,3 +22,9 @@ export async function copyTransferText(text: string): Promise<boolean> {
     return false
   }
 }
+
+/** Fallback QR when seller upload URL is missing or 404 (Railway /uploads ephemeral). */
+export function momoTransferQrImageUrl(deeplink: string, size = 240): string {
+  const data = encodeURIComponent(deeplink)
+  return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${data}&margin=0`
+}

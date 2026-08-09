@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { formatVnd, orderApi } from '@/api/services'
 import type { Order } from '@/types'
-import { copyTransferText, momoTransferDeeplink } from '@/utils/momoTransfer'
+import { copyTransferText, momoTransferDeeplink, momoTransferQrImageUrl } from '@/utils/momoTransfer'
 import { resolvePublicAssetUrl } from '@/utils/productImage'
 import CheckoutStepper from '@/components/CheckoutStepper.vue'
 import NewsletterBanner from '@/components/NewsletterBanner.vue'
@@ -14,6 +14,7 @@ const order = ref<Order | null>(null)
 const loading = ref(true)
 const error = ref('')
 const copyMsg = ref('')
+const qrImageFailed = ref(false)
 
 const transfer = computed(() => order.value?.momoTransfer)
 const amount = computed(() => transfer.value?.amount ?? order.value?.total ?? 0)
@@ -27,9 +28,33 @@ const deeplink = computed(() => {
   return momoTransferDeeplink(phone.value, amount.value, note.value)
 })
 
+const generatedQrUrl = computed(() =>
+  deeplink.value ? momoTransferQrImageUrl(deeplink.value) : '',
+)
+
+/** Seller upload first; auto-generate from SĐT + số tiền + nội dung if missing/404. */
+const displayQrUrl = computed(() => {
+  if (!deeplink.value && !qrUrl.value) return ''
+  if (qrUrl.value && !qrImageFailed.value) return qrUrl.value
+  return generatedQrUrl.value
+})
+
+const qrCaption = computed(() =>
+  qrUrl.value && !qrImageFailed.value
+    ? 'Quét QR MoMo của shop'
+    : 'QR chuyển tiền (tự sinh từ SĐT shop)',
+)
+
+function onQrError() {
+  if (qrUrl.value && !qrImageFailed.value) {
+    qrImageFailed.value = true
+  }
+}
+
 async function load() {
   loading.value = true
   error.value = ''
+  qrImageFailed.value = false
   try {
     order.value = await orderApi.getById(String(route.params.id))
     if (!order.value) {
@@ -82,9 +107,15 @@ async function copyField(label: string, text: string) {
           Shop sẽ xác nhận sau khi nhận tiền.
         </p>
 
-        <div v-if="qrUrl" class="momo-pay__qr-wrap">
-          <img :src="qrUrl" alt="QR MoMo shop" class="momo-pay__qr" loading="lazy" />
-          <p class="elegant-muted">Quét QR bằng app MoMo</p>
+        <div v-if="displayQrUrl" class="momo-pay__qr-wrap">
+          <img
+            :src="displayQrUrl"
+            alt="QR MoMo shop"
+            class="momo-pay__qr"
+            loading="lazy"
+            @error="onQrError"
+          />
+          <p class="elegant-muted">{{ qrCaption }}</p>
         </div>
 
         <dl class="momo-pay__fields">
