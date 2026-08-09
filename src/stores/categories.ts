@@ -10,8 +10,10 @@ export function iconForCategoryName(name: string): string {
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
   if (/dien thoai|phone|smartphone/.test(n)) return '📱'
-  if (/laptop|notebook|may tinh xach/.test(n)) return '💻'
-  if (/may tinh bang|tablet|ipad/.test(n)) return '📲'
+  if (/laptop|notebook|may tinh xach|may tinh bang/.test(n)) {
+    if (/bang|tablet|ipad/.test(n)) return '📲'
+    return '💻'
+  }
   if (/tai nghe|headphone|phu kien|accessory/.test(n)) return '🎧'
   if (/giay|sneaker|dep/.test(n)) return '👟'
   if (/thoi trang nam|men fashion|ao nam/.test(n)) return '👔'

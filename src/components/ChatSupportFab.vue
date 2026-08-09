@@ -195,7 +195,7 @@ function onFabDrop(e: DragEvent) {
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
       </svg>
-      <span class="chat-fab__label">AI</span>
+      <span class="chat-fab__label">Chat</span>
     </button>
 
     <div
@@ -209,7 +209,7 @@ function onFabDrop(e: DragEvent) {
         <div>
           <h2 class="chat-popup__title">{{ title }}</h2>
           <p class="chat-popup__hint-inline">
-            Kéo ảnh SP / nút AI vào khung chat · Esc hoặc × để đóng
+            Kéo ảnh sản phẩm vào khung chat · Esc hoặc × để đóng
           </p>
         </div>
         <button type="button" class="chat-popup__close" aria-label="Đóng trợ lý AI" @click.stop="widget.hide()">

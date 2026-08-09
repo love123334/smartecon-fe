@@ -36,7 +36,7 @@ const header = computed(() => {
   const role = effectiveRole.value
   if (role === 'seller') {
     return {
-      eyebrow: 'Seller AI',
+      eyebrow: 'Trợ lý người bán',
       title: 'Trợ lý bán hàng',
       lead: 'Hỏi về doanh thu, tồn kho, giá cạnh tranh và gợi ý DSS.',
       placeholder: 'VD: doanh thu tháng này?',
@@ -44,14 +44,14 @@ const header = computed(() => {
   }
   if (role === 'manager') {
     return {
-      eyebrow: 'Manager AI',
+      eyebrow: 'Trợ lý quản lý',
       title: 'Trợ lý quản lý',
       lead: 'Phân tích KPI, doanh thu sàn / Looker và insights vận hành.',
       placeholder: 'VD: KPI tháng này?',
     }
   }
   return {
-    eyebrow: 'AI Support',
+    eyebrow: 'Trợ lý SEDSP',
     title: 'Trợ lý SEDSP',
     lead: 'Tư vấn sản phẩm, đơn hàng, giao hàng — dữ liệu shop từ backend khi có.',
     placeholder: 'VD: chính sách giao hàng?',

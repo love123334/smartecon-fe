@@ -4,7 +4,7 @@ const MAX_HISTORY = 8
 /** Từ khóa xu hướng mặc định (kết hợp thêm danh mục live khi có). */
 export const DEFAULT_SEARCH_TRENDS = [
   'Điện thoại',
-  'Laptop',
+  'Máy tính xách tay',
   'Tai nghe',
   'Thời trang nữ',
   'Giày dép',

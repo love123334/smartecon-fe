@@ -14,9 +14,9 @@ const META_BY_KEYWORD: { test: RegExp; image: string; desc: string }[] = [
     desc: 'Smartphone & phụ kiện',
   },
   {
-    test: /laptop|notebook/i,
+    test: /máy tính xách tay|laptop|notebook/i,
     image: 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=800&q=80',
-    desc: 'Laptop học tập & làm việc',
+    desc: 'Máy tính xách tay học tập & làm việc',
   },
   {
     test: /máy tính bảng|tablet|ipad/i,
@@ -51,7 +51,7 @@ const META_BY_KEYWORD: { test: RegExp; image: string; desc: string }[] = [
   {
     test: /chăm sóc da|skincare/i,
     image: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&q=80',
-    desc: 'Skincare hàng ngày',
+    desc: 'Chăm sóc da hàng ngày',
   },
   {
     test: /làm đẹp|makeup|trang điểm/i,
@@ -71,12 +71,12 @@ const META_BY_KEYWORD: { test: RegExp; image: string; desc: string }[] = [
   {
     test: /thể thao|sport/i,
     image: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=800&q=80',
-    desc: 'Tập luyện & outdoor',
+    desc: 'Tập luyện & ngoài trời',
   },
   {
     test: /đồ dã ngoại|outdoor|camping/i,
     image: 'https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?w=800&q=80',
-    desc: 'Camping & travel gear',
+    desc: 'Đồ cắm trại & du lịch',
   },
   {
     test: /điện tử|electronic|dss|demo/i,

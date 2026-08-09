@@ -95,7 +95,7 @@ export function mapProductSummary(p: BackendProductResponse): Product {
     sellerId: p.sellerId != null ? String(p.sellerId) : '',
     sellerEmail: p.sellerEmail,
     sellerPhone: p.sellerPhone,
-    shopName: p.sellerStoreName ?? 'SEDSP Official',
+    shopName: p.sellerStoreName ?? 'Cửa hàng SEDSP',
     shopLocation: 'TP.HCM',
     rating: 4.5,
     soldCount: 0,
@@ -119,7 +119,7 @@ export function mapProductDetail(p: BackendProductDetail): Product {
     sellerId: p.sellerId != null ? String(p.sellerId) : '',
     sellerEmail: p.sellerEmail,
     sellerPhone: p.sellerPhone,
-    shopName: p.sellerStoreName ?? 'SEDSP Official',
+    shopName: p.sellerStoreName ?? 'Cửa hàng SEDSP',
     originalPrice: p.costPrice ? Math.round(num(p.price) * 1.12) : undefined,
   }
 }

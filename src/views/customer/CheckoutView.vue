@@ -241,9 +241,10 @@ async function placeOrder() {
           <section class="elegant-form-section">
             <h2>Phương thức thanh toán</h2>
             <p class="elegant-muted" style="margin-bottom: 0.75rem; font-size: 0.9rem">
-              Chọn <strong>VNPay</strong> (ATM / QR / thẻ) hoặc <strong>COD</strong> (trả khi nhận hàng).
-              Với VNPay: sau khi quét QR / chuyển khoản thành công, bạn sẽ được đưa về trang xác nhận;
-              nếu thoát sớm hãy bấm «Tôi đã thanh toán» trên trang kết quả.
+              Chọn <strong>VNPay</strong> (ATM / QR / thẻ sandbox hoặc thật) hoặc <strong>COD</strong> (trả khi nhận hàng).
+              VNPay cần cấu hình <code>VNPAY_TMN_CODE</code> / secret trên Backend — xem
+              <strong>docs/PAYMENT_VNPAY.md</strong>. Sau khi thanh toán xong bạn được đưa về trang xác nhận;
+              nếu thoát sớm, mở lại đơn và bấm tiếp tục VNPay.
             </p>
             <label class="elegant-payment" :class="{ 'elegant-payment--active': payment === 'vnpay' }">
               <input v-model="payment" type="radio" value="vnpay" name="pay" />
