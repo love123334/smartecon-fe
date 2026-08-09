@@ -91,7 +91,7 @@ export function applyOrderOverlay(order: Order): Order {
     (o.status === 'cancelled' &&
       order.status !== 'delivered' &&
       order.status !== 'shipping' &&
-      Date.parse(o.updatedAt) >= Date.parse(order.updatedAt || order.createdAt || 0))
+      Date.parse(o.updatedAt) >= Date.parse(order.updatedAt || order.createdAt || ''))
 
   return {
     ...order,

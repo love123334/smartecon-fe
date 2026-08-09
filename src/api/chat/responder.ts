@@ -5,6 +5,7 @@ import {
   isContinuingProductChat,
   isProductFollowUp,
   lastDiscussedProducts,
+  looksLikeLowQualityReply,
   looksLikeOffTopicPlatformReply,
 } from '@/api/chat/followup'
 import { detectIntent, type ChatIntent } from '@/api/chat/intents'
@@ -23,30 +24,33 @@ export interface ChatReply {
   products?: ChatProductRef[]
 }
 
-const FORCE_LOCAL_INTENTS = new Set<ChatIntent>([
-  'product_budget',
-  'product_search',
+/**
+ * Chỉ ép local cho số liệu / đơn / DSS — tránh template cứng khi tìm SP, gợi ý, mô tả.
+ * Search/recommend/info → LLM (nếu có) + card SP từ local.
+ */
+const STRICT_LOCAL_INTENTS = new Set<ChatIntent>([
   'product_cheapest',
-  'category_browse',
-  'compare',
-  'product_info',
   'product_price',
   'product_stock',
-  'product_review',
-  'recommend',
-  'where_to_buy',
-  'contact_seller',
   'orders',
   'order_detail',
   'order_cancel',
   'cart',
   'cart_summary',
-  'shop_overview',
   'seller_dss_demand',
   'seller_dss_price',
   'seller_dss_inventory',
   'seller_whatif',
   'seller_pricing',
+  'seller_revenue',
+  'seller_orders',
+  'seller_recent_orders',
+  'seller_purchase_orders',
+  'seller_inventory',
+  'seller_top_products',
+  'manager_kpi',
+  'manager_pending',
+  'manager_revenue',
 ])
 
 function resolveFollowUpIntent(
@@ -76,10 +80,7 @@ function resolveFollowUpIntent(
   return detected
 }
 
-function resolveFocusProduct(
-  enriched: ChatContext,
-  prior: ChatProductRef,
-): Product {
+function resolveFocusProduct(enriched: ChatContext, prior: ChatProductRef): Product {
   const catalog =
     enriched.role === 'seller' && enriched.sellerProducts.length
       ? enriched.sellerProducts
@@ -103,7 +104,52 @@ function resolveFocusProduct(
   }
 }
 
-/** Local engine cho catalog/DSS; API AI cho hội thoại — luôn giữ SP đang bàn. */
+function shouldForceLocal(
+  normalized: string,
+  intent: ChatIntent | null,
+  followUp: boolean,
+  hasPriceFilter: boolean,
+  priceStats: boolean,
+): boolean {
+  if (priceStats || hasPriceFilter) return true
+  if (intent != null && STRICT_LOCAL_INTENTS.has(intent)) return true
+  // Follow-up giá/tồn → số liệu local; còn lại để LLM nói tự nhiên với SP focus
+  if (
+    followUp &&
+    (intent === 'product_price' ||
+      intent === 'product_stock' ||
+      /^(gia|bao nhieu|con hang|het hang|con khong)/.test(normalized))
+  ) {
+    return true
+  }
+  return false
+}
+
+function preferLocalOverLlm(
+  normalized: string,
+  llmContent: string,
+  localContent: string,
+  localHasProducts: boolean,
+): boolean {
+  if (looksLikeOffTopicPlatformReply(normalized, llmContent)) return true
+  if (looksLikeLowQualityReply(normalized, llmContent)) return true
+  const llmN = normalizeText(llmContent)
+  const llmTooVague =
+    llmContent.length < 40 || /toi co the giup|ban muon hoi gi|hay cho minh biet/.test(llmN)
+  if (llmTooVague && localContent.trim().length > 40) return true
+  // Local có card rõ + LLM không nhắc giá/tên SP cụ thể khi user hỏi mua
+  if (
+    localHasProducts &&
+    /mua|tim|goi y|nen|duoi|gia|co ban/.test(normalized) &&
+    !/\d/.test(llmContent) &&
+    localContent.includes('**')
+  ) {
+    return false // vẫn dùng LLM nếu có card — card cứu ngữ cảnh; chỉ đổi khi quá tệ
+  }
+  return false
+}
+
+/** Local cho số liệu; LLM cho hội thoại — luôn giữ card SP khi có. */
 export async function resolveChatReply(
   userMessage: string,
   history: ChatMessage[],
@@ -127,7 +173,6 @@ export async function resolveChatReply(
   const enriched = await enrichChatContext(ctx, userMessage, detected?.intent ?? null)
 
   let ctxForReply = enriched
-  // Luôn gắn SP gần nhất vào context khi còn đang nói về SP / có đính kèm
   const focusRef = effectiveAttachments?.[0] ?? (!attachments?.length ? priorProducts[0] : undefined)
   if (focusRef && !enriched.enrichment?.product) {
     const focus = resolveFocusProduct(enriched, focusRef)
@@ -144,16 +189,10 @@ export async function resolveChatReply(
   const intent = detected?.intent ?? null
   const hasPriceFilter = Boolean(extractPriceRange(userMessage))
   const priceStats = isPriceStatsQuery(userMessage)
-  const forceLocal =
-    Boolean(effectiveAttachments?.length) ||
-    followUp ||
-    hasPriceFilter ||
-    priceStats ||
-    (intent != null && FORCE_LOCAL_INTENTS.has(intent))
+  const forceLocal = shouldForceLocal(normalized, intent, followUp, hasPriceFilter, priceStats)
 
   const runLocal = () => generateAssistantReply(userMessage, ctxForReply, effectiveAttachments)
 
-  // Catalog / follow-up SP: local engine (đúng số liệu, không quên SP)
   if (forceLocal) {
     const local = await runLocal()
     return {
@@ -163,7 +202,7 @@ export async function resolveChatReply(
     }
   }
 
-  // Hội thoại tự do: ưu tiên backend AI API + history đầy đủ
+  // Song song: local lấy card/số liệu, LLM viết câu trả lời tự nhiên
   if (isLlmConfigured()) {
     try {
       const [llmRaw, local] = await Promise.all([
@@ -171,26 +210,19 @@ export async function resolveChatReply(
         runLocal(),
       ])
       const content = sanitizeChatReply(llmRaw)
+      const products = local.products?.length
+        ? local.products
+        : effectiveAttachments?.slice(0, 2)
 
-      if (looksLikeOffTopicPlatformReply(normalized, content)) {
+      if (preferLocalOverLlm(normalized, content, local.content, Boolean(local.products?.length))) {
         return {
           content: sanitizeChatReply(local.content),
           source: 'local',
-          products: local.products,
+          products,
         }
       }
 
-      // Local đã có card SP → giữ card, ưu tiên câu local nếu LLM quá chung chung
-      if (local.products?.length) {
-        const llmTooVague = content.length < 40 || /toi co the giup|ban muon hoi gi/.test(normalizeText(content))
-        return {
-          content: llmTooVague ? sanitizeChatReply(local.content) : content,
-          source: llmTooVague ? 'local' : 'llm',
-          products: local.products,
-        }
-      }
-
-      return { content, source: 'llm', products: local.products }
+      return { content, source: 'llm', products }
     } catch {
       /* fallback local */
     }
@@ -200,7 +232,7 @@ export async function resolveChatReply(
   return {
     content: sanitizeChatReply(local.content),
     source: 'local',
-    products: local.products,
+    products: local.products?.length ? local.products : effectiveAttachments?.slice(0, 2),
   }
 }
 

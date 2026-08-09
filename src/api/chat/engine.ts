@@ -116,24 +116,20 @@ function wrapReply(payload: AssistantReplyPayload): AssistantReplyPayload {
 }
 
 function followUps(intent: ChatIntent | null, role: ChatContext['role']): string {
+  // Gợi ý ngắn, không checklist cứng
   const tips: Partial<Record<ChatIntent, string>> = {
-    shop_overview: '\n\nMuốn mình gợi ý điện thoại, laptop, hay sp rẻ nhất không?',
-    product_price: '\n\nCần mình check còn hàng, review, hoặc liên hệ shop giúp không?',
-    product_stock: '\n\nThêm vào giỏ trên trang sản phẩm, hoặc hỏi mình cách đặt hàng.',
-    cart_summary: '\n\nSẵn sàng thì thanh toán, hoặc hỏi chính sách giao hàng.',
-    orders: '\n\nHỏi chi tiết đơn #… hoặc hủy đơn nếu cần.',
-    contact_seller: '\n\nHoặc gửi góp ý qua trang Liên hệ nếu cần Admin hỗ trợ.',
+    shop_overview: '\n\nMuốn mình lọc theo danh mục hoặc ngân sách không?',
+    product_price: '\n\nCần check còn hàng hoặc review không?',
+    product_stock: '\n\nThêm vào giỏ trên trang sản phẩm nếu bạn ưng.',
+    cart_summary: '\n\nSẵn thì hỏi mình cách thanh toán nhé.',
+    orders: '\n\nHỏi chi tiết đơn #… nếu cần.',
     where_to_buy: '\n\nHỏi "liên hệ người bán …" để lấy email/SĐT shop.',
-    recommend: '\n\nHỏi "chỗ nào bán …" để xem đúng shop.',
-    seller_dss_demand: '\n\nCó thể hỏi thêm: khuyến nghị giá, what-if giảm 10%.',
-    seller_whatif: '\n\nMở DSS → What-if giảm giá để chỉnh % và kỳ.',
-    manager_whatif: '\n\nWhat-if theo SP thuộc seller; Manager xem Dashboard.',
-    seller_purchase_orders: '\n\nĐơn bán: hỏi "đơn cần xử lý". Giỏ: "giỏ hàng của tôi".',
-    product_budget: '\n\nKéo SP vào chat để so sánh, hoặc hỏi còn hàng không.',
-    product_search: '\n\nThu hẹp thêm bằng "dưới 2 triệu", hoặc kéo SP để hỏi chi tiết.',
+    recommend: '\n\nThu hẹp thêm bằng ngân sách hoặc danh mục cũng được.',
+    product_budget: '\n\nKéo SP vào chat để so sánh nhanh.',
+    product_search: '\n\nThêm "dưới X triệu" nếu muốn lọc giá.',
   }
   if (intent && tips[intent]) return tips[intent]
-  if (role === 'guest') return '\n\nĐăng nhập để xem giỏ hàng và đơn cá nhân nhé.'
+  if (role === 'guest') return '\n\nĐăng nhập để xem giỏ và đơn cá nhân.'
   return ''
 }
 

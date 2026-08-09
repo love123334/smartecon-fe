@@ -89,3 +89,34 @@ export function looksLikeOffTopicPlatformReply(
     ) || (/sedsp —/.test(r) && /quyet dinh/.test(r) && r.length < 420)
   )
 }
+
+/** Câu trả lời cứng/ngớ (template CSKH, không đáp đúng câu hỏi) */
+export function looksLikeLowQualityReply(userNormalized: string, reply: string): boolean {
+  const r = reply
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+  if (!r || r.length < 20) return true
+  if (
+    /toi co the giup|ban muon hoi gi|hay cho minh biet them|ban can ho tro gi|minh co the ho tro ban ve|cac chuc nang chinh cua sedsp/.test(
+      r,
+    )
+  ) {
+    return true
+  }
+  if (/theo quy dinh cua (he thong|san)|du lieu cho thay rang|he thong ho tro cac/.test(r)) {
+    return true
+  }
+  // User hỏi cụ thể (giá/mua/tìm) mà bot chỉ giới thiệu platform
+  const askedShop =
+    /gia|mua|tim|co ban|duoi|trieu|laptop|tai nghe|iphone|macbook|don|gio|shop/.test(userNormalized)
+  if (
+    askedShop &&
+    /smart e-commerce|quyet dinh mua sam|dss & ai/.test(r) &&
+    !/dong|trieu|vnd|shop|con hang|het hang|\d/.test(r)
+  ) {
+    return true
+  }
+  return false
+}

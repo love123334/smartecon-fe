@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { productApi } from '@/api/services'
 import { useAuthStore } from '@/stores/auth'
+import { iconForCategoryName, useCategoryStore } from '@/stores/categories'
 import { roleCategoryAiLink } from '@/utils/roleAiNav'
 
 const auth = useAuthStore()
+const cats = useCategoryStore()
 const route = useRoute()
 const router = useRouter()
-const categories = ref<string[]>([])
 const scrollEl = ref<HTMLElement | null>(null)
 
 const dragging = ref(false)
@@ -18,38 +18,14 @@ let startScroll = 0
 let moved = false
 let capturing = false
 
-const categoryIcons: Record<string, string> = {
-  'Điện tử': '📱',
-  'Điện thoại': '📱',
-  Laptop: '💻',
-  'Máy tính bảng': '📲',
-  'Phụ kiện': '🎧',
-  'Thời trang': '👕',
-  'Thời trang nam': '👔',
-  'Thời trang nữ': '👗',
-  'Giày dép': '👟',
-  'Làm đẹp': '💄',
-  'Chăm sóc da': '✨',
-  'Trang điểm': '💋',
-  'Nhà cửa & đời sống': '🏡',
-  'Nhà bếp': '🍳',
-  'Nội thất': '🛋️',
-  'Trang trí': '🖼️',
-  'Gia dụng': '🏠',
-  'Thể thao': '⚽',
-  'Thiết bị thể hình': '🏋️',
-  'Đồ dã ngoại': '🏕️',
-  Sách: '📚',
-}
-
 const aiLink = computed(() => roleCategoryAiLink(auth.role, auth.isLoggedIn))
 const activeCategory = computed(() =>
   typeof route.query.category === 'string' ? route.query.category : '',
 )
 const isHome = computed(() => route.path === '/' || route.name === 'home')
 
-onMounted(async () => {
-  categories.value = await productApi.categories()
+onMounted(() => {
+  void cats.load()
 })
 
 function onPointerDown(e: PointerEvent) {
@@ -149,17 +125,26 @@ onUnmounted(() => {
       >
         Trang chủ
       </button>
+
+      <span v-if="cats.loading && !cats.items.length" class="mkt-cat-link mkt-cat-link--muted" aria-live="polite">
+        Đang tải danh mục…
+      </span>
+      <span v-else-if="cats.error && !cats.items.length" class="mkt-cat-link mkt-cat-link--muted">
+        Không tải được danh mục
+      </span>
+
       <button
-        v-for="cat in categories"
-        :key="cat"
+        v-for="cat in cats.items"
+        :key="cat.id"
         type="button"
         class="mkt-cat-link"
-        :class="{ 'mkt-cat-link--active': activeCategory === cat }"
-        @click="goCategory(cat, $event)"
+        :class="{ 'mkt-cat-link--active': activeCategory === cat.name }"
+        @click="goCategory(cat.name, $event)"
       >
-        <span aria-hidden="true">{{ categoryIcons[cat] ?? '🏷️' }}</span>
-        {{ cat }}
+        <span aria-hidden="true">{{ iconForCategoryName(cat.name) }}</span>
+        {{ cat.name }}
       </button>
+
       <button type="button" class="mkt-cat-link mkt-cat-link--ai" @click="goAi">
         <span aria-hidden="true">✨</span>
         {{ aiLink.label }}
@@ -172,6 +157,12 @@ onUnmounted(() => {
 .mkt-cat-link--ai {
   color: var(--blue, #2e7df6);
   font-weight: 600;
+}
+
+.mkt-cat-link--muted {
+  color: var(--navy-soft, #5b6c93);
+  opacity: 0.85;
+  pointer-events: none;
 }
 
 .mkt-categories__scroll {
