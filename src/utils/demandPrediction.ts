@@ -141,9 +141,9 @@ export function buildDemandPredictionAiInsight(input: {
     strong: {
       badge: 'Nhu cầu cao',
       title: `${name} đang có tín hiệu bán mạnh`,
-      summary: `Trung bình ${avgLabel} đơn vị/ngày trên ${hist} ngày gần đây → dự báo ${totalLabel} đơn vị trong ${period} ngày tới (Moving Average). SKU này nên được ưu tiên tồn kho và theo dõi hết hàng.`,
+      summary: `Trung bình ${avgLabel} sản phẩm/ngày trên ${hist} ngày gần đây → dự báo ${totalLabel} sản phẩm trong ${period} ngày tới (Moving Average). SKU này nên được ưu tiên tồn kho và theo dõi hết hàng.`,
       actions: [
-        `Chủ động nhập thêm ít nhất ~${totalLabel} đơn vị cho kỳ ${period} ngày (đã gồm buffer vận hành).`,
+        `Chủ động nhập thêm ít nhất ~${totalLabel} sản phẩm cho kỳ ${period} ngày (đã gồm buffer vận hành).`,
         'Kiểm tra Khuyến nghị tồn kho để đối chiếu ROP / safety stock.',
         'Tránh tăng giá đột ngột trước khi chạy Gợi ý giá / What-if.',
       ],
@@ -155,7 +155,7 @@ export function buildDemandPredictionAiInsight(input: {
     steady: {
       badge: 'Nhu cầu ổn định',
       title: `${name} duy trì nhịp bán đều`,
-      summary: `Nhu cầu TB ${avgLabel}/ngày → khoảng ${totalLabel} đơn vị/${period} ngày. Mức này phù hợp duy trì tồn xoay vòng và tối ưu vốn.`,
+      summary: `Nhu cầu TB ${avgLabel}/ngày → khoảng ${totalLabel} sản phẩm/${period} ngày. Mức này phù hợp duy trì tồn xoay vòng và tối ưu vốn.`,
       actions: [
         `Lên kế hoạch nhập theo nhịp ~${avgLabel}/ngày, tránh tồn quá dày.`,
         'Dùng What-if giảm giá nếu muốn kích cầu nhẹ mà vẫn giữ biên lợi nhuận.',
@@ -169,7 +169,7 @@ export function buildDemandPredictionAiInsight(input: {
     soft: {
       badge: 'Nhu cầu vừa phải',
       title: `${name} bán chậm hơn nhóm hot`,
-      summary: `TB ${avgLabel}/ngày → dự báo ${totalLabel} đơn vị trong ${period} ngày. Có thể đẩy cầu bằng giá / bundle, nhưng cần kiểm soát chi phí khuyến mãi.`,
+      summary: `TB ${avgLabel}/ngày → dự báo ${totalLabel} sản phẩm trong ${period} ngày. Có thể đẩy cầu bằng giá / bundle, nhưng cần kiểm soát chi phí khuyến mãi.`,
       actions: [
         'Chạy Gợi ý giá để xem có nên giảm nhẹ giá bán.',
         'Thử What-if 5–10% giảm giá trước khi áp dụng thật.',
@@ -186,7 +186,7 @@ export function buildDemandPredictionAiInsight(input: {
       summary:
         safeAvg <= 0
           ? `Chưa ghi nhận nhu cầu TB đáng kể trên ${hist} ngày lịch sử. Dự báo ${period} ngày gần như không đáng tin nếu thiếu đơn hoàn tất.`
-          : `Nhu cầu TB chỉ ${avgLabel}/ngày → khoảng ${totalLabel} đơn vị/${period} ngày. Nên bổ sung dữ liệu bán hoặc đẩy visibility sản phẩm trước khi nhập lớn.`,
+          : `Nhu cầu TB chỉ ${avgLabel}/ngày → khoảng ${totalLabel} sản phẩm/${period} ngày. Nên bổ sung dữ liệu bán hoặc đẩy visibility sản phẩm trước khi nhập lớn.`,
       actions: [
         'Kiểm tra lịch sử đơn DELIVERED và trạng thái hiển thị SP trên cửa hàng.',
         'Ưu tiên marketing / flash sale nhỏ thay vì nhập số lượng lớn.',

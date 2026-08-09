@@ -106,8 +106,6 @@ async function loadSellerProducts() {
     if (!products.value.length) {
       productsError.value = 'Bạn chưa có sản phẩm nào để tạo dự báo.'
       productId.value = ''
-    } else if (!products.value.some((p) => p.id === productId.value)) {
-      productId.value = products.value[0].id
     }
   } catch (e) {
     products.value = []
@@ -241,16 +239,13 @@ function resetResult() {
       </nav>
       <h1>Dự báo nhu cầu</h1>
       <p class="dss-page__sub">
-        Moving Average từ lịch sử bán hàng — kèm biểu đồ xu hướng và nhận định AI để quyết định nhập hàng.
+        Hỗ trợ dự đoán nhu cầu mua sắm trong tương lai.
       </p>
     </header>
 
     <div class="demand-layout">
       <section class="dss-card demand-config" aria-labelledby="demand-config-title">
-        <div class="demand-card-head">
-          <h2 id="demand-config-title" class="dss-card__title">Cấu hình dự báo</h2>
-          <span class="demand-pill">MA</span>
-        </div>
+        <h2 id="demand-config-title" class="dss-card__title demand-config__title">Cấu hình dự báo</h2>
 
         <p v-if="productsLoading" class="dss-hint" role="status">Đang tải sản phẩm…</p>
         <p v-else-if="productsError" class="dss-alert dss-alert--warn" role="alert">{{ productsError }}</p>
@@ -268,11 +263,11 @@ function resetResult() {
                 :aria-invalid="Boolean(fieldErrors.productId)"
                 required
               >
-                <option disabled value="">— Chọn sản phẩm —</option>
+                <option disabled value="">Chọn sản phẩm</option>
                 <option v-for="p in products" :key="p.id" :value="p.id">{{ p.name }}</option>
               </select>
               <small id="product-help" class="dss-hint">
-                Chỉ sản phẩm thuộc tài khoản Seller hiện tại.
+                Danh sách sản phẩm cửa hàng của bạn
               </small>
               <small v-if="fieldErrors.productId" id="product-error" class="dss-field-error" role="alert">
                 {{ fieldErrors.productId }}
@@ -281,18 +276,17 @@ function resetResult() {
 
             <div class="demand-form-row">
               <label class="dss-field">
-                <span id="historical-label">Số ngày lịch sử</span>
+                <span id="historical-label">Số ngày lịch sử (Quá khứ)</span>
                 <select
                   v-model.number="historicalDays"
                   class="dss-input"
                   :disabled="submitting"
                   aria-labelledby="historical-label"
-                  aria-describedby="historical-help historical-error"
+                  aria-describedby="historical-error"
                   :aria-invalid="Boolean(fieldErrors.historicalDays)"
                 >
                   <option v-for="d in HISTORICAL_DAYS_OPTIONS" :key="d" :value="d">{{ d }} ngày</option>
                 </select>
-                <small id="historical-help" class="dss-hint">Cửa sổ dữ liệu bán hàng.</small>
                 <small
                   v-if="fieldErrors.historicalDays"
                   id="historical-error"
@@ -304,18 +298,17 @@ function resetResult() {
               </label>
 
               <label class="dss-field">
-                <span id="forecast-label">Kỳ dự báo</span>
+                <span id="forecast-label">Kỳ dự báo (Tương lai)</span>
                 <select
                   v-model.number="forecastPeriod"
                   class="dss-input"
                   :disabled="submitting"
                   aria-labelledby="forecast-label"
-                  aria-describedby="forecast-help forecast-error"
+                  aria-describedby="forecast-error"
                   :aria-invalid="Boolean(fieldErrors.forecastPeriod)"
                 >
                   <option v-for="d in FORECAST_PERIOD_OPTIONS" :key="d" :value="d">{{ d }} ngày</option>
                 </select>
-                <small id="forecast-help" class="dss-hint">Số ngày tương lai cần dự báo.</small>
                 <small
                   v-if="fieldErrors.forecastPeriod"
                   id="forecast-error"
@@ -340,7 +333,7 @@ function resetResult() {
             <button
               v-if="result"
               type="button"
-              class="dss-btn dss-btn--outline"
+              class="dss-btn dss-btn--outline demand-btn-compact"
               :disabled="submitting"
               @click="resetResult"
             >
@@ -349,106 +342,100 @@ function resetResult() {
           </div>
         </form>
 
-        <div v-if="submitError" class="dss-alert dss-alert--warn" role="alert" style="margin-top: 1rem">
+        <div v-if="submitError" class="dss-alert dss-alert--warn demand-config-alert" role="alert">
           {{ submitError }}
         </div>
-        <div
-          v-if="successMessage"
-          class="dss-alert dss-alert--success"
-          role="status"
-          style="margin-top: 1rem"
-        >
+        <div v-if="successMessage" class="dss-alert dss-alert--success demand-config-alert" role="status">
           {{ successMessage }}
         </div>
       </section>
 
-      <section class="dss-card demand-result" aria-labelledby="demand-result-title">
-        <div class="demand-card-head">
+      <div class="demand-main" :class="{ 'demand-main--split': result && aiInsight }">
+        <section class="dss-card demand-result" aria-labelledby="demand-result-title">
           <h2 id="demand-result-title" class="dss-card__title">Kết quả dự báo</h2>
-          <span v-if="result" class="demand-pill demand-pill--soft">{{ formatViDateTime(result.generatedAt) }}</span>
-        </div>
 
-        <div v-if="!result" class="dss-empty demand-empty" role="status">
-          <div class="dss-empty__art" aria-hidden="true">📈</div>
-          <h2>Chưa có kết quả</h2>
-          <p>Chọn sản phẩm, cấu hình lịch sử / kỳ dự báo rồi bấm “Tạo dự báo”.</p>
-        </div>
+          <div v-if="!result" class="dss-empty demand-empty" role="status">
+            <div class="dss-empty__art" aria-hidden="true">📈</div>
+            <h2>Chưa có kết quả</h2>
+            <p>
+              Hãy chọn sản phẩm cần dự báo, Số ngày lịch sử và Kỳ dự báo rồi chọn “Tạo dự báo”.
+            </p>
+          </div>
 
-        <template v-else>
-          <div class="demand-hero">
-            <div class="demand-hero__copy">
-              <p class="demand-hero__product">{{ displayProductName }}</p>
-              <p class="demand-hero__meta">
-                Lịch sử {{ formatViNumber(result.historicalDays) }} ngày
-                · Kỳ {{ formatViNumber(result.forecastPeriod) }} ngày
-                · TB {{ formatViNumber(result.averageDailyDemand) }}/ngày
-              </p>
+          <div v-else class="demand-result-body">
+            <p class="demand-result__time">
+              <span>Thời gian dự báo</span>
+              <strong>{{ formatViDateTime(result.generatedAt) }}</strong>
+            </p>
+            <p class="demand-result__product">{{ displayProductName }}</p>
+
+            <div class="demand-mini-kpis" aria-label="Chỉ số tóm tắt">
+              <article class="demand-mini-kpi">
+                <span>Lịch sử</span>
+                <strong>{{ formatViNumber(result.historicalDays) }} ngày</strong>
+              </article>
+              <article class="demand-mini-kpi">
+                <span>Kỳ dự báo</span>
+                <strong>{{ formatViNumber(result.forecastPeriod) }} ngày</strong>
+              </article>
+              <article class="demand-mini-kpi">
+                <span>TB / ngày</span>
+                <strong>{{ formatViNumber(result.averageDailyDemand) }}</strong>
+              </article>
             </div>
-            <div class="demand-hero__stat" aria-label="Tổng nhu cầu dự báo">
+
+            <div class="demand-total-box" aria-label="Tổng nhu cầu dự báo">
               <span>Tổng nhu cầu dự báo</span>
               <strong>{{ formatViNumber(result.predictedDemand) }}</strong>
-              <em>đơn vị</em>
+              <em>sản phẩm</em>
             </div>
           </div>
+        </section>
 
-          <div class="demand-kpi-strip" aria-label="Chỉ số tóm tắt">
-            <article class="demand-kpi">
-              <span>TB / ngày</span>
-              <strong>{{ formatViNumber(result.averageDailyDemand) }}</strong>
-            </article>
-            <article class="demand-kpi">
-              <span>Lịch sử</span>
-              <strong>{{ formatViNumber(result.historicalDays) }} ngày</strong>
-            </article>
-            <article class="demand-kpi">
-              <span>Kỳ dự báo</span>
-              <strong>{{ formatViNumber(result.forecastPeriod) }} ngày</strong>
-            </article>
-            <article class="demand-kpi demand-kpi--accent">
-              <span>Tổng dự báo</span>
-              <strong>{{ formatViNumber(result.predictedDemand) }}</strong>
-            </article>
+        <section
+          v-if="result && aiInsight"
+          class="dss-card demand-ai"
+          :class="`demand-ai--${aiInsight.tone}`"
+          aria-labelledby="demand-ai-title"
+        >
+          <div class="demand-ai__head">
+            <div>
+              <span class="demand-ai__badge">{{ aiInsight.badge }}</span>
+              <h2 id="demand-ai-title" class="dss-card__title">Nhận định nhu cầu</h2>
+            </div>
           </div>
-        </template>
-      </section>
+          <h3 class="demand-ai__title">{{ aiInsight.title }}</h3>
+          <p class="demand-ai__summary">{{ aiInsight.summary }}</p>
+          <div class="demand-ai__cols">
+            <div>
+              <h4>Kế hoạch đề xuất</h4>
+              <ol>
+                <li v-for="(a, i) in aiInsight.actions" :key="i">{{ a }}</li>
+              </ol>
+            </div>
+            <div>
+              <h4>Rủi ro cần theo dõi</h4>
+              <ul>
+                <li v-for="(r, i) in aiInsight.risks" :key="i">{{ r }}</li>
+              </ul>
+            </div>
+          </div>
+          <div class="demand-ai__links">
+            <RouterLink class="dss-btn dss-btn--outline demand-btn-compact" to="/seller/dss/inventory">
+              Khuyến nghị tồn
+            </RouterLink>
+            <RouterLink class="dss-btn dss-btn--outline demand-btn-compact" to="/seller/dss/price">
+              Gợi ý giá
+            </RouterLink>
+            <RouterLink class="dss-btn dss-btn--outline demand-btn-compact" to="/seller/dss/what-if">
+              What-if
+            </RouterLink>
+          </div>
+        </section>
+      </div>
     </div>
 
-    <template v-if="result && aiInsight">
-      <section
-        class="dss-card demand-ai"
-        :class="`demand-ai--${aiInsight.tone}`"
-        aria-labelledby="demand-ai-title"
-      >
-        <div class="demand-ai__head">
-          <div>
-            <span class="demand-ai__badge">{{ aiInsight.badge }}</span>
-            <h2 id="demand-ai-title" class="dss-card__title">Nhận định AI</h2>
-          </div>
-          <p class="demand-ai__method">Dựa trên Moving Average · số liệu vừa tạo</p>
-        </div>
-        <h3 class="demand-ai__title">{{ aiInsight.title }}</h3>
-        <p class="demand-ai__summary">{{ aiInsight.summary }}</p>
-        <div class="demand-ai__cols">
-          <div>
-            <h4>Kế hoạch đề xuất</h4>
-            <ol>
-              <li v-for="(a, i) in aiInsight.actions" :key="i">{{ a }}</li>
-            </ol>
-          </div>
-          <div>
-            <h4>Rủi ro cần theo dõi</h4>
-            <ul>
-              <li v-for="(r, i) in aiInsight.risks" :key="i">{{ r }}</li>
-            </ul>
-          </div>
-        </div>
-        <div class="demand-ai__links">
-          <RouterLink class="dss-btn dss-btn--outline" to="/seller/dss/inventory">Khuyến nghị tồn</RouterLink>
-          <RouterLink class="dss-btn dss-btn--outline" to="/seller/dss/price">Gợi ý giá</RouterLink>
-          <RouterLink class="dss-btn dss-btn--outline" to="/seller/dss/what-if">What-if</RouterLink>
-        </div>
-      </section>
-
+    <template v-if="result">
       <section v-if="hasChart" class="dss-card" aria-labelledby="demand-chart-title">
         <div class="demand-card-head">
           <h2 id="demand-chart-title" class="dss-card__title">Xu hướng nhu cầu</h2>
@@ -458,7 +445,7 @@ function resetResult() {
         </div>
         <DemandTrendChart :historical="historicalSeries" :forecast="forecastSeries" />
       </section>
-      <p v-else-if="result && chartError" class="form-error demand-chart-note">{{ chartError }}</p>
+      <p v-else-if="chartError" class="form-error demand-chart-note">{{ chartError }}</p>
     </template>
   </div>
 </template>
@@ -470,10 +457,53 @@ function resetResult() {
 
 .demand-layout {
   display: grid;
-  grid-template-columns: minmax(280px, 0.95fr) minmax(320px, 1.15fr);
-  gap: 1rem;
+  grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
+  gap: 0.85rem;
   margin-bottom: 1rem;
-  align-items: start;
+  align-items: stretch;
+}
+
+.demand-config {
+  padding: 0.95rem 1rem;
+  align-self: start;
+}
+
+.demand-config__title {
+  margin-bottom: 0.65rem;
+  font-size: 1rem;
+}
+
+.demand-config-alert {
+  margin-top: 0.75rem;
+}
+
+.demand-main {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.demand-main--split {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+}
+
+.demand-main--split .demand-result,
+.demand-main--split .demand-ai {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.demand-btn-compact {
+  padding: 0.45rem 0.75rem;
+  font-size: 0.8125rem;
+}
+
+.demand-result {
+  display: flex;
+  flex-direction: column;
 }
 
 .demand-card-head {
@@ -514,14 +544,14 @@ function resetResult() {
 .demand-form-stack {
   display: flex;
   flex-direction: column;
-  gap: 0.9rem;
-  margin-bottom: 1rem;
+  gap: 0.65rem;
+  margin-bottom: 0.75rem;
 }
 
 .demand-form-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.85rem;
+  grid-template-columns: 1fr;
+  gap: 0.65rem;
 }
 
 .dss-hint {
@@ -547,112 +577,117 @@ function resetResult() {
 }
 
 .demand-empty {
-  padding: 2.5rem 1rem;
-}
-
-.demand-hero {
-  display: grid;
-  grid-template-columns: 1.2fr 0.9fr;
-  gap: 1rem;
-  align-items: stretch;
-  margin-top: 0.5rem;
-}
-
-.demand-hero__copy {
+  padding: 2rem 0.75rem;
+  flex: 1;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 0.45rem;
-  padding: 0.35rem 0;
 }
 
-.demand-hero__product {
+.demand-result-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+.demand-result__time {
   margin: 0;
-  font-size: 1.15rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.demand-result__time span {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #607d8b;
+}
+
+.demand-result__time strong {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #37474f;
+}
+
+.demand-result__product {
+  margin: 0;
+  font-size: 1.05rem;
   font-weight: 700;
   color: #0d47a1;
   line-height: 1.35;
 }
 
-.demand-hero__meta {
-  margin: 0;
-  color: #607d8b;
-  font-size: 0.875rem;
-  line-height: 1.45;
+.demand-mini-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
 }
 
-.demand-hero__stat {
+.demand-mini-kpi {
+  padding: 0.65rem 0.55rem;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #e3e8ef;
+  text-align: center;
+}
+
+.demand-mini-kpi span {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #607d8b;
+}
+
+.demand-mini-kpi strong {
+  font-size: 0.95rem;
+  color: #0d47a1;
+}
+
+.demand-total-box {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 1.25rem 1rem;
-  border-radius: 14px;
+  padding: 1rem 0.75rem;
+  margin-top: auto;
+  border-radius: 12px;
   background: linear-gradient(160deg, #e3f2fd 0%, #bbdefb 100%);
   border: 1px solid #90caf9;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
 }
 
-.demand-hero__stat span {
-  font-size: 0.72rem;
+.demand-total-box span {
+  font-size: 0.68rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: #1565c0;
 }
 
-.demand-hero__stat strong {
-  margin: 0.2rem 0;
-  font-size: clamp(2.1rem, 4vw, 2.85rem);
+.demand-total-box strong {
+  margin: 0.15rem 0;
+  font-size: clamp(1.75rem, 3vw, 2.35rem);
   line-height: 1.05;
   color: #0d47a1;
 }
 
-.demand-hero__stat em {
+.demand-total-box em {
   font-style: normal;
   font-weight: 650;
   color: #546e7a;
-  font-size: 0.875rem;
-}
-
-.demand-kpi-strip {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.65rem;
-  margin-top: 1rem;
-}
-
-.demand-kpi {
-  padding: 0.85rem 0.9rem;
-  border-radius: 12px;
-  background: #f8fafc;
-  border: 1px solid #e3e8ef;
-}
-
-.demand-kpi span {
-  display: block;
-  margin-bottom: 0.3rem;
-  font-size: 0.7rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: #607d8b;
-}
-
-.demand-kpi strong {
-  font-size: 1.05rem;
-  color: #0d47a1;
-}
-
-.demand-kpi--accent {
-  background: linear-gradient(180deg, #e3f2fd, #fff);
-  border-color: #90caf9;
+  font-size: 0.8125rem;
 }
 
 .demand-ai {
   border-left: 4px solid #2e7d32;
   background: linear-gradient(180deg, #f1f8f4 0%, #fff 42%);
+  padding: 0.95rem 1rem;
 }
 
 .demand-ai--strong {
@@ -715,22 +750,22 @@ function resetResult() {
 }
 
 .demand-ai__title {
-  margin: 0 0 0.55rem;
-  font-size: 1.15rem;
+  margin: 0 0 0.45rem;
+  font-size: 1rem;
   color: #0d47a1;
 }
 
 .demand-ai__summary {
-  margin: 0 0 1.1rem;
-  max-width: 78ch;
-  line-height: 1.6;
+  margin: 0 0 0.75rem;
+  line-height: 1.55;
   color: #37474f;
+  font-size: 0.875rem;
 }
 
 .demand-ai__cols {
   display: grid;
-  grid-template-columns: 1.15fr 0.95fr;
-  gap: 1rem 1.5rem;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
 }
 
 .demand-ai__cols h4 {
@@ -745,9 +780,10 @@ function resetResult() {
 .demand-ai__cols ol,
 .demand-ai__cols ul {
   margin: 0;
-  padding-left: 1.15rem;
+  padding-left: 1.1rem;
   color: #37474f;
-  line-height: 1.55;
+  line-height: 1.5;
+  font-size: 0.8125rem;
 }
 
 .demand-ai__cols li + li {
@@ -757,9 +793,11 @@ function resetResult() {
 .demand-ai__links {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.55rem;
-  margin-top: 1.15rem;
+  gap: 0.45rem;
+  margin-top: auto;
+  padding-top: 0.75rem;
 }
+
 
 .dss-input:focus-visible,
 .dss-btn:focus-visible {
@@ -768,14 +806,18 @@ function resetResult() {
 }
 
 @media (max-width: 960px) {
-  .demand-layout,
-  .demand-hero,
-  .demand-ai__cols {
+  .demand-layout {
     grid-template-columns: 1fr;
   }
 
-  .demand-kpi-strip {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .demand-main--split {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 960px) {
+  .demand-form-row {
+    grid-template-columns: 1fr 1fr;
   }
 }
 
