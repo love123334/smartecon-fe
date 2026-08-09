@@ -5,6 +5,8 @@ import type { SellerVoucherRequestPayload, VoucherRequest } from '@/api/real/vou
 import { useAuthStore } from '@/stores/auth'
 import { loadSellerCatalogForDss } from '@/utils/sellerCatalog'
 import PageHeader from '@/components/PageHeader.vue'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
+import EmptyState from '@/components/EmptyState.vue'
 
 const auth = useAuthStore()
 const requests = ref<VoucherRequest[]>([])
@@ -14,17 +16,23 @@ const error = ref('')
 const success = ref('')
 const submitting = ref(false)
 
-const form = ref<SellerVoucherRequestPayload>({
+function toLocalDatetimeValue(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+const form = ref({
   code: '',
   name: '',
   description: '',
-  discountType: 'PERCENTAGE',
+  discountType: 'PERCENTAGE' as SellerVoucherRequestPayload['discountType'],
   discountValue: 10,
-  appliesTo: 'ALL_PRODUCTS',
+  appliesTo: 'ALL_PRODUCTS' as SellerVoucherRequestPayload['appliesTo'],
   minimumOrderAmount: 0,
-  startsAt: new Date().toISOString(),
-  endsAt: new Date(Date.now() + 14 * 86400000).toISOString(),
-  productIds: [],
+  startsAtLocal: toLocalDatetimeValue(new Date().toISOString()),
+  endsAtLocal: toLocalDatetimeValue(new Date(Date.now() + 14 * 86400000).toISOString()),
 })
 
 const selectedProducts = ref<string[]>([])
@@ -51,16 +59,22 @@ async function submit() {
   error.value = ''
   success.value = ''
   try {
-    await voucherApi.createSellerRequest({
-      ...form.value,
+    const payload: SellerVoucherRequestPayload = {
       code: form.value.code.trim().toUpperCase(),
-      startsAt: new Date(form.value.startsAt).toISOString(),
-      endsAt: new Date(form.value.endsAt).toISOString(),
+      name: form.value.name.trim(),
+      description: form.value.description.trim(),
+      discountType: form.value.discountType,
+      discountValue: form.value.discountValue,
+      appliesTo: form.value.appliesTo,
+      minimumOrderAmount: form.value.minimumOrderAmount,
+      startsAt: new Date(form.value.startsAtLocal).toISOString(),
+      endsAt: new Date(form.value.endsAtLocal).toISOString(),
       productIds:
         form.value.appliesTo === 'SELECTED_PRODUCTS'
           ? selectedProducts.value.map(Number)
           : [],
-    })
+    }
+    await voucherApi.createSellerRequest(payload)
     success.value = 'Đã gửi yêu cầu — manager sẽ duyệt và mã sẽ hiện trên shop của bạn.'
     requests.value = await voucherApi.listSellerRequests()
   } catch (e) {
@@ -76,74 +90,307 @@ function statusLabel(s: VoucherRequest['status']) {
   return 'Từ chối'
 }
 
+function statusClass(s: VoucherRequest['status']) {
+  if (s === 'PENDING') return 'voucher-status voucher-status--pending'
+  if (s === 'APPROVED') return 'voucher-status voucher-status--approved'
+  return 'voucher-status voucher-status--rejected'
+}
+
 function discountLabel(r: VoucherRequest) {
   return r.discountType === 'PERCENTAGE' ? `${r.discountValue}%` : formatVnd(r.discountValue)
+}
+
+function formatDate(iso: string | null | undefined) {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 </script>
 
 <template>
-  <div>
+  <div class="voucher-page">
     <PageHeader
       eyebrow="Người bán"
       title="Yêu cầu voucher"
       lead="Gửi đề xuất mã giảm giá cho manager duyệt — sau khi duyệt, khách nhập mã sẽ được giảm trên shop bạn."
     />
 
-    <p v-if="error" class="form-error">{{ error }}</p>
-    <p v-if="success" class="muted">{{ success }}</p>
+    <p v-if="error" class="alert alert-error">{{ error }}</p>
+    <p v-if="success" class="alert alert-success">{{ success }}</p>
 
-    <section v-if="!loading" class="card" style="margin-bottom: 1rem">
-      <h2 class="card-title">Gửi yêu cầu mới</h2>
-      <div style="display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr))">
-        <label>Mã đề xuất <input v-model="form.code" class="input" placeholder="SHOP15" /></label>
-        <label>Tên chiến dịch <input v-model="form.name" class="input" /></label>
-        <label>Loại
-          <select v-model="form.discountType" class="input">
-            <option value="PERCENTAGE">%</option>
-            <option value="FIXED">VND</option>
-          </select>
-        </label>
-        <label>Giá trị <input v-model.number="form.discountValue" type="number" min="1" class="input" /></label>
-        <label>Phạm vi SP
-          <select v-model="form.appliesTo" class="input">
-            <option value="ALL_PRODUCTS">Tất cả SP shop</option>
-            <option value="SELECTED_PRODUCTS">SP chọn</option>
-          </select>
-        </label>
-        <label>ĐH tối thiểu <input v-model.number="form.minimumOrderAmount" type="number" min="0" class="input" /></label>
-      </div>
-      <div v-if="form.appliesTo === 'SELECTED_PRODUCTS'" style="margin-top: 0.75rem">
-        <span>Chọn sản phẩm</span>
-        <select v-model="selectedProducts" multiple class="input" style="min-height: 6rem">
-          <option v-for="p in products" :key="p.id" :value="p.id">{{ p.name }}</option>
-        </select>
-      </div>
-      <label style="display: block; margin-top: 0.75rem">
-        Mô tả / lý do
-        <textarea v-model="form.description" class="input" rows="2" placeholder="Flash sale cuối tuần, giảm 15% cho danh mục cà phê…" />
-      </label>
-      <button type="button" class="btn btn-primary" style="margin-top: 0.75rem" :disabled="submitting" @click="submit">
-        {{ submitting ? 'Đang gửi…' : 'Gửi manager duyệt' }}
-      </button>
-    </section>
+    <LoadingSpinner v-if="loading" />
 
-    <section v-if="!loading" class="card">
-      <h2 class="card-title">Lịch sử yêu cầu</h2>
-      <div class="table-wrap">
-        <table class="data">
-          <thead>
-            <tr><th>Mã</th><th>Giảm</th><th>Trạng thái</th><th>Ghi chú manager</th></tr>
-          </thead>
-          <tbody>
-            <tr v-for="r in requests" :key="r.id">
-              <td><strong>{{ r.code }}</strong></td>
-              <td>{{ discountLabel(r) }}</td>
-              <td>{{ statusLabel(r.status) }}</td>
-              <td>{{ r.managerNote || '—' }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
+    <template v-else>
+      <section class="card voucher-card">
+        <div class="voucher-card__head">
+          <h2 class="card-title">Gửi yêu cầu mới</h2>
+          <p class="voucher-card__hint">
+            Điền đầy đủ thông tin — manager sẽ xem và bật mã trên shop của bạn nếu phù hợp.
+          </p>
+        </div>
+
+        <form class="voucher-form" @submit.prevent="submit">
+          <div class="voucher-form__grid">
+            <div class="form-group">
+              <label for="v-code">Mã đề xuất</label>
+              <input
+                id="v-code"
+                v-model="form.code"
+                type="text"
+                placeholder="VD: SHOP15"
+                autocomplete="off"
+                required
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="v-name">Tên chiến dịch</label>
+              <input
+                id="v-name"
+                v-model="form.name"
+                type="text"
+                placeholder="Flash sale cuối tuần"
+                required
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="v-type">Loại giảm</label>
+              <select id="v-type" v-model="form.discountType">
+                <option value="PERCENTAGE">Phần trăm (%)</option>
+                <option value="FIXED">Số tiền cố định (VND)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="v-value">
+                Giá trị giảm
+                <span class="voucher-form__unit">
+                  {{ form.discountType === 'PERCENTAGE' ? '(%)' : '(VND)' }}
+                </span>
+              </label>
+              <input
+                id="v-value"
+                v-model.number="form.discountValue"
+                type="number"
+                min="1"
+                :max="form.discountType === 'PERCENTAGE' ? 100 : undefined"
+                required
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="v-scope">Phạm vi sản phẩm</label>
+              <select id="v-scope" v-model="form.appliesTo">
+                <option value="ALL_PRODUCTS">Tất cả sản phẩm shop</option>
+                <option value="SELECTED_PRODUCTS">Chọn sản phẩm cụ thể</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="v-min">Đơn hàng tối thiểu (VND)</label>
+              <input
+                id="v-min"
+                v-model.number="form.minimumOrderAmount"
+                type="number"
+                min="0"
+                step="1000"
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="v-start">Bắt đầu</label>
+              <input id="v-start" v-model="form.startsAtLocal" type="datetime-local" required />
+            </div>
+
+            <div class="form-group">
+              <label for="v-end">Kết thúc</label>
+              <input id="v-end" v-model="form.endsAtLocal" type="datetime-local" required />
+            </div>
+          </div>
+
+          <div v-if="form.appliesTo === 'SELECTED_PRODUCTS'" class="form-group voucher-form__full">
+            <label for="v-products">Chọn sản phẩm áp dụng</label>
+            <select id="v-products" v-model="selectedProducts" multiple size="5">
+              <option v-for="p in products" :key="p.id" :value="p.id">{{ p.name }}</option>
+            </select>
+            <p class="voucher-form__help">Giữ Ctrl (Windows) hoặc Cmd (Mac) để chọn nhiều sản phẩm.</p>
+          </div>
+
+          <div class="form-group voucher-form__full">
+            <label for="v-desc">Mô tả / lý do gửi manager</label>
+            <textarea
+              id="v-desc"
+              v-model="form.description"
+              rows="3"
+              placeholder="VD: Flash sale cuối tuần, giảm 15% cho danh mục cà phê…"
+            />
+          </div>
+
+          <div class="voucher-form__actions">
+            <button type="submit" class="btn btn-primary" :disabled="submitting">
+              {{ submitting ? 'Đang gửi…' : 'Gửi manager duyệt' }}
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section class="card voucher-card">
+        <h2 class="card-title">Lịch sử yêu cầu</h2>
+
+        <EmptyState
+          v-if="!requests.length"
+          title="Chưa có yêu cầu nào"
+          description="Gửi form phía trên để manager xem xét mã giảm giá cho shop bạn."
+        />
+
+        <div v-else class="table-wrap">
+          <table class="data voucher-table">
+            <thead>
+              <tr>
+                <th>Mã</th>
+                <th>Tên</th>
+                <th>Giảm</th>
+                <th>Thời hạn</th>
+                <th>Trạng thái</th>
+                <th>Ghi chú manager</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="r in requests" :key="r.id">
+                <td><strong class="voucher-code">{{ r.code }}</strong></td>
+                <td>{{ r.name || '—' }}</td>
+                <td>{{ discountLabel(r) }}</td>
+                <td class="voucher-table__dates">
+                  <span>{{ formatDate(r.startsAt) }}</span>
+                  <span class="muted">→ {{ formatDate(r.endsAt) }}</span>
+                </td>
+                <td>
+                  <span :class="statusClass(r.status)">{{ statusLabel(r.status) }}</span>
+                </td>
+                <td>{{ r.managerNote || '—' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </template>
   </div>
 </template>
+
+<style scoped>
+.voucher-page {
+  max-width: 960px;
+}
+
+.voucher-card {
+  margin-bottom: 1.25rem;
+}
+
+.voucher-card__head {
+  margin-bottom: 1.25rem;
+}
+
+.voucher-card__hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.875rem;
+  color: var(--slate-500);
+  line-height: 1.5;
+}
+
+.voucher-form__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 1rem;
+}
+
+.voucher-form__full {
+  margin-top: 0.5rem;
+}
+
+.voucher-form__unit {
+  font-weight: 500;
+  color: var(--slate-500);
+}
+
+.voucher-form__help {
+  margin: 0.35rem 0 0;
+  font-size: 0.75rem;
+  color: var(--slate-500);
+}
+
+.voucher-form__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.voucher-form select[multiple] {
+  min-height: 7.5rem;
+}
+
+.voucher-code {
+  font-family: ui-monospace, 'Cascadia Code', monospace;
+  letter-spacing: 0.04em;
+}
+
+.voucher-table__dates {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
+.voucher-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.voucher-status--pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.voucher-status--approved {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.voucher-status--rejected {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.alert-success {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+@media (max-width: 720px) {
+  .voucher-form__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .voucher-form__actions {
+    justify-content: stretch;
+  }
+
+  .voucher-form__actions .btn {
+    width: 100%;
+  }
+}
+</style>
