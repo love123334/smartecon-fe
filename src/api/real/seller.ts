@@ -1,6 +1,7 @@
 import { http } from '@/api/http/client'
 import { apiPaths } from '@/api/http/paths'
 import type { ChartPoint, Order } from '@/types'
+import { dedupeOrdersById, dedupeRecentSellerOrders } from '@/utils/orderAnalytics'
 
 function num(v: number | string | undefined, fallback = 0): number {
   if (v == null) return fallback
@@ -299,13 +300,15 @@ function mapDashboard(data: BackendSellerDashboard): SellerDashboard {
       comment: r.comment,
       createdAt: r.createdAt ?? new Date().toISOString(),
     })),
-    recentOrders: (data.recentOrders ?? []).map((o) => ({
-      orderId: String(o.orderId),
-      customer: o.customer,
-      total: num(o.total),
-      status: o.status,
-      createdAt: o.createdAt,
-    })),
+    recentOrders: dedupeRecentSellerOrders(
+      (data.recentOrders ?? []).map((o) => ({
+        orderId: String(o.orderId),
+        customer: o.customer,
+        total: num(o.total),
+        status: o.status,
+        createdAt: o.createdAt,
+      })),
+    ),
   }
 }
 
@@ -319,18 +322,20 @@ export function ordersFromDashboardRecent(recent: SellerDashboard['recentOrders'
     CANCELLED: 'cancelled',
     REFUNDED: 'cancelled',
   }
-  return recent.map((o) => ({
-    id: o.orderId,
-    customerId: '',
-    customerName: o.customer,
-    items: [],
-    total: o.total,
-    status: statusMap[o.status] ?? 'pending',
-    rawStatus: o.status,
-    shippingAddress: '',
-    createdAt: o.createdAt ?? new Date().toISOString(),
-    updatedAt: o.createdAt ?? new Date().toISOString(),
-  }))
+  return dedupeOrdersById(
+    recent.map((o) => ({
+      id: o.orderId,
+      customerId: '',
+      customerName: o.customer,
+      items: [],
+      total: o.total,
+      status: statusMap[o.status] ?? 'pending',
+      rawStatus: o.status,
+      shippingAddress: '',
+      createdAt: o.createdAt ?? new Date().toISOString(),
+      updatedAt: o.createdAt ?? new Date().toISOString(),
+    })),
+  )
 }
 
 export async function getSalesPerformance(): Promise<SalesPerformance> {

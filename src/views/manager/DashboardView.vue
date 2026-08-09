@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { dssApi, orderApi, formatVnd } from '@/api/services'
-import { monthlyRevenueChart, totalRevenue } from '@/utils/orderAnalytics'
+import { dedupeOrdersById, monthlyRevenueChart, salesEligibleOrders, totalRevenue } from '@/utils/orderAnalytics'
 import type { ChartPoint, Order } from '@/types'
 import PageHeader from '@/components/PageHeader.vue'
 import LineChart from '@/components/LineChart.vue'
@@ -12,7 +12,8 @@ const orders = ref<Order[]>([])
 const loading = ref(true)
 
 const totalRev = computed(() => totalRevenue(orders.value))
-const recentOrders = computed(() => orders.value.slice(0, 8))
+const salesOrderCount = computed(() => salesEligibleOrders(orders.value).length)
+const recentOrders = computed(() => dedupeOrdersById(orders.value).slice(0, 8))
 
 onMounted(async () => {
   loading.value = true
@@ -55,7 +56,7 @@ onMounted(async () => {
       <div class="card stat-card stat-card--hover">
         <span class="stat-label">Đơn trung bình</span>
         <span class="stat-value">
-          {{ orders.length ? formatVnd(totalRev / orders.length) : '—' }}
+          {{ salesOrderCount ? formatVnd(totalRev / salesOrderCount) : '—' }}
         </span>
       </div>
     </div>

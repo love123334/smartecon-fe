@@ -20,6 +20,7 @@ import * as realSeller from '@/api/real/seller'
 import * as realReviews from '@/api/real/reviews'
 import * as realDss from '@/api/real/dss'
 import * as realPlatformRevenue from '@/api/real/platformRevenue'
+import { fetchSystemHealthMetrics } from '@/api/real/systemHealth'
 import * as realProductImages from '@/api/real/productImages'
 import { typingDelay } from '@/api/chat/engine'
 import { buildChatContext } from '@/api/chat/context'
@@ -27,7 +28,7 @@ import { chatModeLabel, resolveChatReply, refreshBeAiStatus } from '@/api/chat/r
 import { isLlmConfigured } from '@/api/chat/llm'
 import { applyAvatarToUser, saveUserAvatar } from '@/utils/avatar'
 import { clearUserSnapshot, saveUserSnapshot } from '@/utils/sessionSnapshot'
-import { categoryRevenueChart, monthlyRevenueChart } from '@/utils/orderAnalytics'
+import { categoryRevenueChart, dedupeOrdersById, monthlyRevenueChart, salesEligibleOrders, totalRevenue } from '@/utils/orderAnalytics'
 import { scoreProductRecommendation } from '@/utils/recommendationScore'
 import { repairProductImageUrl } from '@/utils/productImage'
 import {
@@ -1064,7 +1065,9 @@ async function mergedAllOrders(): Promise<Order[]> {
   if (apiConfig.useRealOrders) {
     if (!hasBackendToken()) return []
     orders = await realOrders.listManagedOrders(0, 100)
-    return applyOrderOverlays(orders).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    return dedupeOrdersById(applyOrderOverlays(orders)).sort((a, b) =>
+      b.createdAt.localeCompare(a.createdAt),
+    )
   }
   orders = await mockOrderApi.listAll()
   const merged = applyOrderOverlays(orders)
@@ -1132,7 +1135,7 @@ export const orderApi = {
       source = 'mock'
     }
 
-    const merged = applyOrderOverlays(orders)
+    const merged = dedupeOrdersById(applyOrderOverlays(orders))
     if (apiConfig.useRealOrders) {
       return {
         orders: merged.sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
@@ -1551,7 +1554,8 @@ export const dssApi = {
   async managerInsights(): Promise<DssInsight[]> {
     await delay()
     const orders = await mergedAllOrders()
-    const revenue = orders.reduce((s, o) => s + o.total, 0)
+    const revenue = totalRevenue(orders)
+    const salesOrders = salesEligibleOrders(orders)
     const pending = orders.filter((o) => o.status === 'pending').length
     const delivered = orders.filter((o) => o.status === 'delivered').length
     const source = apiConfig.useRealOrders && hasBackendToken() ? 'API backend' : 'dữ liệu demo'
@@ -1559,7 +1563,7 @@ export const dssApi = {
       {
         id: 'm1',
         title: 'Tăng trưởng doanh thu',
-        description: `Doanh thu tích lũy ${formatVnd(revenue)} từ ${orders.length} đơn (${source}).`,
+        description: `Doanh thu tích lũy ${formatVnd(revenue)} từ ${salesOrders.length} đơn tính doanh số (${source}; không gồm chờ xác nhận / đã hủy).`,
         impact: 'high',
         category: 'revenue',
       },
@@ -1591,8 +1595,9 @@ export const dssApi = {
         const perf = await realSeller.getSalesPerformance()
         if (perf.monthlyRevenue.length) return perf.monthlyRevenue
       } catch {
-        /* fallback below */
+        /* no mock fallback in real mode */
       }
+      if (!apiConfig.useMock) return []
     }
 
     if (!sellerKey && apiConfig.useRealOrders && hasBackendToken()) {
@@ -1601,9 +1606,12 @@ export const dssApi = {
         const chart = monthlyRevenueChart(orders)
         if (chart.length) return chart
       } catch {
-        /* fallback below */
+        /* no mock fallback in real mode */
       }
+      if (!apiConfig.useMock) return []
     }
+
+    if (!apiConfig.useMock) return []
 
     const mockChart: ChartPoint[] = [
       { label: 'T1', value: 12_500_000 },
@@ -1845,7 +1853,7 @@ const mockAdminApi = {
 
   async systemMetrics(): Promise<SystemMetric[]> {
     await delay()
-    const base: SystemMetric[] = [
+    return [
       { name: 'API Gateway', value: '99.9%', status: 'ok' },
       { name: 'PostgreSQL', value: 'Connected', status: 'ok' },
       { name: 'Redis', value: '12ms latency', status: 'ok' },
@@ -1853,24 +1861,6 @@ const mockAdminApi = {
       { name: 'Order Queue', value: 2, status: 'warn' },
       { name: 'Error Rate (1h)', value: '0.02%', status: 'ok' },
     ]
-    if (apiConfig.useMock) return base
-    try {
-      const res = await fetch(`${apiConfig.backendOrigin}/api/v1/products?page=0&size=1`)
-      const apiOk = res.ok
-      return [
-        {
-          name: 'Backend API (Spring)',
-          value: apiOk ? 'Online' : `HTTP ${res.status}`,
-          status: apiOk ? 'ok' : 'error',
-        },
-        ...base,
-      ]
-    } catch {
-      return [
-        { name: 'Backend API (Spring)', value: 'Offline', status: 'error' },
-        ...base,
-      ]
-    }
   },
 }
 
@@ -1905,7 +1895,12 @@ export const adminApi = {
     return mockAdminApi.setUserRole(userId, role)
   },
 
-  systemMetrics: mockAdminApi.systemMetrics,
+  async systemMetrics(): Promise<SystemMetric[]> {
+    if (apiConfig.useMock) {
+      return mockAdminApi.systemMetrics()
+    }
+    return fetchSystemHealthMetrics()
+  },
 }
 
 // ——— Chatbot (LLM Groq/OpenAI + fallback engine local) ———

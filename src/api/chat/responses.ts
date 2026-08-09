@@ -24,6 +24,7 @@ import {
 import { matchCategoryFromText } from '@/api/chat/synonyms'
 import type { Order, Product } from '@/types'
 import { orderStatusLabel } from '@/utils/orderStatus'
+import { salesEligibleOrders, totalRevenue } from '@/utils/orderAnalytics'
 import { rankForUseCase } from '@/utils/recommendationScore'
 
 export { findProductsByQuery } from '@/api/chat/products'
@@ -622,22 +623,23 @@ function buildSellerIntent(ctx: ChatContext, intent: ChatIntent, raw: string): s
 function buildManagerIntent(ctx: ChatContext, intent: ChatIntent, _raw: string): string | null {
   const name = greet(ctx.userName ?? '')
   const orders = ctx.orders
-  const revenue = orders.reduce((s, o) => s + o.total, 0)
+  const salesOrders = salesEligibleOrders(orders)
+  const revenue = totalRevenue(orders)
   const pending = orders.filter((o) => o.status === 'pending').length
   const delivered = orders.filter((o) => o.status === 'delivered').length
-  const aov = orders.length ? revenue / orders.length : 0
+  const aov = salesOrders.length ? revenue / salesOrders.length : 0
   const cancelled = orders.filter((o) => o.status === 'cancelled').length
   const cancelRate = orders.length ? ((cancelled / orders.length) * 100).toFixed(1) : '0'
 
   switch (intent) {
     case 'manager_kpi':
-      return `${name}**KPI** (${orders.length} đơn):\n• Doanh thu: **${formatVnd(revenue)}**\n• AOV: **${formatVnd(aov)}**\n• Đã giao: **${delivered}**\n• Chờ xử lý: **${pending}**\n• Hủy: **${cancelRate}%**\n\nMở **Dashboard** (/manager/dashboard).`
+      return `${name}**KPI** (${salesOrders.length} đơn tính doanh số / ${orders.length} tổng):\n• Doanh thu: **${formatVnd(revenue)}**\n• AOV: **${formatVnd(aov)}**\n• Đã giao: **${delivered}**\n• Chờ xử lý: **${pending}**\n• Hủy: **${cancelRate}%**\n\nMở **Dashboard** (/manager/dashboard).`
     case 'manager_pending':
       if (!pending) return `${name}Không có đơn chờ — **ổn định**.`
       return `${name}**${pending} đơn chờ:**\n${formatOrderSummary(orders.filter((o) => o.status === 'pending').slice(0, 5), 5)}`
     case 'manager_segment': {
       const cats = new Map<string, number>()
-      for (const o of orders) {
+      for (const o of salesOrders) {
         for (const item of o.items) {
           const p = ctx.products.find((x) => x.id === item.productId)
           cats.set(p?.category ?? 'Khác', (cats.get(p?.category ?? 'Khác') ?? 0) + item.quantity * item.unitPrice)
@@ -656,7 +658,7 @@ function buildManagerIntent(ctx: ChatContext, intent: ChatIntent, _raw: string):
       return `${name}**Xu hướng danh mục:**\n${lines}\n\n**Phân tích** + **DSS**.`
     }
     case 'manager_revenue':
-      return `${name}Doanh thu **${formatVnd(revenue)}** / **${orders.length}** đơn. AOV **${formatVnd(aov)}**.`
+      return `${name}Doanh thu **${formatVnd(revenue)}** / **${salesOrders.length}** đơn tính doanh số. AOV **${formatVnd(aov)}**.`
     case 'manager_insights': {
       if (ctx.managerInsights.length) {
         return `${name}**Insight sàn:**\n${ctx.managerInsights.slice(0, 5).map((i) => `• **${i.title}** (${i.impact}): ${i.description}`).join('\n')}\n\nMở **Dashboard** (/manager/dashboard).`

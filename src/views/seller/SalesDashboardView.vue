@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/auth'
 import LineChart from '@/components/LineChart.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import { backendStatusLabel } from '@/utils/backendOrderStatus'
+import { dedupeRecentSellerOrders } from '@/utils/orderAnalytics'
 
 const auth = useAuthStore()
 const salesData = ref<ChartPoint[]>([])
@@ -16,6 +17,10 @@ const error = ref('')
 const loading = ref(true)
 
 const sellerKey = computed(() => auth.user?.backendId ?? auth.user?.id)
+
+const recentOrders = computed(() =>
+  dedupeRecentSellerOrders(dashboard.value?.recentOrders ?? []),
+)
 
 onMounted(async () => {
   loading.value = true
@@ -138,7 +143,7 @@ onMounted(async () => {
     </div>
 
     <div class="sales-grid" style="margin-top: 1rem">
-      <section v-if="dashboard?.recentOrders.length" class="sales-panel">
+      <section v-if="recentOrders.length" class="sales-panel">
         <h2>Đơn gần đây</h2>
         <div class="table-wrap">
           <table class="data">
@@ -151,7 +156,7 @@ onMounted(async () => {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="o in dashboard.recentOrders" :key="o.orderId">
+              <tr v-for="o in recentOrders" :key="o.orderId">
                 <td>#{{ o.orderId }}</td>
                 <td>{{ o.customer }}</td>
                 <td>{{ formatVnd(o.total) }}</td>

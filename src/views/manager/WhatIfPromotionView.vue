@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
+import { apiConfig } from '@/api/config'
+import { formatVnd } from '@/api/services'
 import { useCategoryStore } from '@/stores/categories'
 import PromoDemandColumnChart from '@/components/dss/PromoDemandColumnChart.vue'
 import PromoProfitLineChart from '@/components/dss/PromoProfitLineChart.vue'
@@ -9,10 +11,11 @@ import {
   CAMPAIGN_DURATIONS,
   defaultManagerWhatIf,
   generateManagerWhatIf,
-  formatUsd,
   type ManagerWhatIfResult,
   type CampaignDurationKey,
 } from '@/utils/dssManagerWhatIfMock'
+import { fetchManagerWhatIf } from '@/utils/managerWhatIf'
+import { mapPlatformRevenueError } from '@/utils/platformRevenue'
 
 const cats = useCategoryStore()
 const categoryOptions = computed(() =>
@@ -26,24 +29,46 @@ const category = ref('')
 const durationKey = ref<CampaignDurationKey>('7')
 const result = ref<ManagerWhatIfResult | null>(null)
 const running = ref(false)
+const error = ref('')
 
 onMounted(async () => {
   await cats.load()
-  category.value = categoryOptions.value[0]?.value ?? 'electronics'
-  result.value = defaultManagerWhatIf(categoryOptions.value[0]?.label)
+  category.value = categoryOptions.value[0]?.value ?? ''
+  if (apiConfig.useMock) {
+    result.value = defaultManagerWhatIf(categoryOptions.value[0]?.label)
+  }
 })
 
-function generate() {
+async function generate() {
   running.value = true
-  const label = categoryOptions.value.find((c) => c.value === category.value)?.label
-  window.setTimeout(() => {
-    result.value = generateManagerWhatIf({
-      category: category.value,
-      categoryLabel: label,
-      durationKey: durationKey.value,
-    })
+  error.value = ''
+  result.value = null
+  const label =
+    categoryOptions.value.find((c) => c.value === category.value)?.label ?? 'Danh mục'
+
+  try {
+    if (apiConfig.useMock) {
+      await new Promise((r) => setTimeout(r, 350))
+      result.value = generateManagerWhatIf({
+        category: category.value,
+        categoryLabel: label,
+        durationKey: durationKey.value,
+      })
+    } else {
+      result.value = await fetchManagerWhatIf({
+        categoryLabel: label,
+        durationKey: durationKey.value,
+      })
+    }
+  } catch (e) {
+    error.value = apiConfig.useMock
+      ? e instanceof Error
+        ? e.message
+        : 'Không tạo được kịch bản'
+      : mapPlatformRevenueError(e)
+  } finally {
     running.value = false
-  }, 350)
+  }
 }
 </script>
 
@@ -59,9 +84,12 @@ function generate() {
       </nav>
       <h1>Phân tích What-if — So sánh kịch bản khuyến mãi</h1>
       <p class="dss-page__sub">
-        So sánh nhiều mức giảm giá để chọn chiến lược khuyến mãi tối ưu cho chiến dịch trên sàn.
+        So sánh nhiều mức giảm giá để chọn chiến lược khuyến mãi tối ưu cho chiến dịch trên sàn
+        — dữ liệu nhu cầu/GMV lấy từ báo cáo doanh thu sàn thực tế.
       </p>
     </header>
+
+    <div v-if="error" class="dss-alert dss-alert--warn" role="alert">{{ error }}</div>
 
     <section class="dss-card">
       <h2 class="dss-card__title">Cấu hình chiến dịch</h2>
@@ -125,8 +153,8 @@ function generate() {
               >
                 <td><strong>{{ row.discountPct }}%</strong></td>
                 <td>{{ row.predictedDemand }} đơn vị</td>
-                <td>{{ formatUsd(row.revenue) }}</td>
-                <td>{{ formatUsd(row.profit) }}</td>
+                <td>{{ formatVnd(row.revenue) }}</td>
+                <td>{{ formatVnd(row.profit) }}</td>
                 <td>
                   <span
                     class="dss-badge"
