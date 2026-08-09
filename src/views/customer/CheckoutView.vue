@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { formatVnd, orderApi } from '@/api/services'
+import { formatVnd, orderApi, voucherApi } from '@/api/services'
+import type { ValidateVoucherResult } from '@/api/real/vouchers'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
 import { trySiteFx } from '@/utils/siteFx'
@@ -26,13 +27,16 @@ const zip = ref('')
 const payment = ref<'vnpay' | 'cod'>('vnpay')
 const coupon = ref('')
 const couponApplied = ref(false)
+const couponInfo = ref<ValidateVoucherResult | null>(null)
+const couponMessage = ref('')
+const couponLoading = ref(false)
 const error = ref('')
 const loading = ref(false)
 const pendingOrderId = ref('')
 const resuming = ref(false)
 
 const shippingFee = computed(() => (cart.total >= 500_000 ? 0 : 30_000))
-const discount = computed(() => (couponApplied.value ? 25_000 : 0))
+const discount = computed(() => (couponApplied.value ? couponInfo.value?.discountAmount ?? 0 : 0))
 const grandTotal = computed(() => Math.max(0, cart.total + shippingFee.value - discount.value))
 
 function readPendingOrder() {
@@ -75,13 +79,31 @@ onUnmounted(() => {
   window.removeEventListener('pageshow', onPageShow)
 })
 
-function applyCoupon() {
+async function applyCoupon() {
   if (trySiteFx(coupon.value)) {
     coupon.value = ''
     return
   }
-  if (coupon.value.trim().toUpperCase() === 'SEDSP30') {
-    couponApplied.value = true
+  const code = coupon.value.trim()
+  if (!code) return
+  couponLoading.value = true
+  couponMessage.value = ''
+  couponApplied.value = false
+  couponInfo.value = null
+  try {
+    const productIds = cart.lines.flatMap((l) => Array.from({ length: l.quantity }, () => Number(l.product.id)))
+    const res = await voucherApi.validate(code, productIds)
+    if (res.valid) {
+      couponApplied.value = true
+      couponInfo.value = res
+      couponMessage.value = res.message || `Áp dụng ${res.code} — giảm ${formatVnd(res.discountAmount ?? 0)}`
+    } else {
+      couponMessage.value = res.message || 'Mã không hợp lệ.'
+    }
+  } catch (e) {
+    couponMessage.value = e instanceof Error ? e.message : 'Không kiểm tra được mã.'
+  } finally {
+    couponLoading.value = false
   }
 }
 
@@ -117,7 +139,12 @@ async function placeOrder() {
   error.value = ''
   try {
     const fullAddress = [address.value, city.value, state.value, zip.value].filter(Boolean).join(', ')
-    const order = await orderApi.placeOrder(auth.user.id, fullAddress || address.value, payment.value)
+    const order = await orderApi.placeOrder(
+      auth.user.id,
+      fullAddress || address.value,
+      payment.value,
+      couponApplied.value ? coupon.value.trim() : undefined,
+    )
     await cart.refresh()
 
     if (payment.value === 'cod') {
@@ -300,9 +327,21 @@ async function placeOrder() {
             />
             <button type="button" class="btn-elegant-primary btn-interactive" @click="applyCoupon">Áp dụng</button>
           </div>
+          <p v-if="couponMessage" class="muted" style="margin-top: 0.35rem">{{ couponMessage }}</p>
           <p v-if="couponApplied" class="elegant-coupon-applied">
-            SEDSP30 <span>-{{ formatVnd(discount) }}</span>
-            <button type="button" class="btn-interactive" @click="couponApplied = false">[Xóa]</button>
+            {{ couponInfo?.code || coupon }}
+            <span>-{{ formatVnd(discount) }}</span>
+            <button
+              type="button"
+              class="btn-interactive"
+              @click="
+                couponApplied = false;
+                couponInfo = null;
+                couponMessage = '';
+              "
+            >
+              [Xóa]
+            </button>
           </p>
 
           <div class="elegant-summary__rows">

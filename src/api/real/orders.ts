@@ -113,10 +113,12 @@ export function toBackendPayment(
 export async function createOrder(
   shippingAddress: string,
   paymentMethod: 'MOMO' | 'VNPAY' | 'COD',
+  voucherCode?: string,
 ): Promise<Order> {
   const data = await http.post<BackendOrderResponse>(apiPaths.orders.list, {
     shippingAddress,
     paymentMethod,
+    voucherCode: voucherCode?.trim() || undefined,
   })
   return mapBackendOrder(data, { shippingAddress, paymentMethod })
 }

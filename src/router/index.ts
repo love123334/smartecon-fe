@@ -201,6 +201,18 @@ const router = createRouter({
       redirect: { name: 'manager-dashboard' },
     },
     {
+      path: '/manager/vouchers',
+      name: 'manager-vouchers',
+      component: () => import('@/views/manager/ManagerVouchersView.vue'),
+      meta: { roles: ['manager'], title: 'Voucher' },
+    },
+    {
+      path: '/seller/vouchers',
+      name: 'seller-vouchers',
+      component: () => import('@/views/seller/SellerVoucherRequestView.vue'),
+      meta: { roles: ['seller'], title: 'Yêu cầu voucher' },
+    },
+    {
       path: '/admin/users',
       name: 'admin-users',
       component: () => import('@/views/admin/UsersView.vue'),

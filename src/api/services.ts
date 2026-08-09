@@ -20,6 +20,7 @@ import * as realSeller from '@/api/real/seller'
 import * as realReviews from '@/api/real/reviews'
 import * as realDss from '@/api/real/dss'
 import * as realPlatformRevenue from '@/api/real/platformRevenue'
+import * as realVouchers from '@/api/real/vouchers'
 import { fetchSystemHealthMetrics } from '@/api/real/systemHealth'
 import * as realProductImages from '@/api/real/productImages'
 import { typingDelay } from '@/api/chat/engine'
@@ -1174,12 +1175,14 @@ export const orderApi = {
     customerId: string,
     shippingAddress: string,
     payment: 'momo' | 'vnpay' | 'cod' | 'bank' | 'card' = 'cod',
+    voucherCode?: string,
   ): Promise<Order> {
     let order: Order
     if (apiConfig.useRealOrders && hasBackendToken()) {
       order = await realOrders.createOrder(
         shippingAddress,
         realOrders.toBackendPayment(payment),
+        voucherCode,
       )
       // Backend tạo PENDING — đảm bảo FE và seller cùng thấy chờ xác nhận
       order = {
@@ -1989,4 +1992,17 @@ export const platformRevenueApi = {
   getDashboard(query: realPlatformRevenue.PlatformRevenueDashboardQuery) {
     return realPlatformRevenue.getPlatformRevenueDashboard(query)
   },
+}
+
+export const voucherApi = {
+  listPublic: realVouchers.listPublicVouchers,
+  validate: realVouchers.validateVoucher,
+  listManager: realVouchers.listManagerVouchers,
+  createManager: realVouchers.createManagerVoucher,
+  setActive: realVouchers.setVoucherActive,
+  listPendingRequests: realVouchers.listPendingVoucherRequests,
+  approveRequest: realVouchers.approveVoucherRequest,
+  rejectRequest: realVouchers.rejectVoucherRequest,
+  listSellerRequests: realVouchers.listSellerVoucherRequests,
+  createSellerRequest: realVouchers.createSellerVoucherRequest,
 }

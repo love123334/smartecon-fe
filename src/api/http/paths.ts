@@ -77,6 +77,25 @@ export const apiPaths = {
   },
   manager: {
     platformRevenueDashboard: 'manager/platform-revenue/dashboard',
+    vouchers: 'manager/vouchers',
+    voucherRequests: 'manager/vouchers/requests',
+    voucherRequestApprove: (id: string) => `manager/vouchers/requests/${id}/approve`,
+    voucherRequestReject: (id: string) => `manager/vouchers/requests/${id}/reject`,
+    voucherActive: (id: string) => `manager/vouchers/${id}/active`,
+  },
+  vouchers: {
+    public: 'vouchers/public',
+    validate: 'vouchers/validate',
+    manager: {
+      list: 'manager/vouchers',
+      requests: 'manager/vouchers/requests',
+      approve: (id: string) => `manager/vouchers/requests/${id}/approve`,
+      reject: (id: string) => `manager/vouchers/requests/${id}/reject`,
+      active: (id: string) => `manager/vouchers/${id}/active`,
+    },
+    seller: {
+      requests: 'seller/voucher-requests',
+    },
   },
   dss: {
     demand: (productId: string) => `dss/demand/${productId}`,

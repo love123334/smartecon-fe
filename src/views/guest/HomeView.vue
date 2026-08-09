@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
 import { canShopAsBuyer } from '@/utils/roleNav'
 import HomeHero from '@/components/home/HomeHero.vue'
+import VoucherPromoBanner from '@/components/VoucherPromoBanner.vue'
 import HomeCategories from '@/components/home/HomeCategories.vue'
 import HomeFeatures from '@/components/home/HomeFeatures.vue'
 import ProductCard from '@/components/ProductCard.vue'
@@ -67,6 +68,9 @@ async function addToCart(id: string) {
 <template>
   <div class="home-page">
     <HomeHero />
+    <div class="container">
+      <VoucherPromoBanner />
+    </div>
 
     <HomeCategories />
 

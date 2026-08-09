@@ -9,7 +9,9 @@ import {
   productApi,
   resolveCartLines,
   sellerApi,
+  voucherApi,
 } from '@/api/services'
+import type { Voucher } from '@/api/real/vouchers'
 import type {
   ChartPoint,
   DssInsight,
@@ -75,6 +77,7 @@ export interface ChatContext {
   users: User[]
   systemMetrics: SystemMetric[]
   recommendations: Recommendation[]
+  publicVouchers: Voucher[]
   /** api = catalog từ backend, mock = localStorage, hybrid = mock session + backend lỗi */
   dataSource: 'api' | 'mock' | 'hybrid'
   backendOnline: boolean
@@ -203,10 +206,13 @@ export async function buildChatContext(
     users: [],
     systemMetrics: [],
     recommendations: [],
+    publicVouchers: [],
     dataSource: detectDataSource(catalog.catalogSource, catalog.backendUnreachable),
     backendOnline: catalog.catalogSource === 'backend' && !catalog.backendUnreachable,
     catalogSource: catalog.catalogSource,
   }
+
+  ctx.publicVouchers = await safe(() => voucherApi.listPublic(), [])
 
   const roleTasks: Promise<void>[] = []
 

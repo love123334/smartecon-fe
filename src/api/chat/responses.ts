@@ -466,11 +466,20 @@ function buildCustomerIntent(ctx: ChatContext, intent: ChatIntent, raw: string):
     case 'recommend':
       return recommendReply(ctx, raw)
     case 'promo': {
+      const vouchers = ctx.publicVouchers.slice(0, 6)
+      if (vouchers.length) {
+        const lines = vouchers.map((v) => {
+          const off = v.discountType === 'PERCENTAGE' ? `${v.discountValue}%` : formatVnd(v.discountValue)
+          const scope = v.sellerName ? `shop ${v.sellerName}` : 'toàn sàn'
+          return `• **${v.code}** — giảm **${off}** (${scope})${v.description ? `: ${v.description}` : ''}`
+        }).join('\n')
+        return `${name}**Mã voucher đang hiệu lực:**\n${lines}\n\nNhập mã ở **Thanh toán** hoặc hỏi lại «mã ${vouchers[0]?.code}».`
+      }
       const onSale = ctx.products.filter((p) => p.originalPrice && p.originalPrice > p.price).slice(0, 4)
       if (onSale.length) {
-        return `${name}**Đang giảm giá:**\n${productLines(onSale)}\n\nBanner **Giảm 30%** trên nhiều SP.`
+        return `${name}**Đang giảm giá:**\n${productLines(onSale)}`
       }
-      return `${name}Shop **giảm 30%** nhiều mặt hàng — lọc tại **Cửa hàng** hoặc hỏi tên SP.`
+      return `${name}Chưa có voucher công khai — theo dõi trang chủ hoặc hỏi manager.`
     }
     case 'return_policy':
       return `${name}**Đổi trả & bảo hành:**\n• Đổi trả **7 ngày** nếu lỗi NSX / sai mô tả\n• Giữ hóa đơn & tem BH\n• **Liên hệ** hoặc **customer@sedsp.vn** kèm mã đơn`

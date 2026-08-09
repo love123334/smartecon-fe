@@ -126,6 +126,11 @@ function retry() {
       </template>
     </PageHeader>
 
+    <p style="margin: 0 0 1rem; display: flex; flex-wrap: wrap; gap: 0.5rem">
+      <RouterLink to="/manager/vouchers" class="btn btn-primary btn-sm">Voucher & khuyến mãi</RouterLink>
+      <RouterLink to="/manager/dss/what-if" class="btn btn-outline btn-sm">DSS What-if</RouterLink>
+    </p>
+
     <section class="pr-looker card" aria-label="Looker Studio — SEDSP Dashboard">
       <div class="pr-looker__head">
         <div>
