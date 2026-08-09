@@ -130,9 +130,10 @@ export function mapProductAttributes(
 
 export function mapProductSummary(p: BackendProductResponse): Product {
   const category = p.categoryName ?? 'Khác'
-  const placeholders = placeholderImages(p.id)
-  const rawPrimary = (p.primaryImageUrl && p.primaryImageUrl.trim()) || placeholders[0]
-  const imageUrl = repairProductImageUrl(rawPrimary, { seed: p.id, category })
+  const rawPrimary = (p.primaryImageUrl && p.primaryImageUrl.trim()) || ''
+  const imageUrl = rawPrimary
+    ? repairProductImageUrl(rawPrimary, { seed: p.id, category })
+    : repairProductImageUrl(null, { seed: p.id, category })
   return {
     id: String(p.id),
     name: p.name,
@@ -141,9 +142,7 @@ export function mapProductSummary(p: BackendProductResponse): Product {
     stock: p.availableQuantity != null ? Number(p.availableQuantity) : 0,
     category,
     imageUrl,
-    imageUrls: ensureThreeImages([imageUrl], p.id).map((u) =>
-      repairProductImageUrl(u, { seed: p.id, category }),
-    ),
+    imageUrls: imageUrl ? [imageUrl] : [],
     sellerId: p.sellerId != null ? String(p.sellerId) : '',
     sellerEmail: p.sellerEmail,
     sellerPhone: p.sellerPhone,
@@ -159,11 +158,18 @@ export function mapProductSummary(p: BackendProductResponse): Product {
 export function mapProductDetail(p: BackendProductDetail): Product {
   const category = p.categoryName ?? 'Khác'
   const ordered = [...(p.images ?? [])].sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary))
-  const urls = ensureThreeImages(
-    ordered.map((i) => repairProductImageUrl(i.imageUrl, { seed: p.id, category })),
-    p.id,
-  ).map((u) => repairProductImageUrl(u, { seed: p.id, category }))
-  const primary = urls[0]
+  const fromApi = ordered
+    .map((i) => repairProductImageUrl(i.imageUrl, { seed: p.id, category }))
+    .filter(Boolean)
+  const urls =
+    fromApi.length >= 2
+      ? fromApi.slice(0, 5)
+      : fromApi.length === 1
+        ? fromApi
+        : ensureThreeImages([], p.id).map((u) =>
+            repairProductImageUrl(u, { seed: p.id, category }),
+          )
+  const primary = urls[0] ?? repairProductImageUrl(null, { seed: p.id, category })
   const shopName = p.sellerStoreName ?? 'Cửa hàng SEDSP'
   const cost = p.costPrice ? num(p.costPrice) : 0
   const price = num(p.price)

@@ -47,7 +47,11 @@ function photoIdFromUrl(url: string): string | null {
 }
 
 function backendOrigin(): string {
-  return apiConfig.backendOrigin.replace(/\/$/, '')
+  const configured = apiConfig.backendOrigin.replace(/\/$/, '')
+  if (typeof window !== 'undefined' && apiConfig.baseUrl.startsWith('/')) {
+    return window.location.origin
+  }
+  return configured
 }
 
 /** localhost / relative /uploads → Railway (prod) or local BE (dev) */

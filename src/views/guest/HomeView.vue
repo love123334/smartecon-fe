@@ -17,6 +17,7 @@ import { useChatWidgetStore } from '@/stores/chatWidget'
 
 const products = ref<Product[]>([])
 const loading = ref(true)
+const catalogError = ref('')
 const auth = useAuthStore()
 const cart = useCartStore()
 const router = useRouter()
@@ -45,8 +46,14 @@ function openChat() {
 }
 
 onMounted(async () => {
+  catalogError.value = ''
   try {
-    products.value = await productApi.list({ size: 24 })
+    const meta = await productApi.listWithMeta({ size: 24 })
+    if (meta.backendUnreachable) {
+      catalogError.value =
+        'Không kết nối được backend — một số sản phẩm có thể chưa hiển thị.'
+    }
+    products.value = meta.products
   } finally {
     loading.value = false
   }
@@ -68,6 +75,9 @@ async function addToCart(id: string) {
 <template>
   <div class="home-page">
     <HomeHero />
+    <div v-if="catalogError" class="container">
+      <p class="form-error" role="alert">{{ catalogError }}</p>
+    </div>
     <div class="container">
       <VoucherPromoBanner />
     </div>

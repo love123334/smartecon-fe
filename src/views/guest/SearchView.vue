@@ -34,6 +34,7 @@ const sort = ref<ProductCatalogSort>(
 )
 const results = ref<Product[]>([])
 const loading = ref(false)
+const catalogError = ref('')
 const page = ref(Number(route.query.page ?? 0) || 0)
 const totalPages = ref(1)
 const totalElements = ref(0)
@@ -71,6 +72,7 @@ function syncUrl() {
 
 async function search(opts?: { recordHistory?: boolean }) {
   loading.value = true
+  catalogError.value = ''
   try {
     const meta = await productApi.listWithMeta({
       q: q.value || undefined,
@@ -79,6 +81,10 @@ async function search(opts?: { recordHistory?: boolean }) {
       page: page.value,
       sort: sort.value,
     })
+    if (meta.backendUnreachable) {
+      catalogError.value =
+        'Không kết nối được backend — danh sách sản phẩm tạm trống. Thử reload sau vài phút.'
+    }
     results.value = meta.products
     totalPages.value = Math.max(1, meta.totalPages ?? 1)
     totalElements.value = meta.totalElements ?? meta.products.length
@@ -171,6 +177,8 @@ async function onPageChange(next: number) {
           <input id="shop-q" v-model="q" type="search" placeholder="Tìm sản phẩm..." />
           <button type="submit" class="btn btn-primary btn-sm btn-interactive">Tìm</button>
         </form>
+
+        <p v-if="catalogError" class="form-error shop-catalog-error" role="alert">{{ catalogError }}</p>
 
         <div class="shop-toolbar">
           <h2 class="shop-toolbar__title">{{ sectionTitle }}</h2>

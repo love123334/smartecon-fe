@@ -611,10 +611,22 @@ async function listProductsHybridInternal(
     if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
       throw e
     }
+    const unreachable = isBackendUnreachableError(e)
+    if (apiConfig.useRealProducts) {
+      return {
+        products: [],
+        catalogSource: 'backend',
+        backendUnreachable: unreachable,
+        totalElements: 0,
+        totalPages: 1,
+        page: params?.page ?? 0,
+        size: params?.size ?? 12,
+      }
+    }
     return {
       products: await mockProductApi.list(params),
       catalogSource: 'mock',
-      backendUnreachable: isBackendUnreachableError(e),
+      backendUnreachable: unreachable,
     }
   }
 }
