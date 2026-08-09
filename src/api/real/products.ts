@@ -161,15 +161,12 @@ export function mapProductDetail(p: BackendProductDetail): Product {
   const fromApi = ordered
     .map((i) => repairProductImageUrl(i.imageUrl, { seed: p.id, category }))
     .filter(Boolean)
-  const urls =
-    fromApi.length >= 2
-      ? fromApi.slice(0, 5)
-      : fromApi.length === 1
-        ? fromApi
-        : ensureThreeImages([], p.id).map((u) =>
-            repairProductImageUrl(u, { seed: p.id, category }),
-          )
-  const primary = urls[0] ?? repairProductImageUrl(null, { seed: p.id, category })
+    .filter((u) => !/\/pad-|picsum\.photos|photo-1523275335684-37898b6baf30/i.test(u))
+  const urls = fromApi.length ? fromApi.slice(0, 5) : []
+  const primary =
+    urls[0] ??
+    (repairProductImageUrl(p.primaryImageUrl, { seed: p.id, category }) ||
+      repairProductImageUrl(null, { seed: p.id, category }))
   const shopName = p.sellerStoreName ?? 'Cửa hàng SEDSP'
   const cost = p.costPrice ? num(p.costPrice) : 0
   const price = num(p.price)
@@ -279,7 +276,7 @@ export interface ProductWriteInput {
 
 function buildImagePayload(
   input: Pick<ProductWriteInput, 'images' | 'imageUrl' | 'imagePublicId'>,
-  seed: string | number,
+  _seed: string | number,
 ): ProductImageInput[] {
   const fromList = (input.images ?? [])
     .map((img) => ({
@@ -291,32 +288,17 @@ function buildImagePayload(
 
   if (fromList.length) {
     if (!fromList.some((i) => i.isPrimary)) fromList[0].isPrimary = true
-    // Keep 3–5; pad with Unsplash if seller uploaded fewer than 3
-    const pads = placeholderImages(seed)
-    const out = [...fromList]
-    let i = 0
-    while (out.length < 3) {
-      const url = pads[i % pads.length]
-      if (!out.some((x) => x.imageUrl === url)) {
-        out.push({
-          imageUrl: url,
-          publicId: `pad-${seed}-${out.length}`,
-          isPrimary: false,
-        })
-      }
-      i++
-      if (i > 10) break
-    }
-    return out.slice(0, 5)
+    return fromList.slice(0, 5)
   }
 
-  const pads = placeholderImages(seed)
-  const primaryUrl = input.imageUrl || pads[0]
-  const primaryId = input.imagePublicId || `ext-${Date.now()}`
+  const primaryUrl = (input.imageUrl || '').trim()
+  if (!primaryUrl) return []
   return [
-    { imageUrl: primaryUrl, publicId: primaryId, isPrimary: true },
-    { imageUrl: pads[1], publicId: `${primaryId}-2`, isPrimary: false },
-    { imageUrl: pads[2], publicId: `${primaryId}-3`, isPrimary: false },
+    {
+      imageUrl: primaryUrl,
+      publicId: input.imagePublicId?.trim() || `ext-${Date.now()}`,
+      isPrimary: true,
+    },
   ]
 }
 
@@ -329,6 +311,9 @@ export async function createProduct(input: ProductWriteInput): Promise<Product> 
   }
   if (input.categoryId) body.categoryId = input.categoryId
   const images = buildImagePayload(input, input.name || Date.now())
+  if (!images.length) {
+    throw new Error('Cần ít nhất 1 ảnh sản phẩm')
+  }
   body.images = images.map((img) => ({
     imageUrl: img.imageUrl,
     publicId: img.publicId,
@@ -359,6 +344,9 @@ export async function updateProduct(
       },
       id,
     )
+    if (!images.length) {
+      throw new Error('Cần ít nhất 1 ảnh sản phẩm')
+    }
     body.images = images.map((img) => ({
       imageUrl: img.imageUrl,
       publicId: img.publicId,

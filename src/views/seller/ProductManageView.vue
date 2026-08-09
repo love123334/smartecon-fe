@@ -7,8 +7,9 @@ import { useAuthStore } from '@/stores/auth'
 import ProductCard from '@/components/ProductCard.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import EmptyState from '@/components/EmptyState.vue'
+import { resolvePublicAssetUrl } from '@/utils/productImage'
 
-const MIN_IMAGES = 3
+const MIN_IMAGES = 1
 const MAX_IMAGES = 5
 
 interface FormImage {
@@ -37,6 +38,7 @@ const form = ref({
   categoryId: '',
   images: [] as FormImage[],
 })
+const originalStock = ref<number | null>(null)
 
 const filtered = computed(() => {
   const term = q.value.trim().toLowerCase()
@@ -111,6 +113,7 @@ function startCreate() {
     categoryId: categories.value[0]?.id ?? '',
     images: [],
   }
+  originalStock.value = null
 }
 
 function startEdit(p: Product) {
@@ -128,8 +131,9 @@ async function hydrateEditForm(p: Product) {
   // List API omits description — fetch detail so edit form shows/saves mô tả correctly
   const detail = await productApi.getById(p.id).catch(() => null)
   const src = detail ?? p
-  const urls = (src.imageUrls?.length ? src.imageUrls : [src.imageUrl])
-    .filter(Boolean)
+  const rawUrls = (src.imageUrls?.length ? src.imageUrls : [src.imageUrl]).filter(Boolean)
+  const urls = rawUrls
+    .filter((u) => !/\/pad-|picsum\.photos|photo-1523275335684-37898b6baf30/i.test(u))
     .slice(0, MAX_IMAGES)
   form.value = {
     name: src.name,
@@ -139,6 +143,7 @@ async function hydrateEditForm(p: Product) {
     categoryId: cat?.id ?? categories.value[0]?.id ?? '',
     images: urls.map((url, i) => ({ url, publicId: `existing-${p.id}-${i}` })),
   }
+  originalStock.value = src.stock
 }
 
 async function onImagesPick(e: Event) {
@@ -198,6 +203,10 @@ async function save() {
     error.value = 'Vui lòng chọn danh mục'
     return
   }
+  if (form.value.images.length < MIN_IMAGES) {
+    error.value = `Cần ít nhất ${MIN_IMAGES} ảnh sản phẩm`
+    return
+  }
   if (form.value.images.length > MAX_IMAGES) {
     error.value = `Tối đa ${MAX_IMAGES} ảnh`
     return
@@ -214,17 +223,20 @@ async function save() {
     }))
 
     if (editing.value) {
-      await productApi.update(editing.value.id, {
+      const patch: Parameters<typeof productApi.update>[1] = {
         name: form.value.name,
         description: form.value.description,
         price: form.value.price,
         category: cat?.name ?? editing.value.category,
         categoryId: Number(form.value.categoryId),
-        stock: form.value.stock,
         images: images.length ? images : undefined,
         imageUrl: images[0]?.imageUrl,
         imagePublicId: images[0]?.publicId,
-      })
+      }
+      if (originalStock.value != null && form.value.stock !== originalStock.value) {
+        patch.stock = form.value.stock
+      }
+      await productApi.update(editing.value.id, patch)
     } else {
       await productApi.create(auth.user.backendId ?? auth.user.id, {
         name: form.value.name,
@@ -346,7 +358,7 @@ async function remove(id: string) {
           </p>
           <div v-if="form.images.length" class="img-grid">
             <div v-for="(img, i) in form.images" :key="img.publicId + '-' + i" class="img-tile">
-              <img :src="img.url" :alt="`Ảnh ${i + 1}`" />
+              <img :src="resolvePublicAssetUrl(img.url)" :alt="`Ảnh ${i + 1}`" />
               <span v-if="i === 0" class="img-tile__badge">Chính</span>
               <div class="img-tile__actions">
                 <button
