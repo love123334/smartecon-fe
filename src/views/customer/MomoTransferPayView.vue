@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { formatVnd, orderApi } from '@/api/services'
 import type { Order } from '@/types'
 import { copyTransferText, momoTransferDeeplink } from '@/utils/momoTransfer'
+import { resolvePublicAssetUrl } from '@/utils/productImage'
 import CheckoutStepper from '@/components/CheckoutStepper.vue'
 import NewsletterBanner from '@/components/NewsletterBanner.vue'
 
@@ -18,7 +19,7 @@ const transfer = computed(() => order.value?.momoTransfer)
 const amount = computed(() => transfer.value?.amount ?? order.value?.total ?? 0)
 const note = computed(() => transfer.value?.transferNote ?? '')
 const phone = computed(() => transfer.value?.sellerMomoPhone ?? '')
-const qrUrl = computed(() => transfer.value?.sellerMomoQrUrl ?? '')
+const qrUrl = computed(() => resolvePublicAssetUrl(transfer.value?.sellerMomoQrUrl))
 const storeName = computed(() => transfer.value?.sellerStoreName ?? 'Shop')
 
 const deeplink = computed(() => {

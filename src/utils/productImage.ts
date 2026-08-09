@@ -1,5 +1,7 @@
 /** Resolve / repair product image URLs (many Unsplash seeds in DB now 404). */
 
+import { apiConfig } from '@/api/config'
+
 const U = (id: string) => `https://images.unsplash.com/${id}?w=800&q=80`
 
 /** Known-dead Unsplash photo ids → working replacements */
@@ -44,11 +46,37 @@ function photoIdFromUrl(url: string): string | null {
   return m ? m[0] : null
 }
 
+function backendOrigin(): string {
+  return apiConfig.backendOrigin.replace(/\/$/, '')
+}
+
+/** localhost / relative /uploads → Railway (prod) or local BE (dev) */
+export function resolvePublicAssetUrl(url: string | null | undefined): string {
+  const raw = (url ?? '').trim()
+  if (!raw) return ''
+  const origin = backendOrigin()
+
+  if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//i.test(raw)) {
+    try {
+      const u = new URL(raw)
+      return `${origin}${u.pathname}${u.search}`
+    } catch {
+      return raw.replace(/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i, origin)
+    }
+  }
+
+  if (raw.startsWith('/uploads/')) {
+    return `${origin}${raw}`
+  }
+
+  return raw
+}
+
 export function repairProductImageUrl(
   url: string | null | undefined,
   opts?: { seed?: string | number; category?: string },
 ): string {
-  const raw = (url ?? '').trim()
+  const raw = resolvePublicAssetUrl(url)
   if (!raw) {
     return categoryFallback(opts?.category) || seedFallback(opts?.seed)
   }

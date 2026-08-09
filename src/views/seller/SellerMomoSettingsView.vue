@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, computed } from 'vue'
 import { productApi, sellerMomoApi } from '@/api/services'
 import PageHeader from '@/components/PageHeader.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
+import { resolvePublicAssetUrl } from '@/utils/productImage'
 
 const loading = ref(true)
 const saving = ref(false)
@@ -13,6 +14,7 @@ const success = ref('')
 const momoPhone = ref('')
 const momoQrUrl = ref('')
 const configured = ref(false)
+const momoQrPreviewUrl = computed(() => resolvePublicAssetUrl(momoQrUrl.value))
 
 onMounted(async () => {
   loading.value = true
@@ -105,8 +107,8 @@ async function save() {
           </label>
         </div>
         <img
-          v-if="momoQrUrl"
-          :src="momoQrUrl"
+          v-if="momoQrPreviewUrl"
+          :src="momoQrPreviewUrl"
           alt="QR MoMo"
           class="seller-momo-preview"
           loading="lazy"
