@@ -45,7 +45,7 @@ const chartData = computed(() => ({
       tension: 0.25,
     },
     {
-      label: 'Delivered Order Value',
+      label: 'Giá trị đơn hàng đã giao',
       data: props.trend.map((p) => Number(p.deliveredOrderValue) || 0),
       borderColor: '#2563eb',
       backgroundColor: 'rgba(37, 99, 235, 0.08)',
@@ -100,9 +100,9 @@ const options = computed(() => ({
 
 <template>
   <section class="card" aria-labelledby="pr-revenue-trend-title">
-    <h2 id="pr-revenue-trend-title" class="pr-section-title">Revenue Trend</h2>
+    <h2 id="pr-revenue-trend-title" class="pr-section-title">Xu hướng doanh thu</h2>
     <p class="muted pr-sub">
-      GMV và Delivered Order Value theo {{ granularity === 'MONTH' ? 'tháng' : 'ngày' }} — không phải lợi nhuận sàn.
+      GMV và giá trị đơn hàng đã giao theo {{ granularity === 'MONTH' ? 'tháng' : 'ngày' }} — không phải lợi nhuận sàn.
     </p>
     <div v-if="hasData" class="chart-box">
       <Line :data="chartData" :options="options" />

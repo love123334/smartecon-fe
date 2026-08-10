@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
-import DemandTrendChart from '@/components/dss/DemandTrendChart.vue'
-import { apiConfig } from '@/api/config'
+import ProductSalesHistoryChart from '@/components/dss/ProductSalesHistoryChart.vue'
 import { dssApi } from '@/api/services'
 import type { DemandPredictionApi } from '@/api/real/dss'
 import { useAuthStore } from '@/stores/auth'
@@ -11,7 +10,6 @@ import {
   FORECAST_PERIOD_OPTIONS,
   HISTORICAL_DAYS_OPTIONS,
   buildDemandPredictionAiInsight,
-  buildFlatForecastSeries,
   formatViDateTime,
   formatViNumber,
   mapDemandPredictionError,
@@ -26,6 +24,7 @@ interface SellerProductOption {
 interface SeriesPoint {
   day: number
   qty: number
+  date?: string
 }
 
 const auth = useAuthStore()
@@ -44,7 +43,6 @@ const submitError = ref('')
 const successMessage = ref('')
 const result = ref<DemandPredictionApi | null>(null)
 const historicalSeries = ref<SeriesPoint[]>([])
-const forecastSeries = ref<SeriesPoint[]>([])
 const chartFromApi = ref(false)
 const chartError = ref('')
 
@@ -76,9 +74,7 @@ const aiInsight = computed(() => {
   })
 })
 
-const hasChart = computed(
-  () => historicalSeries.value.length > 0 || forecastSeries.value.length > 0,
-)
+const hasChart = computed(() => historicalSeries.value.length > 0)
 
 onMounted(async () => {
   await loadSellerProducts()
@@ -117,54 +113,43 @@ async function loadSellerProducts() {
 }
 
 function normalizeSeries(
-  rows: { day: number; qty: number }[] | undefined,
+  rows: { day: number; qty: number; date?: string }[] | undefined,
 ): SeriesPoint[] {
   if (!rows?.length) return []
   return rows
-    .map((r) => ({ day: Number(r.day), qty: Number(r.qty) }))
+    .map((r) => ({
+      day: Number(r.day),
+      qty: Number(r.qty),
+      date: r.date,
+    }))
     .filter((r) => Number.isFinite(r.day) && Number.isFinite(r.qty))
 }
 
 async function loadChartSeries(payload: {
   productId: number
   historicalDays: number
-  forecastPeriod: number
-  averageDailyDemand: number
 }) {
   chartFromApi.value = false
   chartError.value = ''
   historicalSeries.value = []
-  forecastSeries.value = []
   try {
     const series = await dssApi.forecastDemand({
       productId: String(payload.productId),
       historyDays: payload.historicalDays,
-      forecastDays: payload.forecastPeriod,
+      forecastDays: 7,
     })
     const hist = normalizeSeries(series.historicalSales)
-    const fc = normalizeSeries(series.forecastSales)
-    if (hist.length || fc.length) {
+    if (hist.length) {
       historicalSeries.value = hist
-      forecastSeries.value = fc
       chartFromApi.value = true
       return
     }
-    chartError.value =
-      'Backend chưa trả chuỗi lịch sử/dự báo — chỉ hiển thị KPI từ POST dự báo nhu cầu.'
+    chartError.value = 'Chưa có lịch sử bán hàng cho sản phẩm trong khoảng ngày đã chọn.'
   } catch (e) {
     chartError.value =
       e instanceof Error
         ? e.message
-        : 'Không tải được biểu đồ từ API. KPI phía trên vẫn từ backend.'
-  }
-  if (apiConfig.useMock) {
-    const start = payload.historicalDays + 1
-    forecastSeries.value = buildFlatForecastSeries(
-      payload.averageDailyDemand,
-      Math.min(payload.forecastPeriod, 30),
-      start,
-    )
-    historicalSeries.value = []
+        : 'Không tải được lịch sử bán hàng từ hệ thống.'
   }
 }
 
@@ -202,8 +187,6 @@ async function onSubmit() {
     await loadChartSeries({
       productId: validated.payload.productId,
       historicalDays: data.historicalDays,
-      forecastPeriod: data.forecastPeriod,
-      averageDailyDemand: data.averageDailyDemand,
     })
   } catch (e) {
     if (seq !== requestSeq) return
@@ -221,7 +204,6 @@ function resetResult() {
   submitError.value = ''
   fieldErrors.value = {}
   historicalSeries.value = []
-  forecastSeries.value = []
   chartFromApi.value = false
   chartError.value = ''
 }
@@ -438,13 +420,11 @@ function resetResult() {
 
     <template v-if="result">
       <section v-if="hasChart" class="dss-card" aria-labelledby="demand-chart-title">
-        <div class="demand-card-head">
-          <h2 id="demand-chart-title" class="dss-card__title">Xu hướng nhu cầu</h2>
-          <span class="demand-pill demand-pill--soft">
-            {{ chartFromApi ? 'Từ lịch sử bán hàng' : 'Minh họa từ TB/ngày' }}
-          </span>
-        </div>
-        <DemandTrendChart :historical="historicalSeries" :forecast="forecastSeries" />
+        <h2 id="demand-chart-title" class="dss-card__title">Lịch sử bán hàng của sản phẩm</h2>
+        <p class="dss-hint demand-chart-note">
+          Dữ liệu thật từ đơn đã giao — theo số ngày lịch sử bạn chọn.
+        </p>
+        <ProductSalesHistoryChart :historical="historicalSeries" />
       </section>
       <p v-else-if="chartError" class="form-error demand-chart-note">{{ chartError }}</p>
     </template>

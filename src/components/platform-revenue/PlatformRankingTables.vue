@@ -24,7 +24,7 @@ const tab = ref<'sellers' | 'products' | 'categories'>('sellers')
 <template>
   <section class="card" aria-labelledby="pr-ranking-title">
     <div class="pr-rank-head">
-      <h2 id="pr-ranking-title" class="pr-section-title">Rankings</h2>
+      <h2 id="pr-ranking-title" class="pr-section-title">Xếp hạng</h2>
       <div class="pr-tabs" role="tablist" aria-label="Bảng xếp hạng">
         <button
           type="button"

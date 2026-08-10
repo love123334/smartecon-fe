@@ -9,10 +9,6 @@ import PageHeader from '@/components/PageHeader.vue'
 import PlatformRevenueFilter from '@/components/platform-revenue/PlatformRevenueFilter.vue'
 import PlatformRevenueKpis from '@/components/platform-revenue/PlatformRevenueKpis.vue'
 import PlatformRevenueTrendChart from '@/components/platform-revenue/PlatformRevenueTrendChart.vue'
-import PlatformOrderStatusChart from '@/components/platform-revenue/PlatformOrderStatusChart.vue'
-import PlatformPaymentChart from '@/components/platform-revenue/PlatformPaymentChart.vue'
-import PlatformActivitySection from '@/components/platform-revenue/PlatformActivitySection.vue'
-import PlatformActivityTrendChart from '@/components/platform-revenue/PlatformActivityTrendChart.vue'
 import PlatformRankingTables from '@/components/platform-revenue/PlatformRankingTables.vue'
 import { LOOKER_STUDIO_PLATFORM_REVENUE_URL } from '@/constants/lookerStudio'
 import {
@@ -41,10 +37,7 @@ let requestSeq = 0
 const loading = computed(() => initialLoading.value || filterLoading.value)
 const generatedAt = computed(() => formatGeneratedAt(data.value?.period.generatedAt))
 
-const orderStatus = computed(() => data.value?.orderStatusDistribution ?? [])
 const revenueTrend = computed(() => data.value?.revenueTrend ?? [])
-const activityTrend = computed(() => data.value?.activityTrend ?? [])
-const payments = computed(() => data.value?.paymentMethodDistribution ?? [])
 const sellers = computed(() => data.value?.topSellers ?? [])
 const products = computed(() => data.value?.topProducts ?? [])
 const categories = computed(() => data.value?.topCategories ?? [])
@@ -187,23 +180,8 @@ function retry() {
 
         <PlatformRevenueKpis :overview="data.overview" />
 
-        <div class="pr-grid-2">
-          <PlatformRevenueTrendChart
-            :trend="revenueTrend"
-            :granularity="filter.granularity"
-          />
-          <PlatformOrderStatusChart :items="orderStatus" />
-        </div>
-
-        <PlatformPaymentChart :items="payments" />
-
-        <PlatformActivitySection
-          v-if="data.platformActivity"
-          :activity="data.platformActivity"
-        />
-
-        <PlatformActivityTrendChart
-          :trend="activityTrend"
+        <PlatformRevenueTrendChart
+          :trend="revenueTrend"
           :granularity="filter.granularity"
         />
 
