@@ -45,18 +45,6 @@ const isMomoQrPending = computed(
     (order.value.status === 'pending' || order.value.rawStatus === 'PENDING'),
 )
 
-const onlineGateway = computed((): 'momo' | 'vnpay' | null => {
-  const m = order.value?.paymentMethod
-  if (m === 'momo' || m === 'card') return 'momo'
-  if (m === 'vnpay' || m === 'bank') return 'vnpay'
-  return null
-})
-
-const onlineGatewayLabel = computed(() =>
-  onlineGateway.value === 'momo' ? 'MoMo' : onlineGateway.value === 'vnpay' ? 'VNPay' : '',
-)
-
-const paying = ref(false)
 const payError = ref('')
 const verifyingPayment = ref(false)
 const loading = ref(true)
@@ -88,32 +76,6 @@ async function pollPaymentStatus(maxAttempts = 8) {
     const ok = await verifyPaymentStatus()
     if (ok) return
     await new Promise((r) => window.setTimeout(r, 2500))
-  }
-}
-
-async function payAgain() {
-  if (!order.value || !onlineGateway.value) return
-  paying.value = true
-  payError.value = ''
-  try {
-    try {
-      sessionStorage.setItem('sedsp_pending_pay_order', String(order.value.id))
-      sessionStorage.setItem('sedsp_pending_pay_method', onlineGateway.value)
-    } catch {
-      /* ignore */
-    }
-    const pay = await orderApi.initiatePayment(order.value.id, onlineGateway.value)
-    if (pay.redirectUrl?.startsWith('http')) {
-      window.location.href = pay.redirectUrl
-      return
-    }
-    if (pay.redirectUrl) {
-      await router.push(pay.redirectUrl)
-    }
-  } catch (e) {
-    payError.value = e instanceof Error ? e.message : 'Không thể thanh toán'
-  } finally {
-    paying.value = false
   }
 }
 
@@ -454,17 +416,15 @@ async function onReviewSubmitted(productId: string) {
           <p v-if="payError" class="elegant-alert elegant-alert--error">{{ payError }}</p>
           <p v-if="verifyingPayment" class="order-detail__verify-hint">Đang kiểm tra trạng thái thanh toán…</p>
           <div
-            v-if="(order.rawStatus === 'PENDING' || order.status === 'pending') && onlineGateway"
+            v-if="(order.rawStatus === 'PENDING' || order.status === 'pending') && isMomoQrPending"
             class="order-detail__pay-actions"
           >
-            <button
-              type="button"
+            <RouterLink
+              :to="`/orders/${order.id}/pay-momo`"
               class="btn-elegant-primary btn-interactive"
-              :disabled="paying || verifyingPayment"
-              @click="payAgain"
             >
-              {{ paying ? 'Đang mở cổng...' : `Thanh toán ${onlineGatewayLabel}` }}
-            </button>
+              Xem hướng dẫn chuyển MoMo
+            </RouterLink>
           </div>
 
           <section class="order-detail__items" aria-labelledby="items-heading">
