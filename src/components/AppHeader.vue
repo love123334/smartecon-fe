@@ -40,12 +40,14 @@ const opsNavLinks = computed(() => {
       { to: '/seller/products', label: 'Sản phẩm' },
       { to: '/seller/orders', label: 'Đơn hàng' },
       { to: '/seller/sales', label: 'Doanh số' },
+      { to: '/seller/vouchers', label: 'Voucher' },
       { to: '/seller/dss', label: 'DSS' },
     ]
   }
   if (r === 'manager') {
     return [
       { to: '/manager/dashboard', label: 'Dashboard' },
+      { to: '/manager/vouchers', label: 'Voucher' },
     ]
   }
   if (r === 'admin') {

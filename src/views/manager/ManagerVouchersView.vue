@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { formatVnd, voucherApi } from '@/api/services'
 import type { UpsertVoucherPayload, Voucher, VoucherRequest } from '@/api/real/vouchers'
 import PageHeader from '@/components/PageHeader.vue'
+import AiShortcutBar from '@/components/AiShortcutBar.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import EmptyState from '@/components/EmptyState.vue'
 
@@ -124,6 +125,14 @@ function discountLabel(v: Pick<Voucher, 'discountType' | 'discountValue'>) {
       eyebrow="Quản lý"
       title="Voucher & khuyến mãi"
       lead="Tạo mã giảm giá toàn sàn hoặc duyệt yêu cầu từ người bán."
+    />
+
+    <AiShortcutBar
+      title="Tiếp theo:"
+      :links="[
+        { to: '/manager/dashboard', label: '← Dashboard', highlight: true },
+        { to: '/manager/dss/what-if', label: 'DSS What-if' },
+      ]"
     />
 
     <div class="voucher-tabs">

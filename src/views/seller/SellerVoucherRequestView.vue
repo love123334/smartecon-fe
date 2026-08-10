@@ -5,6 +5,7 @@ import type { SellerVoucherRequestPayload, VoucherRequest } from '@/api/real/vou
 import { useAuthStore } from '@/stores/auth'
 import { loadSellerCatalogForDss } from '@/utils/sellerCatalog'
 import PageHeader from '@/components/PageHeader.vue'
+import AiShortcutBar from '@/components/AiShortcutBar.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import EmptyState from '@/components/EmptyState.vue'
 
@@ -118,6 +119,14 @@ function formatDate(iso: string | null | undefined) {
       eyebrow="Người bán"
       title="Yêu cầu voucher"
       lead="Gửi đề xuất mã giảm giá cho manager duyệt — sau khi duyệt, khách nhập mã sẽ được giảm trên shop bạn."
+    />
+
+    <AiShortcutBar
+      title="Tiếp theo:"
+      :links="[
+        { to: '/seller/products', label: '← Bảng người bán', highlight: true },
+        { to: '/seller/dss', label: 'DSS' },
+      ]"
     />
 
     <p v-if="error" class="alert alert-error">{{ error }}</p>

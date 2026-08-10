@@ -111,10 +111,12 @@ export function footerLinksForRole(role: UserRole): FooterLink[] {
   if (role === 'seller') {
     links.push({ to: '/seller/products', label: 'Quản lý SP' })
     links.push({ to: '/seller/orders', label: 'Đơn bán' })
+    links.push({ to: '/seller/vouchers', label: 'Voucher' })
     links.push({ to: '/profile#momo-wallet', label: 'Ví MoMo' })
   }
   if (role === 'manager') {
     links.push({ to: '/manager/dashboard', label: 'Dashboard' })
+    links.push({ to: '/manager/vouchers', label: 'Voucher' })
   }
   if (role === 'admin') {
     links.push({ to: '/admin/users', label: 'Người dùng' })
