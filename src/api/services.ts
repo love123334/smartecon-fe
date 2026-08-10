@@ -1954,6 +1954,15 @@ const mockAdminApi = {
     return users[idx]
   },
 
+  async deleteUser(userId: string): Promise<void> {
+    await delay()
+    const users = getUsers()
+    const idx = users.findIndex((u) => u.id === userId)
+    if (idx < 0) throw new Error('Không tìm thấy người dùng')
+    users.splice(idx, 1)
+    saveUsers(users)
+  },
+
   async systemMetrics(): Promise<SystemMetric[]> {
     await delay()
     return [
@@ -1996,6 +2005,14 @@ export const adminApi = {
       return u
     }
     return mockAdminApi.setUserRole(userId, role)
+  },
+
+  async deleteUser(userId: string): Promise<void> {
+    if (apiConfig.useRealAdmin && hasBackendToken()) {
+      await realUsers.deleteUser(userId)
+      return
+    }
+    await mockAdminApi.deleteUser(userId)
   },
 
   async systemMetrics(): Promise<SystemMetric[]> {

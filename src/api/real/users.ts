@@ -60,3 +60,7 @@ export async function setUserActive(userId: string, active: boolean): Promise<vo
     await http.patch<void>(apiPaths.users.deactivate(userId))
   }
 }
+
+export async function deleteUser(userId: string): Promise<void> {
+  await http.delete<void>(apiPaths.users.delete(userId))
+}

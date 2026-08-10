@@ -19,6 +19,7 @@ export const apiPaths = {
     byId: (id: string) => `users/${id}`,
     activate: (id: string) => `users/${id}/activate`,
     deactivate: (id: string) => `users/${id}/deactivate`,
+    delete: (id: string) => `users/${id}`,
     role: (id: string) => `users/${id}/role`,
   },
   products: {
