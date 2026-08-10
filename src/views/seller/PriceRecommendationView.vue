@@ -328,33 +328,30 @@ function retrySubmit() {
     <template v-if="showResults && result">
       <!-- 2. Input summary -->
       <section class="dss-card" aria-labelledby="price-summary-title">
-        <h2 id="price-summary-title" class="dss-card__title">Tóm tắt dữ liệu đầu vào</h2>
+        <h2 id="price-summary-title" class="dss-card__title">Tóm tắt dữ liệu sản phẩm</h2>
         <p class="dss-meta"><span>Sản phẩm</span>{{ result.productName }}</p>
         <p class="dss-meta"><span>Khoảng thời gian</span>{{ result.fromDate }} → {{ result.toDate }}</p>
         <div class="dss-kpi-grid">
-          <article class="dss-kpi">
-            <span class="dss-kpi__label">Giá hiện tại</span>
-            <strong>{{ formatVndCurrency(result.currentPrice) }}</strong>
-          </article>
           <article class="dss-kpi">
             <span class="dss-kpi__label">Giá vốn</span>
             <strong>{{ formatVndCurrency(result.cost) }}</strong>
           </article>
           <article class="dss-kpi">
-            <span class="dss-kpi__label">Hệ số co giãn TB</span>
-            <strong :title="'Hệ số co giãn giá — thường là số âm'">
-              {{ formatElasticity(result.averageElasticity) }}
-            </strong>
-            <small class="dss-hint">Thường là số âm (cầu giảm khi giá tăng).</small>
+            <span class="dss-kpi__label">Giá hiện tại</span>
+            <strong>{{ formatVndCurrency(result.currentPrice) }}</strong>
           </article>
           <article class="dss-kpi">
             <span class="dss-kpi__label">Tổng số lượng đã bán</span>
             <strong>{{ formatQuantity(result.totalQuantitySold) }}</strong>
           </article>
+          <article class="dss-kpi">
+            <span class="dss-kpi__label">Hệ số co giãn TB</span>
+            <strong>{{ formatElasticity(result.averageElasticity) }}</strong>
+          </article>
         </div>
       </section>
 
-      <!-- 3. Best recommendation -->
+      <!-- 3. Best recommendation + system judgment -->
       <section
         v-if="result.bestScenario"
         class="dss-card dss-best-card"
@@ -366,9 +363,6 @@ function retrySubmit() {
           </h2>
           <span class="dss-badge dss-badge--best">Khuyến nghị</span>
         </div>
-        <p class="dss-hint" style="margin-bottom: 0.85rem">
-          Kịch bản tối ưu theo lợi nhuận kỳ vọng từ hệ thống.
-        </p>
         <div class="dss-kpi-grid dss-kpi-grid--6">
           <article class="dss-kpi dss-kpi--accent">
             <span class="dss-kpi__label">% thay đổi giá</span>
@@ -381,20 +375,20 @@ function retrySubmit() {
             </span>
           </article>
           <article class="dss-kpi">
-            <span class="dss-kpi__label">Giá vốn</span>
-            <strong>{{ formatVndCurrency(result.bestScenario.cost) }}</strong>
-          </article>
-          <article class="dss-kpi">
             <span class="dss-kpi__label">Giá mới</span>
             <strong>{{ formatVndCurrency(result.bestScenario.newPrice) }}</strong>
           </article>
           <article class="dss-kpi">
-            <span class="dss-kpi__label" title="Lợi nhuận/sp = Giá mới − Giá vốn">LN / sản phẩm</span>
-            <strong>{{ formatVndCurrency(result.bestScenario.profitPerProduct) }}</strong>
+            <span class="dss-kpi__label">Giá vốn</span>
+            <strong>{{ formatVndCurrency(result.bestScenario.cost) }}</strong>
           </article>
           <article class="dss-kpi">
             <span class="dss-kpi__label">Nhu cầu dự báo</span>
             <strong>{{ formatQuantity(result.bestScenario.predictedDemand) }}</strong>
+          </article>
+          <article class="dss-kpi">
+            <span class="dss-kpi__label" title="Lợi nhuận/sp = Giá mới − Giá vốn">LN / sản phẩm</span>
+            <strong>{{ formatVndCurrency(result.bestScenario.profitPerProduct) }}</strong>
           </article>
           <article class="dss-kpi dss-kpi--accent">
             <span class="dss-kpi__label" title="Lợi nhuận kỳ vọng = LN/sp × Nhu cầu dự báo">
@@ -403,49 +397,16 @@ function retrySubmit() {
             <strong>{{ formatVndCurrency(result.bestScenario.expectedProfit) }}</strong>
           </article>
         </div>
-      </section>
 
-      <section
-        v-if="aiInsight"
-        class="dss-card dss-ai-panel"
-        :class="`dss-ai-panel--${aiInsight.tone}`"
-        aria-labelledby="price-ai-title"
-      >
-        <div class="dss-ai-panel__head">
-          <div>
-            <span class="dss-ai-panel__badge">{{ aiInsight.badge }}</span>
-            <h2 id="price-ai-title" class="dss-card__title" style="margin: 0">Nhận định AI</h2>
-          </div>
-          <p class="dss-ai-panel__method">Theo hệ số co giãn + kịch bản tốt nhất</p>
-        </div>
-        <h3 class="dss-ai-panel__title">{{ aiInsight.title }}</h3>
-        <p class="dss-ai-panel__summary">{{ aiInsight.summary }}</p>
-        <div class="dss-ai-panel__cols">
-          <div>
-            <h4>Kế hoạch đề xuất</h4>
-            <ol>
-              <li v-for="(a, i) in aiInsight.actions" :key="i">{{ a }}</li>
-            </ol>
-          </div>
-          <div>
-            <h4>Rủi ro cần theo dõi</h4>
-            <ul>
-              <li v-for="(r, i) in aiInsight.risks" :key="i">{{ r }}</li>
-            </ul>
-          </div>
+        <div v-if="aiInsight" class="dss-system-judgment" aria-labelledby="price-ai-title">
+          <h3 id="price-ai-title" class="dss-system-judgment__title">Nhận định từ hệ thống</h3>
+          <p class="dss-system-judgment__text">{{ aiInsight.title }}</p>
         </div>
       </section>
 
       <!-- 4. Scenario table -->
       <section class="dss-card" aria-labelledby="price-table-title">
-        <h2 id="price-table-title" class="dss-card__title">So sánh kịch bản</h2>
-        <p class="dss-hint" style="margin-bottom: 0.85rem">
-          <span title="LN/sp = Giá mới − Giá vốn">LN/sp = Giá mới − Giá vốn</span>
-          ·
-          <span title="Lợi nhuận kỳ vọng = LN/sp × Nhu cầu dự báo">
-            Lợi nhuận kỳ vọng = LN/sp × Nhu cầu dự báo
-          </span>
-        </p>
+        <h2 id="price-table-title" class="dss-card__title">So sánh các kịch bản thay đổi giá</h2>
 
         <div v-if="!scenarios.length" class="dss-empty" role="status">
           <h2>Không có kịch bản</h2>
@@ -482,10 +443,11 @@ function retrySubmit() {
                     <strong>{{ formatSignedPercent(row.priceChangePercent) }}</strong>
                     <span
                       class="dss-badge"
-                      :class="[
-                        `dss-badge--${scenarioTone(row.priceChangePercent)}`,
-                        { 'dss-badge--best': isBestScenarioRow(row, result.bestScenario) },
-                      ]"
+                      :class="
+                        isBestScenarioRow(row, result.bestScenario)
+                          ? 'dss-badge--best'
+                          : `dss-badge--${scenarioTone(row.priceChangePercent)}`
+                      "
                     >
                       <template v-if="isBestScenarioRow(row, result.bestScenario)">Khuyến nghị</template>
                       <template v-else>{{ scenarioToneLabel(scenarioTone(row.priceChangePercent)) }}</template>
@@ -572,9 +534,9 @@ function retrySubmit() {
 }
 
 .dss-badge--best {
-  background: #e8f5e9;
-  color: #1b5e20;
-  border-color: #a5d6a7;
+  background: #e3f2fd;
+  color: #1565c0;
+  border-color: #90caf9;
 }
 
 .dss-badge--decrease {
@@ -590,9 +552,29 @@ function retrySubmit() {
 }
 
 .dss-badge--increase {
-  background: #e3f2fd;
-  color: #1565c0;
-  border-color: #90caf9;
+  background: #e8f5e9;
+  color: #1b5e20;
+  border-color: #a5d6a7;
+}
+
+.dss-system-judgment {
+  margin-top: 1.15rem;
+  padding-top: 1rem;
+  border-top: 1px solid #c8e6c9;
+}
+
+.dss-system-judgment__title {
+  margin: 0 0 0.45rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1b5e20;
+}
+
+.dss-system-judgment__text {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  color: #263238;
 }
 
 .dss-table-wrap {
@@ -635,7 +617,7 @@ function retrySubmit() {
 }
 
 .dss-table__row--increase:not(.dss-table__row--best) {
-  background: #f7fbff;
+  background: #f1f8f4;
 }
 
 .dss-table__row--keep:not(.dss-table__row--best) {

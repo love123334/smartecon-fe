@@ -206,10 +206,10 @@ export function buildPricePredictionAiInsight(input: {
     badge: pct > 2 ? 'Nên tăng giá' : pct < -2 ? 'Nên giảm giá' : 'Giữ quanh giá hiện tại',
     title:
       pct > 2
-        ? `${name}: tăng ~${formatViNumber(pct)}% có lợi nhuận kỳ vọng cao hơn`
+        ? `${name}: Khuyến nghị tăng ${formatViNumber(pct)}% sẽ đạt lợi nhuận kỳ vọng cao hơn.`
         : pct < -2
-          ? `${name}: giảm ~${formatViNumber(Math.abs(pct))}% để kéo cầu`
-          : `${name}: giá hiện tại đã gần tối ưu`,
+          ? `${name}: Khuyến nghị giảm ${formatViNumber(Math.abs(pct))}% để cải thiện lợi nhuận kỳ vọng.`
+          : `${name}: Giá hiện tại đã gần tối ưu — nên giữ ổn định.`,
     summary: `Hệ số co giãn ${formatViNumber(e)} · đã bán ${formatViNumber(input.totalQuantitySold)} sp. Kịch bản tốt nhất: giá mới ${formatViNumber(best.newPrice)}đ · cầu dự kiến ${formatViNumber(best.predictedDemand)} · LN/sp ${formatViNumber(best.profitPerProduct)}đ · LN kỳ vọng ${formatViNumber(best.expectedProfit)}đ.`,
     actions: [
       pct < -2
