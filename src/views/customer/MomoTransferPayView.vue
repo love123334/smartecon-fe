@@ -15,10 +15,8 @@ const loading = ref(true)
 const error = ref('')
 const completing = ref(false)
 const qrImageFailed = ref(false)
-const autoSecondsLeft = ref(0)
 
-const AUTO_COMPLETE_SEC = 6
-let autoTickTimer: ReturnType<typeof setInterval> | undefined
+const AUTO_COMPLETE_MS = 6_000
 let autoCompleteTimer: ReturnType<typeof setTimeout> | undefined
 
 const transfer = computed(() => order.value?.momoTransfer)
@@ -81,10 +79,6 @@ async function completePayment() {
 }
 
 function clearAutoCompleteTimers() {
-  if (autoTickTimer) {
-    clearInterval(autoTickTimer)
-    autoTickTimer = undefined
-  }
   if (autoCompleteTimer) {
     clearTimeout(autoCompleteTimer)
     autoCompleteTimer = undefined
@@ -94,13 +88,9 @@ function clearAutoCompleteTimers() {
 function startAutoComplete() {
   if (!isPending.value || !order.value) return
   clearAutoCompleteTimers()
-  autoSecondsLeft.value = AUTO_COMPLETE_SEC
-  autoTickTimer = setInterval(() => {
-    autoSecondsLeft.value = Math.max(0, autoSecondsLeft.value - 1)
-  }, 1000)
   autoCompleteTimer = setTimeout(() => {
     void completePayment()
-  }, AUTO_COMPLETE_SEC * 1000)
+  }, AUTO_COMPLETE_MS)
 }
 
 function launchMomo() {
@@ -171,14 +161,6 @@ onUnmounted(() => {
         <template v-if="transfer">
           <p class="momo-pay__lead">
             MoMo sẽ tự điền số tiền và nội dung chuyển khoản tới <strong>{{ storeName }}</strong>.
-            Hệ thống tự xác nhận sau vài giây — không cần bấm thêm.
-          </p>
-
-          <p v-if="isPending && autoSecondsLeft > 0" class="momo-pay__countdown" role="status">
-            <template v-if="completing">Đang xác nhận thanh toán…</template>
-            <template v-else>
-              Tự chuyển sang trang đơn hàng sau <strong>{{ autoSecondsLeft }}</strong> giây…
-            </template>
           </p>
 
           <div v-if="displayQrUrl" class="momo-pay__qr-wrap">
@@ -248,17 +230,7 @@ onUnmounted(() => {
 .momo-pay__lead {
   text-align: center;
   line-height: 1.55;
-  margin-bottom: 1rem;
-}
-
-.momo-pay__countdown {
-  text-align: center;
-  margin: 0 0 1rem;
-  padding: 0.65rem 0.85rem;
-  border-radius: 10px;
-  background: #ecfdf5;
-  color: #047857;
-  font-size: 0.9rem;
+  margin-bottom: 1.25rem;
 }
 
 .momo-pay__qr-wrap {
