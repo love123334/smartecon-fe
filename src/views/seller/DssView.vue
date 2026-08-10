@@ -11,7 +11,7 @@ import {
   buildSellerAiInsightsSummary,
   sanitizeDssCommentary,
 } from '@/utils/dssCommentary'
-import { buildSellerDssModuleCards } from '@/utils/sellerDssModuleAi'
+import { buildSellerDssModuleCards, type SellerDssModuleKey } from '@/utils/sellerDssModuleAi'
 import { loadSellerCatalogForDss } from '@/utils/sellerCatalog'
 
 const auth = useAuthStore()
@@ -21,6 +21,11 @@ const plan = ref<DssInsightPlanApi | null>(null)
 const planError = ref('')
 const planLoading = ref(false)
 const hubLoading = ref(true)
+
+/** Tạm ẩn trên UI — đặt true để bật lại block “Nhận định AI & kế hoạch”. */
+const SHOW_DSS_AI_PLAN = false
+/** Tạm ẩn card module — bỏ key khỏi mảng để hiện lại (vd: 'inventory'). */
+const HIDDEN_DSS_MODULE_KEYS: SellerDssModuleKey[] = ['inventory']
 
 const sellerKey = computed(() => auth.user?.backendId ?? auth.user?.id)
 const embedUrl = computed(() => plan.value?.powerBiEmbedUrl?.trim() || '')
@@ -49,6 +54,10 @@ const moduleCards = computed(() =>
   }),
 )
 
+const visibleModuleCards = computed(() =>
+  moduleCards.value.filter((c) => !HIDDEN_DSS_MODULE_KEYS.includes(c.key)),
+)
+
 onMounted(async () => {
   hubLoading.value = true
   planLoading.value = true
@@ -57,10 +66,12 @@ onMounted(async () => {
     const [ins, catalog, planRes] = await Promise.all([
       dssApi.sellerInsights(sellerKey.value),
       loadSellerCatalogForDss({ sellerId: sellerKey.value, withStock: false }),
-      dssApi.insightPlan().catch((e: unknown) => {
-        planError.value = e instanceof Error ? e.message : 'Không tải được kế hoạch DSS'
-        return null
-      }),
+      SHOW_DSS_AI_PLAN
+        ? dssApi.insightPlan().catch((e: unknown) => {
+            planError.value = e instanceof Error ? e.message : 'Không tải được kế hoạch DSS'
+            return null
+          })
+        : Promise.resolve(null),
     ])
     insights.value = ins
     products.value = catalog.products
@@ -77,7 +88,7 @@ onMounted(async () => {
     <PageHeader
       eyebrow="Người bán"
       title="Hỗ trợ quyết định (DSS)"
-      lead="Bốn module DSS kèm nhận định AI bám số liệu bán hàng / tồn kho của shop."
+      lead="Gồm 3 module hỗ trợ ra quyết định dựa trên lịch sử bán hàng"
     />
     <AiShortcutBar
       title="Tiếp theo:"
@@ -88,7 +99,7 @@ onMounted(async () => {
       ]"
     />
 
-    <section class="dss-brain" aria-labelledby="dss-ai-title">
+    <section v-if="SHOW_DSS_AI_PLAN" class="dss-brain" aria-labelledby="dss-ai-title">
       <div class="dss-brain__head">
         <h3 id="dss-ai-title">Nhận định AI &amp; kế hoạch</h3>
         <small v-if="plan">{{ plan.generatedAt }}</small>
@@ -120,7 +131,7 @@ onMounted(async () => {
     <p v-if="hubLoading" class="muted" role="status">Đang đọc catalog &amp; insight…</p>
     <div v-else class="dss-hub">
       <RouterLink
-        v-for="card in moduleCards"
+        v-for="card in visibleModuleCards"
         :key="card.key"
         class="dss-hub__card"
         :class="`dss-hub__card--${card.aiTone}`"
