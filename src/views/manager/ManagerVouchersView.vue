@@ -129,10 +129,7 @@ function discountLabel(v: Pick<Voucher, 'discountType' | 'discountValue'>) {
 
     <AiShortcutBar
       title="Tiếp theo:"
-      :links="[
-        { to: '/manager/dashboard', label: '← Dashboard', highlight: true },
-        { to: '/manager/dss/what-if', label: 'DSS What-if' },
-      ]"
+      :links="[{ to: '/manager/dashboard', label: '← Dashboard', highlight: true }]"
     />
 
     <div class="voucher-tabs">

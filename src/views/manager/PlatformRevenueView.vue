@@ -126,10 +126,6 @@ function retry() {
       </template>
     </PageHeader>
 
-    <p v-if="SHOW_NATIVE_PLATFORM_REPORT && !loading" style="margin: 0 0 1rem">
-      <RouterLink to="/manager/dss/what-if" class="btn btn-outline btn-sm">DSS What-if</RouterLink>
-    </p>
-
     <section class="pr-looker card" aria-label="Looker Studio — SEDSP Dashboard">
       <div class="pr-looker__head">
         <div>
