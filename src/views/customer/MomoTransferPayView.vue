@@ -15,8 +15,11 @@ const loading = ref(true)
 const error = ref('')
 const completing = ref(false)
 const qrImageFailed = ref(false)
-const openedMomo = ref(false)
-const autoCompletePending = ref(false)
+const autoSecondsLeft = ref(0)
+
+const AUTO_COMPLETE_SEC = 6
+let autoTickTimer: ReturnType<typeof setInterval> | undefined
+let autoCompleteTimer: ReturnType<typeof setTimeout> | undefined
 
 const transfer = computed(() => order.value?.momoTransfer)
 const amount = computed(() => transfer.value?.amount ?? order.value?.total ?? 0)
@@ -59,6 +62,7 @@ function onQrError() {
 
 async function completePayment() {
   if (!order.value || completing.value || !isPending.value) return
+  clearAutoCompleteTimers()
   completing.value = true
   error.value = ''
   try {
@@ -73,21 +77,35 @@ async function completePayment() {
     error.value = e instanceof Error ? e.message : 'Không xác nhận được thanh toán'
   } finally {
     completing.value = false
-    autoCompletePending.value = false
   }
+}
+
+function clearAutoCompleteTimers() {
+  if (autoTickTimer) {
+    clearInterval(autoTickTimer)
+    autoTickTimer = undefined
+  }
+  if (autoCompleteTimer) {
+    clearTimeout(autoCompleteTimer)
+    autoCompleteTimer = undefined
+  }
+}
+
+function startAutoComplete() {
+  if (!isPending.value || !order.value) return
+  clearAutoCompleteTimers()
+  autoSecondsLeft.value = AUTO_COMPLETE_SEC
+  autoTickTimer = setInterval(() => {
+    autoSecondsLeft.value = Math.max(0, autoSecondsLeft.value - 1)
+  }, 1000)
+  autoCompleteTimer = setTimeout(() => {
+    void completePayment()
+  }, AUTO_COMPLETE_SEC * 1000)
 }
 
 function launchMomo() {
   if (!phone.value || !isPending.value) return
-  openedMomo.value = true
-  autoCompletePending.value = true
   openMomoTransfer(phone.value, amount.value, note.value)
-}
-
-function onVisibilityReturn() {
-  if (document.visibilityState !== 'visible') return
-  if (!autoCompletePending.value || !openedMomo.value || !isPending.value) return
-  void completePayment()
 }
 
 async function load() {
@@ -125,16 +143,18 @@ async function load() {
 }
 
 onMounted(() => {
-  document.addEventListener('visibilitychange', onVisibilityReturn)
   void load().then(() => {
     if (isPending.value && phone.value && isMobileBrowser()) {
       window.setTimeout(() => launchMomo(), 600)
+    }
+    if (isPending.value) {
+      startAutoComplete()
     }
   })
 })
 
 onUnmounted(() => {
-  document.removeEventListener('visibilitychange', onVisibilityReturn)
+  clearAutoCompleteTimers()
 })
 </script>
 
@@ -151,7 +171,14 @@ onUnmounted(() => {
         <template v-if="transfer">
           <p class="momo-pay__lead">
             MoMo sẽ tự điền số tiền và nội dung chuyển khoản tới <strong>{{ storeName }}</strong>.
-            Sau khi chuyển xong, đơn tự chuyển sang <strong>Đã xác nhận</strong>.
+            Hệ thống tự xác nhận sau vài giây — không cần bấm thêm.
+          </p>
+
+          <p v-if="isPending && autoSecondsLeft > 0" class="momo-pay__countdown" role="status">
+            <template v-if="completing">Đang xác nhận thanh toán…</template>
+            <template v-else>
+              Tự chuyển sang trang đơn hàng sau <strong>{{ autoSecondsLeft }}</strong> giây…
+            </template>
           </p>
 
           <div v-if="displayQrUrl" class="momo-pay__qr-wrap">
@@ -188,16 +215,7 @@ onUnmounted(() => {
               :disabled="completing"
               @click="launchMomo"
             >
-              {{ completing ? 'Đang xác nhận…' : 'Mở MoMo & chuyển tiền' }}
-            </button>
-            <button
-              v-if="isPending"
-              type="button"
-              class="btn-elegant-outline btn-interactive"
-              :disabled="completing"
-              @click="completePayment"
-            >
-              Tôi đã chuyển xong
+              Mở MoMo & chuyển tiền
             </button>
             <RouterLink
               class="btn-elegant-outline btn-interactive"
@@ -230,7 +248,17 @@ onUnmounted(() => {
 .momo-pay__lead {
   text-align: center;
   line-height: 1.55;
-  margin-bottom: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.momo-pay__countdown {
+  text-align: center;
+  margin: 0 0 1rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 10px;
+  background: #ecfdf5;
+  color: #047857;
+  font-size: 0.9rem;
 }
 
 .momo-pay__qr-wrap {
