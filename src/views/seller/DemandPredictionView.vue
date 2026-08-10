@@ -420,16 +420,17 @@ function resetResult() {
               </ul>
             </div>
           </div>
-          <div class="demand-ai__links">
-            <RouterLink class="dss-btn dss-btn--outline demand-btn-compact" to="/seller/dss/inventory">
-              Khuyến nghị tồn
-            </RouterLink>
-            <RouterLink class="dss-btn dss-btn--outline demand-btn-compact" to="/seller/dss/price">
-              Gợi ý giá
-            </RouterLink>
-            <RouterLink class="dss-btn dss-btn--outline demand-btn-compact" to="/seller/dss/what-if">
-              What-if
-            </RouterLink>
+          <div class="demand-ai__similar" aria-label="Tính năng tương tự">
+            <span class="demand-ai__similar-label">Tính năng tương tự</span>
+            <div class="demand-ai__similar-links">
+              <RouterLink class="demand-ai__similar-link" to="/seller/dss/price">
+                Gợi ý giá
+              </RouterLink>
+              <span class="demand-ai__similar-sep" aria-hidden="true">·</span>
+              <RouterLink class="demand-ai__similar-link" to="/seller/dss/what-if">
+                What-if
+              </RouterLink>
+            </div>
           </div>
         </section>
       </div>
@@ -790,12 +791,53 @@ function resetResult() {
   margin-top: 0.35rem;
 }
 
-.demand-ai__links {
+.demand-ai__similar {
+  margin-top: auto;
+  padding-top: 0.85rem;
+  border-top: 1px solid rgba(13, 71, 161, 0.12);
+}
+
+.demand-ai__similar-label {
+  display: block;
+  margin-bottom: 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #607d8b;
+}
+
+.demand-ai__similar-links {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.45rem;
-  margin-top: auto;
-  padding-top: 0.75rem;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+}
+
+.demand-ai__similar-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid #90caf9;
+  color: #1565c0;
+  font-size: 0.8125rem;
+  font-weight: 650;
+  text-decoration: none;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.demand-ai__similar-link:hover {
+  background: #e3f2fd;
+  border-color: #42a5f5;
+  text-decoration: none;
+}
+
+.demand-ai__similar-sep {
+  color: #90a4ae;
+  font-weight: 700;
+  user-select: none;
 }
 
 
