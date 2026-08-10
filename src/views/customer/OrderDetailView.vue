@@ -45,6 +45,12 @@ const isMomoQrPending = computed(
     (order.value.status === 'pending' || order.value.rawStatus === 'PENDING'),
 )
 
+const isGatewayPaymentPending = computed(() => {
+  if (!order.value || order.value.status !== 'pending') return false
+  const m = order.value.paymentMethod
+  return m === 'vnpay' || m === 'bank' || m === 'momo' || m === 'card'
+})
+
 const payError = ref('')
 const verifyingPayment = ref(false)
 const loading = ref(true)
@@ -185,15 +191,8 @@ async function loadOrderPage() {
   order.value = await orderApi.getById(route.params.id as string)
   if (!order.value) return
 
-  // Tự kiểm tra thanh toán online / MoMo QR
-  if (
-    order.value.status === 'pending' &&
-    (order.value.paymentMethod === 'vnpay' ||
-      order.value.paymentMethod === 'bank' ||
-      order.value.paymentMethod === 'momo' ||
-      order.value.paymentMethod === 'card' ||
-      order.value.paymentMethod === 'momo_qr')
-  ) {
+  // Chỉ poll gateway (VNPay/MoMo ví) — MoMo QR là chuyển khoản thủ công, không poll
+  if (isGatewayPaymentPending.value) {
     void pollPaymentStatus(6)
   }
   if (order.value.status !== 'pending') {
@@ -397,10 +396,18 @@ async function onReviewSubmitted(productId: string) {
               </template>
               MoMo tự điền thông tin — sau khi chuyển, đơn tự xác nhận.
             </p>
+            <RouterLink
+              :to="{ name: 'order-pay-momo', params: { id: order.id } }"
+              class="btn-elegant-primary btn-interactive order-detail__momo-link"
+            >
+              Mở MoMo để chuyển
+            </RouterLink>
           </section>
 
           <p v-if="payError" class="elegant-alert elegant-alert--error">{{ payError }}</p>
-          <p v-if="verifyingPayment" class="order-detail__verify-hint">Đang kiểm tra trạng thái thanh toán…</p>
+          <p v-if="verifyingPayment && isGatewayPaymentPending" class="order-detail__verify-hint">
+            Đang kiểm tra trạng thái thanh toán…
+          </p>
 
           <section class="order-detail__items" aria-labelledby="items-heading">
             <h2 id="items-heading" class="order-detail__section-title">Sản phẩm</h2>
@@ -567,6 +574,11 @@ async function onReviewSubmitted(productId: string) {
   font-size: 0.95rem;
   color: var(--navy, #14275c);
   line-height: 1.45;
+}
+
+.order-detail__momo-link {
+  display: inline-flex;
+  margin-top: 0.75rem;
 }
 
 .order-detail__pay-actions {

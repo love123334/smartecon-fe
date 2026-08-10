@@ -132,11 +132,15 @@ export function overlayOnlyOrders(excludeIds: Set<string>): Order[] {
 }
 
 export function seedPendingOverlay(order: Order, role = 'customer') {
+  const note =
+    order.paymentMethod === 'momo_qr'
+      ? 'Đơn mới — chờ chuyển MoMo (tự xác nhận sau khi chuyển)'
+      : 'Đơn mới — chờ người bán xác nhận'
   saveOrderOverlay({
     orderId: order.id,
     status: order.status || 'pending',
     rawStatus: (order.rawStatus as BackendOrderStatus) || 'PENDING',
-    note: 'Đơn mới — chờ người bán xác nhận',
+    note,
     updatedByRole: role,
     customerName: order.customerName,
     total: order.total,
