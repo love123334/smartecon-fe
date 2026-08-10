@@ -185,13 +185,14 @@ async function loadOrderPage() {
   order.value = await orderApi.getById(route.params.id as string)
   if (!order.value) return
 
-  // Tự kiểm tra thanh toán VNPay thay vì bắt người dùng bấm xác nhận thủ công
+  // Tự kiểm tra thanh toán online / MoMo QR
   if (
     order.value.status === 'pending' &&
     (order.value.paymentMethod === 'vnpay' ||
       order.value.paymentMethod === 'bank' ||
       order.value.paymentMethod === 'momo' ||
-      order.value.paymentMethod === 'card')
+      order.value.paymentMethod === 'card' ||
+      order.value.paymentMethod === 'momo_qr')
   ) {
     void pollPaymentStatus(6)
   }
@@ -278,9 +279,16 @@ async function onReviewSubmitted(productId: string) {
         <div class="elegant-complete">
           <div class="elegant-complete__card">
             <p class="elegant-complete__emoji">Đã đặt hàng</p>
-            <h2 class="elegant-complete__heading">Đơn đang chờ xác nhận</h2>
+            <h2 class="elegant-complete__heading">
+              {{ order.paymentMethod === 'momo_qr' ? 'Hoàn tất chuyển MoMo' : 'Đơn đang chờ xác nhận' }}
+            </h2>
             <p class="elegant-muted" style="margin: 0 0 1rem">
-              Người bán / quản lý sẽ xác nhận đơn. Bạn có thể theo dõi tiến trình bên dưới hoặc trong lịch sử mua hàng.
+              <template v-if="order.paymentMethod === 'momo_qr'">
+                MoMo sẽ tự điền thông tin chuyển khoản. Sau khi chuyển xong, đơn tự chuyển sang đã xác nhận.
+              </template>
+              <template v-else>
+                Người bán / quản lý sẽ xác nhận đơn. Bạn có thể theo dõi tiến trình bên dưới hoặc trong lịch sử mua hàng.
+              </template>
             </p>
             <p v-if="statusNote" class="elegant-muted" style="margin: 0 0 1rem">
               Cập nhật gần nhất: {{ statusNote }}
@@ -321,26 +329,9 @@ async function onReviewSubmitted(productId: string) {
               </div>
             </dl>
 
-            <RouterLink
-              v-if="order.paymentMethod === 'momo_qr'"
-              :to="`/orders/${order.id}/pay-momo`"
-              class="btn-elegant-primary btn-block btn-interactive"
-            >
-              Xem hướng dẫn chuyển MoMo
-            </RouterLink>
             <button
-              v-else
               type="button"
               class="btn-elegant-primary btn-block btn-interactive"
-              @click="openOrderTracking"
-            >
-              Theo dõi đơn hàng
-            </button>
-            <button
-              v-if="order.paymentMethod === 'momo_qr'"
-              type="button"
-              class="btn-elegant-outline btn-block btn-interactive"
-              style="margin-top: 0.75rem"
               @click="openOrderTracking"
             >
               Theo dõi đơn hàng
@@ -395,7 +386,7 @@ async function onReviewSubmitted(productId: string) {
           <section
             v-if="isMomoQrPending && order.momoTransfer"
             class="order-detail__momo"
-            aria-label="Hướng dẫn chuyển MoMo"
+            aria-label="Thông tin chuyển MoMo"
           >
             <h2 class="order-detail__section-title">Chuyển MoMo tới shop</h2>
             <p class="order-detail__note">
@@ -404,28 +395,12 @@ async function onReviewSubmitted(productId: string) {
               <template v-if="order.momoTransfer.sellerStoreName">
                 tới {{ order.momoTransfer.sellerStoreName }}.
               </template>
+              MoMo tự điền thông tin — sau khi chuyển, đơn tự xác nhận.
             </p>
-            <RouterLink
-              :to="`/orders/${order.id}/pay-momo`"
-              class="btn-elegant-primary btn-interactive"
-            >
-              Mở trang hướng dẫn & QR
-            </RouterLink>
           </section>
 
           <p v-if="payError" class="elegant-alert elegant-alert--error">{{ payError }}</p>
           <p v-if="verifyingPayment" class="order-detail__verify-hint">Đang kiểm tra trạng thái thanh toán…</p>
-          <div
-            v-if="(order.rawStatus === 'PENDING' || order.status === 'pending') && isMomoQrPending"
-            class="order-detail__pay-actions"
-          >
-            <RouterLink
-              :to="`/orders/${order.id}/pay-momo`"
-              class="btn-elegant-primary btn-interactive"
-            >
-              Xem hướng dẫn chuyển MoMo
-            </RouterLink>
-          </div>
 
           <section class="order-detail__items" aria-labelledby="items-heading">
             <h2 id="items-heading" class="order-detail__section-title">Sản phẩm</h2>

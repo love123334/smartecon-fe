@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import AvatarPicker from '@/components/AvatarPicker.vue'
 import PageHeader from '@/components/PageHeader.vue'
+import MomoWalletSettings from '@/components/MomoWalletSettings.vue'
 
 const auth = useAuthStore()
+const isSeller = computed(() => auth.role === 'seller')
 const fullName = ref('')
 const phone = ref('')
 const address = ref('')
@@ -87,6 +89,7 @@ async function save() {
 
       <div class="profile-form__actions">
         <button type="submit" class="btn btn-primary">Lưu hồ sơ</button>
+        <a href="#momo-wallet" class="btn btn-outline">Ví MoMo</a>
         <RouterLink to="/role-upgrade" class="btn btn-outline">
           Xin nâng Seller / Manager
         </RouterLink>
@@ -94,6 +97,8 @@ async function save() {
           Mở cửa hàng →
         </RouterLink>
       </div>
+
+      <MomoWalletSettings :seller-mode="isSeller" />
     </form>
   </div>
 </template>

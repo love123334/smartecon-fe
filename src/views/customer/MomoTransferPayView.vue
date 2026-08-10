@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { formatVnd, orderApi } from '@/api/services'
 import type { Order } from '@/types'
-import { copyTransferText, momoTransferDeeplink, momoTransferQrImageUrl } from '@/utils/momoTransfer'
+import { isMobileBrowser, momoTransferDeeplink, momoTransferQrImageUrl, openMomoTransfer } from '@/utils/momoTransfer'
 import { resolvePublicAssetUrl } from '@/utils/productImage'
 import CheckoutStepper from '@/components/CheckoutStepper.vue'
 import NewsletterBanner from '@/components/NewsletterBanner.vue'
@@ -13,8 +13,10 @@ const router = useRouter()
 const order = ref<Order | null>(null)
 const loading = ref(true)
 const error = ref('')
-const copyMsg = ref('')
+const completing = ref(false)
 const qrImageFailed = ref(false)
+const openedMomo = ref(false)
+const autoCompletePending = ref(false)
 
 const transfer = computed(() => order.value?.momoTransfer)
 const amount = computed(() => transfer.value?.amount ?? order.value?.total ?? 0)
@@ -22,6 +24,11 @@ const note = computed(() => transfer.value?.transferNote ?? '')
 const phone = computed(() => transfer.value?.sellerMomoPhone ?? '')
 const qrUrl = computed(() => resolvePublicAssetUrl(transfer.value?.sellerMomoQrUrl))
 const storeName = computed(() => transfer.value?.sellerStoreName ?? 'Shop')
+const isPending = computed(
+  () =>
+    order.value?.status === 'pending' ||
+    order.value?.rawStatus === 'PENDING',
+)
 
 const deeplink = computed(() => {
   if (!phone.value) return ''
@@ -32,7 +39,6 @@ const generatedQrUrl = computed(() =>
   deeplink.value ? momoTransferQrImageUrl(deeplink.value) : '',
 )
 
-/** Seller upload first; auto-generate from SĐT + số tiền + nội dung if missing/404. */
 const displayQrUrl = computed(() => {
   if (!deeplink.value && !qrUrl.value) return ''
   if (qrUrl.value && !qrImageFailed.value) return qrUrl.value
@@ -42,13 +48,46 @@ const displayQrUrl = computed(() => {
 const qrCaption = computed(() =>
   qrUrl.value && !qrImageFailed.value
     ? 'Quét QR MoMo của shop'
-    : 'QR chuyển tiền (tự sinh từ SĐT shop)',
+    : 'QR chuyển tiền (MoMo tự điền số tiền & nội dung)',
 )
 
 function onQrError() {
   if (qrUrl.value && !qrImageFailed.value) {
     qrImageFailed.value = true
   }
+}
+
+async function completePayment() {
+  if (!order.value || completing.value || !isPending.value) return
+  completing.value = true
+  error.value = ''
+  try {
+    const updated = await orderApi.completeMomoTransfer(String(order.value.id))
+    order.value = updated
+    await router.replace({
+      name: 'order-detail',
+      params: { id: String(updated.id) },
+      query: { view: 'detail' },
+    })
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'Không xác nhận được thanh toán'
+  } finally {
+    completing.value = false
+    autoCompletePending.value = false
+  }
+}
+
+function launchMomo() {
+  if (!phone.value || !isPending.value) return
+  openedMomo.value = true
+  autoCompletePending.value = true
+  openMomoTransfer(phone.value, amount.value, note.value)
+}
+
+function onVisibilityReturn() {
+  if (document.visibilityState !== 'visible') return
+  if (!autoCompletePending.value || !openedMomo.value || !isPending.value) return
+  void completePayment()
 }
 
 async function load() {
@@ -69,7 +108,14 @@ async function load() {
       return
     }
     if (!order.value.momoTransfer) {
-      error.value = 'Chưa tải được thông tin chuyển MoMo. Thử reload trang hoặc xem chi tiết đơn.'
+      error.value = 'Chưa tải được thông tin chuyển MoMo. Thử reload trang.'
+    }
+    if (order.value.status === 'confirmed' || order.value.rawStatus === 'PAID') {
+      await router.replace({
+        name: 'order-detail',
+        params: { id: order.value.id },
+        query: { view: 'detail' },
+      })
     }
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Không tải được đơn'
@@ -79,16 +125,17 @@ async function load() {
 }
 
 onMounted(() => {
-  void load()
+  document.addEventListener('visibilitychange', onVisibilityReturn)
+  void load().then(() => {
+    if (isPending.value && phone.value && isMobileBrowser()) {
+      window.setTimeout(() => launchMomo(), 600)
+    }
+  })
 })
 
-async function copyField(label: string, text: string) {
-  const ok = await copyTransferText(text)
-  copyMsg.value = ok ? `Đã sao chép ${label}` : `Không sao chép được ${label}`
-  window.setTimeout(() => {
-    copyMsg.value = ''
-  }, 2200)
-}
+onUnmounted(() => {
+  document.removeEventListener('visibilitychange', onVisibilityReturn)
+})
 </script>
 
 <template>
@@ -102,76 +149,67 @@ async function copyField(label: string, text: string) {
 
       <div v-else-if="order" class="momo-pay">
         <template v-if="transfer">
-        <p class="momo-pay__lead">
-          Chuyển đúng số tiền và nội dung bên dưới tới <strong>{{ storeName }}</strong>.
-          Shop sẽ xác nhận sau khi nhận tiền.
-        </p>
+          <p class="momo-pay__lead">
+            MoMo sẽ tự điền số tiền và nội dung chuyển khoản tới <strong>{{ storeName }}</strong>.
+            Sau khi chuyển xong, đơn tự chuyển sang <strong>Đã xác nhận</strong>.
+          </p>
 
-        <div v-if="displayQrUrl" class="momo-pay__qr-wrap">
-          <img
-            :src="displayQrUrl"
-            alt="QR MoMo shop"
-            class="momo-pay__qr"
-            loading="lazy"
-            @error="onQrError"
-          />
-          <p class="elegant-muted">{{ qrCaption }}</p>
-        </div>
-
-        <dl class="momo-pay__fields">
-          <div class="momo-pay__row">
-            <dt>Số tiền</dt>
-            <dd>
-              <strong>{{ formatVnd(amount) }}</strong>
-              <button type="button" class="btn-interactive momo-pay__copy" @click="copyField('số tiền', String(amount))">
-                Sao chép
-              </button>
-            </dd>
+          <div v-if="displayQrUrl" class="momo-pay__qr-wrap">
+            <img
+              :src="displayQrUrl"
+              alt="QR MoMo shop"
+              class="momo-pay__qr"
+              loading="lazy"
+              @error="onQrError"
+            />
+            <p class="elegant-muted">{{ qrCaption }}</p>
           </div>
-          <div class="momo-pay__row">
-            <dt>Nội dung CK</dt>
-            <dd>
-              <code>{{ note }}</code>
-              <button type="button" class="btn-interactive momo-pay__copy" @click="copyField('nội dung', note)">
-                Sao chép
-              </button>
-            </dd>
+
+          <dl class="momo-pay__fields">
+            <div class="momo-pay__row">
+              <dt>Số tiền</dt>
+              <dd><strong>{{ formatVnd(amount) }}</strong></dd>
+            </div>
+            <div class="momo-pay__row">
+              <dt>Nội dung CK</dt>
+              <dd><code>{{ note }}</code></dd>
+            </div>
+            <div v-if="phone" class="momo-pay__row">
+              <dt>SĐT MoMo shop</dt>
+              <dd>{{ phone }}</dd>
+            </div>
+          </dl>
+
+          <div class="momo-pay__actions">
+            <button
+              v-if="phone && isPending"
+              type="button"
+              class="btn-elegant-primary btn-interactive"
+              :disabled="completing"
+              @click="launchMomo"
+            >
+              {{ completing ? 'Đang xác nhận…' : 'Mở MoMo & chuyển tiền' }}
+            </button>
+            <button
+              v-if="isPending"
+              type="button"
+              class="btn-elegant-outline btn-interactive"
+              :disabled="completing"
+              @click="completePayment"
+            >
+              Tôi đã chuyển xong
+            </button>
+            <RouterLink
+              class="btn-elegant-outline btn-interactive"
+              :to="{ name: 'order-detail', params: { id: order.id }, query: { view: 'detail' } }"
+            >
+              Xem đơn #{{ order.id }}
+            </RouterLink>
           </div>
-          <div v-if="phone" class="momo-pay__row">
-            <dt>SĐT MoMo shop</dt>
-            <dd>
-              {{ phone }}
-              <button type="button" class="btn-interactive momo-pay__copy" @click="copyField('SĐT', phone)">
-                Sao chép
-              </button>
-            </dd>
-          </div>
-        </dl>
 
-        <p v-if="copyMsg" class="momo-pay__copy-msg">{{ copyMsg }}</p>
-
-        <div class="momo-pay__actions">
-          <a
-            v-if="deeplink"
-            :href="deeplink"
-            class="btn-elegant-primary btn-interactive"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Mở MoMo (điện thoại)
-          </a>
-          <RouterLink
-            class="btn-elegant-outline btn-interactive"
-            :to="{ name: 'order-detail', params: { id: order.id }, query: { view: 'detail' } }"
-          >
-            Xem đơn #{{ order.id }}
-          </RouterLink>
-        </div>
-
-        <p class="elegant-muted momo-pay__hint">
-          Đơn #{{ order.id }} · Tổng {{ formatVnd(order.total) }} · Trạng thái:
-          {{ order.status === 'pending' ? 'Chờ shop xác nhận thanh toán' : 'Đã cập nhật' }}
-        </p>
+          <p class="elegant-muted momo-pay__hint">
+            Đơn #{{ order.id }} · Tổng {{ formatVnd(order.total) }}
+          </p>
         </template>
         <p v-else class="elegant-muted" style="text-align: center">
           Đơn dùng MoMo shop nhưng chưa có QR/SĐT từ API.
@@ -230,22 +268,6 @@ async function copyField(label: string, text: string) {
 
 .momo-pay__row dd {
   margin: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.momo-pay__copy {
-  font-size: 0.8rem;
-  padding: 0.2rem 0.5rem;
-}
-
-.momo-pay__copy-msg {
-  text-align: center;
-  color: #047857;
-  font-size: 0.875rem;
-  margin: 0.5rem 0 0;
 }
 
 .momo-pay__actions {

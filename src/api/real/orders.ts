@@ -173,6 +173,14 @@ export async function confirmMomoTransfer(id: string): Promise<Order> {
   return mapBackendOrder(data)
 }
 
+export async function completeMomoTransfer(id: string): Promise<Order> {
+  const data = await http.post<BackendOrderResponse>(
+    `${apiPaths.orders.byId(id)}/complete-momo`,
+    {},
+  )
+  return mapBackendOrder(data)
+}
+
 export async function cancelOrder(id: string): Promise<void> {
   await http.put<void>(`${apiPaths.orders.byId(id)}/cancel`)
 }

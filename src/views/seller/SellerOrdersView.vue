@@ -2,7 +2,6 @@
 import { computed, onMounted, ref } from 'vue'
 import { formatVnd, orderApi } from '@/api/services'
 import type { Order } from '@/types'
-import type { LegacyBackendPaymentMethod } from '@/api/real/payments'
 import type { BackendOrderStatus } from '@/utils/backendOrderStatus'
 import {
   BACKEND_STATUS_LABEL,
@@ -19,8 +18,6 @@ const selectedStatus = ref<Record<string, BackendOrderStatus>>({})
 const statusNotes = ref<Record<string, string>>({})
 const error = ref('')
 const successId = ref<string | null>(null)
-const paymentMethods = ref<Record<string, LegacyBackendPaymentMethod | undefined>>({})
-const confirmingMomoId = ref<string | null>(null)
 
 const counts = computed(() => {
   const c = { pending: 0, confirmed: 0, shipping: 0, delivered: 0, other: 0 }
@@ -44,7 +41,6 @@ async function loadOrders() {
       const next = nextBackendStatuses(o.rawStatus)[0]
       if (next) selectedStatus.value[o.id] = next
     }
-    await loadPendingPayments()
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Không tải được đơn hàng'
   } finally {
@@ -53,40 +49,6 @@ async function loadOrders() {
 }
 
 onMounted(loadOrders)
-
-async function loadPendingPayments() {
-  const pending = orders.value.filter((o) => o.status === 'pending')
-  const entries = await Promise.all(
-    pending.map(async (o) => {
-      const pay = await orderApi.getPayment(o.id).catch(() => null)
-      return [o.id, pay?.paymentMethod] as const
-    }),
-  )
-  paymentMethods.value = Object.fromEntries(entries)
-}
-
-function isMomoQrOrder(order: Order): boolean {
-  if (order.paymentMethod === 'momo_qr') return true
-  return paymentMethods.value[order.id] === 'MOMO_QR'
-}
-
-async function confirmMomoReceived(order: Order) {
-  if (!confirm(`Xác nhận đã nhận đủ MoMo cho đơn #${order.id}?`)) return
-  confirmingMomoId.value = order.id
-  error.value = ''
-  successId.value = null
-  try {
-    const updated = await orderApi.confirmMomoTransfer(order.id)
-    const idx = orders.value.findIndex((o) => o.id === order.id)
-    if (idx >= 0) orders.value[idx] = updated
-    successId.value = order.id
-    delete paymentMethods.value[order.id]
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Xác nhận MoMo thất bại'
-  } finally {
-    confirmingMomoId.value = null
-  }
-}
 
 function statusOptions(order: Order): BackendOrderStatus[] {
   return nextBackendStatuses(order.rawStatus)
@@ -227,22 +189,7 @@ async function applyStatus(order: Order) {
             <p v-else class="seller-order__items-empty">Chi tiết dòng hàng chưa đầy đủ từ API.</p>
           </section>
 
-          <footer v-if="isMomoQrOrder(o) && o.status === 'pending'" class="seller-order__actions">
-            <p class="seller-order__section-label">Thanh toán MoMo shop</p>
-            <button
-              type="button"
-              class="btn btn-primary seller-order__submit"
-              :disabled="confirmingMomoId === o.id"
-              @click="confirmMomoReceived(o)"
-            >
-              {{ confirmingMomoId === o.id ? 'Đang xác nhận…' : 'Xác nhận đã nhận MoMo' }}
-            </button>
-            <p v-if="successId === o.id" class="seller-order__ok" role="status">
-              Đã xác nhận thanh toán MoMo.
-            </p>
-          </footer>
-
-          <footer v-else-if="statusOptions(o).length" class="seller-order__actions">
+          <footer v-if="statusOptions(o).length" class="seller-order__actions">
             <p class="seller-order__section-label">Cập nhật trạng thái</p>
             <div class="seller-order__form">
               <label class="seller-order__field">

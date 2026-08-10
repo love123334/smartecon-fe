@@ -1431,6 +1431,26 @@ export const orderApi = {
     }
     throw new Error('Xác nhận MoMo chỉ khả dụng khi kết nối backend')
   },
+
+  async completeMomoTransfer(orderId: string): Promise<Order> {
+    if (apiConfig.useRealOrders && hasBackendToken()) {
+      const order = await realOrders.completeMomoTransfer(orderId)
+      saveOrderOverlay({
+        orderId,
+        status: 'confirmed',
+        rawStatus: 'PAID',
+        note: 'Đã chuyển MoMo — đơn tự xác nhận',
+        updatedByRole: 'customer',
+        customerName: order.customerName,
+        total: order.total,
+        shippingAddress: order.shippingAddress,
+        items: order.items,
+        createdAt: order.createdAt,
+      })
+      return applyOrderOverlay(order)
+    }
+    throw new Error('Hoàn tất MoMo chỉ khả dụng khi kết nối backend')
+  },
 }
 
 // ——— Seller (dashboard & sales) ———

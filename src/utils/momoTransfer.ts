@@ -14,13 +14,15 @@ export function momoTransferDeeplink(
     : `https://nhantien.momo.vn/${digits}`
 }
 
-export async function copyTransferText(text: string): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(text)
-    return true
-  } catch {
-    return false
-  }
+export function isMobileBrowser(): boolean {
+  if (typeof navigator === 'undefined') return false
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+}
+
+/** Open MoMo with pre-filled amount + transfer note (free nhantien.momo.vn deeplink). */
+export function openMomoTransfer(phone: string, amount: number, note: string): void {
+  const url = momoTransferDeeplink(phone, amount, note)
+  window.location.href = url
 }
 
 /** Fallback QR when seller upload URL is missing or 404 (Railway /uploads ephemeral). */
