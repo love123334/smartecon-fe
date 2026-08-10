@@ -1,4 +1,5 @@
 import type { ChatContext } from '@/api/chat/context'
+import type { ChatIntent } from '@/api/chat/intents'
 import { formatVnd } from '@/api/chat/match'
 import { orderStatusLabel } from '@/utils/orderStatus'
 
@@ -13,26 +14,95 @@ const ROLE_GUIDE: Record<string, string> = {
   admin: 'Hỗ trợ admin: users, trạng thái hệ thống, RBAC, cảnh báo, cấu hình.',
 }
 
-function serializeContext(ctx: ChatContext): string {
+const SHOPPING_INTENTS = new Set<ChatIntent>([
+  'product_search',
+  'product_budget',
+  'product_cheapest',
+  'category_browse',
+  'promo',
+  'compare',
+  'product_info',
+  'product_price',
+  'product_stock',
+  'product_review',
+  'shop_overview',
+  'categories',
+  'where_to_buy',
+  'recommend',
+  'contact_seller',
+])
+
+const ORDER_INTENTS = new Set<ChatIntent>([
+  'orders',
+  'order_detail',
+  'order_cancel',
+  'cart',
+  'cart_summary',
+  'shipping',
+  'checkout',
+  'seller_orders',
+  'seller_recent_orders',
+  'seller_purchase_orders',
+])
+
+const SELLER_OPS_INTENTS = new Set<ChatIntent>([
+  'seller_revenue',
+  'seller_inventory',
+  'seller_pricing',
+  'seller_dss_demand',
+  'seller_dss_price',
+  'seller_dss_inventory',
+  'seller_whatif',
+  'seller_top_products',
+])
+
+const MANAGER_INTENTS = new Set<ChatIntent>([
+  'manager_kpi',
+  'manager_pending',
+  'manager_revenue',
+])
+
+const TRIVIAL_INTENTS = new Set<ChatIntent>(['greeting', 'thanks', 'help'])
+
+function serializeContext(ctx: ChatContext, intent?: ChatIntent | null): string {
   const lines: string[] = []
   lines.push(`Vai trò: ${ctx.role}`)
   if (ctx.userName) lines.push(`Tên: ${ctx.userName}`)
 
-  if (ctx.categories.length) {
+  const includeAll = !intent || intent === 'platform'
+  const includeShopping =
+    includeAll || (intent != null && SHOPPING_INTENTS.has(intent))
+  const includeOrders =
+    includeAll || (intent != null && ORDER_INTENTS.has(intent))
+  const includeSellerOps =
+    includeAll || (intent != null && SELLER_OPS_INTENTS.has(intent))
+  const includeManager =
+    includeAll || (intent != null && MANAGER_INTENTS.has(intent))
+  const minimal = intent != null && TRIVIAL_INTENTS.has(intent)
+
+  if (minimal) {
+    if (ctx.cartItemCount) {
+      lines.push(`Giỏ: ${ctx.cartItemCount} món, ${formatVnd(ctx.cartTotal)}`)
+    }
+    lines.push(`Catalog: ${ctx.products.length} SP trên sàn`)
+    return lines.join('\n')
+  }
+
+  if (includeShopping && ctx.categories.length) {
     lines.push(`Danh mục (${ctx.categories.length}):`)
     for (const c of ctx.categories.slice(0, 10)) {
       lines.push(`- ${c.name}: ${c.productCount} SP`)
     }
   }
 
-  if (ctx.cartLines.length) {
+  if (includeOrders && ctx.cartLines.length) {
     lines.push(`Giỏ hàng (${ctx.cartItemCount} món, tổng ${formatVnd(ctx.cartTotal)}):`)
     for (const l of ctx.cartLines.slice(0, 6)) {
       lines.push(`- ${l.productName} x${l.quantity} = ${formatVnd(l.subtotal)}`)
     }
   }
 
-  if (ctx.orders.length) {
+  if (includeOrders && ctx.orders.length) {
     const label = ctx.role === 'seller' ? 'Đơn bán' : 'Đơn hàng'
     lines.push(`${label} (${ctx.orders.length}):`)
     for (const o of ctx.orders.slice(0, 8)) {
@@ -42,14 +112,14 @@ function serializeContext(ctx: ChatContext): string {
     }
   }
 
-  if (ctx.purchaseOrders.length && ctx.role === 'seller') {
+  if (includeOrders && ctx.purchaseOrders.length && ctx.role === 'seller') {
     lines.push(`Đơn mua (seller-as-buyer) (${ctx.purchaseOrders.length}):`)
     for (const o of ctx.purchaseOrders.slice(0, 5)) {
       lines.push(`- #${o.id} | ${orderStatusLabel(o.status)} | ${formatVnd(o.total)}`)
     }
   }
 
-  if (ctx.recommendations.length) {
+  if (includeShopping && ctx.recommendations.length) {
     lines.push('Gợi ý AI:')
     for (const r of ctx.recommendations.slice(0, 5)) {
       const p = ctx.products.find((x) => x.id === r.productId)
@@ -62,7 +132,7 @@ function serializeContext(ctx: ChatContext): string {
   }
 
   const catalog = ctx.sellerProducts.length ? ctx.sellerProducts : ctx.products
-  if (catalog.length) {
+  if (includeShopping && catalog.length) {
     lines.push(`Sản phẩm + seller (${catalog.length}):`)
     for (const p of catalog.slice(0, 8)) {
       lines.push(
@@ -71,7 +141,7 @@ function serializeContext(ctx: ChatContext): string {
     }
   }
 
-  if (ctx.salesPerformance) {
+  if (includeSellerOps && ctx.salesPerformance) {
     const s = ctx.salesPerformance.summary
     lines.push(
       `Doanh số seller: ${formatVnd(s.totalRevenue)}, ${s.completedOrders} đơn, AOV ${formatVnd(s.averageOrderValue)}`,
@@ -81,7 +151,7 @@ function serializeContext(ctx: ChatContext): string {
     }
   }
 
-  if (ctx.sellerDashboard) {
+  if (includeSellerOps && ctx.sellerDashboard) {
     const d = ctx.sellerDashboard
     if (d.lowStockProducts.length) {
       lines.push('Tồn kho thấp:')
@@ -97,14 +167,14 @@ function serializeContext(ctx: ChatContext): string {
     }
   }
 
-  if (ctx.sellerInsights.length) {
+  if (includeSellerOps && ctx.sellerInsights.length) {
     lines.push('DSS seller:')
     for (const i of ctx.sellerInsights.slice(0, 4)) {
       lines.push(`- ${i.title}: ${i.description}`)
     }
   }
 
-  if (ctx.managerInsights.length) {
+  if (includeManager && ctx.managerInsights.length) {
     lines.push('DSS manager:')
     for (const i of ctx.managerInsights.slice(0, 4)) {
       lines.push(`- ${i.title}: ${i.description}`)
@@ -150,7 +220,7 @@ function serializeContext(ctx: ChatContext): string {
   return lines.join('\n')
 }
 
-export function buildSystemPrompt(ctx: ChatContext): string {
+export function buildSystemPrompt(ctx: ChatContext, intent?: ChatIntent | null): string {
   return `Bạn là trợ lý mua sắm SEDSP — nói chuyện như nhân viên CSKH thật trên chat.
 
 NHIỆM VỤ: ${ROLE_GUIDE[ctx.role] ?? ROLE_GUIDE.customer}
@@ -177,5 +247,5 @@ QUY TẮC DỮ LIỆU:
 - **In đậm** tên shop / giá / tồn khi hữu ích.
 
 CONTEXT:
-${serializeContext(ctx)}`
+${serializeContext(ctx, intent)}`
 }

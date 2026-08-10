@@ -26,8 +26,9 @@ import * as realNotifications from '@/api/real/notifications'
 import { fetchSystemHealthMetrics } from '@/api/real/systemHealth'
 import * as realProductImages from '@/api/real/productImages'
 import { typingDelay } from '@/api/chat/engine'
-import { buildChatContext } from '@/api/chat/context'
+import { buildChatContext, prewarmChatContext } from '@/api/chat/context'
 import { chatModeLabel, resolveChatReply, refreshBeAiStatus } from '@/api/chat/responder'
+import { refreshChatProductStock } from '@/api/chat/productCards'
 import { isLlmConfigured } from '@/api/chat/llm'
 import { applyAvatarToUser, saveUserAvatar } from '@/utils/avatar'
 import { clearUserSnapshot, saveUserSnapshot } from '@/utils/sessionSnapshot'
@@ -2028,13 +2029,13 @@ function formatOrderNotificationMessage(n: realNotifications.CustomerNotificatio
 export const chatApi = {
   isLlmEnabled: isLlmConfigured,
   modeLabel: chatModeLabel,
+  prewarm: prewarmChatContext,
 
   async ensureAiReady() {
     await refreshBeAiStatus()
   },
 
   async getHistory(userId: string): Promise<ChatMessage[]> {
-    await delay(30)
     return getChatMap()[userId] ?? []
   },
 
@@ -2046,30 +2047,62 @@ export const chatApi = {
       userName?: string
       sellerBackendId?: string
       attachments?: import('@/types').ChatProductRef[]
+      /** History already includes optimistic user bubble (last message = user). */
+      optimisticHistory?: ChatMessage[]
     },
   ): Promise<ChatMessage[]> {
     const map = getChatMap()
-    const history = map[userId] ?? []
+    const storedHistory = map[userId] ?? []
     const attachments = opts?.attachments?.length ? opts.attachments : undefined
-    const userMsg: ChatMessage = {
-      id: `c-${Date.now()}`,
-      role: 'user',
-      content: content.trim() || (attachments?.length ? 'Cho tôi thông tin các sản phẩm đã đính kèm.' : content),
-      timestamp: new Date().toISOString(),
-      attachments,
+
+    let priorHistory: ChatMessage[]
+    let userMsg: ChatMessage
+
+    const optimistic = opts?.optimisticHistory
+    const lastOptimistic = optimistic?.at(-1)
+    if (optimistic?.length && lastOptimistic?.role === 'user') {
+      priorHistory = optimistic.slice(0, -1)
+      userMsg = lastOptimistic
+    } else {
+      priorHistory = storedHistory
+      userMsg = {
+        id: `c-${Date.now()}`,
+        role: 'user',
+        content:
+          content.trim() ||
+          (attachments?.length ? 'Cho tôi thông tin các sản phẩm đã đính kèm.' : content),
+        timestamp: new Date().toISOString(),
+        attachments,
+      }
     }
 
-    const ctx = await buildChatContext(role, {
+    const ctxOpts = {
       userName: opts?.userName,
       userId,
       sellerBackendId: opts?.sellerBackendId,
-    })
+    }
+
+    const attachmentInput = userMsg.attachments ?? attachments
+
+    const [ctx, refreshedAttachments] = await Promise.all([
+      buildChatContext(role, ctxOpts),
+      Promise.all([
+        attachmentInput?.length
+          ? refreshChatProductStock(attachmentInput)
+          : Promise.resolve(undefined as import('@/types').ChatProductRef[] | undefined),
+        refreshBeAiStatus(),
+      ]).then(([attachments]) => attachments),
+    ])
+
+    if (refreshedAttachments?.length) {
+      userMsg = { ...userMsg, attachments: refreshedAttachments }
+    }
 
     const { content: reply, source, products } = await resolveChatReply(
       userMsg.content,
-      history,
+      priorHistory,
       ctx,
-      attachments,
+      userMsg.attachments ?? attachments,
     )
 
     // Đồng bộ tồn trên card user với card/bot (tránh "Hết hàng" vs "còn 100")
@@ -2082,7 +2115,8 @@ export const chatApi = {
       })
     }
 
-    await delay(typingDelay(reply))
+    const delayMs = typingDelay(reply)
+    if (delayMs > 0) await delay(delayMs)
 
     const assistantMsg: ChatMessage = {
       id: `c-${Date.now() + 1}`,
@@ -2092,7 +2126,7 @@ export const chatApi = {
       products,
       meta: { source },
     }
-    const updated = [...history, userMsg, assistantMsg]
+    const updated = [...priorHistory, userMsg, assistantMsg]
     map[userId] = updated
     saveChatMap(map)
     return updated

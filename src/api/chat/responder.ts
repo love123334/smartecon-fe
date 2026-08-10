@@ -205,8 +205,9 @@ export async function resolveChatReply(
   // Song song: local lấy card/số liệu, LLM viết câu trả lời tự nhiên
   if (isLlmConfigured()) {
     try {
+      const systemPrompt = buildSystemPrompt(ctxForReply, intent)
       const [llmRaw, local] = await Promise.all([
-        callChatLlm(buildSystemPrompt(ctxForReply), history, userMessage),
+        callChatLlm(systemPrompt, history, userMessage),
         runLocal(),
       ])
       const content = sanitizeChatReply(llmRaw)

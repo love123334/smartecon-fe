@@ -22,6 +22,7 @@ const chatError = ref('')
 const lastFailedText = ref('')
 const ready = ref(false)
 let notifyTimer: ReturnType<typeof setInterval> | undefined
+let sendSeq = 0
 
 const shouldPollNotifications = computed(
   () => auth.isLoggedIn && auth.role === 'customer',
@@ -39,6 +40,14 @@ const chatUserId = computed(() => {
   if (auth.role === 'seller') return `seller-${auth.user.id}`
   return auth.user.id
 })
+
+function prewarmChat() {
+  chatApi.prewarm(effectiveRole.value, {
+    userName: auth.user?.fullName,
+    userId: chatUserId.value,
+    sellerBackendId: auth.user?.backendId,
+  })
+}
 
 const quickPrompts = computed(() => quickPromptsForRole(effectiveRole.value))
 
@@ -72,6 +81,7 @@ const showFab = computed(() => {
 })
 
 async function loadHistory() {
+  prewarmChat()
   await chatApi.ensureAiReady()
   messages.value = await chatApi.getHistory(chatUserId.value)
   ready.value = true
@@ -144,6 +154,7 @@ watch(
 
 onMounted(() => {
   if (widget.open) void loadHistory()
+  else if (showFab.value) prewarmChat()
   document.addEventListener('keydown', onKeydown)
 })
 
@@ -170,27 +181,42 @@ function onFabClick() {
 }
 
 async function onSend(text: string) {
+  if (loading.value) return
+  const seq = ++sendSeq
   loading.value = true
   chatError.value = ''
   lastFailedText.value = ''
+
+  const attached = widget.attachments.length ? [...widget.attachments] : undefined
+  const userContent =
+    text.trim() ||
+    (attached?.length ? 'Cho tôi thông tin các sản phẩm đã đính kèm.' : text)
+
+  const optimisticUser: ChatMessage = {
+    id: `c-${Date.now()}`,
+    role: 'user',
+    content: userContent,
+    timestamp: new Date().toISOString(),
+    attachments: attached,
+  }
+  messages.value = [...messages.value, optimisticUser]
+  widget.clearAttachments()
+
   try {
-    const attached = widget.attachments.length
-      ? await refreshChatProductStock([...widget.attachments])
-      : []
-    if (attached.length) {
-      widget.setAttachments(attached)
-    }
     messages.value = await chatApi.send(chatUserId.value, text, effectiveRole.value, {
       userName: auth.user?.fullName,
       sellerBackendId: auth.user?.backendId,
-      attachments: attached.length ? attached : undefined,
+      attachments: attached,
+      optimisticHistory: messages.value,
     })
-    widget.clearAttachments()
+    if (seq !== sendSeq) return
   } catch (e) {
+    if (seq !== sendSeq) return
+    messages.value = messages.value.filter((m) => m.id !== optimisticUser.id)
     lastFailedText.value = text
     chatError.value = e instanceof Error ? e.message : 'Không gửi được tin nhắn'
   } finally {
-    loading.value = false
+    if (seq === sendSeq) loading.value = false
   }
 }
 
@@ -244,6 +270,8 @@ function onFabDrop(e: DragEvent) {
       title="Trợ lý AI — kéo sản phẩm vào đây để đính kèm"
       aria-label="Mở trợ lý AI"
       @click="onFabClick"
+      @mouseenter="prewarmChat"
+      @focus="prewarmChat"
       @dragover="onFabDragOver"
       @dragleave="widget.dragOver = false"
       @drop="onFabDrop"

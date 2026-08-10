@@ -113,6 +113,10 @@ export async function enrichChatContext(
   raw: string,
   intent: ChatIntent | null,
 ): Promise<ChatContext> {
+  if (intent && ['greeting', 'thanks', 'help', 'platform'].includes(intent)) {
+    return ctx
+  }
+
   const enrichment: ChatEnrichment = {}
   const tasks: Promise<void>[] = []
 

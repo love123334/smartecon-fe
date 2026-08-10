@@ -62,7 +62,7 @@ export async function callChatLlm(
   history: ChatMessage[],
   userMessage: string,
 ): Promise<string> {
-  const recent = history.slice(-12).map((m) => {
+  const recent = history.slice(-8).map((m) => {
     let content = m.content.slice(0, 1600)
     if (m.role === 'assistant' && m.products?.length) {
       content += `\n[SP đang bàn: ${m.products.map((p) => p.name).join(', ')}]`

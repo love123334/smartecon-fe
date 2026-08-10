@@ -609,8 +609,9 @@ export async function generateAssistantReply(
 }
 
 export function typingDelay(content: string): number {
-  // Snappier chat UX — still feels intentional, not sluggish
-  return Math.min(900, Math.max(180, Math.floor(content.length * 4)))
+  // Instant for long replies; tiny pause only for very short canned lines
+  if (content.length > 80) return 0
+  return Math.min(120, Math.max(0, Math.floor(content.length * 2)))
 }
 
 export function formatChatHtml(content: string): string {

@@ -99,7 +99,7 @@ async function loadProducts(sellerId?: string): Promise<{
   backendUnreachable?: boolean
 }> {
   try {
-    return await productApi.listWithMeta({ sellerId, withStock: false })
+    return await productApi.listWithMeta({ sellerId, withStock: false, size: 60 })
   } catch {
     return { products: [], catalogSource: 'mock', backendUnreachable: true }
   }
@@ -158,8 +158,16 @@ function detectDataSource(
 }
 
 /** Thu thập dữ liệu từ backend + mock — gọi song song theo role */
-const CTX_TTL_MS = 25_000
+const CTX_TTL_MS = 45_000
 const ctxCache = new Map<string, { at: number; ctx: ChatContext }>()
+
+/** Pre-fetch context so first message feels instant (FAB hover / widget open). */
+export function prewarmChatContext(
+  role: UserRole,
+  opts?: { userName?: string; userId?: string; sellerBackendId?: string },
+): void {
+  void buildChatContext(role, opts)
+}
 
 export async function buildChatContext(
   role: UserRole,
@@ -168,8 +176,9 @@ export async function buildChatContext(
   const cacheKey = `${role}|${opts?.userId ?? ''}|${opts?.sellerBackendId ?? ''}`
   const hit = ctxCache.get(cacheKey)
   if (hit && Date.now() - hit.at < CTX_TTL_MS) {
-    // Refresh cart only (cheap) so totals stay accurate
-    const cartData = await loadCart(opts?.userId)
+    // Refresh cart in parallel with returning cached ctx (caller gets fresh totals)
+    const cartPromise = loadCart(opts?.userId)
+    const cartData = await cartPromise
     return {
       ...hit.ctx,
       userName: opts?.userName ?? hit.ctx.userName,
