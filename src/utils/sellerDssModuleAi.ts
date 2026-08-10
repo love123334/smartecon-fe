@@ -271,6 +271,23 @@ export function buildInventoryAiInsight(input: {
   }
 }
 
+/** Nhận định ngắn gọn cho What-if (gộp trong một card). */
+export function buildWhatIfSystemJudgment(input: {
+  discountPercentage: number
+  currentProfit: number
+  expectedProfit: number
+}): string {
+  const pct = formatViNumber(input.discountPercentage)
+  const delta = Number(input.expectedProfit) - Number(input.currentProfit)
+  if (delta < 0) {
+    return `Nhận định từ Hệ thống: Mức giảm ${pct}% mà bạn mong muốn có thể làm giảm lợi nhuận kinh doanh nếu không đạt được doanh số sản phẩm theo dự đoán.`
+  }
+  if (delta > 0) {
+    return `Nhận định từ Hệ thống: Mức giảm ${pct}% có thể cải thiện lợi nhuận nếu đạt được doanh số sản phẩm theo dự đoán.`
+  }
+  return `Nhận định từ Hệ thống: Mức giảm ${pct}% giữ lợi nhuận gần như ổn định — cần theo dõi doanh số thực tế.`
+}
+
 /** Bổ sung nhận định AI cho What-if (khi businessInsight mỏng). */
 export function buildWhatIfAiInsight(input: {
   productName?: string
