@@ -36,6 +36,13 @@ const SYNONYM_GROUPS: string[][] = [
   ['dien tu', 'electronics'],
   ['sach', 'book', 'books'],
   ['kinh', 'mat kinh', 'glasses', 'eyewear', 'kinh mat', 'kinh can', 'kinh mat thoi trang'],
+  ['ao', 'ao thun', 'shirt', 'tshirt', 'tee'],
+  ['quan', 'quan jean', 'pants', 'trousers'],
+  ['balo', 'backpack', 'tui deo', 'tui xach'],
+  ['dong ho', 'watch', 'smartwatch'],
+  ['op lung', 'phone case', 'case dien thoai'],
+  ['may loc nuoc', 'water purifier', 'loc nuoc'],
+  ['am thuc', 'do an', 'food', 'snack'],
 ]
 
 const ALIAS_LOOKUP = new Map<string, string[]>()
@@ -49,39 +56,45 @@ for (const group of SYNONYM_GROUPS) {
 }
 
 /** Alias có xuất hiện đúng cụm/từ trong câu — không dùng substring ("ca"⊂"camping", "gia"⊂"giay") */
-function queryHitsAlias(normalizedQuery: string, words: string[], alias: string): boolean {
+function queryHitsAlias(
+  normalizedQuery: string,
+  words: string[],
+  alias: string,
+  minWordLen = 4,
+): boolean {
   if (!alias || alias.length < 2) return false
   if (containsWholePhrase(normalizedQuery, alias)) return true
-  // Từ đơn đủ dài: khớp exact hoặc typo gần đúng (≥4 ký tự)
-  if (!alias.includes(' ') && alias.length >= 4) {
-    return words.some((w) => w === alias)
+  if (!alias.includes(' ') && alias.length >= minWordLen) {
+    return words.some((w) => w === alias || (alias.length >= 4 && w.includes(alias)))
   }
   return false
 }
 
 /** Mở rộng từ khóa truy vấn bằng synonym */
-export function expandQueryTerms(query: string): string[] {
+export function expandQueryTerms(query: string, opts?: { search?: boolean }): string[] {
   const n = normalizeText(query)
   const words = n.split(/\s+/).filter((w) => w.length > 1)
   const out = new Set<string>(words)
+  const minAliasLen = opts?.search ? 3 : 4
 
   for (const [alias, related] of ALIAS_LOOKUP) {
-    if (!queryHitsAlias(n, words, alias)) continue
+    if (!queryHitsAlias(n, words, alias, opts?.search ? minAliasLen : 4)) continue
     out.add(alias)
     for (const r of related) {
-      // Chỉ thêm cụm đầy đủ + token ≥4 — tránh nhét "home"/"tech"/"bep" làm nhiễu
       out.add(r)
       for (const part of r.split(/\s+/)) {
-        if (part.length >= 4) out.add(part)
+        if (part.length >= (opts?.search ? 3 : 4)) out.add(part)
       }
     }
   }
 
-  // bigrams từ câu hỏi gốc (bỏ bigram chứa stop-ish giá)
   const skipBigram = new Set(['gia', 'ca', 'trung', 'binh', 'tb', 'avg', 'average', 'gia ca'])
   for (let i = 0; i < words.length - 1; i++) {
     if (skipBigram.has(words[i]) || skipBigram.has(words[i + 1])) continue
     out.add(`${words[i]} ${words[i + 1]}`)
+  }
+  if (words.length >= 3) {
+    out.add(words.slice(0, 3).join(' '))
   }
 
   return [...out]

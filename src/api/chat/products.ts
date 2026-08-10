@@ -1,5 +1,5 @@
 import { normalizeText, wordSimilarity } from '@/api/chat/match'
-import { expandQueryTerms, matchCategoryFromText } from '@/api/chat/synonyms'
+import { expandQueryTerms } from '@/api/chat/synonyms'
 import type { Product } from '@/types'
 
 const STOP_WORDS = new Set([
@@ -37,6 +37,44 @@ const FOCUS_PHRASES = [
   'kinh',
   'mat kinh',
 ] as const
+
+/** Brand/cụm rõ — chỉ siết lọc khi user hỏi đúng tên hãng/model */
+const STRICT_BRAND_TERMS = new Set([
+  'macbook',
+  'iphone',
+  'airpod',
+  'airpods',
+  'samsung',
+  'dell',
+  'hp',
+  'asus',
+  'lenovo',
+  'xiaomi',
+  'sony',
+  'logitech',
+  'airflex',
+  'keypro',
+])
+
+function deriveSearchPhrases(normalizedQuery: string, originalWords: string[]): string[] {
+  const phrases = new Set<string>()
+  for (const phrase of [...FOCUS_PHRASES].sort((a, b) => b.length - a.length)) {
+    if (normalizedQuery.includes(phrase)) phrases.add(phrase)
+  }
+  for (let i = 0; i < originalWords.length - 1; i++) {
+    phrases.add(`${originalWords[i]} ${originalWords[i + 1]}`)
+  }
+  if (originalWords.length >= 3) {
+    phrases.add(originalWords.slice(0, 3).join(' '))
+  }
+  if (originalWords.length >= 2) {
+    phrases.add(originalWords.join(' '))
+  }
+  if (originalWords.length === 1 && originalWords[0].length >= 3) {
+    phrases.add(originalWords[0])
+  }
+  return [...phrases].sort((a, b) => b.length - a.length)
+}
 
 export interface PriceRange {
   min: number | null
@@ -234,85 +272,115 @@ export function applyPriceRange(products: Product[], range: PriceRange | null): 
   })
 }
 
+/** Bỏ token giá + động từ tìm kiếm + "loại/danh mục" để lấy từ khóa SP thuần */
+const SEARCH_VERB_PREFIX =
+  /^(?:tim\s+kiem|tim kiem|tim sp|tim san pham|search for|search|find product|find|lookup|kiem san pham|kiem sp|kiem|goi y tim|muon tim|can tim|xem tim)\s+/i
+
+export function extractProductSearchTerms(raw: string): string {
+  let n = stripAffordableMarkers(stripPriceTokens(raw))
+  for (let i = 0; i < 4; i++) {
+    const stripped = normalizeText(n).replace(SEARCH_VERB_PREFIX, '').trim()
+    if (stripped === normalizeText(n)) break
+    n = stripped
+  }
+  n = normalizeText(n)
+    .replace(/\b(loai|danh muc|category|phan loai|thuoc|thuoc loai|hang|san pham|sp|mon|do)\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return n
+}
+
 export function findProductsByQuery(products: Product[], query: string): Product[] {
-  const normalizedQuery = normalizeText(query)
+  const cleaned = extractProductSearchTerms(query)
+  const normalizedQuery = normalizeText(cleaned || query)
   const originalWords = normalizedQuery
     .split(/\s+/)
-    .filter((w) => w.length > 2 && !STOP_WORDS.has(w))
-  const focusPhrase = FOCUS_PHRASES.find((phrase) => normalizedQuery.includes(phrase)) ?? null
-  const expanded = expandQueryTerms(query)
+    .filter((w) => w.length >= 2 && !STOP_WORDS.has(w))
+  const searchPhrases = deriveSearchPhrases(normalizedQuery, originalWords)
+  const expanded = expandQueryTerms(cleaned || query, { search: true })
   const words = expanded.filter((w) => {
     const parts = w.split(/\s+/)
     if (parts.length > 1) return true
-    return w.length > 2 && !STOP_WORDS.has(w)
+    return w.length >= 2 && !STOP_WORDS.has(w)
   })
-  if (!words.length && !focusPhrase) return []
+  if (!words.length && !searchPhrases.length) return []
 
   const scored = products
     .map((p) => {
       const nameHay = normalizeText(p.name)
+      const descHay = normalizeText(p.description ?? '')
+      const catHay = normalizeText(p.category ?? '')
       const hay = normalizeText(
         `${p.name} ${p.category} ${p.description} ${p.shopName ?? ''} ${p.sellerEmail ?? ''}`,
       )
+      const nameWords = nameHay.split(/\s+/).filter((w) => w.length >= 2)
       let score = 0
       let nameHit = false
       let phraseHit = false
 
-      if (focusPhrase) {
-        if (nameHay.includes(focusPhrase)) {
-          score += focusPhrase.length * 10
+      for (const phrase of searchPhrases) {
+        if (nameHay.includes(phrase)) {
+          score += phrase.length * 10
           nameHit = true
           phraseHit = true
-        } else if (hay.includes(focusPhrase)) {
-          score += focusPhrase.length * 4
+        } else if (catHay.includes(phrase) || descHay.includes(phrase) || hay.includes(phrase)) {
+          score += phrase.length * 3.5
           phraseHit = true
         }
       }
 
-      // Ưu tiên khớp đúng từ trong câu hỏi trên TÊN SP (macbook ≠ mọi laptop)
       for (const w of originalWords) {
         if (nameHay.includes(w)) {
           score += w.length * 6
           nameHit = true
-        }
-      }
-      for (const w of words) {
-        if (hay.includes(w)) {
-          // Match chỉ ở category/mô tả (vd: laptop) nhẹ hơn match tên
-          const inName = nameHay.includes(w)
-          score += w.length * (inName ? (w.includes(' ') ? 3.2 : 2.4) : w.includes(' ') ? 1.2 : 0.85)
           continue
         }
-        // Fuzzy chỉ trên từ đơn ≥4 — tránh nhiễu synonym
-        if (w.includes(' ') || w.length < 4) continue
+        for (const nw of nameWords) {
+          if (w.length >= 2 && (nw.includes(w) || w.includes(nw))) {
+            score += w.length * 5
+            nameHit = true
+            break
+          }
+        }
+        if (descHay.includes(w)) score += w.length * 2
+        if (catHay.includes(w)) score += w.length * 1.2
+      }
+
+      for (const w of words) {
+        if (hay.includes(w)) {
+          const inName = nameHay.includes(w)
+          score += w.length * (inName ? (w.includes(' ') ? 3.2 : 2.4) : w.includes(' ') ? 1.2 : 0.85)
+          if (inName) nameHit = true
+          continue
+        }
+        if (w.includes(' ') || w.length < 3) continue
         for (const hw of hay.split(/\s+/)) {
-          if (hw.length < 4) continue
+          if (hw.length < 3) continue
           const sim = wordSimilarity(hw, w)
-          if (sim >= 0.82) score += w.length * sim * (nameHay.includes(hw) ? 1 : 0.45)
+          if (sim >= 0.82) {
+            score += w.length * sim * (nameHay.includes(hw) ? 1 : 0.45)
+            if (nameHay.includes(hw)) nameHit = true
+          }
         }
       }
       score += Math.min(p.soldCount / 500, 1.5)
-      // Có brand/cụm rõ trong câu hỏi mà tên SP không chứa → loại mạnh
-      if (originalWords.length && !nameHit && originalWords.some((w) => w.length >= 4)) {
-        score *= 0.25
-      }
-      // Hỏi cụm SP rõ (tai nghe…) mà không đụng cụm đó → loại
-      if (focusPhrase && !phraseHit && !nameHit) {
-        score *= 0.15
+
+      const brandQuery = originalWords.filter((w) => STRICT_BRAND_TERMS.has(w))
+      if (brandQuery.length && !nameHit) {
+        score *= brandQuery.some((w) => w.length >= 5) ? 0.2 : 0.45
       }
       return { p, score, nameHit, phraseHit }
     })
-    .filter((x) => x.score >= 4)
+    .filter((x) => x.score >= 2.5)
     .sort((a, b) => b.score - a.score || Number(b.nameHit) - Number(a.nameHit))
 
-  // Có cụm focus → chỉ giữ SP khớp cụm/tên; không fallback serum/bếp
-  if (focusPhrase) {
-    const focused = scored.filter((x) => x.phraseHit || x.nameHit)
-    if (focused.length) return focused.map((x) => x.p)
+  const brandTerm = originalWords.find((w) => STRICT_BRAND_TERMS.has(w) && w.length >= 5)
+  if (brandTerm) {
+    const brandFocused = scored.filter((x) => x.nameHit)
+    if (brandFocused.length) return brandFocused.map((x) => x.p)
     return []
   }
 
-  // Nếu có hit đúng tên brand → chỉ giữ nhóm đó (tránh Dell lẫn MacBook)
   const withName = scored.filter((x) => x.nameHit)
   const picked = withName.length ? withName : scored
   return picked.map((x) => x.p)
@@ -356,28 +424,15 @@ export interface SmartProductFilterResult {
 export function filterProductsForQuery(
   products: Product[],
   raw: string,
-  categories: { name: string; slug: string }[] = [],
+  _categories: { name: string; slug: string }[] = [],
   limit = 8,
 ): SmartProductFilterResult {
   const range = extractPriceRange(raw)
-  const matchedCat = matchCategoryFromText(raw, categories)
-  const queryText = stripPriceTokens(raw)
-  const brandish = /macbook|iphone|airpod|samsung|dell|hp|asus|lenovo|xiaomi|sony|logitech/.test(
-    normalizeText(raw),
-  )
+  const queryText = extractProductSearchTerms(raw)
 
   let pool = products.filter((p) => (p.stock ?? 0) > 0)
-
-  // Brand rõ: search trên toàn catalog trước, đừng ép cả category
-  if (!brandish && matchedCat) {
-    const catNorm = normalizeText(matchedCat.name)
-    const byCat = pool.filter((p) => normalizeText(p.category) === catNorm)
-    if (byCat.length) pool = byCat
-  }
-
   pool = applyPriceRange(pool, range)
 
-  // Ưu tiên lọc theo tên shop/seller ("sản phẩm của Trần Thị Bán")
   const sellerQ = extractSellerNameQuery(raw)
   if (sellerQ) {
     const bySeller = findProductsBySellerName(pool, sellerQ)
@@ -392,18 +447,17 @@ export function filterProductsForQuery(
   let hits: Product[] = []
   if (queryText.length >= 2) {
     hits = findProductsByQuery(pool, queryText)
-    // không fallback cả category khi user hỏi brand cụ thể
-    if (!hits.length && (range || matchedCat) && !brandish) {
+    if (!hits.length && range) {
       hits = [...pool].sort((a, b) => a.price - b.price)
     }
-  } else if (range || matchedCat) {
+  } else if (range) {
     hits = [...pool].sort((a, b) => a.price - b.price)
   }
 
   return {
     products: hits.slice(0, limit),
     range,
-    categoryName: brandish ? null : matchedCat?.name ?? null,
+    categoryName: null,
     queryText,
   }
 }

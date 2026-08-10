@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { normalizeText } from '@/api/chat/match'
 import {
   affordableProductsForQuery,
   computeProductPriceStats,
@@ -6,6 +7,7 @@ import {
   extractBudgetVnd,
   extractPriceRange,
   extractProductFocusLabel,
+  extractProductSearchTerms,
   extractSellerNameQuery,
   filterProductsForQuery,
   findProductsByQuery,
@@ -173,6 +175,77 @@ describe('tai nghe giá cả trung bình', () => {
     expect(stats?.max).toBe(1_890_000)
     expect(stats?.cheapest.name).toMatch(/tai nghe/i)
     expect(stats?.priciest.name).toMatch(/tai nghe/i)
+  })
+})
+
+describe('generic product search (all categories)', () => {
+  const diverse: Product[] = [
+    p({ id: '1', name: 'Tai nghe Bluetooth Pro ANC', price: 1_890_000, category: 'Điện tử' }),
+    p({ id: '2', name: 'Bàn phím cơ RGB', price: 2_450_000, category: 'Điện tử' }),
+    p({ id: '3', name: 'Giày chạy bộ AirFlex', price: 1_490_000, category: 'Thể thao' }),
+    p({ id: '4', name: 'Kính mát UV400', price: 890_000, category: 'Phụ kiện' }),
+    p({ id: '5', name: 'Serum Vitamin C 20ml', price: 459_000, category: 'Chăm sóc da' }),
+    p({ id: '6', name: 'Balo du lịch chống nước', price: 650_000, category: 'Phụ kiện' }),
+    p({ id: '7', name: 'Áo thun cotton basic', price: 199_000, category: 'Thời trang' }),
+  ]
+
+  it.each([
+    ['search kính', 'kinh', ['4']],
+    ['tìm kiếm tai nghe', 'tai nghe', ['1']],
+    ['find giày', 'giay', ['3']],
+    ['tim ban phim', 'ban phim', ['2']],
+    ['search serum', 'serum', ['5']],
+    ['tìm balo', 'balo', ['6']],
+    ['search ao thun', 'ao thun', ['7']],
+  ])('%s → finds correct product group', (raw, term, expectedIds) => {
+    const hits = findProductsByQuery(diverse, raw)
+    expect(hits.length).toBeGreaterThan(0)
+    expect(hits.some((x) => expectedIds.includes(String(x.id)))).toBe(true)
+    expect(hits.every((x) => normalizeText(x.name + x.category + x.description).includes(term.split(' ')[0]))).toBe(
+      true,
+    )
+  })
+
+  it('works via filterProductsForQuery without category lock', () => {
+    const { products, categoryName } = filterProductsForQuery(
+      diverse,
+      'search balo du lich',
+      [{ name: 'Chăm sóc da', slug: 'cham-soc-da' }],
+    )
+    expect(categoryName).toBeNull()
+    expect(products.some((x) => x.id === '6')).toBe(true)
+  })
+})
+
+describe('partial product search', () => {
+  const glasses: Product[] = [
+    p({ id: 'g1', name: 'Kính mát UV400', price: 890_000, category: 'Phụ kiện', description: 'Gọng nhẹ chống tia UV' }),
+    p({ id: 'g2', name: 'Kính cận gọng nhẹ', price: 450_000, category: 'Phụ kiện' }),
+    p({ id: 'g3', name: 'Serum Vitamin C', price: 459_000, category: 'Chăm sóc da' }),
+  ]
+
+  it('extracts keyword from search phrases', () => {
+    expect(extractProductSearchTerms('search kính')).toBe('kinh')
+    expect(extractProductSearchTerms('tìm kiếm kính')).toBe('kinh')
+    expect(extractProductSearchTerms('kính loại mắt kính')).toBe('kinh mat kinh')
+  })
+
+  it('finds glasses by partial name', () => {
+    const hits = findProductsByQuery(glasses, 'search kính')
+    expect(hits.length).toBeGreaterThan(0)
+    expect(hits.every((x) => normalizeText(x.name).includes('kinh'))).toBe(true)
+    expect(hits.some((x) => x.id === 'g3')).toBe(false)
+  })
+
+  it('does not restrict by category in filterProductsForQuery', () => {
+    const mixed = [...catalog, ...glasses]
+    const { products, categoryName } = filterProductsForQuery(
+      mixed,
+      'tìm kiếm kính',
+      [{ name: 'Chăm sóc da', slug: 'cham-soc-da' }],
+    )
+    expect(categoryName).toBeNull()
+    expect(products.some((x) => normalizeText(x.name).includes('kinh'))).toBe(true)
   })
 })
 

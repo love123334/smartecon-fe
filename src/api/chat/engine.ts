@@ -10,6 +10,7 @@ import {
   extractBudgetVnd,
   extractPriceRange,
   extractProductFocusLabel,
+  extractProductSearchTerms,
   extractSellerNameQuery,
   filterProductsForQuery,
   findProductsByQuery,
@@ -255,13 +256,13 @@ function shoppingStructuredReply(
   }
 
   if (filter.products.length) {
-    const title = filter.categoryName
-      ? `Một vài lựa chọn trong **${filter.categoryName}**:`
+    const label = filter.queryText
+      ? `Kết quả cho **${filter.queryText}**:`
       : filter.range
         ? `Sản phẩm trong tầm giá **${formatPriceRangeLabel(filter.range)}**:`
         : 'Mình gợi ý vài sản phẩm liên quan:'
     return {
-      content: cardsIntro(ctx, title, filter.products.length),
+      content: cardsIntro(ctx, label, filter.products.length),
       products: toChatProducts(filter.products, 6),
     }
   }
@@ -555,7 +556,7 @@ export async function generateAssistantReply(
   }
 
   const searchHits = ctx.enrichment?.searchResults
-  const matched = searchHits?.length ? searchHits : findProductsByQuery(catalog, raw)
+  const matched = searchHits?.length ? searchHits : findProductsByQuery(catalog, extractProductSearchTerms(raw) || raw)
 
   const smart = smartProductFallback(ctx, raw, matched)
   if (smart) {

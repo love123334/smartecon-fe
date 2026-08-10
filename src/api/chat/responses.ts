@@ -15,6 +15,7 @@ import {
   computeProductPriceStats,
   extractBudgetVnd,
   extractProductFocusLabel,
+  extractProductSearchTerms,
   filterProductsForQuery,
   findProductsByQuery,
   groupProductsByShop,
@@ -92,7 +93,7 @@ function resolveProductHits(ctx: ChatContext, raw: string): Product[] {
   if (ctx.enrichment?.product) return [ctx.enrichment.product]
   const filtered = filterProductsForQuery(ctx.products, raw, ctx.categories, 12)
   if (filtered.products.length) return filtered.products
-  return findProductsByQuery(ctx.products, stripPriceTokens(raw) || raw)
+  return findProductsByQuery(ctx.products, extractProductSearchTerms(raw) || stripPriceTokens(raw) || raw)
 }
 
 function whereToBuyReply(ctx: ChatContext, raw: string): string {
@@ -240,13 +241,18 @@ function categoryBrowseReply(ctx: ChatContext, raw: string): string {
 
 function productSearchReply(ctx: ChatContext, raw: string): string {
   const name = greet(ctx.userName ?? '')
-  const hits = ctx.enrichment?.searchResults?.length
-    ? ctx.enrichment.searchResults
-    : findProductsByQuery(ctx.products, raw)
-  if (!hits.length) {
-    return `${name}Gõ tên SP cụ thể, vd: "tìm tai nghe bluetooth" hoặc "bàn phím cơ".`
+  const terms = extractProductSearchTerms(raw)
+  const localHits = findProductsByQuery(ctx.products, terms || raw)
+  const apiHits = ctx.enrichment?.searchResults ?? []
+  const merged = [...apiHits]
+  for (const p of localHits) {
+    if (!merged.some((x) => String(x.id) === String(p.id))) merged.push(p)
   }
-  return `${name}Mình tìm thấy vài lựa chọn phù hợp:\n${productLines(hits.slice(0, 6), 6)}\n\nBấm card bên dưới để xem chi tiết, hoặc nói rõ hơn nhu cầu nhé.`
+  const hits = merged.length ? merged : localHits
+  if (!hits.length) {
+    return `${name}Chưa thấy **${terms || 'sản phẩm đó'}** trên shop. Thử tên ngắn hơn (vd: "kính", "tai nghe") hoặc mở **Tìm kiếm** trên header.`
+  }
+  return `${name}Mình tìm thấy vài lựa chọn cho **${terms || 'nhu cầu của bạn'}**:\n${productLines(hits.slice(0, 6), 6)}\n\nBấm card bên dưới để xem chi tiết, hoặc nói rõ hơn nhu cầu nhé.`
 }
 
 function cheapestReply(ctx: ChatContext): string {

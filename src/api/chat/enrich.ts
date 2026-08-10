@@ -1,7 +1,7 @@
 import type { ChatContext, ChatEnrichment } from '@/api/chat/context'
 import type { ChatIntent } from '@/api/chat/intents'
 import { normalizeText } from '@/api/chat/match'
-import { findProductsByQuery, isPriceStatsQuery } from '@/api/chat/products'
+import { findProductsByQuery, extractProductSearchTerms, isPriceStatsQuery } from '@/api/chat/products'
 import { matchCategoryFromText } from '@/api/chat/synonyms'
 import {
   demandBriefLive,
@@ -43,18 +43,22 @@ function extractOrderId(raw: string): string | null {
 }
 
 function extractSearchQuery(raw: string): string | null {
+  const terms = extractProductSearchTerms(raw)
+  if (terms.replace(/\s/g, '').length >= 2) return terms
   const n = normalizeText(raw)
   const patterns = [
-    /(?:tim|search|find|kiem)\s+(.+)/,
+    /(?:tim\s+kiem|tim kiem|tim|search|find|kiem)\s+(.+)/,
     /(?:co|ban)\s+(.+?)\s+(?:khong|ko|khong)/,
     /(?:cho nao ban|o dau ban|mua o dau|shop nao ban|ai ban|where to buy)\s+(.+)/,
     /(?:nen mua|goi y|sp nao ngon|hang nao ngon)\s+(.+)/,
   ]
   for (const p of patterns) {
     const m = n.match(p)
-    if (m?.[1] && m[1].length > 1) return m[1].trim()
+    if (m?.[1]) {
+      const cleaned = extractProductSearchTerms(m[1])
+      if (cleaned.replace(/\s/g, '').length >= 2) return cleaned
+    }
   }
-  // bỏ cụm chỉ đường shop, giữ lại tên SP/danh mục
   const stripped = n
     .replace(
       /cho nao ban|o dau ban|mua o dau|shop nao ban|ai ban|seller nao|cua hang nao|where to buy|who sells|tim shop|ban o dau|nen mua|goi y|sp nao ngon|hang nao ngon|tot nhat|dang mua/g,
@@ -62,7 +66,10 @@ function extractSearchQuery(raw: string): string | null {
     )
     .replace(/\s+/g, ' ')
     .trim()
-  if (stripped.length > 2 && stripped !== n) return stripped
+  if (stripped.length > 2 && stripped !== n) {
+    const cleaned = extractProductSearchTerms(stripped)
+    if (cleaned.replace(/\s/g, '').length >= 2) return cleaned
+  }
   return null
 }
 
