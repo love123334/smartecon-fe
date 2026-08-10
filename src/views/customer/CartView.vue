@@ -20,6 +20,7 @@ const shipping = ref<'free' | 'express' | 'pickup'>('free')
 const coupon = ref('')
 const couponApplied = ref(false)
 const payBanner = ref<{ kind: 'ok' | 'warn' | 'err'; text: string; orderId?: string } | null>(null)
+const checkoutLoading = ref(false)
 
 const shippingFee = computed(() => {
   if (shipping.value === 'express') return 35_000
@@ -128,11 +129,21 @@ function consumePayQuery() {
 
 onMounted(async () => {
   consumePayQuery()
-  await cart.refresh()
+  if (!cart.lines.length) {
+    await cart.refresh({ enrichCatalog: false })
+  }
 })
 
-function checkout() {
-  router.push('/checkout')
+async function checkout() {
+  checkoutLoading.value = true
+  try {
+    await cart.prepareForCheckout()
+    await router.push('/checkout')
+  } catch {
+    /* error surfaced on cart store */
+  } finally {
+    checkoutLoading.value = false
+  }
 }
 
 function applyCoupon() {
@@ -276,8 +287,13 @@ function applyCoupon() {
             <strong>{{ formatVnd(grandTotal) }}</strong>
           </div>
 
-          <button type="button" class="btn-elegant-primary btn-block btn-interactive" @click="checkout">
-            Thanh toán
+          <button
+            type="button"
+            class="btn-elegant-primary btn-block btn-interactive"
+            :disabled="checkoutLoading"
+            @click="checkout"
+          >
+            {{ checkoutLoading ? 'Đang chuẩn bị…' : 'Thanh toán' }}
           </button>
         </aside>
       </div>

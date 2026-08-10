@@ -966,18 +966,22 @@ export interface CartLine {
   cartItemId?: string
 }
 
-export async function resolveCartLines(userId: string): Promise<CartLine[]> {
-  const items = await cartApi.getCart(userId)
+export async function resolveCartLines(
+  userId: string,
+  options?: { enrichCatalog?: boolean },
+): Promise<CartLine[]> {
+  const enrichCatalog = options?.enrichCatalog !== false
 
   if (apiConfig.useRealCart && hasBackendToken()) {
     const cart = await realCart.getCart()
-    // Prefer catalog images (same mapper as shop) so cart/checkout match listing
     const byId = new Map<string, Product>()
-    try {
-      const catalog = await listProductsHybrid({ size: 120 })
-      for (const p of catalog) byId.set(p.id, p)
-    } catch {
-      /* fall back to cart API image */
+    if (enrichCatalog) {
+      try {
+        const catalog = await listProductsHybrid({ size: 120 })
+        for (const p of catalog) byId.set(p.id, p)
+      } catch {
+        /* fall back to cart API image */
+      }
     }
 
     return cart.items.map((item) => {
@@ -1013,6 +1017,7 @@ export async function resolveCartLines(userId: string): Promise<CartLine[]> {
   }
 
   const products = getProducts()
+  const items = await cartApi.getCart(userId)
   const lines: CartLine[] = []
   for (const item of items) {
     const product = products.find((p) => p.id === item.productId)

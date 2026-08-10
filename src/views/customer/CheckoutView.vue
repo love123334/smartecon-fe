@@ -103,7 +103,11 @@ async function loadSellerMomoPreview() {
 }
 
 onMounted(async () => {
-  await cart.refresh()
+  if (cart.dirty) {
+    await cart.prepareForCheckout()
+  } else if (!cart.lines.length) {
+    await cart.refresh({ enrichCatalog: true })
+  }
   await loadSellerMomoPreview()
   if (auth.user) {
     const parts = (auth.user.fullName ?? '').trim().split(/\s+/)

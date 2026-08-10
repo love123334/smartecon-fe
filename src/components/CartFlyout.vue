@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { formatVnd } from '@/api/services'
@@ -12,6 +12,7 @@ const router = useRouter()
 
 const subtotal = computed(() => cart.total)
 const total = computed(() => cart.total)
+const checkoutLoading = ref(false)
 
 function close() {
   cart.closeDrawer()
@@ -22,9 +23,17 @@ function goCart() {
   router.push('/cart')
 }
 
-function goCheckout() {
-  close()
-  router.push('/checkout')
+async function goCheckout() {
+  checkoutLoading.value = true
+  try {
+    await cart.prepareForCheckout()
+    close()
+    await router.push('/checkout')
+  } catch {
+    /* cart store error */
+  } finally {
+    checkoutLoading.value = false
+  }
 }
 
 watch(drawerOpen, (open) => {
@@ -54,7 +63,7 @@ watch(drawerOpen, (open) => {
           </button>
         </header>
 
-        <div v-if="loading" class="cart-flyout__empty">Đang tải...</div>
+        <div v-if="loading && !lines.length" class="cart-flyout__empty">Đang tải...</div>
         <div v-else-if="!lines.length" class="cart-flyout__empty">
           <p>Giỏ hàng trống</p>
           <button type="button" class="btn-elegant-outline" @click="close(); router.push('/')">
@@ -100,8 +109,13 @@ watch(drawerOpen, (open) => {
               <span>Tổng</span>
               <strong>{{ formatVnd(total) }}</strong>
             </div>
-            <button type="button" class="btn-elegant-primary btn-block btn-interactive" @click="goCheckout">
-              Thanh toán
+            <button
+              type="button"
+              class="btn-elegant-primary btn-block btn-interactive"
+              :disabled="checkoutLoading"
+              @click="goCheckout"
+            >
+              {{ checkoutLoading ? 'Đang chuẩn bị…' : 'Thanh toán' }}
             </button>
             <button type="button" class="cart-flyout__view-cart btn-interactive" @click="goCart">
               Xem giỏ hàng
