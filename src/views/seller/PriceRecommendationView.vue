@@ -20,6 +20,8 @@ import {
   validatePricePredictionForm,
 } from '@/utils/pricePrediction'
 import { buildPricePredictionAiInsight } from '@/utils/sellerDssModuleAi'
+import DssProfitBreakdownPanel from '@/components/dss/DssProfitBreakdownPanel.vue'
+import type { CustomPriceScenarioApi } from '@/api/real/dss'
 
 interface SellerProductOption {
   id: number
@@ -43,6 +45,10 @@ const submitting = ref(false)
 const submitError = ref('')
 const successMessage = ref('')
 const result = ref<PricePredictionApi | null>(null)
+const customPriceInput = ref<number | ''>('')
+const customScenario = ref<CustomPriceScenarioApi | null>(null)
+const customSubmitting = ref(false)
+const customError = ref('')
 const resultStale = ref(false)
 
 let requestSeq = 0
@@ -166,6 +172,30 @@ function resetResult() {
 
 function retrySubmit() {
   void onSubmit()
+}
+
+async function onCustomPriceSubmit() {
+  if (!result.value || customSubmitting.value) return
+  const price = Number(customPriceInput.value)
+  if (!Number.isFinite(price) || price <= 0) {
+    customError.value = 'Nhập giá bán hợp lệ (VND).'
+    return
+  }
+  customError.value = ''
+  customSubmitting.value = true
+  try {
+    customScenario.value = await dssApi.evaluateCustomPriceScenario({
+      productId: result.value.productId,
+      fromDate: result.value.fromDate,
+      toDate: result.value.toDate,
+      customPrice: price,
+    })
+  } catch (e) {
+    customScenario.value = null
+    customError.value = mapPricePredictionError(e)
+  } finally {
+    customSubmitting.value = false
+  }
 }
 </script>
 
@@ -331,6 +361,9 @@ function retrySubmit() {
         <h2 id="price-summary-title" class="dss-card__title">Tóm tắt dữ liệu sản phẩm</h2>
         <p class="dss-meta"><span>Sản phẩm</span>{{ result.productName }}</p>
         <p class="dss-meta"><span>Khoảng thời gian</span>{{ result.fromDate }} → {{ result.toDate }}</p>
+        <p v-if="result.forecastPeriodLabel" class="dss-meta"><span>{{ result.forecastPeriodLabel }}</span></p>
+        <p v-if="result.historicalPeriodLabel" class="dss-meta"><span>{{ result.historicalPeriodLabel }}</span></p>
+        <p v-if="result.scenarioAssumptionNote" class="dss-hint">{{ result.scenarioAssumptionNote }}</p>
         <div class="dss-kpi-grid">
           <article class="dss-kpi">
             <span class="dss-kpi__label">Giá vốn</span>
@@ -402,6 +435,11 @@ function retrySubmit() {
           <h3 id="price-ai-title" class="dss-system-judgment__title">Nhận định từ hệ thống</h3>
           <p class="dss-system-judgment__text">{{ aiInsight.title }}</p>
         </div>
+        <div v-if="result.recommendation" class="dss-recommendation-block">
+          <h3 class="dss-system-judgment__title">Khuyến nghị</h3>
+          <p>{{ result.recommendation }}</p>
+          <p v-if="result.recommendationReason" class="dss-hint">{{ result.recommendationReason }}</p>
+        </div>
       </section>
 
       <!-- 4. Scenario table -->
@@ -422,9 +460,11 @@ function retrySubmit() {
                 <th scope="col">Giá mới</th>
                 <th scope="col" title="LN/sp = Giá mới − Giá vốn">LN / sp</th>
                 <th scope="col">Nhu cầu dự báo</th>
-                <th scope="col" title="Lợi nhuận kỳ vọng = LN/sp × Nhu cầu dự báo">
-                  LN kỳ vọng
+                <th scope="col">Doanh thu kỳ vọng</th>
+                <th scope="col" title="Lợi nhuận ròng kỳ vọng">
+                  LN ròng kỳ vọng
                 </th>
+                <th scope="col">Δ LN (%)</th>
               </tr>
             </thead>
             <tbody>
@@ -458,25 +498,95 @@ function retrySubmit() {
                 <td>{{ formatVndCurrency(row.newPrice) }}</td>
                 <td>{{ formatVndCurrency(row.profitPerProduct) }}</td>
                 <td>{{ formatQuantity(row.predictedDemand) }}</td>
+                <td>{{ formatVndCurrency(row.expectedRevenue ?? row.newPrice * row.predictedDemand) }}</td>
                 <td>
                   <strong>{{ formatVndCurrency(row.expectedProfit) }}</strong>
                 </td>
+                <td>{{ row.profitChangePercent != null ? `${row.profitChangePercent}%` : '—' }}</td>
               </tr>
             </tbody>
           </table>
         </div>
+      </section>
+
+      <!-- 5. Custom price scenario -->
+      <section class="dss-card" aria-labelledby="price-custom-title">
+        <h2 id="price-custom-title" class="dss-card__title">Kịch bản giá tùy chỉnh</h2>
+        <p class="dss-hint">
+          Nhập giá bán bạn muốn thử — hệ thống tính nhu cầu, doanh thu và lợi nhuận ròng tương ứng.
+        </p>
+        <form class="dss-form dss-form--inline" @submit.prevent="onCustomPriceSubmit">
+          <label class="dss-field">
+            <span>Giá thử nghiệm (VND)</span>
+            <input
+              v-model.number="customPriceInput"
+              type="number"
+              min="1"
+              step="1000"
+              class="dss-input"
+              :placeholder="String(result.currentPrice)"
+              :disabled="customSubmitting"
+            />
+          </label>
+          <button
+            type="submit"
+            class="dss-btn dss-btn--outline"
+            :disabled="customSubmitting"
+            :aria-busy="customSubmitting"
+          >
+            {{ customSubmitting ? 'Đang tính…' : 'Xem kịch bản' }}
+          </button>
+        </form>
+        <p v-if="customError" class="dss-alert dss-alert--warn" role="alert">{{ customError }}</p>
+        <template v-if="customScenario">
+          <p class="dss-recommendation-block">{{ customScenario.recommendation }}</p>
+          <p class="dss-hint">{{ customScenario.recommendationReason }}</p>
+          <p class="dss-meta">
+            <span>Giá hiện tại</span>{{ formatVndCurrency(customScenario.currentPrice) }}
+            → <strong>{{ formatVndCurrency(customScenario.customPrice) }}</strong>
+            ({{ customScenario.derivedPriceChangePercent > 0 ? '+' : '' }}{{ customScenario.derivedPriceChangePercent }}%)
+          </p>
+          <div class="dss-kpi-grid">
+            <article class="dss-kpi">
+              <span class="dss-kpi__label">Nhu cầu dự báo</span>
+              <strong>{{ formatQuantity(customScenario.scenario.predictedDemand) }}</strong>
+            </article>
+            <article class="dss-kpi">
+              <span class="dss-kpi__label">Doanh thu kỳ vọng</span>
+              <strong>{{ formatVndCurrency(customScenario.scenario.expectedRevenue ?? 0) }}</strong>
+            </article>
+            <article class="dss-kpi dss-kpi--accent">
+              <span class="dss-kpi__label">LN ròng kỳ vọng</span>
+              <strong>{{ formatVndCurrency(customScenario.scenario.expectedProfit) }}</strong>
+            </article>
+          </div>
+          <DssProfitBreakdownPanel
+            title="Chi tiết lợi nhuận — giá tùy chỉnh"
+            :breakdown="customScenario.scenario.profitBreakdown"
+          />
+        </template>
       </section>
     </template>
   </div>
 </template>
 
 <style scoped>
-.dss-hint {
-  display: block;
-  margin-top: 0.35rem;
-  color: var(--dss-muted, #607d8b);
-  font-size: 0.8125rem;
-  line-height: 1.4;
+.dss-recommendation-block {
+  font-weight: 600;
+  color: #0f766e;
+  margin: 0.75rem 0 0.35rem;
+  line-height: 1.45;
+}
+.dss-form--inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-end;
+  margin-top: 0.75rem;
+}
+.dss-form--inline .dss-field {
+  flex: 1;
+  min-width: 200px;
 }
 
 .dss-selected-name {

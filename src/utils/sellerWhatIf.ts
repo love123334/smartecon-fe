@@ -1,25 +1,25 @@
 import { ApiError } from '@/api/http/client'
 
-export const DISCOUNT_MIN = 1
-export const DISCOUNT_MAX = 50
-export const DISCOUNT_STEP = 1
+export const PRICE_CHANGE_MIN = -300
+export const PRICE_CHANGE_MAX = 300
+export const PRICE_CHANGE_STEP = 1
 export const SIMULATION_PERIOD_OPTIONS = [7, 14, 30, 60, 90] as const
 
 export interface SellerWhatIfFormInput {
   productId: unknown
-  discountPercentage: unknown
+  priceChangePercent: unknown
   simulationPeriod: unknown
 }
 
 export interface SellerWhatIfPayload {
   productId: number
-  discountPercentage: number
+  priceChangePercent: number
   simulationPeriod: number
 }
 
 export interface SellerWhatIfFormErrors {
   productId?: string
-  discountPercentage?: string
+  priceChangePercent?: string
   simulationPeriod?: string
 }
 
@@ -32,10 +32,10 @@ function toPositiveInt(value: unknown): number | null {
   return n
 }
 
-function toDiscountPercent(value: unknown): number | null {
+function toPriceChangePercent(value: unknown): number | null {
   if (value === '' || value == null) return null
   const n = typeof value === 'number' ? value : Number(value)
-  if (!Number.isFinite(n) || n <= 0 || n >= 100) return null
+  if (!Number.isFinite(n) || n < PRICE_CHANGE_MIN || n > PRICE_CHANGE_MAX) return null
   return n
 }
 
@@ -44,20 +44,20 @@ export function validateSellerWhatIfForm(
 ): { ok: true; payload: SellerWhatIfPayload } | { ok: false; errors: SellerWhatIfFormErrors } {
   const errors: SellerWhatIfFormErrors = {}
   const productId = toPositiveInt(input.productId)
-  const discountPercentage = toDiscountPercent(input.discountPercentage)
+  const priceChangePercent = toPriceChangePercent(input.priceChangePercent)
   const simulationPeriod = toPositiveInt(input.simulationPeriod)
 
   if (productId == null) {
     errors.productId = 'Vui lòng chọn sản phẩm hợp lệ.'
   }
-  if (discountPercentage == null) {
-    errors.discountPercentage = 'Mức giảm giá phải lớn hơn 0% và nhỏ hơn 100%.'
+  if (priceChangePercent == null) {
+    errors.priceChangePercent = `Mức thay đổi giá phải từ ${PRICE_CHANGE_MIN}% đến ${PRICE_CHANGE_MAX}%.`
   }
   if (simulationPeriod == null) {
-    errors.simulationPeriod = 'Simulation Period phải là số nguyên dương.'
+    errors.simulationPeriod = 'Kỳ dự báo phải là số nguyên dương.'
   }
 
-  if (errors.productId || errors.discountPercentage || errors.simulationPeriod) {
+  if (errors.productId || errors.priceChangePercent || errors.simulationPeriod) {
     return { ok: false, errors }
   }
 
@@ -65,10 +65,27 @@ export function validateSellerWhatIfForm(
     ok: true,
     payload: {
       productId: productId!,
-      discountPercentage: discountPercentage!,
+      priceChangePercent: priceChangePercent!,
       simulationPeriod: simulationPeriod!,
     },
   }
+}
+
+/** Nhãn hiển thị: 0 = giữ giá, âm = giảm, dương = tăng */
+export function formatPriceChangeLabel(pct: number | string | null | undefined): string {
+  const n = typeof pct === 'number' ? pct : Number(pct)
+  if (!Number.isFinite(n)) return 'Giữ giá (0%)'
+  if (n === 0) return 'Giữ giá (0%)'
+  if (n < 0) return `Giảm ${Math.abs(n)}%`
+  return `Tăng ${n}%`
+}
+
+/** @deprecated dùng formatPriceChangeLabel */
+export function formatDiscountLabel(pct: number | string | null | undefined): string {
+  const n = typeof pct === 'number' ? pct : Number(pct)
+  if (!Number.isFinite(n)) return 'Giảm —%'
+  if (n <= 0) return formatPriceChangeLabel(n)
+  return `Giảm ${n}%`
 }
 
 export function formatVndCurrency(value: number | string | null | undefined): string {
@@ -91,16 +108,6 @@ export function formatQuantity(value: number | string | null | undefined): strin
   }).format(Math.round(n))
 }
 
-export function formatDiscountLabel(pct: number | string | null | undefined): string {
-  const n = typeof pct === 'number' ? pct : Number(pct)
-  if (!Number.isFinite(n)) return 'Giảm —%'
-  return `Giảm ${n}%`
-}
-
-/**
- * Badge từ currentProfit / expectedProfit (±3%).
- * Không dựa vào chuỗi tiếng Việt.
- */
 export function profitInsightBadge(
   currentProfit: number | string | null | undefined,
   expectedProfit: number | string | null | undefined,
@@ -122,9 +129,9 @@ export function profitInsightBadge(
 }
 
 export function profitInsightBadgeLabel(badge: ProfitInsightBadge): string {
-  if (badge === 'INCREASE') return 'INCREASE'
-  if (badge === 'DECREASE') return 'DECREASE'
-  return 'MAINTAIN'
+  if (badge === 'INCREASE') return 'Tăng'
+  if (badge === 'DECREASE') return 'Giảm'
+  return 'Ổn định'
 }
 
 export function mapSellerWhatIfError(error: unknown): string {
@@ -142,8 +149,8 @@ export function mapSellerWhatIfError(error: unknown): string {
       return error.message || 'Máy chủ gặp lỗi. Vui lòng thử lại sau.'
     }
     if (error.message?.trim()) return error.message
-    return 'Không phân tích được kịch bản giảm giá.'
+    return 'Không phân tích được kịch bản giá.'
   }
   if (error instanceof Error && error.message.trim()) return error.message
-  return 'Không phân tích được kịch bản giảm giá.'
+  return 'Không phân tích được kịch bản giá.'
 }

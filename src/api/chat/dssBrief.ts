@@ -154,7 +154,7 @@ export async function sellerWhatIfBriefLive(
     const { dssApi } = await import('@/api/services')
     const r = await dssApi.analyzeSellerWhatIf({
       productId: Number(focus.id),
-      discountPercentage: discountPct,
+      priceChangePercent: -Math.abs(discountPct),
       simulationPeriod: 30,
     })
     return [

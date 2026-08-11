@@ -156,16 +156,43 @@ function parseMoneyToken(numRaw: string, unitRaw?: string): number | null {
   const num = Number(String(numRaw).replace(',', '.'))
   if (!Number.isFinite(num) || num < 0) return null
   const unit = normalizeText(unitRaw ?? '')
-  if (unit.startsWith('tr') || unit === 'm' || unit === 'trieu') return Math.round(num * 1_000_000)
+  if (unit.startsWith('tr') || unit === 'm' || unit === 'trieu' || unit === 'cu' || unit === 'cuu')
+    return Math.round(num * 1_000_000)
   if (unit === 'k' || unit.startsWith('ngh')) return Math.round(num * 1_000)
-  // số trần không đơn vị nhỏ → triệu trong ngữ cảnh giá VN
+  // "2tr5" = 2.5 triệu handled in extractPriceRange
   if (!unit && num > 0 && num < 1000) return Math.round(num * 1_000_000)
   return Math.round(num)
+}
+
+/** "2tr5", "2 trieu 5", "2.5tr" → VND */
+function parseCompactMillion(raw: string): number | null {
+  const n = normalizeText(raw)
+  const m =
+    n.match(/(\d+[.,]?\d*)\s*tr\s*(\d)\b/) ??
+    n.match(/(\d+)\s*trieu\s*(\d)\b/) ??
+    n.match(/(\d+[.,]\d+)\s*tr\b/)
+  if (!m) return null
+  if (m[2] != null && m[2].length === 1) {
+    return Math.round(Number(m[1]) * 1_000_000 + Number(m[2]) * 100_000)
+  }
+  return Math.round(Number(String(m[1]).replace(',', '.')) * 1_000_000)
 }
 
 /** Trích khoảng giá: dưới X · từ X đến Y · X-Y triệu · trên X */
 export function extractPriceRange(raw: string): PriceRange | null {
   const n = normalizeText(raw)
+
+  const compact = parseCompactMillion(raw)
+  if (compact != null && compact > 0) {
+    if (/duoi|under|toi da|max|khong qua|tầm|tam|khoang|ngan sach|budget/.test(n)) {
+      return { min: null, max: compact }
+    }
+    if (/tren|it nhat|>=/.test(n)) return { min: compact, max: null }
+    // "tầm 2tr5" → ±10% band
+    if (/tam|khoang|around|±/.test(n)) {
+      return { min: Math.round(compact * 0.9), max: Math.round(compact * 1.1) }
+    }
+  }
 
   const between =
     n.match(
@@ -185,10 +212,10 @@ export function extractPriceRange(raw: string): PriceRange | null {
   }
 
   const under =
-    n.match(/(?:duoi|under|toi da|max|<=|<|khong qua|re hon)\s*(\d+[.,]?\d*)\s*(trieu|tr|m|k|nghin|ngan)?/) ??
-    n.match(/(\d+[.,]?\d*)\s*(trieu|tr)\s*(?:tro xuong|do xuong|thoi|tro lai)?/) ??
-    n.match(/(?:trong tam|tam gia|ngan sach|budget)\s*(?:khoang|around|about)?\s*(\d+[.,]?\d*)\s*(trieu|tr|m|k)?/) ??
-    n.match(/budget\s*(\d+[.,]?\d*)\s*(trieu|tr|k)?/)
+    n.match(/(?:duoi|under|toi da|max|<=|<|khong qua|re hon|co\s*(?:con|gi|sp)?\s*duoi)\s*(\d+[.,]?\d*)\s*(trieu|tr|m|k|cu|cuu|nghin|ngan)?/) ??
+    n.match(/(\d+[.,]?\d*)\s*(trieu|tr|cu|cuu)\s*(?:tro xuong|do xuong|thoi|tro lai)?/) ??
+    n.match(/(?:trong tam|tam gia|tam|ngan sach|budget|khoang)\s*(?:khoang|around|about)?\s*(\d+[.,]?\d*)\s*(trieu|tr|m|k|cu|cuu)?/) ??
+    n.match(/(?:mua|tim|goi y).{0,20}(\d+[.,]?\d*)\s*(trieu|tr|cu|cuu)\s*(?:dong|vnd|thoi)?/)
   if (under) {
     const max = parseMoneyToken(under[1], under[2])
     if (max != null && max > 0) return { min: null, max }

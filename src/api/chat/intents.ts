@@ -1,4 +1,5 @@
 import { isShortGreeting, normalizeText, phraseBoost, scoreKeywords, matchAnyKeyword } from '@/api/chat/match'
+import { extractPriceRange } from '@/api/chat/products'
 import type { UserRole } from '@/types'
 
 export type ChatIntent =
@@ -570,6 +571,16 @@ function refineIntent(
   // SP theo tên shop/seller — trước "rẻ nhất" (tránh "sản phẩm của…" nhầm cheapest)
   if (/(?:san pham|sp|hang)\s+cua\s+\S+|(?:san pham|sp)\s+(?:tu|o)\s+shop\s+\S+|cua\s+shop\s+\S+/.test(normalized)) {
     return 'product_search'
+  }
+
+  // Ngân sách / giới hạn giá — ưu tiên trước product_search
+  if (
+    extractPriceRange(normalized) ||
+    /duoi\s*\d|under\s*\d|toi da\s*\d|tam\s*\d|khoang\s*\d|ngan sach|budget\s*\d|mua\s*duoi|co\s*gi\s*duoi|ban\s*duoi|\d+\s*tr\b|\d+\s*cu\b/.test(
+      normalized,
+    )
+  ) {
+    return 'product_budget'
   }
 
   // Rẻ nhất — bắt buộc có "rẻ nhất" / "nào rẻ", không khớp nhầm "sản phẩm của…"

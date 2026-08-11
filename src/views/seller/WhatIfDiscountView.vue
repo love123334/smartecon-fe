@@ -6,17 +6,21 @@ import type { SellerWhatIfApi } from '@/api/real/dss'
 import { useAuthStore } from '@/stores/auth'
 import { loadSellerCatalogForDss } from '@/utils/sellerCatalog'
 import {
-  DISCOUNT_MAX,
-  DISCOUNT_MIN,
-  DISCOUNT_STEP,
+  PRICE_CHANGE_MAX,
+  PRICE_CHANGE_MIN,
+  PRICE_CHANGE_STEP,
   SIMULATION_PERIOD_OPTIONS,
-  formatDiscountLabel,
+  formatPriceChangeLabel,
   formatQuantity,
   formatVndCurrency,
   mapSellerWhatIfError,
   validateSellerWhatIfForm,
 } from '@/utils/sellerWhatIf'
 import { buildWhatIfSystemJudgment } from '@/utils/sellerDssModuleAi'
+import DssProfitBreakdownPanel from '@/components/dss/DssProfitBreakdownPanel.vue'
+import type { SalesQuantityTargetApi, TargetProfitApi } from '@/api/real/dss'
+
+type ScenarioMode = 'discount' | 'targetProfit' | 'salesQty'
 
 interface SellerProductOption {
   id: number
@@ -25,23 +29,29 @@ interface SellerProductOption {
 
 const auth = useAuthStore()
 
+const scenarioMode = ref<ScenarioMode>('discount')
 const products = ref<SellerProductOption[]>([])
 const productsLoading = ref(false)
 const productsError = ref('')
 
 const productId = ref<number | ''>('')
-const discountPercentage = ref(10)
+const priceChangePercent = ref(0)
 const simulationPeriod = ref(30)
+const targetProfitVnd = ref(500_000_000)
+const increasePercent = ref(20)
 
 const fieldErrors = ref<{
   productId?: string
   discountPercentage?: string
+  priceChangePercent?: string
   simulationPeriod?: string
 }>({})
 const submitting = ref(false)
 const submitError = ref('')
 const successMessage = ref('')
 const result = ref<SellerWhatIfApi | null>(null)
+const targetResult = ref<TargetProfitApi | null>(null)
+const salesQtyResult = ref<SalesQuantityTargetApi | null>(null)
 const resultStale = ref(false)
 
 let requestSeq = 0
@@ -55,20 +65,30 @@ const canSubmit = computed(
   () => !submitting.value && !productsLoading.value && products.value.length > 0,
 )
 
-const showResults = computed(() => Boolean(result.value) && !resultStale.value)
+const showResults = computed(() => {
+  if (resultStale.value) return false
+  if (scenarioMode.value === 'discount') return Boolean(result.value)
+  if (scenarioMode.value === 'targetProfit') return Boolean(targetResult.value)
+  return Boolean(salesQtyResult.value)
+})
+
+const activeDiscountResult = computed(() =>
+  scenarioMode.value === 'discount' ? result.value : null,
+)
 
 const systemJudgment = computed(() => {
-  if (!result.value || resultStale.value) return ''
+  const r = activeDiscountResult.value
+  if (!r || resultStale.value) return ''
   return buildWhatIfSystemJudgment({
-    discountPercentage: result.value.discountPercentage,
-    currentProfit: result.value.currentProfit,
-    expectedProfit: result.value.expectedProfit,
+    discountPercentage: Math.abs(r.priceChangePercent ?? r.discountPercentage ?? 0),
+    currentProfit: r.currentProfit,
+    expectedProfit: r.expectedProfit,
   })
 })
 
-watch([productId, discountPercentage, simulationPeriod], () => {
+watch([productId, priceChangePercent, simulationPeriod, targetProfitVnd, increasePercent, scenarioMode], () => {
   if (skipStaleWatch) return
-  if (result.value) {
+  if (result.value || targetResult.value || salesQtyResult.value) {
     resultStale.value = true
     successMessage.value = ''
   }
@@ -116,14 +136,19 @@ async function loadSellerProducts() {
 
 async function onSubmit() {
   if (submitting.value) return
+  if (scenarioMode.value === 'targetProfit') return submitTargetProfit()
+  if (scenarioMode.value === 'salesQty') return submitSalesQty()
+  return submitDiscount()
+}
 
+async function submitDiscount() {
   successMessage.value = ''
   submitError.value = ''
   fieldErrors.value = {}
 
   const validated = validateSellerWhatIfForm({
     productId: productId.value,
-    discountPercentage: discountPercentage.value,
+    priceChangePercent: priceChangePercent.value,
     simulationPeriod: simulationPeriod.value,
   })
 
@@ -138,8 +163,70 @@ async function onSubmit() {
     const data = await dssApi.analyzeSellerWhatIf(validated.payload)
     if (seq !== requestSeq) return
     result.value = data
+    targetResult.value = null
+    salesQtyResult.value = null
     resultStale.value = false
     successMessage.value = 'Phân tích kịch bản giảm giá thành công.'
+  } catch (e) {
+    if (seq !== requestSeq) return
+    submitError.value = mapSellerWhatIfError(e)
+  } finally {
+    if (seq === requestSeq) submitting.value = false
+  }
+}
+
+async function submitTargetProfit() {
+  successMessage.value = ''
+  submitError.value = ''
+  fieldErrors.value = {}
+  if (!productId.value || targetProfitVnd.value <= 0) {
+    fieldErrors.value = { productId: !productId.value ? 'Chọn sản phẩm.' : undefined }
+    return
+  }
+  const seq = ++requestSeq
+  submitting.value = true
+  try {
+    const data = await dssApi.analyzeTargetProfit({
+      productId: Number(productId.value),
+      targetProfitVnd: targetProfitVnd.value,
+      simulationPeriod: simulationPeriod.value,
+    })
+    if (seq !== requestSeq) return
+    targetResult.value = data
+    result.value = null
+    salesQtyResult.value = null
+    resultStale.value = false
+    successMessage.value = 'Phân tích mục tiêu lợi nhuận thành công.'
+  } catch (e) {
+    if (seq !== requestSeq) return
+    submitError.value = mapSellerWhatIfError(e)
+  } finally {
+    if (seq === requestSeq) submitting.value = false
+  }
+}
+
+async function submitSalesQty() {
+  successMessage.value = ''
+  submitError.value = ''
+  fieldErrors.value = {}
+  if (!productId.value) {
+    fieldErrors.value = { productId: 'Chọn sản phẩm.' }
+    return
+  }
+  const seq = ++requestSeq
+  submitting.value = true
+  try {
+    const data = await dssApi.analyzeSalesQuantityTarget({
+      productId: Number(productId.value),
+      increasePercent: increasePercent.value,
+      simulationPeriod: simulationPeriod.value,
+    })
+    if (seq !== requestSeq) return
+    salesQtyResult.value = data
+    result.value = null
+    targetResult.value = null
+    resultStale.value = false
+    successMessage.value = 'Phân tích mục tiêu số lượng bán thành công.'
   } catch (e) {
     if (seq !== requestSeq) return
     submitError.value = mapSellerWhatIfError(e)
@@ -152,6 +239,8 @@ function resetResult() {
   requestSeq += 1
   submitting.value = false
   result.value = null
+  targetResult.value = null
+  salesQtyResult.value = null
   resultStale.value = false
   successMessage.value = ''
   submitError.value = ''
@@ -171,13 +260,43 @@ function retrySubmit() {
         <span>/</span>
         <RouterLink to="/seller/dss">DSS</RouterLink>
         <span>/</span>
-        <span>What-if giảm giá</span>
+        <span>Phân tích kịch bản</span>
       </nav>
-      <h1>What-if — Giảm giá & lợi nhuận</h1>
+      <h1>Phân tích kịch bản — Giá & lợi nhuận</h1>
       <p class="dss-page__sub">
-        Mô phỏng tác động giảm giá tới nhu cầu và lợi nhuận.
+        Mô phỏng giảm giá, mục tiêu lợi nhuận và mục tiêu số lượng bán — có giải thích rõ kỳ dự báo.
       </p>
     </header>
+
+    <div class="dss-tab-row" role="tablist" aria-label="Loại kịch bản">
+      <button
+        type="button"
+        role="tab"
+        class="dss-tab"
+        :class="{ 'dss-tab--active': scenarioMode === 'discount' }"
+        @click="scenarioMode = 'discount'"
+      >
+        Giảm / tăng giá
+      </button>
+      <button
+        type="button"
+        role="tab"
+        class="dss-tab"
+        :class="{ 'dss-tab--active': scenarioMode === 'targetProfit' }"
+        @click="scenarioMode = 'targetProfit'"
+      >
+        Mục tiêu lợi nhuận
+      </button>
+      <button
+        type="button"
+        role="tab"
+        class="dss-tab"
+        :class="{ 'dss-tab--active': scenarioMode === 'salesQty' }"
+        @click="scenarioMode = 'salesQty'"
+      >
+        Mục tiêu số lượng
+      </button>
+    </div>
 
     <div class="dss-sim-banner" role="note">
       <strong>Mô phỏng</strong>
@@ -216,7 +335,7 @@ function retrySubmit() {
           </label>
 
           <label class="dss-field">
-            <span id="period-label">Simulation Period</span>
+            <span id="period-label">Kỳ dự báo</span>
             <select
               v-model.number="simulationPeriod"
               class="dss-input"
@@ -238,39 +357,70 @@ function retrySubmit() {
             </small>
           </label>
 
-          <label class="dss-field dss-field--span2">
-            <span id="discount-label">
-              Discount Percentage —
-              <strong>{{ formatDiscountLabel(discountPercentage) }}</strong>
+          <label v-if="scenarioMode === 'discount'" class="dss-field dss-field--span2">
+            <span id="price-change-label">
+              Thay đổi giá —
+              <strong>{{ formatPriceChangeLabel(priceChangePercent) }}</strong>
             </span>
+            <div class="dss-bidirectional-slider" aria-hidden="true">
+              <span class="dss-bidirectional-slider__side">−{{ PRICE_CHANGE_MAX }}%</span>
+              <span class="dss-bidirectional-slider__center">0%</span>
+              <span class="dss-bidirectional-slider__side">+{{ PRICE_CHANGE_MAX }}%</span>
+            </div>
             <input
-              v-model.number="discountPercentage"
+              v-model.number="priceChangePercent"
               type="range"
-              class="dss-slider"
-              :min="DISCOUNT_MIN"
-              :max="DISCOUNT_MAX"
-              :step="DISCOUNT_STEP"
+              class="dss-slider dss-slider--bidirectional"
+              :min="PRICE_CHANGE_MIN"
+              :max="PRICE_CHANGE_MAX"
+              :step="PRICE_CHANGE_STEP"
               :disabled="submitting"
-              aria-labelledby="discount-label"
-              aria-describedby="discount-preview discount-error"
-              :aria-valuemin="DISCOUNT_MIN"
-              :aria-valuemax="DISCOUNT_MAX"
-              :aria-valuenow="discountPercentage"
-              :aria-valuetext="formatDiscountLabel(discountPercentage)"
-              :aria-invalid="Boolean(fieldErrors.discountPercentage)"
+              aria-labelledby="price-change-label"
+              aria-describedby="price-change-help"
+              :aria-valuemin="PRICE_CHANGE_MIN"
+              :aria-valuemax="PRICE_CHANGE_MAX"
+              :aria-valuenow="priceChangePercent"
+              :aria-valuetext="formatPriceChangeLabel(priceChangePercent)"
             />
-            <small id="discount-preview" class="dss-preview">
-              Preview: mức giảm đang chọn <strong>{{ discountPercentage }}%</strong>.
-              New Price chỉ hiển thị sau khi backend trả kết quả.
+            <small id="price-change-help" class="dss-hint">
+              Kéo <strong>trái</strong> = giảm giá · <strong>0</strong> = giữ giá · Kéo <strong>phải</strong> = tăng giá (±{{ PRICE_CHANGE_MAX }}%).
             </small>
             <small
-              v-if="fieldErrors.discountPercentage"
-              id="discount-error"
+              v-if="fieldErrors.priceChangePercent"
               class="dss-field-error"
               role="alert"
             >
-              {{ fieldErrors.discountPercentage }}
+              {{ fieldErrors.priceChangePercent }}
             </small>
+          </label>
+
+          <label v-if="scenarioMode === 'targetProfit'" class="dss-field dss-field--span2">
+            <span id="target-profit-label">Mục tiêu lợi nhuận ròng (VND)</span>
+            <input
+              v-model.number="targetProfitVnd"
+              type="number"
+              min="1"
+              step="1000000"
+              class="dss-input"
+              :disabled="submitting"
+              aria-labelledby="target-profit-label"
+            />
+            <small class="dss-hint">Ví dụ: 500000000 = 500 triệu VND lợi nhuận ròng trong kỳ dự báo.</small>
+          </label>
+
+          <label v-if="scenarioMode === 'salesQty'" class="dss-field dss-field--span2">
+            <span id="increase-label">Tăng số lượng bán (%)</span>
+            <input
+              v-model.number="increasePercent"
+              type="range"
+              class="dss-slider"
+              min="1"
+              max="100"
+              step="1"
+              :disabled="submitting"
+              aria-labelledby="increase-label"
+            />
+            <small class="dss-hint">Mục tiêu tăng <strong>{{ increasePercent }}%</strong> so với dự báo hiện tại.</small>
           </label>
         </div>
 
@@ -328,7 +478,7 @@ function retrySubmit() {
       </div>
     </section>
 
-    <section v-if="!result || resultStale" class="dss-card" aria-labelledby="whatif-empty-title">
+    <section v-if="!showResults && !(resultStale && (result || targetResult || salesQtyResult))" class="dss-card" aria-labelledby="whatif-empty-title">
       <div class="dss-empty" role="status">
         <div class="dss-empty__art" aria-hidden="true">◇</div>
         <h2 id="whatif-empty-title">{{ resultStale ? 'Kết quả đã cũ' : 'Chưa có kết quả mô phỏng' }}</h2>
@@ -342,75 +492,191 @@ function retrySubmit() {
       </div>
     </section>
 
-    <template v-if="showResults && result">
+    <template v-if="showResults && activeDiscountResult">
       <div class="dss-sim-banner dss-sim-banner--soft" role="status">
         Kết quả bên dưới là mô phỏng. Giá sản phẩm thực tế không bị thay đổi.
       </div>
 
       <section class="dss-card dss-whatif-results" aria-labelledby="whatif-results-title">
-        <h2 id="whatif-results-title" class="dss-card__title">Kết quả mô phỏng</h2>
+        <h2 id="whatif-results-title" class="dss-card__title">Kết quả mô phỏng — Điều chỉnh giá</h2>
+        <p v-if="activeDiscountResult.forecastPeriodLabel" class="dss-meta">
+          <span>Kỳ áp dụng</span>{{ activeDiscountResult.forecastPeriodLabel }}
+        </p>
+        <p v-if="activeDiscountResult.recommendation" class="dss-recommendation">
+          {{ activeDiscountResult.recommendation }}
+        </p>
+        <p v-if="activeDiscountResult.recommendationReason" class="dss-hint">
+          {{ activeDiscountResult.recommendationReason }}
+        </p>
 
         <h3 class="dss-kpi-group__title">Chỉ số sản phẩm</h3>
         <div class="dss-kpi-grid">
           <article class="dss-kpi">
             <span class="dss-kpi__label">Giá vốn</span>
-            <strong>{{ formatVndCurrency(result.costPrice) }}</strong>
+            <strong>{{ formatVndCurrency(activeDiscountResult.costPrice) }}</strong>
           </article>
           <article class="dss-kpi">
             <span class="dss-kpi__label">Giá hiện tại</span>
-            <strong>{{ formatVndCurrency(result.currentPrice) }}</strong>
+            <strong>{{ formatVndCurrency(activeDiscountResult.currentPrice) }}</strong>
           </article>
           <article class="dss-kpi">
             <span class="dss-kpi__label">Giá mới (mô phỏng)</span>
-            <strong>{{ formatVndCurrency(result.newPrice) }}</strong>
+            <strong>{{ formatVndCurrency(activeDiscountResult.newPrice) }}</strong>
           </article>
           <article class="dss-kpi">
             <span class="dss-kpi__label">Nhu cầu dự báo</span>
-            <strong>{{ formatQuantity(result.forecastDemand) }}</strong>
+            <strong>{{ formatQuantity(activeDiscountResult.forecastDemand) }}</strong>
           </article>
         </div>
 
-        <h3 class="dss-kpi-group__title">Chỉ số mô phỏng</h3>
+        <h3 class="dss-kpi-group__title">Tác động dự kiến</h3>
         <div class="dss-kpi-grid">
           <article class="dss-kpi">
-            <span class="dss-kpi__label">Giảm giá</span>
-            <strong>{{ formatDiscountLabel(result.discountPercentage) }}</strong>
+            <span class="dss-kpi__label">Thay đổi giá</span>
+            <strong>{{ formatPriceChangeLabel(activeDiscountResult.priceChangePercent ?? -activeDiscountResult.discountPercentage) }}</strong>
           </article>
           <article class="dss-kpi">
-            <span class="dss-kpi__label">Lợi nhuận hiện tại</span>
-            <strong>{{ formatVndCurrency(result.currentProfit) }}</strong>
+            <span class="dss-kpi__label">Doanh thu kỳ vọng</span>
+            <strong>{{ formatVndCurrency(activeDiscountResult.expectedRevenue ?? 0) }}</strong>
+          </article>
+          <article class="dss-kpi">
+            <span class="dss-kpi__label">Lợi nhuận ròng hiện tại</span>
+            <strong>{{ formatVndCurrency(activeDiscountResult.currentProfit) }}</strong>
           </article>
           <article class="dss-kpi dss-kpi--accent">
-            <span class="dss-kpi__label">Lợi nhuận kỳ vọng</span>
-            <strong>{{ formatVndCurrency(result.expectedProfit) }}</strong>
+            <span class="dss-kpi__label">Lợi nhuận ròng kỳ vọng</span>
+            <strong>{{ formatVndCurrency(activeDiscountResult.expectedProfit) }}</strong>
           </article>
           <article class="dss-kpi">
             <span class="dss-kpi__label">Nhu cầu sau giảm</span>
-            <strong>{{ formatQuantity(result.predictedDemand) }}</strong>
+            <strong>{{ formatQuantity(activeDiscountResult.predictedDemand) }}</strong>
           </article>
         </div>
 
-        <h3 class="dss-kpi-group__title">Các chỉ số khác</h3>
+        <DssProfitBreakdownPanel
+          title="Chi tiết lợi nhuận — hiện tại"
+          :breakdown="activeDiscountResult.currentProfitBreakdown"
+        />
+        <DssProfitBreakdownPanel
+          title="Chi tiết lợi nhuận — sau giảm giá"
+          :breakdown="activeDiscountResult.expectedProfitBreakdown"
+        />
+
+        <h3 class="dss-kpi-group__title">Hòa vốn</h3>
         <div class="dss-kpi-grid dss-kpi-grid--2">
           <article class="dss-kpi">
             <span class="dss-kpi__label">Hòa vốn (số lượng)</span>
-            <strong>{{ formatQuantity(result.breakEvenQuantity) }}</strong>
+            <strong>{{ formatQuantity(activeDiscountResult.breakEvenQuantity) }}</strong>
           </article>
           <article class="dss-kpi">
             <span class="dss-kpi__label">Số lượng cần thêm</span>
-            <strong>{{ formatQuantity(result.additionalUnitsRequired) }}</strong>
+            <strong>{{ formatQuantity(activeDiscountResult.additionalUnitsRequired) }}</strong>
           </article>
         </div>
 
         <div v-if="systemJudgment" class="dss-system-alert" role="status">
           {{ systemJudgment }}
         </div>
+        <p v-if="activeDiscountResult.businessInsight" class="dss-hint">{{ activeDiscountResult.businessInsight }}</p>
+      </section>
+    </template>
+
+    <template v-if="showResults && targetResult">
+      <section class="dss-card" aria-labelledby="target-profit-title">
+        <h2 id="target-profit-title" class="dss-card__title">Mục tiêu lợi nhuận</h2>
+        <p class="dss-meta"><span>Kỳ</span>{{ targetResult.forecastPeriodLabel }}</p>
+        <p class="dss-recommendation">{{ targetResult.recommendation }}</p>
+        <p class="dss-hint">{{ targetResult.recommendationReason }}</p>
+        <div class="dss-kpi-grid">
+          <article class="dss-kpi">
+            <span class="dss-kpi__label">Mục tiêu LN ròng</span>
+            <strong>{{ formatVndCurrency(targetResult.targetProfitVnd) }}</strong>
+          </article>
+          <article class="dss-kpi">
+            <span class="dss-kpi__label">Đạt được?</span>
+            <strong>{{ targetResult.achievable ? 'Có' : 'Chưa' }}</strong>
+          </article>
+          <article class="dss-kpi">
+            <span class="dss-kpi__label">Giá đề xuất</span>
+            <strong>{{ formatVndCurrency(targetResult.recommendedPrice) }}</strong>
+          </article>
+          <article class="dss-kpi">
+            <span class="dss-kpi__label">% điều chỉnh giá</span>
+            <strong>{{ targetResult.recommendedPriceChangePercent }}%</strong>
+          </article>
+        </div>
+        <DssProfitBreakdownPanel title="Hiện tại" :breakdown="targetResult.currentSituation" />
+        <DssProfitBreakdownPanel title="Kịch bản gần mục tiêu nhất" :breakdown="targetResult.targetSituation" />
+      </section>
+    </template>
+
+    <template v-if="showResults && salesQtyResult">
+      <section class="dss-card" aria-labelledby="sales-qty-title">
+        <h2 id="sales-qty-title" class="dss-card__title">Mục tiêu số lượng bán</h2>
+        <p class="dss-meta"><span>Kỳ</span>{{ salesQtyResult.forecastPeriodLabel }}</p>
+        <p class="dss-recommendation">{{ salesQtyResult.recommendation }}</p>
+        <p class="dss-hint">{{ salesQtyResult.recommendationReason }}</p>
+        <div class="dss-kpi-grid">
+          <article class="dss-kpi">
+            <span class="dss-kpi__label">Dự báo hiện tại</span>
+            <strong>{{ formatQuantity(salesQtyResult.currentForecastQuantity) }} SP</strong>
+          </article>
+          <article class="dss-kpi">
+            <span class="dss-kpi__label">Mục tiêu</span>
+            <strong>{{ formatQuantity(salesQtyResult.targetQuantity) }} SP</strong>
+          </article>
+          <article class="dss-kpi">
+            <span class="dss-kpi__label">Giá gợi ý</span>
+            <strong>{{ formatVndCurrency(salesQtyResult.suggestedPrice) }}</strong>
+          </article>
+        </div>
+        <DssProfitBreakdownPanel title="Hiện tại" :breakdown="salesQtyResult.currentSituation" />
+        <DssProfitBreakdownPanel title="Sau điều chỉnh" :breakdown="salesQtyResult.targetSituation" />
       </section>
     </template>
   </div>
 </template>
 
 <style scoped>
+.dss-bidirectional-slider {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: #64748b;
+  margin: 0.35rem 0 0.15rem;
+}
+.dss-bidirectional-slider__center {
+  font-weight: 700;
+  color: #0f766e;
+}
+.dss-slider--bidirectional {
+  accent-color: #0f766e;
+}
+.dss-tab-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.dss-tab {
+  border: 1px solid var(--dss-border, #cbd5e1);
+  background: #fff;
+  border-radius: 999px;
+  padding: 0.45rem 1rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+.dss-tab--active {
+  background: #0f766e;
+  color: #fff;
+  border-color: #0f766e;
+}
+.dss-recommendation {
+  font-weight: 600;
+  color: #0f766e;
+  margin: 0.5rem 0;
+  line-height: 1.45;
+}
 .dss-hint {
   display: block;
   margin-top: 0.35rem;

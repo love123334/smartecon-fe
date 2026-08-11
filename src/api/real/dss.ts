@@ -23,6 +23,12 @@ export interface DemandPredictionApi {
   averageDailyDemand: number
   predictedDemand: number
   generatedAt: string | null
+  historicalFrom?: string
+  historicalTo?: string
+  historicalPeriodLabel?: string
+  forecastPeriodLabel?: string
+  methodology?: string
+  trendFactor?: number
 }
 
 export interface CreateDemandPredictionRequest {
@@ -49,6 +55,17 @@ export interface PriceRecommendationApi {
 }
 
 /** POST /api/v1/dss/price-predictions */
+export interface DssProfitBreakdownApi {
+  revenue: number
+  costOfGoodsSold: number
+  deliveryCost: number
+  platformFee: number
+  operatingCost: number
+  grossProfit: number
+  netProfit: number
+  costNotes?: string[]
+}
+
 export interface PriceScenarioApi {
   priceChangePercent: number
   cost: number
@@ -56,6 +73,11 @@ export interface PriceScenarioApi {
   profitPerProduct: number
   predictedDemand: number
   expectedProfit: number
+  expectedRevenue?: number
+  profitChangePercent?: number
+  profitBreakdown?: DssProfitBreakdownApi
+  scenarioLabel?: string
+  recommended?: boolean
 }
 
 export interface PricePredictionApi {
@@ -69,6 +91,13 @@ export interface PricePredictionApi {
   totalQuantitySold: number
   bestScenario: PriceScenarioApi | null
   scenarios: PriceScenarioApi[] | null
+  forecastPeriodDays?: number
+  historicalPeriodLabel?: string
+  forecastPeriodLabel?: string
+  scenarioAssumptionNote?: string
+  recommendation?: string
+  recommendationReason?: string
+  currentSituationBreakdown?: DssProfitBreakdownApi
 }
 
 export interface CreatePricePredictionRequest {
@@ -131,11 +160,40 @@ export function createPricePrediction(body: CreatePricePredictionRequest) {
   return http.post<PricePredictionApi>(apiPaths.dss.pricePredictions, body, { timeoutMs: 15_000 })
 }
 
+export interface CustomPriceScenarioRequest {
+  productId: number
+  fromDate: string
+  toDate: string
+  customPrice: number
+}
+
+export interface CustomPriceScenarioApi {
+  productId: number
+  productName: string
+  currentPrice: number
+  customPrice: number
+  derivedPriceChangePercent: number
+  forecastPeriodDays: number
+  forecastPeriodLabel: string
+  scenario: PriceScenarioApi
+  recommendation: string
+  recommendationReason: string
+}
+
+export function evaluateCustomPriceScenario(body: CustomPriceScenarioRequest) {
+  return http.post<CustomPriceScenarioApi>(
+    `${apiPaths.dss.pricePredictions}/custom-scenario`,
+    body,
+    { timeoutMs: 15_000 },
+  )
+}
+
 /** POST /api/v1/dss/price-predictions — kept above; seller what-if is under /api/dss */
 
 export interface SellerWhatIfApi {
   currentPrice: number
   costPrice: number
+  priceChangePercent?: number
   discountPercentage: number
   newPrice: number
   forecastDemand: number
@@ -145,11 +203,22 @@ export interface SellerWhatIfApi {
   breakEvenQuantity: number
   additionalUnitsRequired: number
   businessInsight: string
+  simulationPeriod?: number
+  historicalPeriodLabel?: string
+  forecastPeriodLabel?: string
+  methodology?: string
+  currentRevenue?: number
+  expectedRevenue?: number
+  profitChangePercent?: number
+  currentProfitBreakdown?: DssProfitBreakdownApi
+  expectedProfitBreakdown?: DssProfitBreakdownApi
+  recommendation?: string
+  recommendationReason?: string
 }
 
 export interface SellerWhatIfRequest {
   productId: number
-  discountPercentage: number
+  priceChangePercent: number
   simulationPeriod: number
 }
 
@@ -166,6 +235,96 @@ export async function analyzeSellerWhatIf(body: SellerWhatIfRequest) {
     // Fallback: some BE branches mount the same handler under /api/v1
     if (e instanceof ApiError && (e.status === 404 || e.status === 405)) {
       return http.post<SellerWhatIfApi>(apiPaths.dss.whatIfSeller, body, { timeoutMs: 15_000 })
+    }
+    throw e
+  }
+}
+
+export interface TargetProfitRequest {
+  productId: number
+  targetProfitVnd: number
+  simulationPeriod: number
+}
+
+export interface TargetProfitApi {
+  productId: number
+  productName: string
+  simulationPeriod: number
+  forecastPeriodLabel: string
+  historicalPeriodLabel: string
+  targetProfitVnd: number
+  currentPrice: number
+  forecastDemand: number
+  currentSituation: DssProfitBreakdownApi
+  recommendedPriceChangePercent: number
+  recommendedPrice: number
+  estimatedDemand: number
+  targetSituation: DssProfitBreakdownApi
+  profitGapVnd: number
+  achievable: boolean
+  recommendation: string
+  recommendationReason: string
+  methodology: string
+}
+
+export interface SalesQuantityTargetRequest {
+  productId: number
+  increasePercent: number
+  simulationPeriod: number
+}
+
+export interface SalesQuantityTargetApi {
+  productId: number
+  productName: string
+  simulationPeriod: number
+  forecastPeriodLabel: string
+  increasePercent: number
+  currentForecastQuantity: number
+  targetQuantity: number
+  currentPrice: number
+  suggestedPrice: number
+  suggestedPriceChangePercent: number
+  currentSituation: DssProfitBreakdownApi
+  targetSituation: DssProfitBreakdownApi
+  profitChangePercent: number
+  recommendation: string
+  recommendationReason: string
+  methodology: string
+}
+
+export async function analyzeTargetProfit(body: TargetProfitRequest) {
+  try {
+    return await http.postAt<TargetProfitApi>(
+      apiRootWithoutVersion(),
+      `${apiPaths.dss.whatIfSeller}/target-profit`,
+      body,
+      { timeoutMs: 15_000 },
+    )
+  } catch (e) {
+    if (e instanceof ApiError && (e.status === 404 || e.status === 405)) {
+      return http.post<TargetProfitApi>(`${apiPaths.dss.whatIfSeller}/target-profit`, body, {
+        timeoutMs: 15_000,
+      })
+    }
+    throw e
+  }
+}
+
+export async function analyzeSalesQuantityTarget(body: SalesQuantityTargetRequest) {
+  try {
+    return await http.postAt<SalesQuantityTargetApi>(
+      apiRootWithoutVersion(),
+      `${apiPaths.dss.whatIfSeller}/sales-quantity-target`,
+      body,
+      { timeoutMs: 15_000 },
+    )
+  } catch (e) {
+    if (e instanceof ApiError && (e.status === 404 || e.status === 405)) {
+      return http.post<SalesQuantityTargetApi>(
+        `${apiPaths.dss.whatIfSeller}/sales-quantity-target`,
+        body,
+        { timeoutMs: 15_000 },
+      )
     }
     throw e
   }

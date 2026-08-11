@@ -1890,12 +1890,37 @@ export const dssApi = {
     return realDss.createPricePrediction(input)
   },
 
+  async evaluateCustomPriceScenario(input: {
+    productId: number
+    fromDate: string
+    toDate: string
+    customPrice: number
+  }) {
+    return realDss.evaluateCustomPriceScenario(input)
+  },
+
   async analyzeSellerWhatIf(input: {
     productId: number
-    discountPercentage: number
+    priceChangePercent: number
     simulationPeriod: number
   }) {
     return realDss.analyzeSellerWhatIf(input)
+  },
+
+  async analyzeTargetProfit(input: {
+    productId: number
+    targetProfitVnd: number
+    simulationPeriod: number
+  }) {
+    return realDss.analyzeTargetProfit(input)
+  },
+
+  async analyzeSalesQuantityTarget(input: {
+    productId: number
+    increasePercent: number
+    simulationPeriod: number
+  }) {
+    return realDss.analyzeSalesQuantityTarget(input)
   },
 
   async recommendInventory(planningDays: number, productId?: string) {

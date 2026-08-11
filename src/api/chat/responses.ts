@@ -14,6 +14,7 @@ import {
   cheapestProducts,
   computeProductPriceStats,
   extractBudgetVnd,
+  extractPriceRange,
   extractProductFocusLabel,
   extractProductSearchTerms,
   filterProductsForQuery,
@@ -52,6 +53,8 @@ export function sanitizeChatReply(text: string): string {
     .replace(/\s*\(dữ liệu API\)/gi, '')
     .replace(/Nhận xét gần đây \(API\):/gi, 'Nhận xét gần đây:')
     .replace(/\*\*Top SP \(API\):\*\*/gi, '**Top SP:**')
+    .replace(/\b(keyword|intent|extract|query term):\s*[^\n]+/gi, '')
+    .replace(/\b(product_budget|product_search|product_cheapest)\b/gi, '')
     .replace(/\s{2,}/g, ' ')
     .replace(/\n{3,}/g, '\n\n')
     .trim()
@@ -257,20 +260,28 @@ function productSearchReply(ctx: ChatContext, raw: string): string {
 
 function cheapestReply(ctx: ChatContext): string {
   const name = greet(ctx.userName ?? '')
-  const list = cheapestProducts(ctx.products, 4)
+  const list = cheapestProducts(ctx.products, 6)
   if (!list.length) {
-    return `${name}Chưa có sản phẩm để so giá — bạn mở **Cửa hàng** xem thử nhé.`
+    return `${name}Hiện chưa có sản phẩm để so sánh giá. Bạn mở **Cửa hàng** để xem danh mục nhé.`
   }
   const floor = formatVnd(list[0].price)
   if (list.length === 1) {
-    return `${name}Rẻ nhất hiện tại là **${list[0].name}** — **${floor}**.`
+    return `${name}Sản phẩm rẻ nhất đang có là **${list[0].name}** — **${floor}**.`
   }
-  return `${name}Mức giá thấp nhất là **${floor}**. Có **${list.length}** sản phẩm cùng mức này:\n${productLines(list, 4)}`
+  return `${name}Giá thấp nhất hiện tại là **${floor}**. Dưới đây là **${Math.min(list.length, 6)}** lựa chọn tiết kiệm:\n${productLines(list, 6)}`
 }
 
 function budgetReply(ctx: ChatContext, raw: string): string {
   const name = greet(ctx.userName ?? '')
-  const budget = extractBudgetVnd(raw)
+  const range = extractPriceRange(raw)
+  if (range?.min != null && range?.max != null) {
+    const hits = filterProductsForQuery(ctx.products, raw, ctx.categories, 6).products
+    if (!hits.length) {
+      return `${name}Chưa có sản phẩm trong khoảng **${formatVnd(range.min)} – ${formatVnd(range.max)}**. Thử mở rộng ngân sách nhé.`
+    }
+    return `${name}Trong tầm **${formatVnd(range.min)} – ${formatVnd(range.max)}** có **${hits.length}** sản phẩm:\n${productLines(hits, 6)}`
+  }
+  const budget = range?.max ?? extractBudgetVnd(raw)
   if (!budget) {
     if (isAffordableProductQuery(raw)) {
       const label = extractProductFocusLabel(raw)
@@ -280,13 +291,13 @@ function budgetReply(ctx: ChatContext, raw: string): string {
       }
       return `${name}Chưa thấy **${label}** trên shop. Thử từ khóa khác hoặc mở **Cửa hàng** nhé.`
     }
-    return `${name}Cho mình biết ngân sách, vd: **"dưới 2 triệu"** hoặc **"budget 500k"**.`
+    return `${name}Cho mình biết ngân sách, ví dụ: **"dưới 2 triệu"**, **"tầm 2tr"** hoặc **"dưới 500k"**.`
   }
   const hits = productsUnderBudget(ctx.products, budget, 6)
   if (!hits.length) {
-    return `${name}Không có SP ≤ **${formatVnd(budget)}**. Thử mức cao hơn hoặc hỏi **"sp rẻ nhất"**.`
+    return `${name}Hiện chưa có sản phẩm nào trong tầm **${formatVnd(budget)}**. Bạn thử mức cao hơn hoặc hỏi **"sản phẩm rẻ nhất"** nhé.`
   }
-  return `${name}**Phù hợp ngân sách ≤ ${formatVnd(budget)}**:\n${productLines(hits, 6)}\n\n→ Mở **Cửa hàng** để thêm giỏ.`
+  return `${name}Có nhé — mình tìm được **${hits.length}** sản phẩm giá dưới **${formatVnd(budget)}**:\n${productLines(hits, 6)}\n\n→ Bấm card bên dưới hoặc mở **Cửa hàng** để xem chi tiết.`
 }
 
 function contactSellerReply(ctx: ChatContext, raw: string): string {
