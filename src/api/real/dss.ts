@@ -204,8 +204,13 @@ export function forecastDemand(
   )
 }
 
+/** DSS generate endpoints — DB + optional AI; allow Railway cold start. */
+const DSS_GENERATE_TIMEOUT_MS = 45_000
+
 export function createDemandPrediction(body: CreateDemandPredictionRequest) {
-  return http.post<DemandPredictionApi>(apiPaths.dss.demandPredictions, body, { timeoutMs: 15_000 })
+  return http.post<DemandPredictionApi>(apiPaths.dss.demandPredictions, body, {
+    timeoutMs: DSS_GENERATE_TIMEOUT_MS,
+  })
 }
 
 export function recommendPrice(productId: string | number, lookbackDays = 30) {
@@ -215,7 +220,9 @@ export function recommendPrice(productId: string | number, lookbackDays = 30) {
 }
 
 export function createPricePrediction(body: CreatePricePredictionRequest) {
-  return http.post<PricePredictionApi>(apiPaths.dss.pricePredictions, body, { timeoutMs: 15_000 })
+  return http.post<PricePredictionApi>(apiPaths.dss.pricePredictions, body, {
+    timeoutMs: DSS_GENERATE_TIMEOUT_MS,
+  })
 }
 
 export interface CustomPriceScenarioRequest {
