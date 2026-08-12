@@ -208,3 +208,11 @@ export function asksProductListedDate(normalized: string): boolean {
     normalized,
   )
 }
+
+/** Hỏi về shop / người bán — hiện danh thiếp seller */
+export function asksSellerInfo(normalized: string): boolean {
+  if (/web ban gi|sedsp ban gi|catalog|san co gi|toan san/.test(normalized)) return false
+  return /lien he nguoi ban|contact seller|thong tin shop|thong tin nguoi ban|nguoi ban nay|shop nay|seller nay|nguoi ban la ai|shop la ai|email shop|sdt shop|so dien thoai shop|go shop|cua hang nay|nguoi ban cua|ve shop|ve nguoi ban|danh thiep|ai la nguoi ban|shop nay ban|nguoi ban sp nay/.test(
+    normalized,
+  )
+}

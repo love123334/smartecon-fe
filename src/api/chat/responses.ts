@@ -27,6 +27,7 @@ import {
 } from '@/api/chat/products'
 import { matchCategoryFromText } from '@/api/chat/synonyms'
 import type { Order, Product } from '@/types'
+import type { ChatSellerRef } from '@/types'
 import { orderStatusLabel } from '@/utils/orderStatus'
 import { salesEligibleOrders, totalRevenue } from '@/utils/orderAnalytics'
 import { rankForUseCase } from '@/utils/recommendationScore'
@@ -146,7 +147,7 @@ function whereToBuyReply(ctx: ChatContext, raw: string): string {
   const directory = shopDirectoryLines(hits, 5)
   const label = matchCategoryFromText(raw, ctx.categories)?.name
   const topic = label ?? (stripPriceTokens(raw).slice(0, 40) || 'sản phẩm bạn hỏi')
-  return `${name}**Chỗ bán — ${topic}:**\n${directory}\n\n👉 Chọn shop/SP bên dưới hoặc hỏi **"liên hệ người bán …"** để lấy email/SĐT.`
+  return `${name}**Chỗ bán — ${topic}:**\n${directory}\n\n👉 Xem **danh thiếp shop** bên dưới hoặc hỏi **"liên hệ người bán …"** để lấy email/SĐT.`
 }
 
 function recommendReply(ctx: ChatContext, raw: string): string {
@@ -344,10 +345,61 @@ function contactSellerReply(ctx: ChatContext, raw: string): string {
   if (!p) {
     return `${name}Bạn muốn liên hệ người bán sản phẩm nào? Hỏi cụ thể, vd: "lien he nguoi ban mon tai nghe bluetooth".`
   }
-  const shop = p.shopName ?? 'SEDSP Official'
-  const email = p.sellerEmail ?? 'seller@sedsp.vn'
-  const phone = p.sellerPhone ?? '1900-SEDSP'
-  return `${name}**Liên hệ người bán — ${p.name}**\n\n• **Shop:** **${shop}**\n• **Email:** ${email}\n• **Điện thoại:** ${phone}\n\n👉 Mở **/products/${p.id}** để xem SP · hỏi CSKH: **customer@sedsp.vn**`
+  return sellerShopSummaryReply(name, {
+    shopName: p.shopName ?? 'SEDSP Official',
+    shopLocation: p.shopLocation,
+    productCount: 1,
+    avgRating: p.rating > 0 ? p.rating : undefined,
+    totalReviews: p.reviewCount,
+    totalSold: p.soldCount,
+    sellerEmail: p.sellerEmail,
+    sellerPhone: p.sellerPhone,
+    showContact: true,
+    sellerId: p.sellerId,
+    sampleProducts: [{ id: String(p.id), name: p.name }],
+  }, p.name)
+}
+
+export function sellerShopSummaryReply(
+  greetPrefix: string,
+  seller: Pick<
+    ChatSellerRef,
+    | 'shopName'
+    | 'shopLocation'
+    | 'productCount'
+    | 'avgRating'
+    | 'totalReviews'
+    | 'totalSold'
+    | 'topCategories'
+    | 'sellerEmail'
+    | 'sellerPhone'
+    | 'showContact'
+    | 'sellerId'
+    | 'sampleProducts'
+  >,
+  productName?: string,
+): string {
+  let block = `${greetPrefix}**Danh thiếp — ${seller.shopName}**`
+  if (productName) block += `\n(Người bán **${productName}** bạn đang xem)`
+  block += '\n'
+  if (seller.shopLocation) block += `• Khu vực: **${seller.shopLocation}**\n`
+  if (seller.productCount) {
+    block += `• Đang bán: **${seller.productCount}** sản phẩm`
+    if (seller.topCategories?.length) block += ` — ${seller.topCategories.join(', ')}`
+    block += '\n'
+  }
+  if (seller.avgRating) {
+    block += `• Rating TB: **${seller.avgRating}★**`
+    if (seller.totalReviews) block += ` · **${seller.totalReviews}** lượt đánh giá`
+    block += '\n'
+  }
+  if (seller.totalSold) block += `• Lượt bán ghi nhận: **${seller.totalSold}** (tổng SP trên sàn)\n`
+  if (seller.showContact) {
+    if (seller.sellerEmail) block += `• Email: **${seller.sellerEmail}**\n`
+    if (seller.sellerPhone) block += `• SĐT: **${seller.sellerPhone}**\n`
+  }
+  block += `\n👉 Xem **danh thiếp shop** bên dưới — không hiển thị doanh thu hay số liệu nội bộ.`
+  return block
 }
 
 function contactEscalateReply(ctx: ChatContext, raw: string): string {

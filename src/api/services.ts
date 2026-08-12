@@ -2140,7 +2140,7 @@ export const chatApi = {
       userMsg = { ...userMsg, attachments: refreshedAttachments }
     }
 
-    const { content: reply, source, products } = await resolveChatReply(
+    const { content: reply, source, products, sellers } = await resolveChatReply(
       userMsg.content,
       priorHistory,
       ctx,
@@ -2166,6 +2166,7 @@ export const chatApi = {
       content: reply,
       timestamp: new Date().toISOString(),
       products,
+      sellers,
       meta: { source },
     }
     const updated = [...priorHistory, userMsg, assistantMsg]

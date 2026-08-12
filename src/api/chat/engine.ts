@@ -1,7 +1,8 @@
 import type { ChatContext } from '@/api/chat/context'
 import { detectIntent, type ChatIntent } from '@/api/chat/intents'
-import { formatVnd, normalizeText, asksProductListedDate, asksProductOrigin, asksProductPrice, asksProductReview } from '@/api/chat/match'
+import { formatVnd, normalizeText, asksProductListedDate, asksProductOrigin, asksProductPrice, asksProductReview, asksSellerInfo } from '@/api/chat/match'
 import { toChatProducts } from '@/api/chat/productCards'
+import { resolveReplySellers, sellerCardFromProduct, toChatSellers } from '@/api/chat/sellerCards'
 import {
   cheapestProducts,
   affordableProductsForQuery,
@@ -30,14 +31,16 @@ import {
   productOriginReply,
   productReviewReply,
   sanitizeChatReply,
+  sellerShopSummaryReply,
 } from '@/api/chat/responses'
-import type { ChatProductRef, Product } from '@/types'
+import type { ChatProductRef, ChatSellerRef, Product } from '@/types'
 
 export { formatVnd, normalizeText } from '@/api/chat/match'
 
 export interface AssistantReplyPayload {
   content: string
   products?: ChatProductRef[]
+  sellers?: ChatSellerRef[]
 }
 
 const SHOPPING_INTENTS = new Set<ChatIntent>([
@@ -60,6 +63,7 @@ const METADATA_INTENTS = new Set<ChatIntent>([
   'product_info',
   'product_price',
   'product_stock',
+  'contact_seller',
 ])
 
 /** Intent không được “lạc” sang tìm sản phẩm */
@@ -138,6 +142,7 @@ function followUps(intent: ChatIntent | null, role: ChatContext['role']): string
     cart_summary: '\n\nSẵn thì hỏi mình cách thanh toán nhé.',
     orders: '\n\nHỏi chi tiết đơn #… nếu cần.',
     where_to_buy: '\n\nHỏi "liên hệ người bán …" để lấy email/SĐT shop.',
+    contact_seller: '\n\nBấm danh thiếp shop bên dưới để xem SP tiêu biểu.',
     recommend: '\n\nThu hẹp thêm bằng ngân sách hoặc danh mục cũng được.',
     product_budget: '\n\nKéo SP vào chat để so sánh nhanh.',
     product_search: '\n\nThêm "dưới X triệu" nếu muốn lọc giá.',
@@ -232,9 +237,11 @@ function shoppingStructuredReply(
       .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
       .join(' ')
     if (hits.length) {
+      const sellers = toChatSellers(hits, 1, { showContact: true })
       return {
         content: warmProductIntro(ctx, hits.length, label, 'shop'),
         products: toChatProducts(hits, 6),
+        sellers,
       }
     }
     return {
@@ -390,6 +397,18 @@ function attachmentReply(
       products: cards.slice(0, 1),
     }
   }
+  if (asksSellerInfo(lower)) {
+    const catalog = pickProductCatalog(ctx.products, ctx.sellerProducts, ctx.role)
+    const seller = sellerCardFromProduct(top, catalog, { showContact: true })
+    const greetName = greet(ctx.userName ?? '')
+    return {
+      content: seller
+        ? sellerShopSummaryReply(greetName, seller, top.name)
+        : `${greetName}Shop **${top.shopName ?? 'SEDSP Official'}** đang bán **${top.name}**.`,
+      sellers: seller ? [seller] : undefined,
+      products: cards.slice(0, 1),
+    }
+  }
   if (asksProductPrice(lower)) {
     return {
       content: `${name}**${top.name}** đang bán **${formatVnd(top.price)}**${top.originalPrice && top.originalPrice > top.price ? ` (gốc ${formatVnd(top.originalPrice)})` : ''}.`,
@@ -484,6 +503,18 @@ function smartProductFallback(
       products: cards.slice(0, 1),
     }
   }
+  if (asksSellerInfo(lower)) {
+    const catalog = pickProductCatalog(ctx.products, ctx.sellerProducts, ctx.role)
+    const seller = sellerCardFromProduct(top, catalog, { showContact: true })
+    const greetName = greet(ctx.userName ?? '')
+    return {
+      content: seller
+        ? sellerShopSummaryReply(greetName, seller, top.name)
+        : `${greetName}Shop **${top.shopName ?? 'SEDSP Official'}** đang bán **${top.name}**.`,
+      sellers: seller ? [seller] : undefined,
+      products: cards.slice(0, 1),
+    }
+  }
   if (/lien he|seller|nguoi ban|shop|cho nao|o dau ban/.test(lower)) {
     return {
       content: `${name}Shop **${top.shopName ?? 'SEDSP Official'}** đang bán **${top.name}**.\nEmail: ${top.sellerEmail ?? 'seller@sedsp.vn'} · SĐT: ${top.sellerPhone ?? '1900-SEDSP'}`,
@@ -519,8 +550,9 @@ export async function generateAssistantReply(
   const attached = attachmentReply(ctx, raw || 'cho tôi thông tin', attachments ?? [])
   if (attached && attachments?.length) {
     return wrapReply({
-      content: attached.content + followUps('compare', ctx.role),
+      content: attached.content + followUps('contact_seller', ctx.role),
       products: attached.products,
+      sellers: attached.sellers,
     })
   }
 
@@ -547,6 +579,7 @@ export async function generateAssistantReply(
       return wrapReply({
         content: shopping.content + followUps(intent, ctx.role),
         products: shopping.products,
+        sellers: shopping.sellers,
       })
     }
   }
@@ -582,12 +615,16 @@ export async function generateAssistantReply(
                 : ctx.enrichment?.product
                   ? [ctx.enrichment.product]
                   : undefined
+      const productPool = enrichProducts ?? []
+      const sellers = resolveReplySellers(ctx, intent, raw, catalog, productPool)
       const products =
         intent && NON_SHOPPING_INTENTS.has(intent)
           ? undefined
-          : enrichProducts?.length
-            ? toChatProducts(enrichProducts, 6)
-            : undefined
+          : intent === 'contact_seller' && sellers?.length
+            ? undefined
+            : enrichProducts?.length
+              ? toChatProducts(enrichProducts, 6)
+              : undefined
       let content = reply + followUps(intent, ctx.role)
       // Giữ directory shop cho where_to_buy / recommend — không xóa bullet
       if (
@@ -599,10 +636,12 @@ export async function generateAssistantReply(
         !content.includes('bên dưới')
       ) {
         content += `\n\nXem chi tiết trên từng card bên dưới nhé.`
+      } else if (sellers?.length && !content.includes('bên dưới')) {
+        content += `\n\nXem **danh thiếp shop** bên dưới nhé.`
       } else if (products?.length && (intent === 'where_to_buy' || intent === 'recommend')) {
         content += `\n\nChọn card bên dưới để xem SP nhé.`
       }
-      return wrapReply({ content, products })
+      return wrapReply({ content, products, sellers })
     }
   }
 

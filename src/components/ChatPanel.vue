@@ -5,6 +5,7 @@ import type { QuickPrompt } from '@/api/chat/prompts'
 import { formatChatHtml } from '@/api/chat/engine'
 import { parseDraggedProduct } from '@/api/chat/productCards'
 import ChatProductMiniCard from '@/components/ChatProductMiniCard.vue'
+import ChatSellerMiniCard from '@/components/ChatSellerMiniCard.vue'
 import defaultChatAvatar from '@/assets/chatavt.png'
 
 const props = defineProps<{
@@ -148,6 +149,13 @@ defineExpose({ scrollToEnd: scrollEnd })
               />
             </div>
             <p class="chat-bubble__text" v-html="formatChatHtml(m.content)" />
+            <div v-if="m.sellers?.length" class="chat-bubble__sellers">
+              <ChatSellerMiniCard
+                v-for="s in m.sellers"
+                :key="`seller-${m.id}-${s.sellerId}`"
+                :seller="s"
+              />
+            </div>
             <div v-if="m.products?.length" class="chat-bubble__products">
               <ChatProductMiniCard
                 v-for="p in m.products"
@@ -374,7 +382,8 @@ defineExpose({ scrollToEnd: scrollEnd })
 }
 
 .chat-bubble__products,
-.chat-bubble__attach {
+.chat-bubble__attach,
+.chat-bubble__sellers {
   display: grid;
   grid-template-columns: 1fr;
   gap: 0.4rem;
@@ -385,7 +394,8 @@ defineExpose({ scrollToEnd: scrollEnd })
 }
 
 @media (min-width: 420px) {
-  .chat-bubble__products {
+  .chat-bubble__products,
+  .chat-bubble__sellers {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
 }

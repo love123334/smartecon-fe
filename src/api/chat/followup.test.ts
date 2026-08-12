@@ -159,4 +159,20 @@ describe('chat follow-up context', () => {
     expect(reply.content.toLowerCase()).toMatch(/danh gia|review|rating|★/)
     expect(reply.content).not.toMatch(/đang bán\s+\*\*899/)
   })
+
+  it('shows seller card for shop follow-up on prior product', async () => {
+    const history: ChatMessage[] = [
+      {
+        id: '1',
+        role: 'assistant',
+        content: 'High Waist Jeans',
+        timestamp: '',
+        products: [jeansCard],
+      },
+    ]
+    const reply = await resolveChatReply('shop này là ai', history, minimalCtx())
+    expect(reply.sellers?.length).toBeGreaterThan(0)
+    expect(reply.sellers?.[0]?.shopName).toBe('Fashion Hub')
+    expect(reply.content.toLowerCase()).toMatch(/danh thiep|shop/)
+  })
 })

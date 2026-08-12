@@ -114,6 +114,25 @@ export interface ChatProductRef {
   originalPrice?: number
 }
 
+/** Danh thiếp shop / người bán trong chat — chỉ thông tin công khai, không doanh thu */
+export interface ChatSellerRef {
+  sellerId: string
+  shopName: string
+  shopLocation?: string
+  productCount?: number
+  avgRating?: number
+  totalReviews?: number
+  totalSold?: number
+  tagCode?: string
+  avatarInitial?: string
+  topCategories?: string[]
+  sampleProducts?: { id: string; name: string }[]
+  /** Chỉ hiện khi user hỏi liên hệ / người bán */
+  sellerEmail?: string
+  sellerPhone?: string
+  showContact?: boolean
+}
+
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
@@ -125,6 +144,8 @@ export interface ChatMessage {
   products?: ChatProductRef[]
   /** SP người dùng kéo-thả đính kèm khi hỏi */
   attachments?: ChatProductRef[]
+  /** Danh thiếp shop khi hỏi người bán / chỗ bán */
+  sellers?: ChatSellerRef[]
   meta?: {
     source?: 'llm' | 'local'
     kind?: 'order_update' | 'system'

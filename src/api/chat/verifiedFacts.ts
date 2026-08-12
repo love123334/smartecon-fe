@@ -2,7 +2,7 @@ import type { AssistantReplyPayload } from '@/api/chat/engine'
 import type { ChatContext } from '@/api/chat/context'
 import type { ChatIntent } from '@/api/chat/intents'
 import { formatVnd } from '@/api/chat/match'
-import type { ChatProductRef } from '@/types'
+import type { ChatProductRef, ChatSellerRef } from '@/types'
 
 export interface VerifiedFacts {
   intent: ChatIntent | null
@@ -17,6 +17,8 @@ export interface VerifiedFacts {
   localDraft: string
   /** Card sản phẩm kèm theo */
   products: ChatProductRef[]
+  /** Danh thiếp shop kèm theo */
+  sellers: ChatSellerRef[]
 }
 
 const CARD_BOILERPLATE =
@@ -68,6 +70,10 @@ export function extractVndNumbers(text: string): number[] {
   return [...out]
 }
 
+function collectSellers(local: AssistantReplyPayload): ChatSellerRef[] {
+  return local.sellers ?? []
+}
+
 export function buildVerifiedFacts(
   ctx: ChatContext,
   intent: ChatIntent | null,
@@ -75,6 +81,7 @@ export function buildVerifiedFacts(
   local: AssistantReplyPayload,
 ): VerifiedFacts {
   const products = collectProducts(local, ctx)
+  const sellers = collectSellers(local)
   const lines: string[] = []
   const allowedProductNames: string[] = []
   const verifiedPricesVnd: number[] = []
@@ -97,6 +104,15 @@ export function buildVerifiedFacts(
     if (typeof p.price === 'number' && p.price > 0) {
       verifiedPricesVnd.push(p.price)
     }
+  }
+
+  for (const s of sellers.slice(0, 4)) {
+    lines.push(
+      `- Shop **${s.shopName}**: ${s.productCount ?? '—'} SP` +
+        (s.avgRating ? ` · ${s.avgRating}★` : '') +
+        (s.totalSold ? ` · ${s.totalSold} đã bán` : '') +
+        (s.showContact && s.sellerEmail ? ` · ${s.sellerEmail}` : ''),
+    )
   }
 
   const focus = ctx.enrichment?.product
@@ -178,6 +194,7 @@ export function buildVerifiedFacts(
     verifiedPricesVnd: [...new Set(verifiedPricesVnd)],
     localDraft,
     products,
+    sellers,
   }
 }
 

@@ -17,13 +17,14 @@ import {
   asksProductOrigin,
   asksProductPrice,
   asksProductReview,
+  asksSellerInfo,
   normalizeText,
 } from '@/api/chat/match'
 import { extractPriceRange, isPriceStatsQuery } from '@/api/chat/products'
 import { sanitizeChatReply } from '@/api/chat/responses'
 import { buildSystemPrompt } from '@/api/chat/systemPrompt'
 import { buildVerifiedFacts } from '@/api/chat/verifiedFacts'
-import type { ChatMessage, ChatProductRef, Product } from '@/types'
+import type { ChatMessage, ChatProductRef, ChatSellerRef, Product } from '@/types'
 
 export type ChatReplySource = 'llm' | 'local'
 
@@ -31,6 +32,7 @@ export interface ChatReply {
   content: string
   source: ChatReplySource
   products?: ChatProductRef[]
+  sellers?: ChatSellerRef[]
 }
 
 /**
@@ -43,6 +45,7 @@ const STRICT_LOCAL_INTENTS = new Set<ChatIntent>([
   'product_stock',
   'product_review',
   'product_info',
+  'contact_seller',
   'orders',
   'order_detail',
   'order_cancel',
@@ -70,6 +73,9 @@ function resolveFollowUpIntent(
 ): { intent: ChatIntent; score: number } {
   if (asksProductReview(normalized)) {
     return { intent: 'product_review', score: 50 }
+  }
+  if (asksSellerInfo(normalized)) {
+    return { intent: 'contact_seller', score: 50 }
   }
   if (asksProductOrigin(normalized) || asksProductListedDate(normalized)) {
     return { intent: 'product_info', score: 50 }
@@ -133,7 +139,9 @@ function shouldForceLocal(
       intent === 'product_stock' ||
       intent === 'product_review' ||
       intent === 'product_info' ||
+      intent === 'contact_seller' ||
       asksProductReview(normalized) ||
+      asksSellerInfo(normalized) ||
       asksProductOrigin(normalized) ||
       asksProductListedDate(normalized) ||
       /^(gia|bao nhieu|con hang|het hang|con khong|may trieu)/.test(normalized))
@@ -218,12 +226,14 @@ export async function resolveChatReply(
     : facts.products.length
       ? facts.products
       : effectiveAttachments?.slice(0, 2)
+  const sellers = local.sellers?.length ? local.sellers : undefined
 
   if (forceLocal) {
     return {
       content: sanitizeChatReply(local.content),
       source: 'local',
       products,
+      sellers,
     }
   }
 
@@ -238,10 +248,11 @@ export async function resolveChatReply(
           content: sanitizeChatReply(local.content),
           source: 'local',
           products,
+          sellers,
         }
       }
 
-      return { content, source: 'llm', products }
+      return { content, source: 'llm', products, sellers }
     } catch {
       /* fallback local */
     }
@@ -251,6 +262,7 @@ export async function resolveChatReply(
     content: sanitizeChatReply(local.content),
     source: 'local',
     products,
+    sellers,
   }
 }
 
