@@ -1,5 +1,6 @@
 import { apiConfig } from '@/api/config'
 import * as realAi from '@/api/real/ai'
+import type { VerifiedFacts } from '@/api/chat/verifiedFacts'
 import type { ChatMessage } from '@/types'
 
 export interface LlmMessage {
@@ -61,8 +62,13 @@ export async function callChatLlm(
   systemPrompt: string,
   history: ChatMessage[],
   userMessage: string,
+  facts?: VerifiedFacts | null,
 ): Promise<string> {
-  const recent = history.slice(-8).map((m) => {
+  const groundedUser = facts?.localDraft?.trim()
+    ? `${userMessage}\n\n[Gợi ý nội dung đã kiểm tra — viết lại tự nhiên, giữ nguyên số liệu]\n${facts.localDraft.slice(0, 900)}`
+    : userMessage
+
+  const recent = history.slice(-10).map((m) => {
     let content = m.content.slice(0, 1600)
     if (m.role === 'assistant' && m.products?.length) {
       content += `\n[SP đang bàn: ${m.products.map((p) => p.name).join(', ')}]`
@@ -79,7 +85,7 @@ export async function callChatLlm(
   const messages: LlmMessage[] = [
     { role: 'system', content: systemPrompt },
     ...recent,
-    { role: 'user', content: userMessage },
+    { role: 'user', content: groundedUser },
   ]
 
   if (hasBackendToken() && beAiConfigured !== false) {
@@ -115,7 +121,7 @@ export async function callChatLlm(
       body: JSON.stringify({
         model: apiConfig.aiModel,
         messages,
-        temperature: 0.75,
+        temperature: 0.55,
         max_tokens: 900,
         top_p: 0.9,
       }),

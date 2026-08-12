@@ -1,4 +1,6 @@
 import type { ChatMessage, ChatProductRef } from '@/types'
+import type { VerifiedFacts } from '@/api/chat/verifiedFacts'
+import { extractVndNumbers } from '@/api/chat/verifiedFacts'
 
 /** SP vừa được bàn trong hội thoại (card bot hoặc đính kèm user). */
 export function lastDiscussedProducts(history: ChatMessage[]): ChatProductRef[] {
@@ -25,7 +27,7 @@ export function isProductFollowUp(normalized: string): boolean {
   if (!normalized || normalized.length > 80) return false
 
   if (
-    /cong dung|dung lam|dung de|mo ta|tinh nang|dac diem|gioi thieu|what (is|does)|ve no|ve cai nay|san pham nay|sp nay|cai nay|no the nao|dung nhu the nao|cho minh biet|chat luong|nghe duoc|pin tru|mau sac|size|kich thuoc|bao nhieu tien|gia bao nhieu|con hang|het hang|con khong|tot khong|review|danh gia/.test(
+    /cong dung|dung lam|dung de|mo ta|tinh nang|dac diem|gioi thieu|what (is|does)|ve no|ve cai nay|san pham nay|sp nay|cai nay|no the nao|dung nhu the nao|cho minh biet|chat luong|nghe duoc|pin tru|mau sac|size|kich thuoc|bao nhieu tien|gia bao nhieu|con hang|het hang|con khong|tot khong|review|danh gia|no la gi|sp nay sao|hang nay sao|giai thich/.test(
       normalized,
     )
   ) {
@@ -119,4 +121,67 @@ export function looksLikeLowQualityReply(userNormalized: string, reply: string):
     return true
   }
   return false
+}
+
+/** User hỏi giá/số liệu mà LLM không nhắc số đã xác minh */
+export function llmMissingCriticalFacts(
+  userNormalized: string,
+  llmContent: string,
+  facts: VerifiedFacts,
+): boolean {
+  const askedPrice =
+    /gia|bao nhieu|how much|price|tien|trieu|ngan sach|duoi|budget/.test(userNormalized)
+  const askedStock = /con hang|het hang|ton|stock|con khong/.test(userNormalized)
+  const askedProduct =
+    /tim|mua|goi y|re nhat|san pham|sp |tai nghe|laptop|iphone|macbook|so sanh/.test(
+      userNormalized,
+    )
+
+  if (askedPrice && facts.verifiedPricesVnd.length > 0) {
+    const llmPrices = extractVndNumbers(llmContent)
+    const hasMatch = facts.verifiedPricesVnd.some((expected) =>
+      llmPrices.some((got) => Math.abs(got - expected) <= expected * 0.02 + 1000),
+    )
+    if (!hasMatch && !/\d[\d.,]{2,}/.test(llmContent)) return true
+  }
+
+  if (askedStock && facts.localDraft && /het hang|con \d+|ton \d+|còn \d+/i.test(facts.localDraft)) {
+    if (!/het hang|con \d+|ton|hết hàng|còn \d+/i.test(llmContent)) return true
+  }
+
+  if (
+    askedProduct &&
+    facts.allowedProductNames.length > 0 &&
+    facts.allowedProductNames.length <= 4
+  ) {
+    const mentionsAny = facts.allowedProductNames.some((name) => {
+      const key = name
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((w) => w.length >= 3)
+        .slice(0, 2)
+        .join(' ')
+      return (
+        key.length >= 4 &&
+        llmContent.toLowerCase().includes(key.slice(0, Math.min(key.length, 12)))
+      )
+    })
+    if (!mentionsAny && llmContent.length < 180) return true
+  }
+
+  return false
+}
+
+/** LLM bịa giá khác biệt lớn so với facts */
+export function llmContradictsFacts(llmContent: string, facts: VerifiedFacts): boolean {
+  if (!facts.verifiedPricesVnd.length) return false
+  const llmPrices = extractVndNumbers(llmContent)
+  if (!llmPrices.length) return false
+  return llmPrices.some((got) =>
+    facts.verifiedPricesVnd.every(
+      (expected) => Math.abs(got - expected) > expected * 0.15 + 50_000,
+    ),
+  )
 }

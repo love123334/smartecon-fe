@@ -5,6 +5,8 @@ import {
   isContinuingProductChat,
   isProductFollowUp,
   lastDiscussedProducts,
+  llmContradictsFacts,
+  llmMissingCriticalFacts,
   looksLikeLowQualityReply,
   looksLikeOffTopicPlatformReply,
 } from '@/api/chat/followup'
@@ -14,6 +16,7 @@ import { normalizeText } from '@/api/chat/match'
 import { extractPriceRange, isPriceStatsQuery } from '@/api/chat/products'
 import { sanitizeChatReply } from '@/api/chat/responses'
 import { buildSystemPrompt } from '@/api/chat/systemPrompt'
+import { buildVerifiedFacts } from '@/api/chat/verifiedFacts'
 import type { ChatMessage, ChatProductRef, Product } from '@/types'
 
 export type ChatReplySource = 'llm' | 'local'
@@ -25,8 +28,8 @@ export interface ChatReply {
 }
 
 /**
- * Chỉ ép local cho số liệu / đơn / DSS — tránh template cứng khi tìm SP, gợi ý, mô tả.
- * Search/recommend/info → LLM (nếu có) + card SP từ local.
+ * Chỉ ép local thuần cho số liệu tài chính / đơn / DSS — mọi thứ khác dùng hybrid:
+ * local xác minh facts → LLM viết lại tự nhiên.
  */
 const STRICT_LOCAL_INTENTS = new Set<ChatIntent>([
   'product_cheapest',
@@ -57,16 +60,16 @@ function resolveFollowUpIntent(
   normalized: string,
   detected: { intent: ChatIntent; score: number } | null,
 ): { intent: ChatIntent; score: number } {
-  if (/gia|bao nhieu|how much|price|cost|tien/.test(normalized)) {
+  if (/gia|bao nhieu|how much|price|cost|tien|may trieu|mấy triệu|mấy củ/.test(normalized)) {
     return { intent: 'product_price', score: 50 }
   }
-  if (/con hang|het hang|ton|stock|available|con khong|con bao nhieu/.test(normalized)) {
+  if (/con hang|het hang|ton|stock|available|con khong|con bao nhieu|con ban khong|het chua/.test(normalized)) {
     return { intent: 'product_stock', score: 50 }
   }
-  if (/review|danh gia|sao|tot khong|ngon khong|chat luong/.test(normalized)) {
+  if (/review|danh gia|sao|tot khong|ngon khong|chat luong|co tot khong/.test(normalized)) {
     return { intent: 'product_review', score: 50 }
   }
-  if (/so sanh|compare|vs|khac nhau/.test(normalized)) {
+  if (/so sanh|compare|vs|khac nhau|nen mua cai nao|cai nao hon/.test(normalized)) {
     return { intent: 'compare', score: 50 }
   }
   if (
@@ -113,12 +116,11 @@ function shouldForceLocal(
 ): boolean {
   if (priceStats || hasPriceFilter) return true
   if (intent != null && STRICT_LOCAL_INTENTS.has(intent)) return true
-  // Follow-up giá/tồn → số liệu local; còn lại để LLM nói tự nhiên với SP focus
   if (
     followUp &&
     (intent === 'product_price' ||
       intent === 'product_stock' ||
-      /^(gia|bao nhieu|con hang|het hang|con khong)/.test(normalized))
+      /^(gia|bao nhieu|con hang|het hang|con khong|may trieu)/.test(normalized))
   ) {
     return true
   }
@@ -129,27 +131,23 @@ function preferLocalOverLlm(
   normalized: string,
   llmContent: string,
   localContent: string,
-  localHasProducts: boolean,
+  facts: ReturnType<typeof buildVerifiedFacts>,
 ): boolean {
   if (looksLikeOffTopicPlatformReply(normalized, llmContent)) return true
   if (looksLikeLowQualityReply(normalized, llmContent)) return true
+  if (llmMissingCriticalFacts(normalized, llmContent, facts)) return true
+  if (llmContradictsFacts(llmContent, facts)) return true
+
   const llmN = normalizeText(llmContent)
   const llmTooVague =
-    llmContent.length < 40 || /toi co the giup|ban muon hoi gi|hay cho minh biet/.test(llmN)
-  if (llmTooVague && localContent.trim().length > 40) return true
-  // Local có card rõ + LLM không nhắc giá/tên SP cụ thể khi user hỏi mua
-  if (
-    localHasProducts &&
-    /mua|tim|goi y|nen|duoi|gia|co ban/.test(normalized) &&
-    !/\d/.test(llmContent) &&
-    localContent.includes('**')
-  ) {
-    return false // vẫn dùng LLM nếu có card — card cứu ngữ cảnh; chỉ đổi khi quá tệ
-  }
+    llmContent.length < 35 ||
+    /toi co the giup|ban muon hoi gi|hay cho minh biet|minh chua ro ban muon/.test(llmN)
+  if (llmTooVague && localContent.trim().length > 35) return true
+
   return false
 }
 
-/** Local cho số liệu; LLM cho hội thoại — luôn giữ card SP khi có. */
+/** Hybrid: local facts trước → LLM diễn đạt; fallback local nếu LLM lệch facts. */
 export async function resolveChatReply(
   userMessage: string,
   history: ChatMessage[],
@@ -187,35 +185,34 @@ export async function resolveChatReply(
   }
 
   const intent = detected?.intent ?? null
+  const intentScore = detected?.score ?? 0
   const hasPriceFilter = Boolean(extractPriceRange(userMessage))
   const priceStats = isPriceStatsQuery(userMessage)
   const forceLocal = shouldForceLocal(normalized, intent, followUp, hasPriceFilter, priceStats)
 
-  const runLocal = () => generateAssistantReply(userMessage, ctxForReply, effectiveAttachments)
+  const local = await generateAssistantReply(userMessage, ctxForReply, effectiveAttachments)
+  const facts = buildVerifiedFacts(ctxForReply, intent, intentScore, local)
+  const products = local.products?.length
+    ? local.products
+    : facts.products.length
+      ? facts.products
+      : effectiveAttachments?.slice(0, 2)
 
   if (forceLocal) {
-    const local = await runLocal()
     return {
       content: sanitizeChatReply(local.content),
       source: 'local',
-      products: local.products?.length ? local.products : effectiveAttachments?.slice(0, 2),
+      products,
     }
   }
 
-  // Song song: local lấy card/số liệu, LLM viết câu trả lời tự nhiên
   if (isLlmConfigured()) {
     try {
-      const systemPrompt = buildSystemPrompt(ctxForReply, intent)
-      const [llmRaw, local] = await Promise.all([
-        callChatLlm(systemPrompt, history, userMessage),
-        runLocal(),
-      ])
+      const systemPrompt = buildSystemPrompt(ctxForReply, intent, facts)
+      const llmRaw = await callChatLlm(systemPrompt, history, userMessage, facts)
       const content = sanitizeChatReply(llmRaw)
-      const products = local.products?.length
-        ? local.products
-        : effectiveAttachments?.slice(0, 2)
 
-      if (preferLocalOverLlm(normalized, content, local.content, Boolean(local.products?.length))) {
+      if (preferLocalOverLlm(normalized, content, local.content, facts)) {
         return {
           content: sanitizeChatReply(local.content),
           source: 'local',
@@ -229,17 +226,16 @@ export async function resolveChatReply(
     }
   }
 
-  const local = await runLocal()
   return {
     content: sanitizeChatReply(local.content),
     source: 'local',
-    products: local.products?.length ? local.products : effectiveAttachments?.slice(0, 2),
+    products,
   }
 }
 
 export function chatModeLabel(): string {
   return isLlmConfigured()
-    ? `AI API (${llmProviderLabel()}) + dữ liệu shop`
+    ? `AI (${llmProviderLabel()}) + dữ liệu shop`
     : 'Trợ lý thông minh (local)'
 }
 

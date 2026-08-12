@@ -10,6 +10,9 @@ import { isChatPage, roleChatPath } from '@/utils/roleAiNav'
 import { isShopBrowsePath } from '@/utils/roleNav'
 import ChatPanel from '@/components/ChatPanel.vue'
 import { parseDraggedProduct, refreshChatProductStock } from '@/api/chat/productCards'
+import chatbotAvatar from '@/assets/chatbot-avatar.png'
+
+const CHATBOT_AVATAR = chatbotAvatar
 
 const auth = useAuthStore()
 const route = useRoute()
@@ -267,8 +270,8 @@ function onFabDrop(e: DragEvent) {
       type="button"
       class="chat-fab btn-interactive"
       :class="{ 'chat-fab--hot': widget.dragOver }"
-      title="Trợ lý AI — kéo sản phẩm vào đây để đính kèm"
-      aria-label="Mở trợ lý AI"
+      title="Trợ lý SmarTEcon — kéo sản phẩm vào đây để đính kèm"
+      aria-label="Mở trợ lý SmarTEcon"
       @click="onFabClick"
       @mouseenter="prewarmChat"
       @focus="prewarmChat"
@@ -276,13 +279,17 @@ function onFabDrop(e: DragEvent) {
       @dragleave="widget.dragOver = false"
       @drop="onFabDrop"
     >
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
-        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-      </svg>
+      <img
+        class="chat-fab__avatar"
+        :src="CHATBOT_AVATAR"
+        alt=""
+        width="64"
+        height="64"
+        draggable="false"
+      />
       <span v-if="widget.unreadBadge > 0" class="chat-fab__badge" aria-label="Thông báo đơn hàng mới">
         {{ widget.unreadBadge > 9 ? '9+' : widget.unreadBadge }}
       </span>
-      <span class="chat-fab__label">Chat</span>
     </button>
 
     <div
@@ -293,11 +300,20 @@ function onFabDrop(e: DragEvent) {
       aria-label="Trợ lý AI SEDSP"
     >
       <header class="chat-popup__head">
-        <div>
-          <h2 class="chat-popup__title">{{ title }}</h2>
-          <p class="chat-popup__hint-inline">
-            Kéo ảnh sản phẩm vào khung chat · Esc hoặc × để đóng
-          </p>
+        <div class="chat-popup__head-main">
+          <img
+            class="chat-popup__avatar"
+            :src="CHATBOT_AVATAR"
+            alt=""
+            width="40"
+            height="40"
+          />
+          <div>
+            <h2 class="chat-popup__title">{{ title }}</h2>
+            <p class="chat-popup__hint-inline">
+              Kéo ảnh sản phẩm vào khung chat · Esc hoặc × để đóng
+            </p>
+          </div>
         </div>
         <button type="button" class="chat-popup__close" aria-label="Đóng trợ lý AI" @click.stop="widget.hide()">
           ×
@@ -318,6 +334,7 @@ function onFabDrop(e: DragEvent) {
       <ChatPanel
         v-if="ready || messages.length"
         compact
+        :avatar-src="CHATBOT_AVATAR"
         :messages="messages"
         :quick-prompts="quickPrompts"
         :loading="loading"
@@ -342,33 +359,40 @@ function onFabDrop(e: DragEvent) {
   z-index: 10040;
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.75rem 1rem;
+  justify-content: center;
+  width: 4rem;
+  height: 4rem;
+  padding: 0;
   border: none;
-  border-radius: 999px;
-  background: #000;
-  color: #fff;
-  font-size: 0.8125rem;
-  font-weight: 700;
-  font-family: inherit;
+  border-radius: 50%;
+  background: transparent;
   cursor: pointer;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
-  transition: transform var(--transition), box-shadow var(--transition), background var(--transition);
+  box-shadow: 0 10px 28px rgba(37, 99, 235, 0.35);
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+
+.chat-fab__avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.45);
 }
 
 .chat-fab:hover {
-  transform: none;
-  background: #1a1a1a;
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.28);
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 14px 32px rgba(37, 99, 235, 0.42);
 }
 
 .chat-fab--hot {
-  background: var(--primary-600, #0d9488);
-  transform: none;
+  transform: scale(1.06);
+  box-shadow: 0 0 0 4px rgba(13, 148, 136, 0.35), 0 14px 32px rgba(13, 148, 136, 0.4);
 }
 
-.chat-fab__label {
-  letter-spacing: 0.04em;
+.chat-fab--hot .chat-fab__avatar {
+  box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.75);
 }
 
 .chat-fab__badge {
@@ -402,6 +426,23 @@ function onFabDrop(e: DragEvent) {
   border-radius: 18px;
   box-shadow: 0 18px 50px rgba(15, 23, 42, 0.2);
   overflow: hidden;
+}
+
+.chat-popup__head-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.chat-popup__avatar {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.35);
 }
 
 .chat-popup__head {
@@ -511,12 +552,11 @@ function onFabDrop(e: DragEvent) {
 }
 
 @media (max-width: 640px) {
-  .chat-fab__label {
-    display: none;
-  }
   .chat-fab {
-    padding: 0.85rem;
-    border-radius: 50%;
+    width: 3.65rem;
+    height: 3.65rem;
+    right: 1rem;
+    bottom: 1rem;
   }
   .chat-popup {
     right: 0.5rem;

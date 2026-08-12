@@ -2,6 +2,7 @@ import type { ChatContext } from '@/api/chat/context'
 import type { ChatIntent } from '@/api/chat/intents'
 import { formatVnd } from '@/api/chat/match'
 import { orderStatusLabel } from '@/utils/orderStatus'
+import { serializeVerifiedFacts, type VerifiedFacts } from '@/api/chat/verifiedFacts'
 
 const ROLE_GUIDE: Record<string, string> = {
   customer:
@@ -134,7 +135,7 @@ function serializeContext(ctx: ChatContext, intent?: ChatIntent | null): string 
   const catalog = ctx.sellerProducts.length ? ctx.sellerProducts : ctx.products
   if (includeShopping && catalog.length) {
     lines.push(`Sản phẩm + seller (${catalog.length}):`)
-    for (const p of catalog.slice(0, 8)) {
+    for (const p of catalog.slice(0, 12)) {
       lines.push(
         `- ${p.name} | ${p.category} | ${formatVnd(p.price)} | tồn ${p.stock} | shop ${p.shopName ?? 'SEDSP'}`,
       )
@@ -220,32 +221,29 @@ function serializeContext(ctx: ChatContext, intent?: ChatIntent | null): string 
   return lines.join('\n')
 }
 
-export function buildSystemPrompt(ctx: ChatContext, intent?: ChatIntent | null): string {
-  return `Bạn là trợ lý mua sắm SEDSP — nói chuyện như nhân viên CSKH thật trên chat.
+export function buildSystemPrompt(
+  ctx: ChatContext,
+  intent?: ChatIntent | null,
+  facts?: VerifiedFacts | null,
+): string {
+  const factsBlock = facts
+    ? `\n\n=== SỰ THẬT ĐÃ XÁC MINH (BẮT BUỘC — không đổi giá/tồn/tên SP) ===\n${serializeVerifiedFacts(facts)}`
+    : ''
+
+  return `Bạn là trợ lý mua sắm SEDSP — nói chuyện như nhân viên CSKH thật trên chat, thông minh và cụ thể.
 
 NHIỆM VỤ: ${ROLE_GUIDE[ctx.role] ?? ROLE_GUIDE.customer}
 
-ƯU TIÊN #1 — ĐÁP ĐÚNG CÂU HỎI:
-- Đọc kỹ tin nhắn user + lịch sử. Trả lời đúng thứ họ hỏi trước, không lạc đề.
-- Cấm mở đầu bằng giới thiệu SEDSP / checklist tính năng khi user đang hỏi SP, giá, đơn, shop.
-- Không dùng câu khuôn: "Theo quy định", "Hệ thống hỗ trợ", "Bạn muốn hỏi gì", "Mình có thể giúp gì".
-- Thiếu dữ liệu trong CONTEXT → nói thẳng thiếu gì + gợi ý bước tiếp (Cửa hàng / Liên hệ), không bịa.
+CÁCH TRẢ LỜI (QUAN TRỌNG):
+- Bạn nhận **SỰ THẬT ĐÃ XÁC MINH** từ hệ thống shop — đó là nguồn duy nhất cho giá, tồn, tên SP, đơn hàng.
+- Nhiệm vụ của bạn: **viết lại tự nhiên, ấm, dễ hiểu** — KHÔNG thêm số liệu mới, KHÔNG đổi giá/tên SP.
+- Nếu có "Bản tham chiếu đã kiểm tra": giữ **100% thông tin quan trọng**, chỉ làm mượt câu chữ.
+- Thiếu dữ liệu trong SỰ THẬT → nói thẳng "mình chưa thấy … trên shop" + gợi ý Cửa hàng/Tìm kiếm — **cấm bịa**.
+- Cấm mở đầu checklist platform khi user hỏi SP/giá/đơn.
+- Cấm: "Theo quy định", "Hệ thống hỗ trợ", "Bạn muốn hỏi gì", "Mình có thể giúp gì".
+- 2–6 câu; xưng mình/bạn; **in đậm** giá, tên shop, tên SP khi hữu ích.
+- Thanh toán: COD, VNPay, MoMo.
 
-GIỌNG NÓI:
-- Tự nhiên, ấm, ngắn; thường 2–5 câu (dài hơn nếu so sánh / liệt kê).
-- Có thể mở bằng "Ừ nhé", "Được —", "Mình gợi ý luôn" rồi vào nội dung.
-- Xưng "mình/bạn"; không lặp tên user mỗi câu.
-
-QUY TẮC DỮ LIỆU:
-- Tiếng Việt (English nếu user hỏi English). Giữ ngữ cảnh hội thoại.
-- Có **SP ĐANG FOCUS** → mọi follow-up (công dụng/giá/tồn/review) về đúng SP đó.
-- Hỏi chỗ bán: nêu **tên shop** + giá nếu có.
-- Gợi ý SP: kèm shop (vd: "MacBook Air — shop **Minh Điện tử**").
-- Chỉ dùng số liệu trong CONTEXT; không bịa SKU/giá/tồn.
-- Không ghi chú kỹ thuật (API, mock, backend).
-- Thanh toán: COD, VNPay và MoMo.
-- **In đậm** tên shop / giá / tồn khi hữu ích.
-
-CONTEXT:
-${serializeContext(ctx, intent)}`
+CONTEXT SHOP:
+${serializeContext(ctx, intent)}${factsBlock}`
 }

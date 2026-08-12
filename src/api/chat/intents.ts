@@ -304,7 +304,8 @@ const COMMON: IntentRule[] = [
       'goi y', 'recommend', 'nen mua', 'tu van san pham', 'suggest',
       'what should i buy', 'best product', 'goi y mua', 'ngon', 'tot nhat',
       'dang mua', 'chat luong', 'sp nao ngon', 'hang nao ngon', 'nen chon',
-      'goi y sp', 'tu van mua',
+      'goi y sp', 'tu van mua', 'tu van giup', 'co gi hay', 'nen lay gi',
+      'mua gi cho hop', 'cho xin y kien', 'xin tu van', 'co gi tot',
       // trending / hot — tránh nhầm với hotline (match.ts yêu cầu substring ≥4 ký tự)
       'hot', 'dang hot', 'mon do hot', 'san pham hot', 'sp hot', 'hang hot',
       'ban chay', 'top ban chay', 'best seller', 'bestseller', 'trending',
@@ -368,8 +369,13 @@ const COMMON: IntentRule[] = [
     keywords: [
       'gia bao nhieu', 'bao nhieu tien', 'how much', 'price of', 'cost', 'don gia',
       'gia trung binh', 'trung binh gia', 'average price', 'khoang gia', 'gia tb',
+      'may trieu', 'mấy triệu', 'mấy củ', 'bao nhieu vay', 'gia sao', 'gia the nao',
+      'het bao nhieu tien', 'tien la bao nhieu',
     ],
-    phrases: ['gia bao nhieu', 'bao nhieu tien', 'how much', 'gia may', 'gia trung binh', 'average price'],
+    phrases: [
+      'gia bao nhieu', 'bao nhieu tien', 'how much', 'gia may', 'gia trung binh',
+      'average price', 'may trieu', 'mấy triệu', 'gia sao',
+    ],
     minScore: 3,
     priority: 10,
   },
@@ -377,9 +383,13 @@ const COMMON: IntentRule[] = [
     intent: 'product_stock',
     keywords: [
       'con hang', 'het hang', 'ton kho', 'in stock', 'out of stock', 'con khong',
-      'co san khong', 'con bao nhieu',
+      'co san khong', 'con bao nhieu', 'con ban khong', 'het chua', 'con ve khong',
+      'còn không', 'hết chưa', 'còn bán không',
     ],
-    phrases: ['con hang khong', 'het hang chua', 'con bao nhieu', 'in stock'],
+    phrases: [
+      'con hang khong', 'het hang chua', 'con bao nhieu', 'in stock',
+      'con ban khong', 'het chua', 'còn bán không',
+    ],
     minScore: 4,
     priority: 8,
   },
@@ -388,11 +398,12 @@ const COMMON: IntentRule[] = [
     keywords: [
       'thong tin', 'mo ta', 'description', 'cau hinh', 'chi tiet sp', 'product info',
       'cong dung', 'dung lam', 'dung de', 'dung lam gi', 'tinh nang', 'dac diem',
-      'gioi thieu sp', 'sp nay la gi',
+      'gioi thieu sp', 'sp nay la gi', 'no la gi', 'cai nay la gi', 'hang nay sao',
+      'sp nay sao', 'cho minh biet ve', 'giai thich giup',
     ],
     phrases: [
       'thong tin san pham', 'mo ta', 'cau hinh', 'cong dung', 'dung lam gi',
-      'dung de lam gi', 'dung lam', 'tinh nang',
+      'dung de lam gi', 'dung lam', 'tinh nang', 'sp nay la gi', 'no la gi',
     ],
     minScore: 3,
     priority: 9,

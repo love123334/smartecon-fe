@@ -14,6 +14,7 @@ const props = defineProps<{
   loading?: boolean
   attachments?: ChatProductRef[]
   compact?: boolean
+  avatarSrc?: string
 }>()
 
 const emit = defineEmits<{
@@ -108,37 +109,62 @@ defineExpose({ scrollToEnd: scrollEnd })
           v-for="m in messages"
           :key="m.id"
           :class="[
-            'chat-bubble',
-            m.role === 'user' ? 'user' : 'assistant',
-            m.meta?.kind === 'order_update' ? 'chat-bubble--order' : '',
+            'chat-row',
+            m.role === 'user' ? 'chat-row--user' : 'chat-row--assistant',
           ]"
         >
-          <div v-if="m.attachments?.length" class="chat-bubble__attach">
-            <ChatProductMiniCard
-              v-for="p in m.attachments"
-              :key="`att-${m.id}-${p.id}`"
-              :product="p"
-              compact
-            />
+          <img
+            v-if="m.role !== 'user' && avatarSrc"
+            class="chat-row__avatar"
+            :src="avatarSrc"
+            alt=""
+            width="32"
+            height="32"
+          />
+          <div
+            :class="[
+              'chat-bubble',
+              m.role === 'user' ? 'user' : 'assistant',
+              m.meta?.kind === 'order_update' ? 'chat-bubble--order' : '',
+            ]"
+          >
+            <div v-if="m.attachments?.length" class="chat-bubble__attach">
+              <ChatProductMiniCard
+                v-for="p in m.attachments"
+                :key="`att-${m.id}-${p.id}`"
+                :product="p"
+                compact
+              />
+            </div>
+            <p class="chat-bubble__text" v-html="formatChatHtml(m.content)" />
+            <div v-if="m.products?.length" class="chat-bubble__products">
+              <ChatProductMiniCard
+                v-for="p in m.products"
+                :key="`prod-${m.id}-${p.id}`"
+                :product="p"
+              />
+            </div>
+            <span v-if="m.meta?.kind === 'order_update'" class="chat-bubble__tag chat-bubble__tag--order">
+              Cập nhật đơn
+            </span>
+            <span v-else-if="m.meta?.source === 'llm'" class="chat-bubble__tag">AI</span>
+            <time class="chat-bubble__time">{{
+              new Date(m.timestamp).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+            }}</time>
           </div>
-          <p class="chat-bubble__text" v-html="formatChatHtml(m.content)" />
-          <div v-if="m.products?.length" class="chat-bubble__products">
-            <ChatProductMiniCard
-              v-for="p in m.products"
-              :key="`prod-${m.id}-${p.id}`"
-              :product="p"
-            />
-          </div>
-          <span v-if="m.meta?.kind === 'order_update'" class="chat-bubble__tag chat-bubble__tag--order">
-            Cập nhật đơn
-          </span>
-          <span v-else-if="m.meta?.source === 'llm'" class="chat-bubble__tag">AI</span>
-          <time class="chat-bubble__time">{{
-            new Date(m.timestamp).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
-          }}</time>
         </div>
-        <div v-if="loading" key="typing" class="chat-bubble assistant chat-bubble--typing">
-          <span class="typing-dots" aria-label="Đang trả lời"><i /><i /><i /></span>
+        <div v-if="loading" key="typing" class="chat-row chat-row--assistant">
+          <img
+            v-if="avatarSrc"
+            class="chat-row__avatar"
+            :src="avatarSrc"
+            alt=""
+            width="32"
+            height="32"
+          />
+          <div class="chat-bubble assistant chat-bubble--typing">
+            <span class="typing-dots" aria-label="Đang trả lời"><i /><i /><i /></span>
+          </div>
         </div>
       </TransitionGroup>
     </div>
@@ -268,6 +294,31 @@ defineExpose({ scrollToEnd: scrollEnd })
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
+}
+
+.chat-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.45rem;
+  max-width: 100%;
+}
+
+.chat-row--user {
+  justify-content: flex-end;
+}
+
+.chat-row--assistant {
+  justify-content: flex-start;
+}
+
+.chat-row__avatar {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.25);
 }
 
 .chat-bubble {

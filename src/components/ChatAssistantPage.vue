@@ -8,6 +8,7 @@ import PageHeader from '@/components/PageHeader.vue'
 import ChatPanel from '@/components/ChatPanel.vue'
 import AiShortcutBar from '@/components/AiShortcutBar.vue'
 import { roleChatShortcuts } from '@/utils/roleAiNav'
+import chatbotAvatar from '@/assets/chatbot-avatar.png'
 
 const props = defineProps<{
   role?: UserRole
@@ -115,6 +116,7 @@ async function onClear() {
       </button>
     </p>
     <ChatPanel
+      :avatar-src="chatbotAvatar"
       :messages="messages"
       :quick-prompts="quickPrompts"
       :loading="loading"
