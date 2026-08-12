@@ -1,14 +1,12 @@
 <script setup lang="ts">
 import type {
   DssAiInsightApi,
-  DssHolidayImpactApi,
   DssPriceChangeImpactApi,
   DssProductContextApi,
 } from '@/api/real/dss'
 
 defineProps<{
   productContext?: DssProductContextApi | null
-  upcomingHolidays?: DssHolidayImpactApi[] | null
   priceChangeImpacts?: DssPriceChangeImpactApi[] | null
   aiInsight?: DssAiInsightApi | null
 }>()
@@ -31,7 +29,7 @@ function tierLabel(tier?: string) {
 
 <template>
   <section
-    v-if="productContext || (upcomingHolidays?.length ?? 0) || (priceChangeImpacts?.length ?? 0) || aiInsight"
+    v-if="productContext || (priceChangeImpacts?.length ?? 0) || aiInsight"
     class="dss-card dss-context-panel"
     aria-labelledby="dss-context-title"
   >
@@ -50,17 +48,6 @@ function tierLabel(tier?: string) {
       <p v-if="productContext.priceChangeCount != null" class="dss-meta">
         <span>Chỉnh giá trong kỳ</span>{{ productContext.priceChangeCount }} lần
       </p>
-    </article>
-
-    <article v-if="upcomingHolidays?.length" class="dss-context-block">
-      <h3 class="dss-context-block__title">Sự kiện / khuyến mãi ảnh hưởng dự báo</h3>
-      <ul class="dss-context-list">
-        <li v-for="h in upcomingHolidays" :key="`${h.code}-${h.start}`">
-          <strong>{{ h.label }}</strong>
-          ({{ h.start }} → {{ h.end }}, hệ số ×{{ h.demandMultiplier }})
-          <span v-if="h.note" class="dss-hint"> — {{ h.note }}</span>
-        </li>
-      </ul>
     </article>
 
     <article v-if="priceChangeImpacts?.length" class="dss-context-block">

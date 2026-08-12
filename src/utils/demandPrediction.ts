@@ -90,6 +90,17 @@ export function formatViDateTime(value: string | null | undefined): string {
   }).format(date)
 }
 
+/** ISO date (YYYY-MM-DD) → dd/MM/yyyy */
+export function formatViDate(value: string | null | undefined): string {
+  if (value == null || String(value).trim() === '') return '—'
+  const iso = String(value).trim().slice(0, 10)
+  const [y, m, d] = iso.split('-').map(Number)
+  if (!y || !m || !d) return '—'
+  const date = new Date(y, m - 1, d)
+  if (Number.isNaN(date.getTime())) return '—'
+  return new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short' }).format(date)
+}
+
 export function mapDemandPredictionError(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.status === 401) {

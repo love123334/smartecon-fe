@@ -29,6 +29,7 @@ export interface DssHolidayImpactApi {
   end: string
   demandMultiplier: number
   note?: string
+  priceImpactNote?: string
 }
 
 export interface DssPriceChangeImpactApi {
@@ -76,6 +77,8 @@ export interface DemandPredictionApi {
   historicalTo?: string
   historicalPeriodLabel?: string
   forecastPeriodLabel?: string
+  forecastFrom?: string
+  forecastTo?: string
   methodology?: string
   trendFactor?: number
   forecastSeries?: DssForecastDayApi[]
@@ -148,6 +151,8 @@ export interface PricePredictionApi {
   forecastPeriodDays?: number
   historicalPeriodLabel?: string
   forecastPeriodLabel?: string
+  forecastFrom?: string
+  forecastTo?: string
   scenarioAssumptionNote?: string
   recommendation?: string
   recommendationReason?: string

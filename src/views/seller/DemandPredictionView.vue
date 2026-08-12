@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import ProductSalesHistoryChart from '@/components/dss/ProductSalesHistoryChart.vue'
 import DssPredictionContextPanel from '@/components/dss/DssPredictionContextPanel.vue'
+import DssForecastHolidayScopePanel from '@/components/dss/DssForecastHolidayScopePanel.vue'
 import { dssApi } from '@/api/services'
 import type { DemandPredictionApi } from '@/api/real/dss'
 import { useAuthStore } from '@/stores/auth'
@@ -452,9 +453,16 @@ function resetResult() {
     </div>
 
     <template v-if="result">
+      <DssForecastHolidayScopePanel
+        :forecast-from="result.forecastFrom"
+        :forecast-to="result.forecastTo"
+        :forecast-period-label="result.forecastPeriodLabel"
+        :upcoming-holidays="result.upcomingHolidays"
+        :holiday-adjustment-factor="result.holidayAdjustmentFactor"
+      />
+
       <DssPredictionContextPanel
         :product-context="result.productContext"
-        :upcoming-holidays="result.upcomingHolidays"
         :price-change-impacts="result.priceChangeImpacts"
         :ai-insight="result.aiInsight"
       />

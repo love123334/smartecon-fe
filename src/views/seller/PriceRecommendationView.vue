@@ -22,6 +22,7 @@ import {
 import { buildPricePredictionAiInsight } from '@/utils/sellerDssModuleAi'
 import DssProfitBreakdownPanel from '@/components/dss/DssProfitBreakdownPanel.vue'
 import DssPredictionContextPanel from '@/components/dss/DssPredictionContextPanel.vue'
+import DssForecastHolidayScopePanel from '@/components/dss/DssForecastHolidayScopePanel.vue'
 import type { CustomPriceScenarioApi } from '@/api/real/dss'
 
 interface SellerProductOption {
@@ -366,7 +367,6 @@ async function onCustomPriceSubmit() {
         <h2 id="price-summary-title" class="dss-card__title">Tóm tắt dữ liệu sản phẩm</h2>
         <p class="dss-meta"><span>Sản phẩm</span>{{ result.productName }}</p>
         <p class="dss-meta"><span>Khoảng thời gian</span>{{ result.fromDate }} → {{ result.toDate }}</p>
-        <p v-if="result.forecastPeriodLabel" class="dss-meta"><span>{{ result.forecastPeriodLabel }}</span></p>
         <p v-if="result.historicalPeriodLabel" class="dss-meta"><span>{{ result.historicalPeriodLabel }}</span></p>
         <p v-if="result.scenarioAssumptionNote" class="dss-hint">{{ result.scenarioAssumptionNote }}</p>
         <div class="dss-kpi-grid">
@@ -447,9 +447,15 @@ async function onCustomPriceSubmit() {
         </div>
       </section>
 
+      <DssForecastHolidayScopePanel
+        :forecast-from="result.forecastFrom"
+        :forecast-to="result.forecastTo"
+        :forecast-period-label="result.forecastPeriodLabel"
+        :upcoming-holidays="result.upcomingHolidays"
+      />
+
       <DssPredictionContextPanel
         :product-context="result.productContext"
-        :upcoming-holidays="result.upcomingHolidays"
         :price-change-impacts="result.priceChangeImpacts"
         :ai-insight="result.aiInsight"
       />
