@@ -125,6 +125,30 @@ export function buildVerifiedFacts(
     lines.push(`- Đánh giá: ${r.averageRating}★ / ${r.totalReviews} review`)
   }
 
+  const focusDetail = ctx.enrichment?.product
+  if (focusDetail) {
+    const origin =
+      focusDetail.attributes?.find((a) =>
+        /xuat xu|origin|made in|nguon goc/i.test(a.name),
+      )?.value ?? focusDetail.shopLocation
+    if (origin?.trim()) lines.push(`- Xuất xứ: ${origin.trim()}`)
+    if (focusDetail.createdAt) {
+      const listed = new Date(focusDetail.createdAt)
+      if (!Number.isNaN(listed.getTime())) {
+        lines.push(`- Lên kệ: ${listed.toLocaleDateString('vi-VN')}`)
+      }
+    }
+    if (typeof focusDetail.reviewCount === 'number' && focusDetail.reviewCount > 0) {
+      lines.push(`- Số review: ${focusDetail.reviewCount}`)
+    }
+  }
+
+  if (ctx.enrichment?.reviews?.length) {
+    for (const r of ctx.enrichment.reviews.slice(0, 2)) {
+      lines.push(`- Review ${r.userName}: ${r.rating}★ — ${r.comment.slice(0, 80)}`)
+    }
+  }
+
   if (ctx.cartLines.length) {
     lines.push(`- Giỏ: ${ctx.cartItemCount} món, tổng ${formatVnd(ctx.cartTotal)}`)
   }

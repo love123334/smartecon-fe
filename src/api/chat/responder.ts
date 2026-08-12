@@ -12,7 +12,13 @@ import {
 } from '@/api/chat/followup'
 import { detectIntent, type ChatIntent } from '@/api/chat/intents'
 import { callChatLlm, isLlmConfigured, llmProviderLabel, refreshBeAiStatus } from '@/api/chat/llm'
-import { normalizeText } from '@/api/chat/match'
+import {
+  asksProductListedDate,
+  asksProductOrigin,
+  asksProductPrice,
+  asksProductReview,
+  normalizeText,
+} from '@/api/chat/match'
 import { extractPriceRange, isPriceStatsQuery } from '@/api/chat/products'
 import { sanitizeChatReply } from '@/api/chat/responses'
 import { buildSystemPrompt } from '@/api/chat/systemPrompt'
@@ -35,6 +41,8 @@ const STRICT_LOCAL_INTENTS = new Set<ChatIntent>([
   'product_cheapest',
   'product_price',
   'product_stock',
+  'product_review',
+  'product_info',
   'orders',
   'order_detail',
   'order_cancel',
@@ -60,14 +68,17 @@ function resolveFollowUpIntent(
   normalized: string,
   detected: { intent: ChatIntent; score: number } | null,
 ): { intent: ChatIntent; score: number } {
-  if (/gia|bao nhieu|how much|price|cost|tien|may trieu|mấy triệu|mấy củ/.test(normalized)) {
+  if (asksProductReview(normalized)) {
+    return { intent: 'product_review', score: 50 }
+  }
+  if (asksProductOrigin(normalized) || asksProductListedDate(normalized)) {
+    return { intent: 'product_info', score: 50 }
+  }
+  if (asksProductPrice(normalized)) {
     return { intent: 'product_price', score: 50 }
   }
   if (/con hang|het hang|ton|stock|available|con khong|con bao nhieu|con ban khong|het chua/.test(normalized)) {
     return { intent: 'product_stock', score: 50 }
-  }
-  if (/review|danh gia|sao|tot khong|ngon khong|chat luong|co tot khong/.test(normalized)) {
-    return { intent: 'product_review', score: 50 }
   }
   if (/so sanh|compare|vs|khac nhau|nen mua cai nao|cai nao hon/.test(normalized)) {
     return { intent: 'compare', score: 50 }
@@ -120,6 +131,11 @@ function shouldForceLocal(
     followUp &&
     (intent === 'product_price' ||
       intent === 'product_stock' ||
+      intent === 'product_review' ||
+      intent === 'product_info' ||
+      asksProductReview(normalized) ||
+      asksProductOrigin(normalized) ||
+      asksProductListedDate(normalized) ||
       /^(gia|bao nhieu|con hang|het hang|con khong|may trieu)/.test(normalized))
   ) {
     return true
@@ -168,10 +184,15 @@ export async function resolveChatReply(
     detected = resolveFollowUpIntent(normalized, detected)
   }
 
-  const enriched = await enrichChatContext(ctx, userMessage, detected?.intent ?? null)
+  const focusRef = effectiveAttachments?.[0] ?? (!attachments?.length ? priorProducts[0] : undefined)
+  const enriched = await enrichChatContext(
+    ctx,
+    userMessage,
+    detected?.intent ?? null,
+    focusRef?.id,
+  )
 
   let ctxForReply = enriched
-  const focusRef = effectiveAttachments?.[0] ?? (!attachments?.length ? priorProducts[0] : undefined)
   if (focusRef && !enriched.enrichment?.product) {
     const focus = resolveFocusProduct(enriched, focusRef)
     ctxForReply = {

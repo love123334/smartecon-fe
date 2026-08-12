@@ -8,7 +8,7 @@ import {
   priceBrief,
   sellerWhatIfBrief,
 } from '@/api/chat/dssBrief'
-import { formatVnd, normalizeText } from '@/api/chat/match'
+import { formatVnd, normalizeText, asksProductListedDate, asksProductOrigin } from '@/api/chat/match'
 import {
   affordableProductsForQuery,
   cheapestProducts,
@@ -32,6 +32,44 @@ import { salesEligibleOrders, totalRevenue } from '@/utils/orderAnalytics'
 import { rankForUseCase } from '@/utils/recommendationScore'
 
 export { findProductsByQuery } from '@/api/chat/products'
+
+function findProductAttribute(product: Product, ...keys: string[]): string | null {
+  if (!product.attributes?.length) return null
+  for (const key of keys) {
+    const needle = normalizeText(key)
+    const hit = product.attributes.find((a) => normalizeText(a.name).includes(needle))
+    if (hit?.value?.trim()) return hit.value.trim()
+  }
+  return null
+}
+
+export function formatProductListedDate(createdAt: string): string | null {
+  if (!createdAt?.trim()) return null
+  const d = new Date(createdAt)
+  if (Number.isNaN(d.getTime())) return null
+  return d.toLocaleDateString('vi-VN', { day: 'numeric', month: 'long', year: 'numeric' })
+}
+
+function productOriginText(product: Product): string | null {
+  return (
+    findProductAttribute(product, 'xuat xu', 'origin', 'made in', 'country', 'nguon goc') ??
+    product.shopLocation?.trim() ??
+    null
+  )
+}
+
+function productMetadataLines(product: Product): string[] {
+  const lines: string[] = []
+  const origin = productOriginText(product)
+  if (origin) lines.push(`• Xuất xứ: **${origin}**`)
+  const listed = formatProductListedDate(product.createdAt)
+  if (listed) lines.push(`• Lên kệ từ: **${listed}**`)
+  if (product.soldCount > 0) lines.push(`• Đã bán: **${product.soldCount}**`)
+  if (typeof product.reviewCount === 'number' && product.reviewCount > 0) {
+    lines.push(`• Số đánh giá: **${product.reviewCount}**`)
+  }
+  return lines
+}
 
 function greet(name: string): string {
   const n = name?.trim()
@@ -348,26 +386,61 @@ function checkoutReply(ctx: ChatContext): string {
   return `${name}**Cách đặt hàng:**\n1. Chọn SP → **Thêm vào giỏ**\n2. **Giỏ hàng** → kiểm tra số lượng\n3. **Thanh toán** → điền địa chỉ & phương thức (**COD** / **VNPay**)\n4. Xác nhận — theo dõi tại **Đơn hàng của tôi**${loginNote}`
 }
 
-function productReviewReply(ctx: ChatContext, raw: string): string {
+export function productReviewReply(ctx: ChatContext, raw: string): string {
   const name = greet(ctx.userName ?? '')
   const e = ctx.enrichment
   const p = e?.product ?? findProductsByQuery(ctx.products, raw)[0]
   if (p) {
     const summary = e?.ratingSummary
     const reviews = e?.reviews ?? []
-    let block = `${name}**${p.name}**\n`
+    let block = `${name}**Đánh giá — ${p.name}**\n`
     if (summary && summary.totalReviews > 0) {
-      block += `• Rating: **${summary.averageRating.toFixed(1)}★** / ${summary.totalReviews} đánh giá\n`
+      block += `• Trung bình: **${summary.averageRating.toFixed(1)}★** / **${summary.totalReviews}** lượt đánh giá\n`
+    } else if (p.rating > 0) {
+      const countNote =
+        typeof p.reviewCount === 'number' && p.reviewCount > 0 ? ` (${p.reviewCount} lượt)` : ''
+      block += `• Rating hiển thị: **${p.rating}★**${countNote}\n`
     } else {
-      block += `• Rating hiển thị: **${p.rating}★** — xem tab **Đánh giá** trên trang SP\n`
+      block += `• Chưa có đánh giá — bạn có thể là người đầu tiên review trên trang SP.\n`
     }
+    const meta = productMetadataLines(p)
+    if (meta.length) block += `${meta.join('\n')}\n`
     if (reviews.length) {
-      block += `\n**Nhận xét gần đây:**\n${reviews.map((r) => `• ${r.userName}: ${r.rating}★ — "${r.comment.slice(0, 60)}${r.comment.length > 60 ? '…' : ''}"`).join('\n')}`
+      block += `\n**Khách hàng gần đây nói:**\n${reviews
+        .map(
+          (r) =>
+            `• **${r.userName}** — ${r.rating}★: "${r.comment.slice(0, 80)}${r.comment.length > 80 ? '…' : ''}"`,
+        )
+        .join('\n')}`
+    } else if (summary && summary.totalReviews > 0) {
+      block += `\n\nXem thêm nhận xét chi tiết trên tab **Đánh giá** tại **/products/${p.id}**.`
     }
-    block += `\n\nShop: **${p.shopName ?? 'SEDSP Official'}**`
+    block += `\n\nShop: **${p.shopName ?? 'SEDSP Official'}** · Giá **${formatVnd(p.price)}**`
     return block
   }
   return `${name}Hỏi tên SP cụ thể (vd: "tai nghe review") hoặc mở **chi tiết SP** → **Đánh giá**.`
+}
+
+export function productOriginReply(ctx: ChatContext, product: Product): string {
+  const name = greet(ctx.userName ?? '')
+  const origin = productOriginText(product)
+  const listed = formatProductListedDate(product.createdAt)
+  let block = `${name}**${product.name}**\n`
+  block += origin
+    ? `• Xuất xứ: **${origin}**`
+    : `• Chưa ghi xuất xứ trên hệ thống — xem mô tả SP hoặc hỏi shop **${product.shopName ?? 'SEDSP'}**.`
+  if (listed) block += `\n• Lên kệ từ: **${listed}**`
+  block += `\n• Danh mục: **${product.category || '—'}** · Shop: **${product.shopName ?? 'SEDSP Official'}**`
+  return block
+}
+
+export function productListedReply(ctx: ChatContext, product: Product): string {
+  const name = greet(ctx.userName ?? '')
+  const listed = formatProductListedDate(product.createdAt)
+  if (listed) {
+    return `${name}**${product.name}** lên kệ trên SEDSP từ **${listed}**.\n• Giá hiện tại: **${formatVnd(product.price)}** · Shop: **${product.shopName ?? 'SEDSP Official'}**`
+  }
+  return `${name}**${product.name}** đang được bán trên shop — ngày lên kệ chưa có trên hệ thống. Mở **/products/${product.id}** để xem chi tiết.`
 }
 
 function compareReply(ctx: ChatContext, raw: string): string {
@@ -439,6 +512,12 @@ function productInfoReply(ctx: ChatContext, raw: string): string {
     const inv = ctx.enrichment?.inventory
     const stock = inv ? inv.availableQuantity : p.stock
     const desc = p.description?.trim()
+    if (asksProductOrigin(lower)) {
+      return productOriginReply(ctx, p)
+    }
+    if (asksProductListedDate(lower)) {
+      return productListedReply(ctx, p)
+    }
     const usageFocus = /cong dung|dung lam|dung de|tinh nang|dac diem|mo ta|gioi thieu|la gi/.test(lower)
     if (usageFocus) {
       const useLine = desc
@@ -449,8 +528,9 @@ function productInfoReply(ctx: ChatContext, raw: string): string {
     const descLine = desc
       ? desc.slice(0, 160) + (desc.length > 160 ? '…' : '')
       : 'Xem mô tả đầy đủ trên trang SP.'
+    const meta = productMetadataLines(p)
     const img = p.imageUrl ? `\n• Ảnh: có (xem trang SP)` : ''
-    return `${name}**${p.name}**\n• Danh mục: **${p.category}**\n• Giá: **${formatVnd(p.price)}**${p.originalPrice && p.originalPrice > p.price ? ` (gốc ${formatVnd(p.originalPrice)})` : ''}\n• Tồn: **${stock <= 0 ? 'hết hàng' : stock}**\n• Shop: **${p.shopName ?? 'SEDSP Official'}**${img}\n• ${descLine}\n\n→ Chi tiết **/products/${p.id}**`
+    return `${name}**${p.name}**\n• Danh mục: **${p.category}**\n• Giá: **${formatVnd(p.price)}**${p.originalPrice && p.originalPrice > p.price ? ` (gốc ${formatVnd(p.originalPrice)})` : ''}\n• Tồn: **${stock <= 0 ? 'hết hàng' : stock}**\n• Shop: **${p.shopName ?? 'SEDSP Official'}**${meta.length ? `\n${meta.join('\n')}` : ''}${img}\n• ${descLine}\n\n→ Chi tiết **/products/${p.id}**`
   }
   return `${name}Bạn muốn biết SP nào? Hỏi tên cụ thể, vd: "thong tin tai nghe bluetooth", hoặc kéo SP vào khung chat.`
 }

@@ -27,7 +27,7 @@ export function isProductFollowUp(normalized: string): boolean {
   if (!normalized || normalized.length > 80) return false
 
   if (
-    /cong dung|dung lam|dung de|mo ta|tinh nang|dac diem|gioi thieu|what (is|does)|ve no|ve cai nay|san pham nay|sp nay|cai nay|no the nao|dung nhu the nao|cho minh biet|chat luong|nghe duoc|pin tru|mau sac|size|kich thuoc|bao nhieu tien|gia bao nhieu|con hang|het hang|con khong|tot khong|review|danh gia|no la gi|sp nay sao|hang nay sao|giai thich/.test(
+    /cong dung|dung lam|dung de|mo ta|tinh nang|dac diem|gioi thieu|what (is|does)|ve no|ve cai nay|san pham nay|sp nay|cai nay|no the nao|dung nhu the nao|cho minh biet|chat luong|nghe duoc|pin tru|mau sac|size|kich thuoc|bao nhieu tien|gia bao nhieu|con hang|het hang|con khong|tot khong|review|danh gia|no la gi|sp nay sao|hang nay sao|giai thich|xuat xu|ngay len ke|len ke|bao lau|khi nao len|khach.*danh gia|danh gia.*khach/.test(
       normalized,
     )
   ) {

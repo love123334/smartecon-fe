@@ -173,3 +173,38 @@ export function matchAnyKeyword(
 export function isShortGreeting(normalized: string): boolean {
   return /^(xin chao|chao|hello|hi|hey|alo|yo|chao shop|chao ban)$/.test(normalized)
 }
+
+/** Hỏi đánh giá / review — không nhầm với "giá" trong "đánh giá". */
+export function asksProductReview(normalized: string): boolean {
+  if (
+    /danh gia|review|rating|khach.*danh gia|danh gia.*khach|tot khong|chat luong|ngon khong|co tot khong|nhan xet|danh gia sao/.test(
+      normalized,
+    )
+  ) {
+    return true
+  }
+  if (/(?:may|\d)\s*sao/.test(normalized)) return true
+  return false
+}
+
+/** Hỏi giá — tránh khớp "gia" bên trong "danh gia". */
+export function asksProductPrice(normalized: string): boolean {
+  if (asksProductReview(normalized)) return false
+  return (
+    /(?:^|\s)(?:gia|price|cost)(?:\s|$)/.test(normalized) ||
+    /gia\s+(?:bao nhieu|may|re|bn|khoang|minh|thap|cao|nguoi|ban)/.test(normalized) ||
+    /bao nhieu|how much|may trieu|may cu|mấy triệu|mấy củ|tien/.test(normalized)
+  )
+}
+
+export function asksProductOrigin(normalized: string): boolean {
+  return /xuat xu|made in|hang nao|san xuat o|san xuat tai|nguon goc|origin|country|san xuat/.test(
+    normalized,
+  )
+}
+
+export function asksProductListedDate(normalized: string): boolean {
+  return /ngay len ke|len ke|bao lau|khi nao len|ra mat tren|co tu khi nao|dang ban tu|len san|len ke khi nao/.test(
+    normalized,
+  )
+}

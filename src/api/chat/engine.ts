@@ -1,6 +1,6 @@
 import type { ChatContext } from '@/api/chat/context'
 import { detectIntent, type ChatIntent } from '@/api/chat/intents'
-import { formatVnd, normalizeText } from '@/api/chat/match'
+import { formatVnd, normalizeText, asksProductListedDate, asksProductOrigin, asksProductPrice, asksProductReview } from '@/api/chat/match'
 import { toChatProducts } from '@/api/chat/productCards'
 import {
   cheapestProducts,
@@ -26,6 +26,9 @@ import {
 import {
   buildIntentReply,
   escalateReply,
+  productListedReply,
+  productOriginReply,
+  productReviewReply,
   sanitizeChatReply,
 } from '@/api/chat/responses'
 import type { ChatProductRef, Product } from '@/types'
@@ -50,6 +53,13 @@ const SHOPPING_INTENTS = new Set<ChatIntent>([
   'product_review',
   'shop_overview',
   'categories',
+])
+
+const METADATA_INTENTS = new Set<ChatIntent>([
+  'product_review',
+  'product_info',
+  'product_price',
+  'product_stock',
 ])
 
 /** Intent không được “lạc” sang tìm sản phẩm */
@@ -184,11 +194,14 @@ function shoppingStructuredReply(
   const range = extractPriceRange(raw)
   const filter = filterProductsForQuery(catalog, raw, ctx.categories, 8)
   const sellerQ = extractSellerNameQuery(raw)
+  // Không biến follow-up thuộc tính SP thành tìm kiếm catalog
+  if (intent && METADATA_INTENTS.has(intent)) return null
+
   const wantsShop =
     Boolean(range) ||
     Boolean(sellerQ) ||
     isAffordableProductQuery(raw) ||
-    (intent != null && SHOPPING_INTENTS.has(intent)) ||
+    (intent != null && SHOPPING_INTENTS.has(intent) && !METADATA_INTENTS.has(intent)) ||
     // Chỉ search mù khi chưa nhận ra intent và câu có từ khóa sản phẩm rõ
     (intent == null &&
       Boolean(filter.queryText) &&
@@ -359,7 +372,25 @@ function attachmentReply(
   }
 
   const top = products[0]
-  if (/gia|bao nhieu|how much|price/.test(lower)) {
+  if (asksProductReview(lower)) {
+    return {
+      content: productReviewReply(ctx, raw),
+      products: cards.slice(0, 1),
+    }
+  }
+  if (asksProductOrigin(lower)) {
+    return {
+      content: productOriginReply(ctx, top),
+      products: cards.slice(0, 1),
+    }
+  }
+  if (asksProductListedDate(lower)) {
+    return {
+      content: productListedReply(ctx, top),
+      products: cards.slice(0, 1),
+    }
+  }
+  if (asksProductPrice(lower)) {
     return {
       content: `${name}**${top.name}** đang bán **${formatVnd(top.price)}**${top.originalPrice && top.originalPrice > top.price ? ` (gốc ${formatVnd(top.originalPrice)})` : ''}.`,
       products: cards.slice(0, 1),
@@ -423,7 +454,7 @@ function smartProductFallback(
   const top = matched[0]
   const cards = toChatProducts(matched, 4)
 
-  if (/gia|bao nhieu|how much|price|cost|tien/.test(lower)) {
+  if (asksProductPrice(lower)) {
     return {
       content: `${name}**${top.name}** đang bán **${formatVnd(top.price)}**${top.originalPrice && top.originalPrice > top.price ? ` (gốc ${formatVnd(top.originalPrice)})` : ''}.`,
       products: cards,
@@ -435,9 +466,21 @@ function smartProductFallback(
       products: cards.slice(0, 1),
     }
   }
-  if (/review|danh gia|sao|tot khong|ngon/.test(lower)) {
+  if (asksProductReview(lower)) {
     return {
-      content: `${name}**${top.name}** đang được đánh giá khoảng **${top.rating}★**.`,
+      content: productReviewReply(ctx, raw),
+      products: cards.slice(0, 1),
+    }
+  }
+  if (asksProductOrigin(lower)) {
+    return {
+      content: productOriginReply(ctx, top),
+      products: cards.slice(0, 1),
+    }
+  }
+  if (asksProductListedDate(lower)) {
+    return {
+      content: productListedReply(ctx, top),
       products: cards.slice(0, 1),
     }
   }

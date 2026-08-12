@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   isContinuingProductChat,
   isProductFollowUp,
@@ -7,7 +7,87 @@ import {
 } from '@/api/chat/followup'
 import { detectIntent } from '@/api/chat/intents'
 import { normalizeText } from '@/api/chat/match'
+import type { ChatContext } from '@/api/chat/context'
+import { resolveChatReply } from '@/api/chat/responder'
 import type { ChatMessage } from '@/types'
+
+const { jeansProduct } = vi.hoisted(() => ({
+  jeansProduct: {
+    id: 'jeans-1',
+    name: 'High Waist Jeans',
+    description: 'Quần jean ống rộng',
+    price: 899_000,
+    stock: 12,
+    category: 'Thời trang',
+    imageUrl: '/jeans.jpg',
+    sellerId: 's1',
+    shopName: 'Fashion Hub',
+    rating: 4.5,
+    reviewCount: 8,
+    soldCount: 42,
+    createdAt: '2025-06-01T00:00:00.000Z',
+    attributes: [{ name: 'Xuất xứ', value: 'Việt Nam' }],
+  },
+}))
+
+vi.mock('@/api/chat/llm', () => ({
+  isLlmConfigured: () => false,
+  callChatLlm: vi.fn(),
+  llmProviderLabel: () => 'mock',
+  refreshBeAiStatus: vi.fn(),
+}))
+
+vi.mock('@/api/services', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/api/services')>()
+  return {
+    ...actual,
+    reviewApi: {
+      summary: vi.fn().mockResolvedValue({ averageRating: 4.5, totalReviews: 8 }),
+      list: vi.fn().mockResolvedValue([
+        { userName: 'Lan', rating: 5, comment: 'Form đẹp, vải ổn' },
+        { userName: 'Minh', rating: 4, comment: 'Size chuẩn' },
+      ]),
+    },
+    productApi: {
+      ...actual.productApi,
+      getById: vi.fn().mockResolvedValue(jeansProduct),
+    },
+  }
+})
+const jeansCard = {
+  id: 'jeans-1',
+  name: 'High Waist Jeans',
+  price: 899_000,
+  imageUrl: '/jeans.jpg',
+  category: 'Thời trang',
+  rating: 4.5,
+  stock: 12,
+}
+
+function minimalCtx(): ChatContext {
+  return {
+    role: 'customer',
+    userName: 'Khách',
+    products: [jeansProduct],
+    sellerProducts: [],
+    categories: [],
+    orders: [],
+    purchaseOrders: [],
+    cartLines: [],
+    cartItemCount: 0,
+    cartTotal: 0,
+    sellerInsights: [],
+    managerInsights: [],
+    categoryChart: [],
+    users: [],
+    systemMetrics: [],
+    recommendations: [],
+    publicVouchers: [],
+    dataSource: 'mock',
+    backendOnline: false,
+    catalogSource: 'mock',
+  }
+}
 
 describe('chat follow-up context', () => {
   it('maps "dùng làm gì" to product_info, not platform', () => {
@@ -59,5 +139,24 @@ describe('chat follow-up context', () => {
       },
     ]
     expect(lastDiscussedProducts(history)[0]?.name).toBe('AirPods Pro 2')
+  })
+
+  it('answers review follow-up for prior product instead of price', async () => {
+    const history: ChatMessage[] = [
+      {
+        id: '1',
+        role: 'assistant',
+        content: 'High Waist Jeans',
+        timestamp: '',
+        products: [jeansCard],
+      },
+    ]
+    const reply = await resolveChatReply(
+      'các khách khác đánh giá sản phẩm này sao',
+      history,
+      minimalCtx(),
+    )
+    expect(reply.content.toLowerCase()).toMatch(/danh gia|review|rating|★/)
+    expect(reply.content).not.toMatch(/đang bán\s+\*\*899/)
   })
 })

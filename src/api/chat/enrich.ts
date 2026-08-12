@@ -1,6 +1,6 @@
 import type { ChatContext, ChatEnrichment } from '@/api/chat/context'
 import type { ChatIntent } from '@/api/chat/intents'
-import { normalizeText } from '@/api/chat/match'
+import { normalizeText, asksProductListedDate, asksProductOrigin, asksProductReview } from '@/api/chat/match'
 import { findProductsByQuery, extractProductSearchTerms, isPriceStatsQuery } from '@/api/chat/products'
 import { matchCategoryFromText } from '@/api/chat/synonyms'
 import {
@@ -119,6 +119,7 @@ export async function enrichChatContext(
   ctx: ChatContext,
   raw: string,
   intent: ChatIntent | null,
+  focusProductId?: string,
 ): Promise<ChatContext> {
   if (intent && ['greeting', 'thanks', 'help', 'platform'].includes(intent)) {
     return ctx
@@ -183,16 +184,33 @@ export async function enrichChatContext(
 
   const catalog =
     ctx.role === 'seller' && ctx.sellerProducts.length ? ctx.sellerProducts : ctx.products
+  const normalized = normalizeText(raw)
   const matched = findProductsByQuery(catalog, raw)
-  const topProduct = matched[0]
+  let topProduct: Product | undefined = matched[0]
+  if (!topProduct && focusProductId) {
+    topProduct = catalog.find((p) => String(p.id) === String(focusProductId))
+  }
 
-  if (topProduct && intent && PRODUCT_INTENTS.has(intent)) {
+  const wantsReviews =
+    intent === 'product_review' ||
+    intent === 'product_info' ||
+    intent === 'recommend' ||
+    asksProductReview(normalized)
+  const wantsDetail =
+    intent === 'product_info' ||
+    intent === 'contact_seller' ||
+    intent === 'where_to_buy' ||
+    asksProductOrigin(normalized) ||
+    asksProductListedDate(normalized) ||
+    wantsReviews
+
+  if (topProduct && ((intent && PRODUCT_INTENTS.has(intent)) || focusProductId)) {
     tasks.push(
       (async () => {
-        const e = await enrichProduct(topProduct, {
-          reviews: intent === 'product_review' || intent === 'product_info' || intent === 'recommend',
+        const e = await enrichProduct(topProduct!, {
+          reviews: wantsReviews,
           inventory: intent === 'product_stock' || intent === 'product_info',
-          detail: intent === 'product_info' || intent === 'contact_seller' || intent === 'where_to_buy',
+          detail: wantsDetail,
         })
         Object.assign(enrichment, e)
       })(),
