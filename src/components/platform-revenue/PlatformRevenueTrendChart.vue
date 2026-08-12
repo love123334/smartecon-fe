@@ -14,6 +14,7 @@ import {
 import { Line } from 'vue-chartjs'
 import type { RevenueGranularity, RevenueTrendPoint } from '@/api/real/platformRevenue'
 import { formatPeriodLabel, formatPlatformNumber, formatPlatformVnd } from '@/utils/platformRevenue'
+import { CHART_COLORS, baseChartOptions } from '@/utils/chartDefaults'
 
 ChartJS.register(
   CategoryScale,
@@ -39,63 +40,68 @@ const chartData = computed(() => ({
     {
       label: 'GMV',
       data: props.trend.map((p) => Number(p.grossMerchandiseValue) || 0),
-      borderColor: '#0d9488',
-      backgroundColor: 'rgba(13, 148, 136, 0.12)',
+      borderColor: CHART_COLORS.success,
+      backgroundColor: CHART_COLORS.successSoft,
       fill: true,
-      tension: 0.25,
+      tension: 0.35,
+      borderWidth: 2.5,
+      pointRadius: 2,
+      pointHoverRadius: 5,
     },
     {
       label: 'Giá trị đơn hàng đã giao',
       data: props.trend.map((p) => Number(p.deliveredOrderValue) || 0),
-      borderColor: '#2563eb',
-      backgroundColor: 'rgba(37, 99, 235, 0.08)',
+      borderColor: CHART_COLORS.primary,
+      backgroundColor: CHART_COLORS.primarySoft,
       fill: true,
-      tension: 0.25,
+      tension: 0.35,
+      borderWidth: 2.5,
+      pointRadius: 2,
+      pointHoverRadius: 5,
     },
   ],
 }))
 
-const options = computed(() => ({
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: { display: true },
-    tooltip: {
-      callbacks: {
-        afterBody(items: { dataIndex: number }[]) {
-          const idx = items[0]?.dataIndex
-          if (idx == null) return []
-          const row = props.trend[idx]
-          if (!row) return []
-          return [
-            `Delivered orders: ${formatPlatformNumber(row.deliveredOrders)}`,
-            `Units sold: ${formatPlatformNumber(row.unitsSold)}`,
-          ]
-        },
-        label(ctx: { dataset: { label?: string }; parsed: { y: number | null } }) {
-          const label = ctx.dataset.label ?? ''
-          const y = ctx.parsed.y
-          return `${label}: ${formatPlatformVnd(y)}`
-        },
-      },
-    },
-  },
-  scales: {
-    y: {
-      beginAtZero: true,
-      ticks: {
-        callback(value: string | number) {
-          const n = Number(value)
-          if (!Number.isFinite(n)) return value
-          return new Intl.NumberFormat('vi-VN', {
-            notation: 'compact',
-            maximumFractionDigits: 1,
-          }).format(n)
+const options = computed(() =>
+  baseChartOptions({
+    plugins: {
+      legend: { display: true, position: 'bottom' },
+      tooltip: {
+        callbacks: {
+          afterBody(items: { dataIndex: number }[]) {
+            const idx = items[0]?.dataIndex
+            if (idx == null) return []
+            const row = props.trend[idx]
+            if (!row) return []
+            return [
+              `Delivered orders: ${formatPlatformNumber(row.deliveredOrders)}`,
+              `Units sold: ${formatPlatformNumber(row.unitsSold)}`,
+            ]
+          },
+          label(ctx: { dataset: { label?: string }; parsed: { y: number | null } }) {
+            const label = ctx.dataset.label ?? ''
+            const y = ctx.parsed.y
+            return `${label}: ${formatPlatformVnd(y)}`
+          },
         },
       },
     },
-  },
-}))
+    scales: {
+      y: {
+        ticks: {
+          callback(value: string | number) {
+            const n = Number(value)
+            if (!Number.isFinite(n)) return value
+            return new Intl.NumberFormat('vi-VN', {
+              notation: 'compact',
+              maximumFractionDigits: 1,
+            }).format(n)
+          },
+        },
+      },
+    },
+  }),
+)
 </script>
 
 <template>

@@ -15,6 +15,20 @@ export function normalizeText(text: string): string {
     .trim()
 }
 
+/**
+ * Khớp token trong field — từ ngắn (≤4) bắt buộc whole-word
+ * (tránh "ao" ⊂ "thoai", "co" ⊂ "complaint").
+ */
+export function fieldContainsToken(field: string, token: string): boolean {
+  if (!field || !token) return false
+  const f = normalizeText(field)
+  const t = normalizeText(token)
+  if (!t) return false
+  if (t.includes(' ')) return containsWholePhrase(f, t)
+  if (t.length <= 4) return containsWholePhrase(f, t)
+  return f.includes(t) || containsWholePhrase(f, t)
+}
+
 /** Khớp cụm theo ranh giới từ — tránh "hot" khớp trong "hotline" */
 export function containsWholePhrase(normalizedText: string, phrase: string): boolean {
   const p = normalizeText(phrase)

@@ -11,6 +11,7 @@ import {
 } from 'chart.js'
 import { Bar } from 'vue-chartjs'
 import type { ChartPoint } from '@/types'
+import { CHART_COLORS, baseChartOptions } from '@/utils/chartDefaults'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 
@@ -28,20 +29,20 @@ const chartData = computed(() => ({
     {
       label: props.label,
       data: props.data.map((d) => d.value),
-      backgroundColor: 'rgba(13, 148, 136, 0.7)',
-      borderColor: '#0f766e',
-      borderWidth: 1,
+      backgroundColor: CHART_COLORS.primarySoft,
+      borderColor: CHART_COLORS.primary,
+      borderWidth: 1.5,
+      borderRadius: 6,
+      maxBarThickness: 48,
     },
   ],
 }))
 
-const options = {
-  responsive: true,
-  maintainAspectRatio: false,
+const options = baseChartOptions({
   plugins: {
-    legend: { display: true },
+    legend: { display: Boolean(props.label) },
   },
-}
+})
 </script>
 
 <template>

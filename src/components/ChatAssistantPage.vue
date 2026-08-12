@@ -8,7 +8,7 @@ import PageHeader from '@/components/PageHeader.vue'
 import ChatPanel from '@/components/ChatPanel.vue'
 import AiShortcutBar from '@/components/AiShortcutBar.vue'
 import { roleChatShortcuts } from '@/utils/roleAiNav'
-import chatbotAvatar from '@/assets/chatbot-avatar.png'
+import chatbotAvatar from '@/assets/chatavt.png'
 
 const props = defineProps<{
   role?: UserRole

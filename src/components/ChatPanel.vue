@@ -5,7 +5,7 @@ import type { QuickPrompt } from '@/api/chat/prompts'
 import { formatChatHtml } from '@/api/chat/engine'
 import { parseDraggedProduct } from '@/api/chat/productCards'
 import ChatProductMiniCard from '@/components/ChatProductMiniCard.vue'
-import defaultChatAvatar from '@/assets/chatbot-avatar.png'
+import defaultChatAvatar from '@/assets/chatavt.png'
 
 const props = defineProps<{
   messages: ChatMessage[]

@@ -12,6 +12,7 @@ import {
   Filler,
 } from 'chart.js'
 import { Line } from 'vue-chartjs'
+import { CHART_COLORS, baseChartOptions } from '@/utils/chartDefaults'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler)
 
@@ -42,35 +43,33 @@ const chartData = computed(() => ({
     {
       label: 'Doanh số lịch sử',
       data: props.historical.map((h) => h.qty),
-      borderColor: '#1976d2',
-      backgroundColor: 'rgba(25, 118, 210, 0.12)',
+      borderColor: CHART_COLORS.primary,
+      backgroundColor: CHART_COLORS.primarySoft,
       borderWidth: 2.5,
       pointRadius: 3,
-      tension: 0.25,
+      pointHoverRadius: 5,
+      pointBackgroundColor: '#fff',
+      pointBorderColor: CHART_COLORS.primary,
+      pointBorderWidth: 2,
+      tension: 0.35,
       fill: true,
     },
   ],
 }))
 
-const options = {
-  responsive: true,
-  maintainAspectRatio: false,
-  interaction: { mode: 'index' as const, intersect: false },
+const options = baseChartOptions({
   plugins: {
-    legend: { position: 'bottom' as const },
+    legend: { position: 'bottom' },
   },
   scales: {
     x: {
-      title: { display: true, text: 'Thời gian' },
-      grid: { color: 'rgba(0,0,0,0.04)' },
+      title: { display: true, text: 'Thời gian', color: CHART_COLORS.tick, font: { size: 11 } },
     },
     y: {
-      title: { display: true, text: 'Số lượng bán' },
-      beginAtZero: true,
-      grid: { color: 'rgba(0,0,0,0.06)' },
+      title: { display: true, text: 'Số lượng bán', color: CHART_COLORS.tick, font: { size: 11 } },
     },
   },
-}
+})
 </script>
 
 <template>
@@ -83,5 +82,6 @@ const options = {
 .chart-wrap {
   height: 320px;
   width: 100%;
+  padding: 0.25rem 0.15rem 0;
 }
 </style>

@@ -196,11 +196,12 @@ img.img-fade[complete] {
 .cart-flyout__view-cart,
 .elegant-tabs__btn {
   transition:
-    background 0.15s ease,
-    border-color 0.15s ease,
-    color 0.15s ease,
-    opacity 0.15s ease,
-    box-shadow 0.15s ease;
+    background 0.28s var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
+    border-color 0.28s var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
+    color 0.28s var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
+    opacity 0.28s var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
+    box-shadow 0.32s var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
+    transform 0.38s var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1));
 }
 
 .btn:hover:not(:disabled),
@@ -286,12 +287,13 @@ img.img-fade[complete] {
 /* ——— Cards ——— */
 .card--glow {
   transition:
-    transform var(--transition),
-    box-shadow var(--transition),
-    border-color var(--transition);
+    transform var(--transition-slow, 0.48s cubic-bezier(0.22, 1, 0.36, 1)),
+    box-shadow var(--transition-slow, 0.48s cubic-bezier(0.22, 1, 0.36, 1)),
+    border-color var(--transition, 0.32s cubic-bezier(0.22, 1, 0.36, 1));
 }
 
 .card--glow:hover {
+  transform: translateY(-2px);
   border-color: var(--primary-200);
   box-shadow:
     var(--shadow-md),
@@ -389,13 +391,13 @@ img.img-fade[complete] {
 /* ——— Stat cards ——— */
 .stat-card--hover {
   transition:
-    transform var(--transition),
-    box-shadow var(--transition),
-    border-color var(--transition);
+    transform var(--transition-slow, 0.48s cubic-bezier(0.22, 1, 0.36, 1)),
+    box-shadow var(--transition-slow, 0.48s cubic-bezier(0.22, 1, 0.36, 1)),
+    border-color var(--transition, 0.32s cubic-bezier(0.22, 1, 0.36, 1));
 }
 
 .stat-card--hover:hover {
-  transform: translateY(-3px);
+  transform: translateY(-2px);
   box-shadow: var(--shadow-md);
   border-color: var(--secondary-200);
 }

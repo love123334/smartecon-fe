@@ -10,7 +10,7 @@ import { isChatPage, roleChatPath } from '@/utils/roleAiNav'
 import { isShopBrowsePath } from '@/utils/roleNav'
 import ChatPanel from '@/components/ChatPanel.vue'
 import { parseDraggedProduct, refreshChatProductStock } from '@/api/chat/productCards'
-import chatbotAvatar from '@/assets/chatbot-avatar.png'
+import chatbotAvatar from '@/assets/chatavt.png'
 
 const CHATBOT_AVATAR = chatbotAvatar
 
@@ -368,7 +368,9 @@ function onFabDrop(e: DragEvent) {
   background: transparent;
   cursor: pointer;
   box-shadow: 0 10px 28px rgba(37, 99, 235, 0.35);
-  transition: transform var(--transition), box-shadow var(--transition);
+  transition:
+    transform var(--transition-slow, 0.48s cubic-bezier(0.22, 1, 0.36, 1)),
+    box-shadow var(--transition-slow, 0.48s cubic-bezier(0.22, 1, 0.36, 1));
 }
 
 .chat-fab__avatar {
@@ -379,16 +381,26 @@ function onFabDrop(e: DragEvent) {
   display: block;
   border: 3px solid #fff;
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.45);
+  transition:
+    box-shadow var(--transition-slow, 0.48s cubic-bezier(0.22, 1, 0.36, 1)),
+    transform var(--transition-slow, 0.48s cubic-bezier(0.22, 1, 0.36, 1));
 }
 
 .chat-fab:hover {
-  transform: translateY(-2px) scale(1.03);
+  transform: translateY(-2px);
   box-shadow: 0 14px 32px rgba(37, 99, 235, 0.42);
 }
 
+.chat-fab:hover .chat-fab__avatar {
+  transform: scale(1.04);
+}
+
 .chat-fab--hot {
-  transform: scale(1.06);
+  transform: scale(1.03);
   box-shadow: 0 0 0 4px rgba(13, 148, 136, 0.35), 0 14px 32px rgba(13, 148, 136, 0.4);
+  transition:
+    transform var(--transition-slow, 0.48s cubic-bezier(0.22, 1, 0.36, 1)),
+    box-shadow var(--transition-slow, 0.48s cubic-bezier(0.22, 1, 0.36, 1));
 }
 
 .chat-fab--hot .chat-fab__avatar {

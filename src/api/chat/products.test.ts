@@ -249,6 +249,45 @@ describe('partial product search', () => {
   })
 })
 
+describe('clothing search — no false phone matches', () => {
+  const fashionCatalog: Product[] = [
+    p({
+      id: 'shirt1',
+      name: 'Men Casual Shirt',
+      price: 499_000,
+      category: 'Thời trang nam',
+      description: 'Áo sơ mi nam cotton',
+    }),
+    p({
+      id: 'tee1',
+      name: 'Graphic T-Shirt',
+      price: 399_000,
+      category: 'Thời trang',
+      description: 'Áo thun in họa tiết',
+    }),
+    p({
+      id: 'phone1',
+      name: 'Xiaomi 14 Ultra',
+      price: 21_990_000,
+      category: 'Điện thoại',
+      description: 'Smartphone cao cấp camera Leica',
+    }),
+  ]
+
+  it('“có áo k” returns shirts only, not phones', () => {
+    const hits = findProductsByQuery(fashionCatalog, 'có áo k')
+    expect(hits.length).toBeGreaterThan(0)
+    expect(hits.every((x) => /thoi trang|ao|shirt|t-shirt|tee/i.test(`${x.name} ${x.category}`))).toBe(true)
+    expect(hits.some((x) => x.id === 'phone1')).toBe(false)
+  })
+
+  it('filterProductsForQuery excludes phones for áo query', () => {
+    const { products } = filterProductsForQuery(fashionCatalog, 'có áo k')
+    expect(products.some((x) => x.id === 'phone1')).toBe(false)
+    expect(products.some((x) => x.id === 'shirt1' || x.id === 'tee1')).toBe(true)
+  })
+})
+
 describe('seller name product search', () => {
   const withShops: Product[] = [
     p({

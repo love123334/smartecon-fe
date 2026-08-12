@@ -1,4 +1,4 @@
-import { normalizeText, wordSimilarity } from '@/api/chat/match'
+import { containsWholePhrase, fieldContainsToken, normalizeText, wordSimilarity } from '@/api/chat/match'
 import { expandQueryTerms } from '@/api/chat/synonyms'
 import type { Product } from '@/types'
 
@@ -39,6 +39,73 @@ const FOCUS_PHRASES = [
 ] as const
 
 /** Brand/cụm rõ — chỉ siết lọc khi user hỏi đúng tên hãng/model */
+/** Gợi ý danh mục khi user hỏi SP thuộc nhóm rõ (áo → thời trang, không lẫn điện thoại). */
+interface SearchCategoryIntent {
+  triggers: string[]
+  allowedCategories: string[]
+  blockedCategories: string[]
+}
+
+const SEARCH_CATEGORY_INTENTS: SearchCategoryIntent[] = [
+  {
+    triggers: [
+      'ao', 'ao thun', 'ao nam', 'ao nu', 'shirt', 'tshirt', 'tee', 'polo', 'hoodie',
+      'quan', 'quan jean', 'vay', 'dam', 'crop top', 'thoi trang', 'fashion',
+    ],
+    allowedCategories: ['thoi trang', 'the thao', 'giay dep'],
+    blockedCategories: ['dien thoai', 'dien tu', 'laptop', 'may tinh', 'tablet', 'nha bep', 'am thuc', 'sach'],
+  },
+  {
+    triggers: ['dien thoai', 'smartphone', 'iphone', 'mobile phone'],
+    allowedCategories: ['dien thoai', 'phu kien'],
+    blockedCategories: ['thoi trang', 'nha bep', 'sach', 'noi that'],
+  },
+  {
+    triggers: ['laptop', 'macbook', 'may tinh xach tay', 'notebook'],
+    allowedCategories: ['laptop', 'may tinh', 'dien tu'],
+    blockedCategories: ['thoi trang', 'nha bep', 'am thuc'],
+  },
+  {
+    triggers: ['tai nghe', 'headphone', 'earbuds', 'headset'],
+    allowedCategories: ['dien tu', 'phu kien', 'am thanh'],
+    blockedCategories: ['thoi trang', 'nha bep', 'sach'],
+  },
+  {
+    triggers: ['giay', 'sneaker', 'giay dep'],
+    allowedCategories: ['giay dep', 'the thao', 'thoi trang'],
+    blockedCategories: ['dien thoai', 'laptop', 'nha bep'],
+  },
+]
+
+function detectSearchCategoryIntent(
+  normalizedQuery: string,
+  originalWords: string[],
+  searchPhrases: string[],
+): SearchCategoryIntent | null {
+  for (const intent of SEARCH_CATEGORY_INTENTS) {
+    for (const trigger of intent.triggers) {
+      if (
+        containsWholePhrase(normalizedQuery, trigger) ||
+        originalWords.some((w) => w === trigger || (trigger.includes(' ') && w === trigger.split(' ')[0]))
+      ) {
+        return intent
+      }
+    }
+    for (const phrase of searchPhrases) {
+      if (intent.triggers.some((t) => phrase === t || phrase.includes(t))) return intent
+    }
+  }
+  return null
+}
+
+function categoryMatchesIntent(catHay: string, intent: SearchCategoryIntent): boolean {
+  return intent.allowedCategories.some((a) => catHay.includes(a))
+}
+
+function categoryBlockedByIntent(catHay: string, intent: SearchCategoryIntent): boolean {
+  return intent.blockedCategories.some((b) => catHay.includes(b))
+}
+
 const STRICT_BRAND_TERMS = new Set([
   'macbook',
   'iphone',
@@ -324,6 +391,7 @@ export function findProductsByQuery(products: Product[], query: string): Product
     .split(/\s+/)
     .filter((w) => w.length >= 2 && !STOP_WORDS.has(w))
   const searchPhrases = deriveSearchPhrases(normalizedQuery, originalWords)
+  const categoryIntent = detectSearchCategoryIntent(normalizedQuery, originalWords, searchPhrases)
   const expanded = expandQueryTerms(cleaned || query, { search: true })
   const words = expanded.filter((w) => {
     const parts = w.split(/\s+/)
@@ -344,40 +412,56 @@ export function findProductsByQuery(products: Product[], query: string): Product
       let score = 0
       let nameHit = false
       let phraseHit = false
+      let categoryHit = false
 
       for (const phrase of searchPhrases) {
-        if (nameHay.includes(phrase)) {
+        if (fieldContainsToken(nameHay, phrase)) {
           score += phrase.length * 10
           nameHit = true
           phraseHit = true
-        } else if (catHay.includes(phrase) || descHay.includes(phrase) || hay.includes(phrase)) {
+        } else if (
+          fieldContainsToken(catHay, phrase) ||
+          fieldContainsToken(descHay, phrase) ||
+          fieldContainsToken(hay, phrase)
+        ) {
           score += phrase.length * 3.5
           phraseHit = true
+          if (fieldContainsToken(catHay, phrase)) categoryHit = true
         }
       }
 
       for (const w of originalWords) {
-        if (nameHay.includes(w)) {
+        if (fieldContainsToken(nameHay, w)) {
           score += w.length * 6
           nameHit = true
           continue
         }
         for (const nw of nameWords) {
-          if (w.length >= 2 && (nw.includes(w) || w.includes(nw))) {
+          if (w.length >= 3 && (fieldContainsToken(nw, w) || (nw.length >= 4 && nw.includes(w)))) {
+            score += w.length * 5
+            nameHit = true
+            break
+          }
+          if (w.length <= 3 && nw === w) {
             score += w.length * 5
             nameHit = true
             break
           }
         }
-        if (descHay.includes(w)) score += w.length * 2
-        if (catHay.includes(w)) score += w.length * 1.2
+        if (fieldContainsToken(descHay, w)) score += w.length * 2
+        if (fieldContainsToken(catHay, w)) {
+          score += w.length * 1.2
+          categoryHit = true
+        }
       }
 
       for (const w of words) {
-        if (hay.includes(w)) {
-          const inName = nameHay.includes(w)
-          score += w.length * (inName ? (w.includes(' ') ? 3.2 : 2.4) : w.includes(' ') ? 1.2 : 0.85)
+        if (fieldContainsToken(hay, w)) {
+          const inName = fieldContainsToken(nameHay, w)
+          const inCat = fieldContainsToken(catHay, w)
+          score += w.length * (inName ? (w.includes(' ') ? 3.2 : 2.4) : inCat ? 1.6 : w.includes(' ') ? 1.2 : 0.85)
           if (inName) nameHit = true
+          if (inCat) categoryHit = true
           continue
         }
         if (w.includes(' ') || w.length < 3) continue
@@ -385,8 +469,8 @@ export function findProductsByQuery(products: Product[], query: string): Product
           if (hw.length < 3) continue
           const sim = wordSimilarity(hw, w)
           if (sim >= 0.82) {
-            score += w.length * sim * (nameHay.includes(hw) ? 1 : 0.45)
-            if (nameHay.includes(hw)) nameHit = true
+            score += w.length * sim * (fieldContainsToken(nameHay, hw) ? 1 : 0.45)
+            if (fieldContainsToken(nameHay, hw)) nameHit = true
           }
         }
       }
@@ -396,10 +480,26 @@ export function findProductsByQuery(products: Product[], query: string): Product
       if (brandQuery.length && !nameHit) {
         score *= brandQuery.some((w) => w.length >= 5) ? 0.2 : 0.45
       }
-      return { p, score, nameHit, phraseHit }
+
+      if (categoryIntent) {
+        if (categoryMatchesIntent(catHay, categoryIntent)) {
+          score += 14
+          categoryHit = true
+        }
+        if (categoryBlockedByIntent(catHay, categoryIntent) && !nameHit) {
+          score *= 0.06
+        }
+      }
+
+      return { p, score, nameHit, phraseHit, categoryHit }
     })
     .filter((x) => x.score >= 2.5)
-    .sort((a, b) => b.score - a.score || Number(b.nameHit) - Number(a.nameHit))
+    .sort(
+      (a, b) =>
+        b.score - a.score ||
+        Number(b.nameHit) - Number(a.nameHit) ||
+        Number(b.categoryHit) - Number(a.categoryHit),
+    )
 
   const brandTerm = originalWords.find((w) => STRICT_BRAND_TERMS.has(w) && w.length >= 5)
   if (brandTerm) {
@@ -408,8 +508,19 @@ export function findProductsByQuery(products: Product[], query: string): Product
     return []
   }
 
-  const withName = scored.filter((x) => x.nameHit)
-  const picked = withName.length ? withName : scored
+  let picked = scored.filter((x) => x.nameHit)
+  if (!picked.length) picked = scored
+
+  if (categoryIntent) {
+    const intentFiltered = picked.filter((x) => {
+      const catHay = normalizeText(x.p.category ?? '')
+      if (categoryBlockedByIntent(catHay, categoryIntent) && !x.nameHit) return false
+      if (x.nameHit || x.categoryHit || categoryMatchesIntent(catHay, categoryIntent)) return true
+      return x.score >= 10
+    })
+    if (intentFiltered.length) picked = intentFiltered
+  }
+
   return picked.map((x) => x.p)
 }
 

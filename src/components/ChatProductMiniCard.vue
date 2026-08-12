@@ -70,7 +70,10 @@ function openProduct() {
   text-align: left;
   font: inherit;
   cursor: pointer;
-  transition: border-color var(--transition), box-shadow var(--transition), transform var(--transition);
+  transition:
+    border-color var(--transition-slow, 0.48s cubic-bezier(0.22, 1, 0.36, 1)),
+    box-shadow var(--transition-slow, 0.48s cubic-bezier(0.22, 1, 0.36, 1)),
+    transform var(--transition-slow, 0.48s cubic-bezier(0.22, 1, 0.36, 1));
 }
 
 .chat-mini-card:hover {

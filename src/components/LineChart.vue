@@ -13,6 +13,7 @@ import {
 } from 'chart.js'
 import { Line } from 'vue-chartjs'
 import type { ChartPoint } from '@/types'
+import { CHART_COLORS, baseChartOptions } from '@/utils/chartDefaults'
 
 ChartJS.register(
   CategoryScale,
@@ -39,21 +40,25 @@ const chartData = computed(() => ({
     {
       label: props.label,
       data: props.data.map((d) => d.value),
-      borderColor: '#0d9488',
-      backgroundColor: 'rgba(13, 148, 136, 0.15)',
+      borderColor: CHART_COLORS.primary,
+      backgroundColor: CHART_COLORS.primarySoft,
       fill: true,
-      tension: 0.3,
+      tension: 0.35,
+      borderWidth: 2.5,
+      pointRadius: 3,
+      pointHoverRadius: 5,
+      pointBackgroundColor: '#fff',
+      pointBorderColor: CHART_COLORS.primary,
+      pointBorderWidth: 2,
     },
   ],
 }))
 
-const options = {
-  responsive: true,
-  maintainAspectRatio: false,
+const options = baseChartOptions({
   plugins: {
-    legend: { display: true },
+    legend: { display: Boolean(props.label) },
   },
-}
+})
 </script>
 
 <template>
