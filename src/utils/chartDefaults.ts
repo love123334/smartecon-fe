@@ -20,20 +20,19 @@ const baseFont = {
   size: 12,
 }
 
-/** Options chung — legend gọn, grid nhẹ, tooltip rõ */
-export function baseChartOptions(overrides?: ChartOptions): ChartOptions {
+function sharedOptions() {
   return {
     responsive: true,
     maintainAspectRatio: false,
     animation: {
       duration: 720,
-      easing: 'easeOutQuart',
+      easing: 'easeOutQuart' as const,
     },
-    interaction: { mode: 'index', intersect: false },
+    interaction: { mode: 'index' as const, intersect: false },
     plugins: {
       legend: {
         display: true,
-        position: 'bottom',
+        position: 'bottom' as const,
         labels: {
           color: CHART_COLORS.tick,
           font: { ...baseFont, size: 11 },
@@ -45,7 +44,7 @@ export function baseChartOptions(overrides?: ChartOptions): ChartOptions {
       },
       tooltip: {
         backgroundColor: CHART_COLORS.tooltipBg,
-        titleFont: { ...baseFont, weight: '600' },
+        titleFont: { ...baseFont, weight: 600 },
         bodyFont: baseFont,
         padding: 10,
         cornerRadius: 8,
@@ -56,16 +55,60 @@ export function baseChartOptions(overrides?: ChartOptions): ChartOptions {
     scales: {
       x: {
         ticks: { color: CHART_COLORS.tick, font: baseFont, maxRotation: 0 },
-        grid: { color: CHART_COLORS.grid, drawBorder: false },
+        grid: { color: CHART_COLORS.grid },
         border: { display: false },
       },
       y: {
         beginAtZero: true,
         ticks: { color: CHART_COLORS.tick, font: baseFont },
-        grid: { color: CHART_COLORS.gridStrong, drawBorder: false },
+        grid: { color: CHART_COLORS.gridStrong },
         border: { display: false },
       },
     },
-    ...overrides,
   }
 }
+
+/** Options chung cho biểu đồ đường */
+export function baseLineChartOptions(overrides?: ChartOptions<'line'>): ChartOptions<'line'> {
+  const base = sharedOptions()
+  return {
+    ...base,
+    ...overrides,
+    plugins: {
+      ...base.plugins,
+      ...overrides?.plugins,
+      legend: { ...base.plugins.legend, ...overrides?.plugins?.legend },
+      tooltip: { ...base.plugins.tooltip, ...overrides?.plugins?.tooltip },
+    },
+    scales: {
+      ...base.scales,
+      ...overrides?.scales,
+      x: { ...base.scales.x, ...overrides?.scales?.x },
+      y: { ...base.scales.y, ...overrides?.scales?.y },
+    },
+  }
+}
+
+/** Options chung cho biểu đồ cột */
+export function baseBarChartOptions(overrides?: ChartOptions<'bar'>): ChartOptions<'bar'> {
+  const base = sharedOptions()
+  return {
+    ...base,
+    ...overrides,
+    plugins: {
+      ...base.plugins,
+      ...overrides?.plugins,
+      legend: { ...base.plugins.legend, ...overrides?.plugins?.legend },
+      tooltip: { ...base.plugins.tooltip, ...overrides?.plugins?.tooltip },
+    },
+    scales: {
+      ...base.scales,
+      ...overrides?.scales,
+      x: { ...base.scales.x, ...overrides?.scales?.x },
+      y: { ...base.scales.y, ...overrides?.scales?.y },
+    },
+  }
+}
+
+/** @deprecated dùng baseLineChartOptions hoặc baseBarChartOptions */
+export const baseChartOptions = baseLineChartOptions

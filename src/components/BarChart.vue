@@ -11,7 +11,7 @@ import {
 } from 'chart.js'
 import { Bar } from 'vue-chartjs'
 import type { ChartPoint } from '@/types'
-import { CHART_COLORS, baseChartOptions } from '@/utils/chartDefaults'
+import { CHART_COLORS, baseBarChartOptions } from '@/utils/chartDefaults'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 
@@ -38,7 +38,7 @@ const chartData = computed(() => ({
   ],
 }))
 
-const options = baseChartOptions({
+const options = baseBarChartOptions({
   plugins: {
     legend: { display: Boolean(props.label) },
   },

@@ -14,7 +14,7 @@ import {
 import { Line } from 'vue-chartjs'
 import type { RevenueGranularity, RevenueTrendPoint } from '@/api/real/platformRevenue'
 import { formatPeriodLabel, formatPlatformNumber, formatPlatformVnd } from '@/utils/platformRevenue'
-import { CHART_COLORS, baseChartOptions } from '@/utils/chartDefaults'
+import { CHART_COLORS, baseLineChartOptions } from '@/utils/chartDefaults'
 
 ChartJS.register(
   CategoryScale,
@@ -63,7 +63,7 @@ const chartData = computed(() => ({
 }))
 
 const options = computed(() =>
-  baseChartOptions({
+  baseLineChartOptions({
     plugins: {
       legend: { display: true, position: 'bottom' },
       tooltip: {

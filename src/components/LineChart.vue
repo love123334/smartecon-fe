@@ -13,7 +13,7 @@ import {
 } from 'chart.js'
 import { Line } from 'vue-chartjs'
 import type { ChartPoint } from '@/types'
-import { CHART_COLORS, baseChartOptions } from '@/utils/chartDefaults'
+import { CHART_COLORS, baseLineChartOptions } from '@/utils/chartDefaults'
 
 ChartJS.register(
   CategoryScale,
@@ -54,7 +54,7 @@ const chartData = computed(() => ({
   ],
 }))
 
-const options = baseChartOptions({
+const options = baseLineChartOptions({
   plugins: {
     legend: { display: Boolean(props.label) },
   },

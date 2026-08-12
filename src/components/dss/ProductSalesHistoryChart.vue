@@ -12,7 +12,7 @@ import {
   Filler,
 } from 'chart.js'
 import { Line } from 'vue-chartjs'
-import { CHART_COLORS, baseChartOptions } from '@/utils/chartDefaults'
+import { CHART_COLORS, baseLineChartOptions } from '@/utils/chartDefaults'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler)
 
@@ -57,7 +57,7 @@ const chartData = computed(() => ({
   ],
 }))
 
-const options = baseChartOptions({
+const options = baseLineChartOptions({
   plugins: {
     legend: { position: 'bottom' },
   },
