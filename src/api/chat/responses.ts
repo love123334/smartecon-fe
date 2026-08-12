@@ -255,7 +255,7 @@ function productSearchReply(ctx: ChatContext, raw: string): string {
   if (!hits.length) {
     return `${name}Chưa thấy **${terms || 'sản phẩm đó'}** trên shop. Thử tên ngắn hơn (vd: "kính", "tai nghe") hoặc mở **Tìm kiếm** trên header.`
   }
-  return `${name}Mình tìm thấy vài lựa chọn cho **${terms || 'nhu cầu của bạn'}**:\n${productLines(hits.slice(0, 6), 6)}\n\nBấm card bên dưới để xem chi tiết, hoặc nói rõ hơn nhu cầu nhé.`
+  return `${name}Rất vui vì bạn đã hỏi! Mình tìm được vài lựa chọn cho **${terms || 'nhu cầu của bạn'}**:\n${productLines(hits.slice(0, 6), 6)}\n\nMời bạn tham khảo bên dưới, hoặc nói rõ hơn nếu cần lọc thêm nhé.`
 }
 
 function cheapestReply(ctx: ChatContext): string {

@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { nextTick, ref, watch } from 'vue'
+import { nextTick, ref, watch, computed } from 'vue'
 import type { ChatMessage, ChatProductRef } from '@/types'
 import type { QuickPrompt } from '@/api/chat/prompts'
 import { formatChatHtml } from '@/api/chat/engine'
 import { parseDraggedProduct } from '@/api/chat/productCards'
 import ChatProductMiniCard from '@/components/ChatProductMiniCard.vue'
+import defaultChatAvatar from '@/assets/chatbot-avatar.png'
 
 const props = defineProps<{
   messages: ChatMessage[]
@@ -27,6 +28,7 @@ const emit = defineEmits<{
 const input = ref('')
 const listEl = ref<HTMLElement | null>(null)
 const dropActive = ref(false)
+const effectiveAvatar = computed(() => props.avatarSrc ?? defaultChatAvatar)
 
 async function scrollEnd() {
   await nextTick()
@@ -101,9 +103,18 @@ defineExpose({ scrollToEnd: scrollEnd })
     </div>
 
     <div ref="listEl" class="chat-messages" :class="{ 'chat-messages--compact': compact }">
-      <p v-if="!messages.length" class="empty empty--dashed">
-        {{ emptyText ?? 'Xin chào! Hãy đặt câu hỏi.' }}
-      </p>
+      <div v-if="!messages.length" class="chat-empty">
+        <img
+          class="chat-empty__avatar"
+          :src="effectiveAvatar"
+          alt=""
+          width="48"
+          height="48"
+        />
+        <p class="empty empty--dashed">
+          {{ emptyText ?? 'Xin chào! Hãy đặt câu hỏi.' }}
+        </p>
+      </div>
       <TransitionGroup v-else name="chat-msg" tag="div" class="chat-list">
         <div
           v-for="m in messages"
@@ -114,12 +125,12 @@ defineExpose({ scrollToEnd: scrollEnd })
           ]"
         >
           <img
-            v-if="m.role !== 'user' && avatarSrc"
+            v-if="m.role !== 'user'"
             class="chat-row__avatar"
-            :src="avatarSrc"
-            alt=""
-            width="32"
-            height="32"
+            :src="effectiveAvatar"
+            alt="Trợ lý SmarTEcon"
+            width="36"
+            height="36"
           />
           <div
             :class="[
@@ -155,12 +166,11 @@ defineExpose({ scrollToEnd: scrollEnd })
         </div>
         <div v-if="loading" key="typing" class="chat-row chat-row--assistant">
           <img
-            v-if="avatarSrc"
             class="chat-row__avatar"
-            :src="avatarSrc"
-            alt=""
-            width="32"
-            height="32"
+            :src="effectiveAvatar"
+            alt="Trợ lý SmarTEcon"
+            width="36"
+            height="36"
           />
           <div class="chat-bubble assistant chat-bubble--typing">
             <span class="typing-dots" aria-label="Đang trả lời"><i /><i /><i /></span>
@@ -311,14 +321,34 @@ defineExpose({ scrollToEnd: scrollEnd })
   justify-content: flex-start;
 }
 
+.chat-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 0.5rem;
+  text-align: center;
+}
+
+.chat-empty__avatar {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #fff;
+  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.25);
+}
+
 .chat-row__avatar {
-  width: 2rem;
-  height: 2rem;
+  width: 2.25rem;
+  height: 2.25rem;
   border-radius: 50%;
   object-fit: cover;
   flex-shrink: 0;
+  align-self: flex-start;
+  margin-top: 0.15rem;
   border: 2px solid #fff;
-  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.25);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.22);
 }
 
 .chat-bubble {

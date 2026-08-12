@@ -133,20 +133,41 @@ function followUps(intent: ChatIntent | null, role: ChatContext['role']): string
     product_search: '\n\nThêm "dưới X triệu" nếu muốn lọc giá.',
   }
   if (intent && tips[intent]) return tips[intent]
-  if (role === 'guest') return '\n\nĐăng nhập để xem giỏ và đơn cá nhân.'
+  if (
+    role === 'guest' &&
+    intent &&
+    ['cart', 'cart_summary', 'orders', 'order_detail', 'checkout'].includes(intent)
+  ) {
+    return '\n\nĐăng nhập để xem giỏ và đơn cá nhân nhé.'
+  }
   return ''
 }
 
-function cardsIntro(
+type IntroMode = 'search' | 'shop' | 'budget' | 'cheapest' | 'affordable'
+
+function warmProductIntro(
   ctx: ChatContext,
-  title: string,
   count: number,
-  extra?: string,
+  topic?: string,
+  mode: IntroMode = 'search',
 ): string {
   const name = greet(ctx.userName ?? '')
-  const hint = extra ? `\n${extra}` : ''
-  if (count <= 0) return `${name}Mình chưa thấy sản phẩm phù hợp.${hint}`
-  return `${name}${title}${hint}\n\nBấm card bên dưới để xem chi tiết nhé.`
+  if (count <= 0) {
+    return `${name}Mình chưa thấy sản phẩm phù hợp${topic ? ` cho **${topic}**` : ''} trên shop lúc này. Bạn thử từ khóa khác hoặc mở **Cửa hàng** nhé.`
+  }
+  const topicBit = topic ? ` về **${topic}**` : ''
+  switch (mode) {
+    case 'shop':
+      return `${name}Mình tìm được **${count}** sản phẩm từ shop **${topic}** — mời bạn xem qua nhé.`
+    case 'budget':
+      return `${name}Trong tầm giá bạn hỏi, mình lọc được **${count}** lựa chọn${topicBit} — tham khảo bên dưới nhé.`
+    case 'cheapest':
+      return `${name}Đây là **${count}** lựa chọn giá mềm nhất mình tìm được${topicBit} — xem thử nhé.`
+    case 'affordable':
+      return `${name}Mình gom **${count}** món **${topic}** giá hợp lý trên shop — bạn tham khảo nhé.`
+    default:
+      return `${name}Rất vui vì bạn đã hỏi! Mình tìm được **${count}** gợi ý liên quan${topicBit} — mời bạn tham khảo bên dưới nhé.`
+  }
 }
 
 function shoppingStructuredReply(
@@ -181,7 +202,7 @@ function shoppingStructuredReply(
     const hits = affordableProductsForQuery(catalog, raw, 6)
     if (hits.length) {
       return {
-        content: cardsIntro(ctx, `**${label}** giá tốt trên SEDSP (sắp rẻ → cao):`, hits.length),
+        content: warmProductIntro(ctx, hits.length, label, 'affordable'),
         products: toChatProducts(hits, 6),
       }
     }
@@ -199,7 +220,7 @@ function shoppingStructuredReply(
       .join(' ')
     if (hits.length) {
       return {
-        content: cardsIntro(ctx, `Sản phẩm của **${label}**:`, hits.length),
+        content: warmProductIntro(ctx, hits.length, label, 'shop'),
         products: toChatProducts(hits, 6),
       }
     }
@@ -244,25 +265,20 @@ function shoppingStructuredReply(
     const floor = formatVnd(cheap[0].price)
     const sameCount = cheap.length
     return {
-      content: cardsIntro(
-        ctx,
-        sameCount === 1
-          ? `Sản phẩm **rẻ nhất** hiện tại là **${cheap[0].name}** — **${floor}**.`
-          : `Mức giá **thấp nhất** hiện tại là **${floor}**. Có **${sameCount}** sản phẩm cùng mức giá này:`,
-        sameCount,
-      ),
+      content:
+        warmProductIntro(ctx, sameCount, undefined, 'cheapest') +
+        (sameCount === 1
+          ? `\n\n**${cheap[0].name}** — **${floor}**.`
+          : `\n\nMức thấp nhất **${floor}**, có **${sameCount}** sản phẩm cùng mức này.`),
       products: toChatProducts(cheap, 4),
     }
   }
 
   if (filter.products.length) {
-    const label = filter.queryText
-      ? `Kết quả cho **${filter.queryText}**:`
-      : filter.range
-        ? `Sản phẩm trong tầm giá **${formatPriceRangeLabel(filter.range)}**:`
-        : 'Mình gợi ý vài sản phẩm liên quan:'
+    const topic = filter.queryText || (filter.range ? formatPriceRangeLabel(filter.range) : undefined)
+    const mode: IntroMode = filter.range ? 'budget' : 'search'
     return {
-      content: cardsIntro(ctx, label, filter.products.length),
+      content: warmProductIntro(ctx, filter.products.length, topic, mode),
       products: toChatProducts(filter.products, 6),
     }
   }
@@ -433,7 +449,7 @@ function smartProductFallback(
   }
 
   return {
-    content: cardsIntro(ctx, 'Mình thấy vài sản phẩm liên quan:', Math.min(matched.length, 4)),
+    content: warmProductIntro(ctx, Math.min(matched.length, 4), undefined, 'search'),
     products: cards,
   }
 }
@@ -535,13 +551,13 @@ export async function generateAssistantReply(
         products?.length &&
         intent !== 'where_to_buy' &&
         intent !== 'recommend' &&
-        intent !== 'contact_seller'
+        intent !== 'contact_seller' &&
+        !content.includes('tham khảo') &&
+        !content.includes('bên dưới')
       ) {
-        if (!content.includes('card') && !content.includes('bên dưới')) {
-          content += `\n\nBấm card bên dưới để xem chi tiết.`
-        }
+        content += `\n\nXem chi tiết trên từng card bên dưới nhé.`
       } else if (products?.length && (intent === 'where_to_buy' || intent === 'recommend')) {
-        content += `\n\nChọn card bên dưới để xem SP.`
+        content += `\n\nChọn card bên dưới để xem SP nhé.`
       }
       return wrapReply({ content, products })
     }
@@ -575,13 +591,11 @@ export async function generateAssistantReply(
     if (cheap.length) {
       const floor = formatVnd(cheap[0].price)
       return wrapReply({
-        content: cardsIntro(
-          ctx,
-          cheap.length === 1
-            ? `Sản phẩm rẻ nhất hiện tại là **${cheap[0].name}** — **${floor}**.`
-            : `Mức giá thấp nhất là **${floor}**. Có **${cheap.length}** sản phẩm cùng mức này:`,
-          cheap.length,
-        ),
+        content:
+          warmProductIntro(ctx, cheap.length, undefined, 'cheapest') +
+          (cheap.length === 1
+            ? `\n\n**${cheap[0].name}** — **${floor}**.`
+            : `\n\nMức thấp nhất **${floor}**, có **${cheap.length}** sản phẩm cùng mức này.`),
         products: toChatProducts(cheap, 4),
       })
     }
@@ -591,7 +605,7 @@ export async function generateAssistantReply(
     const hits = productsUnderBudget(catalog, budget, 6)
     if (hits.length) {
       return wrapReply({
-        content: cardsIntro(ctx, `SP ≤ ${formatVnd(budget)}`, hits.length) + sellerHintFromProducts(hits),
+        content: warmProductIntro(ctx, hits.length, formatVnd(budget), 'budget') + sellerHintFromProducts(hits),
         products: toChatProducts(hits, 6),
       })
     }
