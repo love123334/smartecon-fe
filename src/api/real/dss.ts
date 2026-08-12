@@ -16,12 +16,61 @@ export interface DemandForecastApi {
 }
 
 /** POST /api/v1/dss/demand-predictions */
+export interface DssForecastDayApi {
+  date: string
+  predictedQty: number
+  holidayNote?: string | null
+}
+
+export interface DssHolidayImpactApi {
+  code: string
+  label: string
+  start: string
+  end: string
+  demandMultiplier: number
+  note?: string
+}
+
+export interface DssPriceChangeImpactApi {
+  changedAt: string
+  oldPrice: number
+  newPrice: number
+  priceChangePercent: number
+  avgDailyQtyBefore: number
+  avgDailyQtyAfter: number
+  quantityChangePercent: number
+  windowDays: number
+  summary: string
+}
+
+export interface DssProductContextApi {
+  listedAt?: string | null
+  daysListed?: number
+  firstSaleDate?: string | null
+  daysSinceFirstSale?: number | null
+  priceChangeCount?: number
+  shopSalesRank?: number | null
+  shopProductCount?: number | null
+  performanceTier?: string
+  performanceSummary?: string
+}
+
+export interface DssAiInsightApi {
+  title: string
+  summary: string
+  provider?: string
+  fallback?: boolean
+  disclaimer?: string
+}
+
 export interface DemandPredictionApi {
   productName: string
   historicalDays: number
   forecastPeriod: number
   averageDailyDemand: number
   predictedDemand: number
+  seasonalityAdjustedDemand?: number
+  holidayAdjustmentFactor?: number
   generatedAt: string | null
   historicalFrom?: string
   historicalTo?: string
@@ -29,6 +78,11 @@ export interface DemandPredictionApi {
   forecastPeriodLabel?: string
   methodology?: string
   trendFactor?: number
+  forecastSeries?: DssForecastDayApi[]
+  upcomingHolidays?: DssHolidayImpactApi[]
+  productContext?: DssProductContextApi
+  priceChangeImpacts?: DssPriceChangeImpactApi[]
+  aiInsight?: DssAiInsightApi
 }
 
 export interface CreateDemandPredictionRequest {
@@ -98,6 +152,10 @@ export interface PricePredictionApi {
   recommendation?: string
   recommendationReason?: string
   currentSituationBreakdown?: DssProfitBreakdownApi
+  productContext?: DssProductContextApi
+  priceChangeImpacts?: DssPriceChangeImpactApi[]
+  upcomingHolidays?: DssHolidayImpactApi[]
+  aiInsight?: DssAiInsightApi
 }
 
 export interface CreatePricePredictionRequest {

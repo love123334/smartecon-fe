@@ -12,6 +12,7 @@ import {
   Filler,
 } from 'chart.js'
 import { Line } from 'vue-chartjs'
+import type { ChartData } from 'chart.js'
 import { CHART_COLORS, baseLineChartOptions } from '@/utils/chartDefaults'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler)
@@ -24,6 +25,7 @@ export interface SalesHistoryPoint {
 
 const props = defineProps<{
   historical: SalesHistoryPoint[]
+  forecast?: SalesHistoryPoint[]
 }>()
 
 function formatLabel(pt: SalesHistoryPoint): string {
@@ -37,25 +39,49 @@ function formatLabel(pt: SalesHistoryPoint): string {
   return `Ngày ${pt.day}`
 }
 
-const chartData = computed(() => ({
-  labels: props.historical.map(formatLabel),
-  datasets: [
+const chartData = computed((): ChartData<'line'> => {
+  const histLabels = props.historical.map(formatLabel)
+  const forecastLabels = (props.forecast ?? []).map(formatLabel)
+  const labels = [...histLabels, ...forecastLabels]
+
+  const histData = props.historical.map((h) => h.qty)
+  const forecastData = [
+    ...Array(Math.max(histData.length - 1, 0)).fill(null),
+    histData.length ? histData[histData.length - 1] : null,
+    ...(props.forecast ?? []).map((f) => f.qty),
+  ]
+
+  const datasets: ChartData<'line'>['datasets'] = [
     {
-      label: 'Doanh số lịch sử',
-      data: props.historical.map((h) => h.qty),
+      label: 'Bán thực tế',
+      data: [...histData, ...Array(forecastLabels.length).fill(null)],
       borderColor: CHART_COLORS.primary,
       backgroundColor: CHART_COLORS.primarySoft,
       borderWidth: 2.5,
       pointRadius: 3,
       pointHoverRadius: 5,
-      pointBackgroundColor: '#fff',
-      pointBorderColor: CHART_COLORS.primary,
-      pointBorderWidth: 2,
       tension: 0.35,
       fill: true,
     },
-  ],
-}))
+  ]
+
+  if (props.forecast?.length) {
+    datasets.push({
+      label: 'Dự báo (mùa vụ + lễ)',
+      data: forecastData,
+      borderColor: CHART_COLORS.warn,
+      backgroundColor: CHART_COLORS.warnSoft,
+      borderWidth: 2.5,
+      pointRadius: 2,
+      pointHoverRadius: 5,
+      tension: 0.35,
+      fill: false,
+      borderDash: [6, 4],
+    })
+  }
+
+  return { labels, datasets }
+})
 
 const options = baseLineChartOptions({
   plugins: {
@@ -66,7 +92,7 @@ const options = baseLineChartOptions({
       title: { display: true, text: 'Thời gian', color: CHART_COLORS.tick, font: { size: 11 } },
     },
     y: {
-      title: { display: true, text: 'Số lượng bán', color: CHART_COLORS.tick, font: { size: 11 } },
+      title: { display: true, text: 'Số lượng', color: CHART_COLORS.tick, font: { size: 11 } },
     },
   },
 })

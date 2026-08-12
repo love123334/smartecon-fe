@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import ProductSalesHistoryChart from '@/components/dss/ProductSalesHistoryChart.vue'
+import DssPredictionContextPanel from '@/components/dss/DssPredictionContextPanel.vue'
 import { dssApi } from '@/api/services'
 import type { DemandPredictionApi } from '@/api/real/dss'
 import { useAuthStore } from '@/stores/auth'
@@ -65,13 +66,35 @@ const canSubmit = computed(
 
 const aiInsight = computed(() => {
   if (!result.value) return null
-  return buildDemandPredictionAiInsight({
-    productName: displayProductName.value,
-    historicalDays: result.value.historicalDays,
-    forecastPeriod: result.value.forecastPeriod,
-    averageDailyDemand: result.value.averageDailyDemand,
-    predictedDemand: result.value.predictedDemand,
-  })
+  if (result.value.aiInsight?.summary) {
+    return {
+      source: 'backend' as const,
+      backend: result.value.aiInsight,
+    }
+  }
+  return {
+    source: 'local' as const,
+    local: buildDemandPredictionAiInsight({
+      productName: displayProductName.value,
+      historicalDays: result.value.historicalDays,
+      forecastPeriod: result.value.forecastPeriod,
+      averageDailyDemand: result.value.averageDailyDemand,
+      predictedDemand: result.value.seasonalityAdjustedDemand ?? result.value.predictedDemand,
+    }),
+  }
+})
+
+const localAiInsight = computed(() =>
+  aiInsight.value?.source === 'local' ? aiInsight.value.local : null,
+)
+
+const forecastSeriesForChart = computed(() => {
+  const rows = result.value?.forecastSeries ?? []
+  return rows.map((r, i) => ({
+    day: i + 1,
+    qty: Number(r.predictedQty),
+    date: r.date,
+  }))
 })
 
 const hasChart = computed(() => historicalSeries.value.length > 0)
@@ -332,7 +355,7 @@ function resetResult() {
         </div>
       </section>
 
-      <div class="demand-main" :class="{ 'demand-main--split': result && aiInsight }">
+      <div class="demand-main" :class="{ 'demand-main--split': result && localAiInsight }">
         <section class="dss-card demand-result" aria-labelledby="demand-result-title">
           <h2 id="demand-result-title" class="dss-card__title">Kết quả dự báo</h2>
 
@@ -367,38 +390,48 @@ function resetResult() {
             </div>
 
             <div class="demand-total-box" aria-label="Tổng nhu cầu dự báo">
-              <span>Tổng nhu cầu dự báo</span>
-              <strong>{{ formatViNumber(result.predictedDemand) }}</strong>
+              <span>Tổng nhu cầu (có mùa vụ & ngày lễ)</span>
+              <strong>{{
+                formatViNumber(result.seasonalityAdjustedDemand ?? result.predictedDemand)
+              }}</strong>
               <em>sản phẩm</em>
             </div>
+            <p v-if="result.methodology" class="dss-hint demand-methodology">{{ result.methodology }}</p>
+            <p
+              v-if="result.seasonalityAdjustedDemand && result.predictedDemand !== result.seasonalityAdjustedDemand"
+              class="dss-hint"
+            >
+              Dự báo phẳng (không mùa vụ): {{ formatViNumber(result.predictedDemand) }} SP · Hệ số lễ
+              ×{{ formatViNumber(result.holidayAdjustmentFactor ?? 1) }}
+            </p>
           </div>
         </section>
 
         <section
-          v-if="result && aiInsight"
+          v-if="result && localAiInsight"
           class="dss-card demand-ai"
-          :class="`demand-ai--${aiInsight.tone}`"
+          :class="`demand-ai--${localAiInsight.tone}`"
           aria-labelledby="demand-ai-title"
         >
           <div class="demand-ai__head">
             <div>
-              <span class="demand-ai__badge">{{ aiInsight.badge }}</span>
-              <h2 id="demand-ai-title" class="dss-card__title">Nhận định nhu cầu</h2>
+              <span class="demand-ai__badge">{{ localAiInsight.badge }}</span>
+              <h2 id="demand-ai-title" class="dss-card__title">Nhận định nhu cầu (tóm tắt)</h2>
             </div>
           </div>
-          <h3 class="demand-ai__title">{{ aiInsight.title }}</h3>
-          <p class="demand-ai__summary">{{ aiInsight.summary }}</p>
+          <h3 class="demand-ai__title">{{ localAiInsight.title }}</h3>
+          <p class="demand-ai__summary">{{ localAiInsight.summary }}</p>
           <div class="demand-ai__cols">
             <div>
               <h4>Kế hoạch đề xuất</h4>
               <ol>
-                <li v-for="(a, i) in aiInsight.actions" :key="i">{{ a }}</li>
+                <li v-for="(a, i) in localAiInsight.actions" :key="i">{{ a }}</li>
               </ol>
             </div>
             <div>
               <h4>Rủi ro cần theo dõi</h4>
               <ul>
-                <li v-for="(r, i) in aiInsight.risks" :key="i">{{ r }}</li>
+                <li v-for="(r, i) in localAiInsight.risks" :key="i">{{ r }}</li>
               </ul>
             </div>
           </div>
@@ -419,12 +452,22 @@ function resetResult() {
     </div>
 
     <template v-if="result">
-      <section v-if="hasChart" class="dss-card" aria-labelledby="demand-chart-title">
-        <h2 id="demand-chart-title" class="dss-card__title">Lịch sử bán hàng của sản phẩm</h2>
+      <DssPredictionContextPanel
+        :product-context="result.productContext"
+        :upcoming-holidays="result.upcomingHolidays"
+        :price-change-impacts="result.priceChangeImpacts"
+        :ai-insight="result.aiInsight"
+      />
+
+      <section v-if="hasChart || forecastSeriesForChart.length" class="dss-card" aria-labelledby="demand-chart-title">
+        <h2 id="demand-chart-title" class="dss-card__title">Lịch sử & dự báo theo ngày</h2>
         <p class="dss-hint demand-chart-note">
-          Dữ liệu thật từ đơn đã giao — theo số ngày lịch sử bạn chọn.
+          Đường xanh: bán thực tế · Đường cam: dự báo có điều chỉnh mùa vụ / ngày lễ.
         </p>
-        <ProductSalesHistoryChart :historical="historicalSeries" />
+        <ProductSalesHistoryChart
+          :historical="historicalSeries"
+          :forecast="forecastSeriesForChart"
+        />
       </section>
       <p v-else-if="chartError" class="form-error demand-chart-note">{{ chartError }}</p>
     </template>

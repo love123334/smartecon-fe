@@ -21,6 +21,7 @@ import {
 } from '@/utils/pricePrediction'
 import { buildPricePredictionAiInsight } from '@/utils/sellerDssModuleAi'
 import DssProfitBreakdownPanel from '@/components/dss/DssProfitBreakdownPanel.vue'
+import DssPredictionContextPanel from '@/components/dss/DssPredictionContextPanel.vue'
 import type { CustomPriceScenarioApi } from '@/api/real/dss'
 
 interface SellerProductOption {
@@ -68,7 +69,10 @@ const showResults = computed(() => Boolean(result.value) && !resultStale.value)
 
 const aiInsight = computed(() => {
   if (!result.value || resultStale.value) return null
-  return buildPricePredictionAiInsight({
+  if (result.value.aiInsight?.title) {
+    return { title: result.value.aiInsight.title, fromBackend: true }
+  }
+  const local = buildPricePredictionAiInsight({
     productName: result.value.productName,
     currentPrice: result.value.currentPrice,
     cost: result.value.cost,
@@ -76,6 +80,7 @@ const aiInsight = computed(() => {
     totalQuantitySold: result.value.totalQuantitySold,
     best: result.value.bestScenario,
   })
+  return { title: local.title, fromBackend: false }
 })
 
 watch([productId, fromDate, toDate], () => {
@@ -441,6 +446,13 @@ async function onCustomPriceSubmit() {
           <p v-if="result.recommendationReason" class="dss-hint">{{ result.recommendationReason }}</p>
         </div>
       </section>
+
+      <DssPredictionContextPanel
+        :product-context="result.productContext"
+        :upcoming-holidays="result.upcomingHolidays"
+        :price-change-impacts="result.priceChangeImpacts"
+        :ai-insight="result.aiInsight"
+      />
 
       <!-- 4. Scenario table -->
       <section class="dss-card" aria-labelledby="price-table-title">
