@@ -138,7 +138,7 @@ export function llmMissingCriticalFacts(
       userNormalized,
     )
 
-  if (askedProductReview(userNormalized)) {
+  if (asksProductReview(userNormalized)) {
     const hasRatingFact = facts.lines.some(
       (l) => /danh gia tb|review|★/i.test(l) || /\d\.\d.*★/.test(l),
     )
