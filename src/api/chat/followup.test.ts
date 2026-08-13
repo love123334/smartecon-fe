@@ -178,6 +178,27 @@ describe('chat follow-up context', () => {
     expect(reply.content).not.toMatch(/đang bán\s+\*\*899/)
   })
 
+  it('answers "khách thấy sao" with attached product card', async () => {
+    const keyboard = {
+      id: 'kb-1',
+      name: 'Bàn phím cơ RGB KeyPro K87',
+      price: 2_450_000,
+      imageUrl: '/kb.jpg',
+      category: 'Điện tử',
+      rating: 4.2,
+      stock: 5,
+    }
+    const reply = await resolveChatReply(
+      'khách thấy sao',
+      [],
+      minimalCtx(),
+      [keyboard],
+    )
+    expect(reply.content).toMatch(/tổng hợp đánh giá/i)
+    expect(reply.content).toMatch(/KeyPro K87/)
+    expect(reply.content).not.toMatch(/Hỏi thêm: công dụng, giá, còn hàng/)
+  })
+
   it('shows seller card for shop follow-up on prior product', async () => {
     const history: ChatMessage[] = [
       {

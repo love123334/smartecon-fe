@@ -223,6 +223,24 @@ export async function enrichChatContext(
         Object.assign(enrichment, e)
       })(),
     )
+  } else if (focusProductId && wantsReviews) {
+    tasks.push(
+      (async () => {
+        try {
+          const fetched = await productApi.getById(focusProductId)
+          if (fetched) {
+            const e = await enrichProduct(fetched, {
+              reviews: true,
+              inventory: false,
+              detail: true,
+            })
+            Object.assign(enrichment, e)
+          }
+        } catch {
+          /* card SP có thể chưa sync catalog local */
+        }
+      })(),
+    )
   } else if (topProduct && !intent && matched.length === 1) {
     tasks.push(
       (async () => {

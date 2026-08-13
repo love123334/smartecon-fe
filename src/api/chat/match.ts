@@ -177,10 +177,27 @@ export function isShortGreeting(normalized: string): boolean {
 /** Hỏi đánh giá / review — không nhầm với "giá" trong "đánh giá". */
 export function asksProductReview(normalized: string): boolean {
   if (
-    /danh gia|review|rating|khach.*danh gia|danh gia.*khach|tot khong|chat luong|ngon khong|co tot khong|nhan xet|danh gia sao/.test(
+    /danh gia|review|rating|feedback|nhan xet|y kien khach|cam nhan|danh gia sao/.test(
       normalized,
     )
   ) {
+    return true
+  }
+  if (
+    /khach.*(danh gia|nhan xet|thay|noi|bao|cam nhan)|nguoi mua.*(danh gia|nhan xet|thay|noi)|mua roi.*(thay|danh gia|sao)/.test(
+      normalized,
+    )
+  ) {
+    return true
+  }
+  if (
+    /(?:^|\s)(?:khach|nguoi mua|moi nguoi)\s+thay\s+(?:sao|the nao|ra sao|on khong|tot khong)(?:\s|$)/.test(
+      normalized,
+    )
+  ) {
+    return true
+  }
+  if (/tot khong|chat luong|ngon khong|co tot khong|on khong|ok khong|co on khong/.test(normalized)) {
     return true
   }
   if (/(?:may|\d)\s*sao/.test(normalized)) return true

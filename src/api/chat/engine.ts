@@ -362,6 +362,22 @@ function resolveAttachedProducts(
   return out
 }
 
+function reviewContextForAttached(ctx: ChatContext, product: Product): ChatContext {
+  const sameId =
+    ctx.enrichment?.productId != null &&
+    String(ctx.enrichment.productId) === String(product.id)
+  return {
+    ...ctx,
+    enrichment: {
+      ...ctx.enrichment,
+      productId: product.id,
+      product,
+      ratingSummary: sameId ? ctx.enrichment?.ratingSummary : undefined,
+      reviews: sameId ? ctx.enrichment?.reviews : undefined,
+    },
+  }
+}
+
 function attachmentReply(
   ctx: ChatContext,
   raw: string,
@@ -390,7 +406,7 @@ function attachmentReply(
   const top = products[0]
   if (asksProductReview(lower)) {
     return {
-      content: productReviewReply(ctx, raw),
+      content: productReviewReply(reviewContextForAttached(ctx, top), raw),
       products: cards.slice(0, 1),
     }
   }

@@ -410,8 +410,8 @@ const COMMON: IntentRule[] = [
   },
   {
     intent: 'product_review',
-    keywords: ['danh gia', 'review', 'rating', 'nhan xet', 'tot khong', 'co tot khong'],
-    phrases: ['danh gia', 'review', 'tot khong'],
+    keywords: ['danh gia', 'review', 'rating', 'nhan xet', 'tot khong', 'co tot khong', 'khach thay', 'thay sao', 'y kien'],
+    phrases: ['danh gia', 'review', 'tot khong', 'khach thay sao', 'khach thay the nao'],
     minScore: 4,
     priority: 7,
   },
