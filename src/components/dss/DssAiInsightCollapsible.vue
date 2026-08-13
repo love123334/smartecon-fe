@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { DssAiInsightApi } from '@/api/real/dss'
 import type { StructuredAiInsight } from '@/utils/sellerDssModuleAi'
+import { formatDssMarkdown } from '@/utils/formatDssMarkdown'
 
-defineProps<{
+const props = defineProps<{
   /** Nhãn trên thanh dropdown (khi đóng). */
   label?: string
   backend?: DssAiInsightApi | null
@@ -14,17 +16,39 @@ defineProps<{
   error?: string
   tone?: string
 }>()
+
+const summaryLabel = computed(() => {
+  if (props.label) return props.label
+  if (props.backend?.title) return `Nhận định AI · ${props.backend.title}`
+  return 'Nhận định AI'
+})
+
+const providerHint = computed(() => {
+  if (props.backend && !props.backend.fallback) {
+    return `AI · ${props.backend.provider ?? 'API'}`
+  }
+  if (props.structured?.badge) return props.structured.badge
+  return 'Phân tích nội bộ'
+})
+
+const backendHtml = computed(() =>
+  props.backend?.summary ? formatDssMarkdown(props.backend.summary) : '',
+)
+
+const plainHtml = computed(() =>
+  props.plainText ? formatDssMarkdown(props.plainText) : '',
+)
+
+function sectionHtml(body: string): string {
+  return formatDssMarkdown(body, { sanitize: false })
+}
 </script>
 
 <template>
-  <details class="dss-ai-collapse">
+  <details class="dss-ai-collapse dss-ai-collapse--footer">
     <summary class="dss-ai-collapse__summary">
-      <span class="dss-ai-collapse__label">{{ label ?? 'Nhận định AI' }}</span>
-      <span v-if="backend && !backend.fallback" class="dss-ai-collapse__hint">
-        AI · {{ backend.provider ?? 'API' }}
-      </span>
-      <span v-else-if="structured?.badge" class="dss-ai-collapse__hint">{{ structured.badge }}</span>
-      <span v-else class="dss-ai-collapse__hint">Phân tích nội bộ</span>
+      <span class="dss-ai-collapse__label">{{ summaryLabel }}</span>
+      <span class="dss-ai-collapse__hint">{{ providerHint }}</span>
     </summary>
 
     <div class="dss-ai-collapse__body">
@@ -32,16 +56,7 @@ defineProps<{
       <p v-else-if="error" class="dss-alert dss-alert--warn" role="alert">{{ error }}</p>
 
       <template v-else-if="backend?.summary">
-        <div class="dss-ai-collapse__head">
-          <h3 class="dss-ai-collapse__title">{{ backend.title }}</h3>
-          <span
-            class="dss-badge"
-            :class="backend.fallback ? 'dss-badge--muted' : 'dss-badge--best'"
-          >
-            {{ backend.fallback ? 'Phân tích nội bộ' : `AI · ${backend.provider ?? 'API'}` }}
-          </span>
-        </div>
-        <div class="dss-ai-collapse__text" v-html="backend.summary.replace(/\n/g, '<br>')" />
+        <div class="dss-ai-collapse__prose" v-html="backendHtml" />
         <p v-if="backend.disclaimer" class="dss-hint dss-ai-collapse__disclaimer">
           {{ backend.disclaimer }}
         </p>
@@ -50,13 +65,13 @@ defineProps<{
       <template v-else-if="structured">
         <div
           class="dss-ai-collapse__structured"
-          :class="tone ? `dss-ai-collapse__structured--${tone}` : `dss-ai-collapse__structured--${structured.tone}`"
+          :class="
+            tone
+              ? `dss-ai-collapse__structured--${tone}`
+              : `dss-ai-collapse__structured--${structured.tone}`
+          "
         >
-          <div class="dss-ai-collapse__head">
-            <span class="dss-ai-collapse__badge">{{ structured.badge }}</span>
-            <h3 class="dss-ai-collapse__title">{{ structured.title }}</h3>
-          </div>
-          <p class="dss-ai-collapse__text">{{ structured.summary }}</p>
+          <p class="dss-ai-collapse__lead">{{ structured.summary }}</p>
           <div v-if="structured.actions.length || structured.risks.length" class="dss-ai-collapse__cols">
             <div v-if="structured.actions.length">
               <h4>Kế hoạch đề xuất</h4>
@@ -76,12 +91,12 @@ defineProps<{
 
       <template v-else-if="sections?.length">
         <article v-for="(sec, idx) in sections" :key="idx" class="dss-ai-collapse__section">
-          <h3 class="dss-ai-collapse__title">{{ sec.title }}</h3>
-          <pre class="dss-ai-collapse__pre">{{ sec.body }}</pre>
+          <h3 class="dss-ai-collapse__section-title">{{ sec.title }}</h3>
+          <div class="dss-ai-collapse__prose" v-html="sectionHtml(sec.body)" />
         </article>
       </template>
 
-      <p v-else-if="plainText" class="dss-ai-collapse__text">{{ plainText }}</p>
+      <div v-else-if="plainText" class="dss-ai-collapse__prose" v-html="plainHtml" />
 
       <p v-else class="dss-hint">Chưa có nhận định — chạy phân tích hoặc thử lại sau.</p>
 
@@ -92,11 +107,15 @@ defineProps<{
 
 <style scoped>
 .dss-ai-collapse {
-  margin-top: 1rem;
   border: 1px solid var(--slate-200, #dce3f0);
   border-radius: 12px;
   background: var(--slate-50, #f7f9fc);
   overflow: hidden;
+}
+
+.dss-ai-collapse--footer {
+  margin-top: 1.75rem;
+  margin-bottom: 0.5rem;
 }
 
 .dss-ai-collapse__summary {
@@ -147,44 +166,51 @@ defineProps<{
   border-top: 1px solid var(--slate-200, #dce3f0);
 }
 
-.dss-ai-collapse__head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 0.5rem;
-  justify-content: space-between;
-  margin: 0.85rem 0 0.5rem;
-}
-
-.dss-ai-collapse__title {
-  margin: 0;
-  font-size: 0.95rem;
+.dss-ai-collapse__prose :deep(.dss-md-h) {
+  margin: 1rem 0 0.45rem;
+  font-size: 0.92rem;
   font-weight: 700;
-  line-height: 1.4;
-}
-
-.dss-ai-collapse__badge {
-  display: inline-block;
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  padding: 0.2rem 0.5rem;
-  border-radius: 6px;
-  background: var(--slate-200, #e8edf5);
   color: var(--slate-700, #334155);
 }
 
-.dss-ai-collapse__text {
-  margin: 0;
+.dss-ai-collapse__prose :deep(.dss-md-h:first-child) {
+  margin-top: 0.75rem;
+}
+
+.dss-ai-collapse__prose :deep(.dss-md-p) {
+  margin: 0.35rem 0 0.5rem;
   font-size: 0.9rem;
   line-height: 1.55;
   color: var(--slate-800, #14275c);
 }
 
+.dss-ai-collapse__prose :deep(.dss-md-ol),
+.dss-ai-collapse__prose :deep(.dss-md-ul) {
+  margin: 0.25rem 0 0.75rem;
+  padding-left: 1.25rem;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--slate-800, #14275c);
+}
+
+.dss-ai-collapse__prose :deep(li + li) {
+  margin-top: 0.35rem;
+}
+
+.dss-ai-collapse__prose :deep(strong) {
+  font-weight: 700;
+  color: var(--slate-900, #0f172a);
+}
+
 .dss-ai-collapse__disclaimer {
-  margin-top: 0.65rem;
+  margin-top: 0.75rem;
   font-size: 0.78rem;
+}
+
+.dss-ai-collapse__lead {
+  margin: 0.75rem 0 0;
+  font-size: 0.9rem;
+  line-height: 1.55;
 }
 
 .dss-ai-collapse__cols {
@@ -210,38 +236,20 @@ defineProps<{
 }
 
 .dss-ai-collapse__section + .dss-ai-collapse__section {
-  margin-top: 1rem;
-  padding-top: 1rem;
+  margin-top: 0.5rem;
+  padding-top: 0.75rem;
   border-top: 1px dashed var(--slate-200, #dce3f0);
 }
 
-.dss-ai-collapse__pre {
-  margin: 0.35rem 0 0;
-  white-space: pre-wrap;
-  font-family: inherit;
-  font-size: 0.86rem;
-  line-height: 1.5;
+.dss-ai-collapse__section-title {
+  margin: 0.75rem 0 0.25rem;
+  font-size: 0.92rem;
+  font-weight: 700;
   color: var(--slate-700, #334155);
 }
 
-.dss-ai-collapse__structured--strong .dss-ai-collapse__badge {
+.dss-ai-collapse__structured--strong .dss-ai-collapse__hint {
   background: #dcfce7;
   color: #166534;
-}
-
-.dss-ai-collapse__structured--warn .dss-ai-collapse__badge {
-  background: #fef3c7;
-  color: #92400e;
-}
-
-.dss-ai-collapse__structured--soft .dss-ai-collapse__badge,
-.dss-ai-collapse__structured--sparse .dss-ai-collapse__badge {
-  background: #fee2e2;
-  color: #991b1b;
-}
-
-.dss-badge--muted {
-  background: var(--slate-100, #eef1f6);
-  color: var(--slate-600, #5b6c93);
 }
 </style>

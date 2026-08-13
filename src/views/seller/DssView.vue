@@ -114,10 +114,6 @@ onMounted(async () => {
         </div>
         <h2>{{ card.title }}</h2>
         <p class="dss-hub__blurb">{{ card.blurb }}</p>
-        <div class="dss-hub__ai">
-          <strong>{{ card.aiTitle }}</strong>
-          <span>{{ card.aiSummary }}</span>
-        </div>
         <span class="dss-hub__cta">Mở module →</span>
       </RouterLink>
     </div>

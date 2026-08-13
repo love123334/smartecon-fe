@@ -443,7 +443,7 @@ function resetResult() {
 
       <DssAiInsightCollapsible
         v-if="aiInsight"
-        label="Nhận định AI · Dự báo nhu cầu"
+        :label="aiBackend?.title ? `Nhận định AI · ${aiBackend.title}` : 'Nhận định AI · Dự báo nhu cầu'"
         :backend="aiBackend"
         :structured="aiStructured"
       >
