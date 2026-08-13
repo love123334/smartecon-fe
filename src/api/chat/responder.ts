@@ -2,6 +2,19 @@ import type { ChatContext } from '@/api/chat/context'
 import { enrichChatContext, enrichFocusProduct } from '@/api/chat/enrich'
 import { generateAssistantReply } from '@/api/chat/engine'
 import {
+  buildConversationContext,
+  updateConversationContext,
+  type ConversationContext,
+} from '@/api/chat/conversationContext'
+import {
+  createChatTelemetry,
+  logChatTurn,
+  type ChatFallbackReason,
+  type ChatFinalSource,
+  type ChatTurnTelemetry,
+} from '@/api/chat/chatTelemetry'
+import { repairPriceFactsInReply } from '@/api/chat/factRepair'
+import {
   isContinuingProductChat,
   isProductFollowUp,
   lastDiscussedProducts,
@@ -22,12 +35,20 @@ import {
 } from '@/api/chat/match'
 import { extractPriceRange, isPriceStatsQuery } from '@/api/chat/products'
 import { sanitizeChatReply } from '@/api/chat/responses'
+import { deriveSuggestedActions } from '@/api/chat/suggestedActions'
 import { buildSystemPrompt } from '@/api/chat/systemPrompt'
 import { buildVerifiedFacts } from '@/api/chat/verifiedFacts'
 import { toChatProducts } from '@/api/chat/productCards'
-import type { ChatMessage, ChatProductRef, ChatReviewSummary, ChatSellerRef, Product } from '@/types'
+import type {
+  ChatMessage,
+  ChatProductRef,
+  ChatReviewSummary,
+  ChatSellerRef,
+  ChatSuggestedAction,
+  Product,
+} from '@/types'
 
-export type ChatReplySource = 'llm' | 'local'
+export type ChatReplySource = ChatFinalSource
 
 export interface ChatReply {
   content: string
@@ -35,19 +56,18 @@ export interface ChatReply {
   products?: ChatProductRef[]
   sellers?: ChatSellerRef[]
   reviewSummary?: ChatReviewSummary
+  suggestedActions?: ChatSuggestedAction[]
+  conversationContext: ConversationContext
+  telemetry: ChatTurnTelemetry
 }
 
 /**
- * Chỉ ép local thuần cho số liệu tài chính / đơn / DSS — mọi thứ khác dùng hybrid:
- * local xác minh facts → LLM viết lại tự nhiên.
+ * Ép local thuần cho số liệu tài chính / đơn / DSS — mô tả SP & review dùng hybrid.
  */
 const STRICT_LOCAL_INTENTS = new Set<ChatIntent>([
   'product_cheapest',
   'product_price',
   'product_stock',
-  'product_review',
-  'product_info',
-  'contact_seller',
   'orders',
   'order_detail',
   'order_cancel',
@@ -139,9 +159,6 @@ function shouldForceLocal(
     followUp &&
     (intent === 'product_price' ||
       intent === 'product_stock' ||
-      intent === 'product_review' ||
-      intent === 'product_info' ||
-      intent === 'contact_seller' ||
       asksProductReview(normalized) ||
       asksSellerInfo(normalized) ||
       asksProductOrigin(normalized) ||
@@ -158,19 +175,19 @@ function preferLocalOverLlm(
   llmContent: string,
   localContent: string,
   facts: ReturnType<typeof buildVerifiedFacts>,
-): boolean {
-  if (looksLikeOffTopicPlatformReply(normalized, llmContent)) return true
-  if (looksLikeLowQualityReply(normalized, llmContent)) return true
-  if (llmMissingCriticalFacts(normalized, llmContent, facts)) return true
-  if (llmContradictsFacts(llmContent, facts)) return true
+): ChatFallbackReason | null {
+  if (looksLikeOffTopicPlatformReply(normalized, llmContent)) return 'off_topic'
+  if (looksLikeLowQualityReply(normalized, llmContent)) return 'low_quality'
+  if (llmMissingCriticalFacts(normalized, llmContent, facts)) return 'missing_facts'
+  if (llmContradictsFacts(llmContent, facts)) return 'contradicts_facts'
 
   const llmN = normalizeText(llmContent)
   const llmTooVague =
     llmContent.length < 35 ||
     /toi co the giup|ban muon hoi gi|hay cho minh biet|minh chua ro ban muon/.test(llmN)
-  if (llmTooVague && localContent.trim().length > 35) return true
+  if (llmTooVague && localContent.trim().length > 35) return 'too_vague'
 
-  return false
+  return null
 }
 
 async function alignContextToFocus(
@@ -219,13 +236,18 @@ async function alignContextToFocus(
   }
 }
 
-/** Hybrid: local facts trước → LLM diễn đạt; fallback local nếu LLM lệch facts. */
+/** Hybrid: local facts trước → LLM diễn đạt; fallback/sửa facts nếu LLM lệch. */
 export async function resolveChatReply(
   userMessage: string,
   history: ChatMessage[],
   ctx: ChatContext,
   attachments?: ChatProductRef[],
+  priorConversation?: ConversationContext,
 ): Promise<ChatReply> {
+  const started = performance.now()
+  let localLatencyMs = 0
+  let llmLatencyMs: number | undefined
+
   const normalized = normalizeText(userMessage)
   const priorProducts = lastDiscussedProducts(history)
   const followUp =
@@ -264,7 +286,10 @@ export async function resolveChatReply(
   const priceStats = isPriceStatsQuery(userMessage)
   const forceLocal = shouldForceLocal(normalized, intent, followUp, hasPriceFilter, priceStats)
 
+  const localStarted = performance.now()
   const local = await generateAssistantReply(userMessage, ctxForReply, effectiveAttachments)
+  localLatencyMs = Math.round(performance.now() - localStarted)
+
   const facts = buildVerifiedFacts(ctxForReply, intent, intentScore, local)
   let products = local.products?.length
     ? local.products
@@ -279,35 +304,87 @@ export async function resolveChatReply(
     products = toChatProducts([focusProduct], 1)
   }
 
-  const replyPayload = {
-    content: sanitizeChatReply(local.content),
-    source: 'local' as const,
-    products,
-    sellers,
-    reviewSummary,
+  const conversationContext = updateConversationContext(
+    priorConversation ?? buildConversationContext(history, attachments),
+    {
+      userMessage,
+      intent,
+      products,
+      attachments: effectiveAttachments,
+    },
+  )
+
+  const hasProductFocus = Boolean(
+    conversationContext.currentProduct || conversationContext.lastResults.length,
+  )
+  const suggestedActions = deriveSuggestedActions(intent, hasProductFocus, ctx.role)
+
+  const replyPayload = (
+    source: ChatFinalSource,
+    content: string,
+    fallbackReason?: ChatFallbackReason,
+    llmCalled = false,
+  ): ChatReply => {
+    const telemetry = createChatTelemetry({
+      intent,
+      intentScore,
+      llmCalled,
+      llmProvider: llmCalled ? llmProviderLabel() : undefined,
+      localLatencyMs,
+      llmLatencyMs,
+      latencyMs: Math.round(performance.now() - started),
+      finalSource: source,
+      fallbackReason,
+      followUp,
+      hasAttachments: Boolean(attachments?.length),
+      activeTask: conversationContext.activeTask,
+    })
+    logChatTurn(telemetry)
+    return {
+      content: sanitizeChatReply(content),
+      source,
+      products,
+      sellers,
+      reviewSummary,
+      suggestedActions,
+      conversationContext,
+      telemetry,
+    }
   }
 
+  const localContent = sanitizeChatReply(local.content)
+
   if (forceLocal) {
-    return replyPayload
+    return replyPayload('local', localContent, 'force_local')
   }
 
   if (isLlmConfigured()) {
     try {
+      const llmStarted = performance.now()
       const systemPrompt = buildSystemPrompt(ctxForReply, intent, facts)
       const llmRaw = await callChatLlm(systemPrompt, history, userMessage, facts)
+      llmLatencyMs = Math.round(performance.now() - llmStarted)
       const content = sanitizeChatReply(llmRaw)
 
-      if (preferLocalOverLlm(normalized, content, local.content, facts)) {
-        return replyPayload
+      const fallbackReason = preferLocalOverLlm(normalized, content, localContent, facts)
+      if (fallbackReason === 'contradicts_facts') {
+        const repaired = repairPriceFactsInReply(content, facts)
+        if (repaired && !llmContradictsFacts(repaired, facts)) {
+          return replyPayload('llm_repaired', repaired, undefined, true)
+        }
       }
 
-      return { content, source: 'llm', products, sellers, reviewSummary }
+      if (fallbackReason) {
+        return replyPayload('local', localContent, fallbackReason, true)
+      }
+
+      return replyPayload('llm', content, undefined, true)
     } catch {
-      /* fallback local */
+      return replyPayload('local', localContent, 'llm_error', true)
     }
   }
 
-  return replyPayload
+  return replyPayload('local', localContent, 'not_configured')
 }
 
 export function chatModeLabel(): string {

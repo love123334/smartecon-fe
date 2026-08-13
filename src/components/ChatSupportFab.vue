@@ -217,7 +217,10 @@ async function onSend(text: string) {
     if (seq !== sendSeq) return
     messages.value = messages.value.filter((m) => m.id !== optimisticUser.id)
     lastFailedText.value = text
-    chatError.value = e instanceof Error ? e.message : 'Không gửi được tin nhắn'
+    chatError.value =
+      e instanceof Error && e.message
+        ? e.message
+        : 'Không gửi được tin nhắn. Kiểm tra mạng hoặc thử lại sau vài giây.'
   } finally {
     if (seq === sendSeq) loading.value = false
   }

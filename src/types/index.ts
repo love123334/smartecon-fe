@@ -155,6 +155,13 @@ export interface ChatReviewSummary {
   highlights: ChatReviewHighlight[]
 }
 
+/** Nút gợi ý câu hỏi tiếp theo trong chat */
+export interface ChatSuggestedAction {
+  id: string
+  label: string
+  prompt: string
+}
+
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
@@ -171,10 +178,13 @@ export interface ChatMessage {
   /** Tổng hợp đánh giá (card trực quan) */
   reviewSummary?: ChatReviewSummary
   meta?: {
-    source?: 'llm' | 'local'
+    source?: 'llm' | 'local' | 'llm_repaired'
     kind?: 'order_update' | 'system'
     notificationId?: number
     orderId?: number
+    intent?: string
+    /** Gợi ý hành động — chỉ hiện ở bubble assistant mới nhất */
+    suggestedActions?: ChatSuggestedAction[]
   }
 }
 

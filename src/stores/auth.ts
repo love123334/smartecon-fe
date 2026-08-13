@@ -4,6 +4,7 @@ import { authApi } from '@/api/services'
 import type { User, UserRole } from '@/types'
 import { saveUserAvatar } from '@/utils/avatar'
 import { clearUserSnapshot, readUserSnapshot, saveUserSnapshot } from '@/utils/sessionSnapshot'
+import { useChatSessionStore } from '@/stores/chatSession'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
@@ -106,6 +107,11 @@ export const useAuthStore = defineStore('auth', () => {
     await authApi.logout()
     user.value = null
     clearUserSnapshot()
+    try {
+      useChatSessionStore().resetSession()
+    } catch {
+      /* pinia chưa mount */
+    }
   }
 
   async function updateProfile(

@@ -27,7 +27,9 @@ import { fetchSystemHealthMetrics } from '@/api/real/systemHealth'
 import * as realProductImages from '@/api/real/productImages'
 import { typingDelay } from '@/api/chat/engine'
 import { buildChatContext, prewarmChatContext } from '@/api/chat/context'
+import { emptyConversationContext } from '@/api/chat/conversationContext'
 import { chatModeLabel, resolveChatReply, refreshBeAiStatus } from '@/api/chat/responder'
+import { useChatSessionStore } from '@/stores/chatSession'
 import { refreshChatProductStock } from '@/api/chat/productCards'
 import { isLlmConfigured } from '@/api/chat/llm'
 import { applyAvatarToUser, saveUserAvatar } from '@/utils/avatar'
@@ -2140,12 +2142,35 @@ export const chatApi = {
       userMsg = { ...userMsg, attachments: refreshedAttachments }
     }
 
-    const { content: reply, source, products, sellers, reviewSummary } = await resolveChatReply(
+    let priorConversation = emptyConversationContext()
+    try {
+      priorConversation = useChatSessionStore().conversation
+    } catch {
+      /* pinia chưa mount (test) */
+    }
+
+    const {
+      content: reply,
+      source,
+      products,
+      sellers,
+      reviewSummary,
+      suggestedActions,
+      conversationContext,
+      telemetry,
+    } = await resolveChatReply(
       userMsg.content,
       priorHistory,
       ctx,
       userMsg.attachments ?? attachments,
+      priorConversation,
     )
+
+    try {
+      useChatSessionStore().applyTurn(conversationContext, telemetry)
+    } catch {
+      /* pinia chưa mount */
+    }
 
     // Đồng bộ tồn trên card user với card/bot (tránh "Hết hàng" vs "còn 100")
     if (userMsg.attachments?.length && products?.length) {
@@ -2168,7 +2193,11 @@ export const chatApi = {
       products,
       sellers,
       reviewSummary,
-      meta: { source },
+      meta: {
+        source,
+        intent: telemetry.intent ?? undefined,
+        suggestedActions: suggestedActions?.length ? suggestedActions : undefined,
+      },
     }
     const updated = [...priorHistory, userMsg, assistantMsg]
     map[userId] = updated
@@ -2181,6 +2210,11 @@ export const chatApi = {
     const map = getChatMap()
     delete map[userId]
     saveChatMap(map)
+    try {
+      useChatSessionStore().resetSession()
+    } catch {
+      /* pinia chưa mount */
+    }
   },
 
   async syncProactiveNotifications(userId: string): Promise<{
