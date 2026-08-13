@@ -31,6 +31,12 @@ import type { ChatSellerRef } from '@/types'
 import { orderStatusLabel } from '@/utils/orderStatus'
 import { salesEligibleOrders, totalRevenue } from '@/utils/orderAnalytics'
 import { rankForUseCase } from '@/utils/recommendationScore'
+import {
+  formatReviewStars,
+  pickRepresentativeReviews,
+  purchaseReviewInsight,
+} from '@/api/chat/productReviewSummary'
+import type { ProductReview } from '@/types'
 
 export { findProductsByQuery } from '@/api/chat/products'
 
@@ -442,35 +448,68 @@ export function productReviewReply(ctx: ChatContext, raw: string): string {
   const name = greet(ctx.userName ?? '')
   const e = ctx.enrichment
   const p = e?.product ?? findProductsByQuery(ctx.products, raw)[0]
-  if (p) {
-    const summary = e?.ratingSummary
-    const reviews = e?.reviews ?? []
-    let block = `${name}**Đánh giá — ${p.name}**\n`
-    if (summary && summary.totalReviews > 0) {
-      block += `• Trung bình: **${summary.averageRating.toFixed(1)}★** / **${summary.totalReviews}** lượt đánh giá\n`
-    } else if (p.rating > 0) {
-      const countNote =
-        typeof p.reviewCount === 'number' && p.reviewCount > 0 ? ` (${p.reviewCount} lượt)` : ''
-      block += `• Rating hiển thị: **${p.rating}★**${countNote}\n`
-    } else {
-      block += `• Chưa có đánh giá — bạn có thể là người đầu tiên review trên trang SP.\n`
-    }
-    const meta = productMetadataLines(p)
-    if (meta.length) block += `${meta.join('\n')}\n`
-    if (reviews.length) {
-      block += `\n**Khách hàng gần đây nói:**\n${reviews
-        .map(
-          (r) =>
-            `• **${r.userName}** — ${r.rating}★: "${r.comment.slice(0, 80)}${r.comment.length > 80 ? '…' : ''}"`,
-        )
-        .join('\n')}`
-    } else if (summary && summary.totalReviews > 0) {
-      block += `\n\nXem thêm nhận xét chi tiết trên tab **Đánh giá** tại **/products/${p.id}**.`
-    }
-    block += `\n\nShop: **${p.shopName ?? 'SEDSP Official'}** · Giá **${formatVnd(p.price)}**`
-    return block
+  if (!p) {
+    return `${name}Hỏi tên SP cụ thể (vd: "tai nghe review") hoặc mở **chi tiết SP** → **Đánh giá**.`
   }
-  return `${name}Hỏi tên SP cụ thể (vd: "tai nghe review") hoặc mở **chi tiết SP** → **Đánh giá**.`
+
+  const summary = e?.ratingSummary
+  const allReviews = e?.reviews ?? []
+  const totalReviews = summary?.totalReviews ?? p.reviewCount ?? allReviews.length ?? 0
+  const avgRating =
+    summary?.averageRating && summary.averageRating > 0
+      ? summary.averageRating
+      : p.rating > 0
+        ? p.rating
+        : null
+  const soldCount = p.soldCount ?? 0
+  const picked = pickRepresentativeReviews(allReviews, 3)
+
+  let block = `${name}**Tổng hợp đánh giá — ${p.name}**\n\n`
+  block += `**Chỉ số chung**\n`
+
+  if (avgRating != null && totalReviews > 0) {
+    block += `• Điểm trung bình: **${avgRating.toFixed(1)}★** · **${totalReviews}** lượt đánh giá\n`
+  } else if (avgRating != null) {
+    block += `• Rating hiển thị: **${avgRating.toFixed(1)}★**`
+    if (totalReviews > 0) block += ` · **${totalReviews}** lượt`
+    block += `\n`
+  } else {
+    block += `• Chưa có đánh giá — bạn có thể là người đầu tiên review trên trang SP.\n`
+  }
+
+  if (soldCount > 0) {
+    block += `• Lượt đã mua: **${soldCount}**\n`
+  }
+
+  const purchaseInsight = purchaseReviewInsight(soldCount, totalReviews)
+  if (purchaseInsight) {
+    block += `• ${purchaseInsight}\n`
+  }
+
+  const origin = productOriginText(p)
+  if (origin) block += `• Xuất xứ: **${origin}**\n`
+
+  if (picked.length) {
+    block += `\n**Nhận xét tiêu biểu** _(khách đã mua, ưu tiên nội dung chi tiết)_\n`
+    block += picked
+      .map((r, i) => formatReviewHighlight(r, i + 1))
+      .join('\n')
+  } else if (totalReviews > 0) {
+    block += `\n_Có **${totalReviews}** đánh giá trên hệ thống — mở tab **Đánh giá** tại **/products/${p.id}** để đọc đầy đủ._`
+  }
+
+  block += `\n\n• Shop **${p.shopName ?? 'SEDSP Official'}** · Giá **${formatVnd(p.price)}**`
+  if (p.id && totalReviews > 0) {
+    block += `\n• [Xem tất cả review](/products/${p.id})`
+  }
+
+  return block
+}
+
+function formatReviewHighlight(r: ProductReview, index: number): string {
+  const excerpt =
+    r.comment.trim().slice(0, 140) + (r.comment.trim().length > 140 ? '…' : '')
+  return `${index}. **${r.userName}** · ${formatReviewStars(r.rating)}\n   _"${excerpt}"_`
 }
 
 export function productOriginReply(ctx: ChatContext, product: Product): string {

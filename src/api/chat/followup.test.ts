@@ -44,8 +44,22 @@ vi.mock('@/api/services', async (importOriginal) => {
     reviewApi: {
       summary: vi.fn().mockResolvedValue({ averageRating: 4.5, totalReviews: 8 }),
       list: vi.fn().mockResolvedValue([
-        { userName: 'Lan', rating: 5, comment: 'Form đẹp, vải ổn' },
-        { userName: 'Minh', rating: 4, comment: 'Size chuẩn' },
+        {
+          id: '1',
+          userId: 'u1',
+          userName: 'Lan',
+          rating: 5,
+          comment: 'Form đẹp, vải ổn, mặc đi làm rất hợp',
+          createdAt: '2025-01-01',
+        },
+        {
+          id: '2',
+          userId: 'u2',
+          userName: 'Minh',
+          rating: 4,
+          comment: 'Size chuẩn, giao nhanh',
+          createdAt: '2025-01-02',
+        },
       ]),
     },
     productApi: {
@@ -157,6 +171,10 @@ describe('chat follow-up context', () => {
       minimalCtx(),
     )
     expect(reply.content.toLowerCase()).toMatch(/danh gia|review|rating|★/)
+    expect(reply.content).toMatch(/tổng hợp|chỉ số chung/i)
+    expect(reply.content).toMatch(/nhận xét tiêu biểu/i)
+    expect(reply.content).toMatch(/42/)
+    expect(reply.content).not.toMatch(/danh thiếp shop bên dưới/)
     expect(reply.content).not.toMatch(/đang bán\s+\*\*899/)
   })
 

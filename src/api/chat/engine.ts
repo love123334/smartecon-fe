@@ -133,11 +133,20 @@ function wrapReply(payload: AssistantReplyPayload): AssistantReplyPayload {
   return { ...payload, content: sanitizeChatReply(payload.content) }
 }
 
+function resolveAttachmentFollowUpIntent(lower: string): ChatIntent | null {
+  if (asksProductReview(lower)) return 'product_review'
+  if (asksSellerInfo(lower)) return 'contact_seller'
+  if (asksProductOrigin(lower) || asksProductListedDate(lower)) return 'product_info'
+  if (asksProductPrice(lower)) return 'product_price'
+  if (/con hang|het hang|ton|stock/.test(lower)) return 'product_stock'
+  return null
+}
 function followUps(intent: ChatIntent | null, role: ChatContext['role']): string {
   // Gợi ý ngắn, không checklist cứng
   const tips: Partial<Record<ChatIntent, string>> = {
     shop_overview: '\n\nMuốn mình lọc theo danh mục hoặc ngân sách không?',
     product_price: '\n\nCần check còn hàng hoặc review không?',
+    product_review: '\n\nXem thêm nhận xét đầy đủ trên trang sản phẩm nhé.',
     product_stock: '\n\nThêm vào giỏ trên trang sản phẩm nếu bạn ưng.',
     cart_summary: '\n\nSẵn thì hỏi mình cách thanh toán nhé.',
     orders: '\n\nHỏi chi tiết đơn #… nếu cần.',
@@ -550,7 +559,7 @@ export async function generateAssistantReply(
   const attached = attachmentReply(ctx, raw || 'cho tôi thông tin', attachments ?? [])
   if (attached && attachments?.length) {
     return wrapReply({
-      content: attached.content + followUps('contact_seller', ctx.role),
+      content: attached.content + followUps(resolveAttachmentFollowUpIntent(lower), ctx.role),
       products: attached.products,
       sellers: attached.sellers,
     })

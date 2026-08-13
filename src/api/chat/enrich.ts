@@ -92,8 +92,16 @@ async function enrichProduct(
   if (opts.reviews) {
     tasks.push(
       (async () => {
-        out.ratingSummary = await reviewApi.summary(product.id)
-        out.reviews = (await reviewApi.list(product.id)).slice(0, 3)
+        try {
+          out.ratingSummary = await reviewApi.summary(product.id)
+        } catch {
+          /* summary optional */
+        }
+        try {
+          out.reviews = await reviewApi.list(product.id)
+        } catch {
+          out.reviews = []
+        }
       })(),
     )
   }
@@ -204,7 +212,7 @@ export async function enrichChatContext(
     asksProductListedDate(normalized) ||
     wantsReviews
 
-  if (topProduct && ((intent && PRODUCT_INTENTS.has(intent)) || focusProductId)) {
+  if (topProduct && (focusProductId || (intent && PRODUCT_INTENTS.has(intent)) || wantsReviews)) {
     tasks.push(
       (async () => {
         const e = await enrichProduct(topProduct!, {

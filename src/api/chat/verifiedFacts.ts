@@ -2,6 +2,7 @@ import type { AssistantReplyPayload } from '@/api/chat/engine'
 import type { ChatContext } from '@/api/chat/context'
 import type { ChatIntent } from '@/api/chat/intents'
 import { formatVnd } from '@/api/chat/match'
+import { pickRepresentativeReviews } from '@/api/chat/productReviewSummary'
 import type { ChatProductRef, ChatSellerRef } from '@/types'
 
 export interface VerifiedFacts {
@@ -138,10 +139,13 @@ export function buildVerifiedFacts(
 
   if (ctx.enrichment?.ratingSummary) {
     const r = ctx.enrichment.ratingSummary
-    lines.push(`- Đánh giá: ${r.averageRating}★ / ${r.totalReviews} review`)
+    lines.push(`- Đánh giá TB: ${r.averageRating}★ / ${r.totalReviews} lượt`)
   }
 
   const focusDetail = ctx.enrichment?.product
+  if (focusDetail?.soldCount) {
+    lines.push(`- Đã bán: ${focusDetail.soldCount} lượt`)
+  }
   if (focusDetail) {
     const origin =
       focusDetail.attributes?.find((a) =>
@@ -160,7 +164,7 @@ export function buildVerifiedFacts(
   }
 
   if (ctx.enrichment?.reviews?.length) {
-    for (const r of ctx.enrichment.reviews.slice(0, 2)) {
+    for (const r of pickRepresentativeReviews(ctx.enrichment.reviews, 2)) {
       lines.push(`- Review ${r.userName}: ${r.rating}★ — ${r.comment.slice(0, 80)}`)
     }
   }
