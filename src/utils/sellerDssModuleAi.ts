@@ -2,7 +2,7 @@ import type { DssInsight, Product } from '@/types'
 import { formatViNumber } from '@/utils/demandPrediction'
 
 export type SellerDssModuleKey = 'demand' | 'price' | 'inventory' | 'whatif'
-export type SellerDssAiTone = 'strong' | 'steady' | 'soft' | 'warn' | 'ok'
+export type SellerDssAiTone = 'strong' | 'steady' | 'soft' | 'warn' | 'ok' | 'sparse'
 
 export interface SellerDssModuleCard {
   key: SellerDssModuleKey

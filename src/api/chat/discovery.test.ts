@@ -80,9 +80,18 @@ describe('product discovery', () => {
     expect(asksProductDiscovery(normalizeText('có gì đáng mua không'))).toBe(true)
   })
 
-  it('treats vague "có gì hay" as ambiguous in-domain', () => {
-    expect(isAmbiguousShoppingQuery(normalizeText('có gì hay'))).toBe(true)
-    expect(asksProductDiscovery(normalizeText('có gì hay'))).toBe(false)
+  it('detects informal browse slang including xịn', () => {
+    expect(asksProductDiscovery('có gì xịn')).toBe(true)
+    expect(asksProductDiscovery('co gi xin')).toBe(true)
+    expect(asksProductDiscovery('có gì hay')).toBe(true)
+    expect(asksProductDiscovery('co gi ngonn')).toBe(true)
+    expect(detectIntent('có gì xịn', 'customer')?.intent).toBe('recommend')
+  })
+
+  it('treats only bare "có gì" as ambiguous in-domain', () => {
+    expect(isAmbiguousShoppingQuery('có gì')).toBe(true)
+    expect(isAmbiguousShoppingQuery('có gì hay')).toBe(false)
+    expect(asksProductDiscovery('có gì hay')).toBe(true)
   })
 
   it('answers discovery with natural intro and products, not off-topic', async () => {
@@ -93,8 +102,21 @@ describe('product discovery', () => {
     expect(reply.content).not.toBe(escalateReply(minimalCtx(), '', 'unknown'))
   })
 
-  it('clarifies ambiguous query without random product card', async () => {
+  it('answers informal browse with products, not off-topic', async () => {
+    const reply = await resolveChatReply('có gì xịn', [], minimalCtx())
+    expect(reply.content).not.toMatch(/chưa hiểu rõ câu hỏi/i)
+    expect(reply.content).toMatch(/gợi ý|đáng xem|gom/i)
+    expect(reply.products?.length ?? 0).toBeGreaterThan(0)
+  })
+
+  it('answers "có gì hay" as discovery recommend', async () => {
     const reply = await resolveChatReply('có gì hay', [], minimalCtx())
+    expect(reply.content).not.toMatch(/chưa hiểu rõ câu hỏi/i)
+    expect(reply.products?.length ?? 0).toBeGreaterThan(0)
+  })
+
+  it('clarifies bare "có gì" without random product card', async () => {
+    const reply = await resolveChatReply('có gì', [], minimalCtx())
     expect(reply.content).toMatch(/sản phẩm mới|deal|đánh giá cao/i)
     expect(reply.products?.length ?? 0).toBe(0)
   })

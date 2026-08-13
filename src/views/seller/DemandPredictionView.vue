@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import ProductSalesHistoryChart from '@/components/dss/ProductSalesHistoryChart.vue'
+import DssAiInsightCollapsible from '@/components/dss/DssAiInsightCollapsible.vue'
 import DssPredictionContextPanel from '@/components/dss/DssPredictionContextPanel.vue'
 import DssForecastHolidayScopePanel from '@/components/dss/DssForecastHolidayScopePanel.vue'
 import { dssApi } from '@/api/services'
@@ -85,8 +86,12 @@ const aiInsight = computed(() => {
   }
 })
 
-const localAiInsight = computed(() =>
+const aiStructured = computed(() =>
   aiInsight.value?.source === 'local' ? aiInsight.value.local : null,
+)
+
+const aiBackend = computed(() =>
+  aiInsight.value?.source === 'backend' ? aiInsight.value.backend : null,
 )
 
 const forecastSeriesForChart = computed(() => {
@@ -356,7 +361,7 @@ function resetResult() {
         </div>
       </section>
 
-      <div class="demand-main" :class="{ 'demand-main--split': result && localAiInsight }">
+      <div class="demand-main">
         <section class="dss-card demand-result" aria-labelledby="demand-result-title">
           <h2 id="demand-result-title" class="dss-card__title">Kết quả dự báo</h2>
 
@@ -407,48 +412,6 @@ function resetResult() {
             </p>
           </div>
         </section>
-
-        <section
-          v-if="result && localAiInsight"
-          class="dss-card demand-ai"
-          :class="`demand-ai--${localAiInsight.tone}`"
-          aria-labelledby="demand-ai-title"
-        >
-          <div class="demand-ai__head">
-            <div>
-              <span class="demand-ai__badge">{{ localAiInsight.badge }}</span>
-              <h2 id="demand-ai-title" class="dss-card__title">Nhận định nhu cầu (tóm tắt)</h2>
-            </div>
-          </div>
-          <h3 class="demand-ai__title">{{ localAiInsight.title }}</h3>
-          <p class="demand-ai__summary">{{ localAiInsight.summary }}</p>
-          <div class="demand-ai__cols">
-            <div>
-              <h4>Kế hoạch đề xuất</h4>
-              <ol>
-                <li v-for="(a, i) in localAiInsight.actions" :key="i">{{ a }}</li>
-              </ol>
-            </div>
-            <div>
-              <h4>Rủi ro cần theo dõi</h4>
-              <ul>
-                <li v-for="(r, i) in localAiInsight.risks" :key="i">{{ r }}</li>
-              </ul>
-            </div>
-          </div>
-          <div class="demand-ai__similar" aria-label="Tính năng tương tự">
-            <span class="demand-ai__similar-label">Tính năng tương tự</span>
-            <div class="demand-ai__similar-links">
-              <RouterLink class="demand-ai__similar-link" to="/seller/dss/price">
-                Gợi ý giá
-              </RouterLink>
-              <span class="demand-ai__similar-sep" aria-hidden="true">·</span>
-              <RouterLink class="demand-ai__similar-link" to="/seller/dss/what-if">
-                What-if
-              </RouterLink>
-            </div>
-          </div>
-        </section>
       </div>
     </div>
 
@@ -464,7 +427,6 @@ function resetResult() {
       <DssPredictionContextPanel
         :product-context="result.productContext"
         :price-change-impacts="result.priceChangeImpacts"
-        :ai-insight="result.aiInsight"
       />
 
       <section v-if="hasChart || forecastSeriesForChart.length" class="dss-card" aria-labelledby="demand-chart-title">
@@ -478,6 +440,22 @@ function resetResult() {
         />
       </section>
       <p v-else-if="chartError" class="form-error demand-chart-note">{{ chartError }}</p>
+
+      <DssAiInsightCollapsible
+        v-if="aiInsight"
+        label="Nhận định AI · Dự báo nhu cầu"
+        :backend="aiBackend"
+        :structured="aiStructured"
+      >
+        <div class="demand-ai__similar" aria-label="Tính năng liên quan">
+          <span class="demand-ai__similar-label">Module liên quan</span>
+          <div class="demand-ai__similar-links">
+            <RouterLink class="demand-ai__similar-link" to="/seller/dss/price">Gợi ý giá</RouterLink>
+            <span class="demand-ai__similar-sep" aria-hidden="true">·</span>
+            <RouterLink class="demand-ai__similar-link" to="/seller/dss/what-if">What-if</RouterLink>
+          </div>
+        </div>
+      </DssAiInsightCollapsible>
     </template>
   </div>
 </template>

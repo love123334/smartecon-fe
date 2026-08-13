@@ -1,31 +1,58 @@
-import { normalizeText } from '@/api/chat/match'
+import { normalizeChatTypos, normalizeText } from '@/api/chat/match'
+
+/** Chuẩn hóa câu khám phá SP — bỏ dấu, typo chat, slang TMĐT. */
+export function normalizeDiscoveryText(raw: string): string {
+  let n = normalizeChatTypos(normalizeText(raw))
+  n = n
+    .replace(/\bxiin\b|\bxijn\b|\bxij\b|\bxin xo\b|\bxin so\b/g, 'xin')
+    .replace(/\bngonn\b|\bngonnn\b/g, 'ngon')
+    .replace(/\bhayy\b|\bhay ho\b/g, 'hay')
+    .replace(/\bdinhh\b|\bdinh vay\b/g, 'dinh')
+    .replace(/\bchat luong\b/g, 'chat')
+    .replace(/\bre vay\b|\bre do\b/g, 're')
+  return n.trim()
+}
+
+/** Tính từ / slang mua sắm: "có gì hay/xịn/ngon…" */
+const INFORMAL_BROWSE_ADJ =
+  'hay|xin|ngon|tot|dinh|chat|on|dep|re|xinh|dang mua|dang xem|dang ban|dang hot|noi bat|dang giam'
 
 /** Câu hỏi khám phá SP — in-domain, không phải off-topic. */
-export function asksProductDiscovery(normalized: string): boolean {
-  const n = normalized.trim()
+export function asksProductDiscovery(rawOrNormalized: string): boolean {
+  const n = normalizeDiscoveryText(rawOrNormalized)
   if (!n) return false
   return (
     /co mon gi moi|co gi moi|co hang moi|co san pham moi|mon moi|hang moi|sp moi|san pham moi|moi len ke|moi nhap|moi ve|moi hang|new arrival|what.?s new/.test(
       n,
     ) ||
-    /co gi dang mua|co gi dang xem|co gi tot|co gi ngon|co gi dang|dang co gi|co gi do|dang mua khong/.test(n) ||
-    /co gi hay khong|co gi hay do|co gi hay vay/.test(n) ||
-    /gioi thieu.*mon|goi y.*mon|gioi thieu.*sp|goi y.*sp|co gi dang ban|co ban gi moi|shop co gi moi/.test(n) ||
+    /co gi dang mua|co gi dang xem|co gi tot|co gi ngon|co gi dang|dang co gi|co gi do|dang mua khong/.test(
+      n,
+    ) ||
+    new RegExp(`co gi (?:${INFORMAL_BROWSE_ADJ})(?:\\s+khong|\\s+do|\\s+vay)?(?:\\s|$)`).test(n) ||
+    new RegExp(`(?:^|\\s)(?:co|shop co) (?:mon|hang|sp|san pham) gi (?:${INFORMAL_BROWSE_ADJ})`).test(
+      n,
+    ) ||
+    /co gi hay khong|co gi hay do|co gi hay vay|co gi xin khong|co gi ngon khong/.test(n) ||
+    /gioi thieu.*mon|goi y.*mon|gioi thieu.*sp|goi y.*sp|co gi dang ban|co ban gi moi|shop co gi moi/.test(
+      n,
+    ) ||
     /co mon nao|co sp nao|co san pham nao|tim mon moi|xem mon moi/.test(n) ||
     /co gi dang giam|deal dang|dang sale|san pham noi bat/.test(n) ||
-    /co gi dang mua khong|co gi dang hot|co mon dang|dang co mon/.test(n)
+    /co gi dang mua khong|co gi dang hot|co mon dang|dang co mon/.test(n) ||
+    /goi y gi|goi y cho|nen mua gi|mua gi cho|co gi dang mua|co gi dang xem thu/.test(n)
   )
 }
 
-/** Câu quá mơ hồ — cần hỏi lại, không đoán SP. */
-export function isAmbiguousShoppingQuery(normalized: string): boolean {
-  const n = normalized.trim()
+/** Câu quá mơ hồ — hỏi lại, không đoán SP (chỉ khi không có tính từ gợi ý). */
+export function isAmbiguousShoppingQuery(rawOrNormalized: string): boolean {
+  const n = normalizeDiscoveryText(rawOrNormalized)
   if (asksProductDiscovery(n)) return false
-  return /^(co gi hay|co gi tot|co gi ngon|co gi do|co gi vay|co gi khong|co gi|hay khong|tot khong)$/.test(n)
+  return /^(co gi do|co gi vay|co gi khong|co gi|hay khong|tot khong)$/.test(n)
 }
 
-export function isDiscoveryNewestQuery(normalized: string): boolean {
-  return /moi|new|moi len|moi nhap|moi ve|hang moi|mon moi/.test(normalized) && asksProductDiscovery(normalized)
+export function isDiscoveryNewestQuery(rawOrNormalized: string): boolean {
+  const n = normalizeDiscoveryText(rawOrNormalized)
+  return /moi|new|moi len|moi nhap|moi ve|hang moi|mon moi/.test(n) && asksProductDiscovery(n)
 }
 
 export function isUnknownEscalateText(content: string): boolean {

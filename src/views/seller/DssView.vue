@@ -7,6 +7,7 @@ import type { DssInsightPlanApi } from '@/api/real/dss'
 import { useAuthStore } from '@/stores/auth'
 import PageHeader from '@/components/PageHeader.vue'
 import AiShortcutBar from '@/components/AiShortcutBar.vue'
+import DssAiInsightCollapsible from '@/components/dss/DssAiInsightCollapsible.vue'
 import {
   buildSellerAiInsightsSummary,
   sanitizeDssCommentary,
@@ -22,8 +23,6 @@ const planError = ref('')
 const planLoading = ref(false)
 const hubLoading = ref(true)
 
-/** Tạm ẩn trên UI — đặt true để bật lại block “Nhận định AI & kế hoạch”. */
-const SHOW_DSS_AI_PLAN = false
 /** Tạm ẩn card module — bỏ key khỏi mảng để hiện lại (vd: 'inventory'). */
 const HIDDEN_DSS_MODULE_KEYS: SellerDssModuleKey[] = ['inventory']
 
@@ -66,12 +65,10 @@ onMounted(async () => {
     const [ins, catalog, planRes] = await Promise.all([
       dssApi.sellerInsights(sellerKey.value),
       loadSellerCatalogForDss({ sellerId: sellerKey.value, withStock: false }),
-      SHOW_DSS_AI_PLAN
-        ? dssApi.insightPlan().catch((e: unknown) => {
-            planError.value = e instanceof Error ? e.message : 'Không tải được kế hoạch DSS'
-            return null
-          })
-        : Promise.resolve(null),
+      dssApi.insightPlan().catch((e: unknown) => {
+        planError.value = e instanceof Error ? e.message : 'Không tải được kế hoạch DSS'
+        return null
+      }),
     ])
     insights.value = ins
     products.value = catalog.products
@@ -98,34 +95,6 @@ onMounted(async () => {
         { to: '/seller/dss/what-if', label: 'Phân tích kịch bản', highlight: true },
       ]"
     />
-
-    <section v-if="SHOW_DSS_AI_PLAN" class="dss-brain" aria-labelledby="dss-ai-title">
-      <div class="dss-brain__head">
-        <h3 id="dss-ai-title">Nhận định AI &amp; kế hoạch</h3>
-        <small v-if="plan">{{ plan.generatedAt }}</small>
-      </div>
-      <p v-if="planLoading" class="dss-brain__loading">Đang tổng hợp số liệu…</p>
-      <p v-else-if="planError" class="dss-brain__err">{{ planError }}</p>
-      <p v-else-if="plan && plan.source === 'local-fallback'" class="dss-brain__err">
-        Chưa lấy được kế hoạch DSS từ backend — thử đăng nhập lại hoặc tải lại trang.
-      </p>
-      <div v-else class="dss-brain__body">
-        <div v-if="commentarySections.length" class="dss-ai-sections">
-          <article v-for="(sec, idx) in commentarySections" :key="idx" class="dss-ai-sec">
-            <h4>{{ sec.title }}</h4>
-            <pre class="dss-brain__md">{{ sec.body }}</pre>
-          </article>
-        </div>
-        <pre v-else class="dss-brain__md">{{ planCommentary }}</pre>
-        <iframe
-          v-if="embedUrl"
-          class="dss-brain__embed"
-          :src="embedUrl"
-          :title="plan?.powerBiReportTitle || 'Power BI'"
-          allowfullscreen
-        />
-      </div>
-    </section>
 
     <h3 class="dss-hub__section">Module DSS · nhận định AI theo shop</h3>
     <p v-if="hubLoading" class="muted" role="status">Đang đọc catalog &amp; insight…</p>
@@ -172,6 +141,23 @@ onMounted(async () => {
       </article>
       <p v-if="!insights.length" class="muted">Chưa có gợi ý dashboard — chạy các module DSS để có tín hiệu rõ hơn.</p>
     </div>
+
+    <DssAiInsightCollapsible
+      label="Nhận định AI & kế hoạch shop"
+      :loading="planLoading"
+      :error="planError || (plan?.source === 'local-fallback' ? 'Chưa lấy được kế hoạch DSS từ backend — thử đăng nhập lại hoặc tải lại trang.' : '')"
+      :sections="commentarySections.length ? commentarySections : undefined"
+      :plain-text="commentarySections.length ? undefined : planCommentary"
+    >
+      <iframe
+        v-if="embedUrl"
+        class="dss-brain__embed"
+        :src="embedUrl"
+        :title="plan?.powerBiReportTitle || 'Power BI'"
+        allowfullscreen
+      />
+      <p v-if="plan?.generatedAt" class="dss-hint dss-brain__meta">Cập nhật: {{ plan.generatedAt }}</p>
+    </DssAiInsightCollapsible>
   </div>
 </template>
 
@@ -226,10 +212,12 @@ onMounted(async () => {
 .dss-brain__embed {
   width: 100%;
   min-height: 420px;
-  margin-top: 1rem;
+  margin-top: 0.85rem;
   border: 0;
   border-radius: 8px;
-  background: #f1f5f9;
+}
+.dss-brain__meta {
+  margin-top: 0.65rem;
 }
 .dss-brain__err,
 .dss-brain__loading {

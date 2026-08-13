@@ -21,6 +21,7 @@ import {
 } from '@/utils/pricePrediction'
 import { buildPricePredictionAiInsight } from '@/utils/sellerDssModuleAi'
 import DssProfitBreakdownPanel from '@/components/dss/DssProfitBreakdownPanel.vue'
+import DssAiInsightCollapsible from '@/components/dss/DssAiInsightCollapsible.vue'
 import DssPredictionContextPanel from '@/components/dss/DssPredictionContextPanel.vue'
 import DssForecastHolidayScopePanel from '@/components/dss/DssForecastHolidayScopePanel.vue'
 import type { CustomPriceScenarioApi } from '@/api/real/dss'
@@ -70,18 +71,23 @@ const showResults = computed(() => Boolean(result.value) && !resultStale.value)
 
 const aiInsight = computed(() => {
   if (!result.value || resultStale.value) return null
-  if (result.value.aiInsight?.title) {
-    return { title: result.value.aiInsight.title, fromBackend: true }
+  if (result.value.aiInsight?.summary) {
+    return {
+      backend: result.value.aiInsight,
+      structured: null,
+    }
   }
-  const local = buildPricePredictionAiInsight({
-    productName: result.value.productName,
-    currentPrice: result.value.currentPrice,
-    cost: result.value.cost,
-    averageElasticity: result.value.averageElasticity,
-    totalQuantitySold: result.value.totalQuantitySold,
-    best: result.value.bestScenario,
-  })
-  return { title: local.title, fromBackend: false }
+  return {
+    backend: null,
+    structured: buildPricePredictionAiInsight({
+      productName: result.value.productName,
+      currentPrice: result.value.currentPrice,
+      cost: result.value.cost,
+      averageElasticity: result.value.averageElasticity,
+      totalQuantitySold: result.value.totalQuantitySold,
+      best: result.value.bestScenario,
+    }),
+  }
 })
 
 watch([productId, fromDate, toDate], () => {
@@ -436,10 +442,6 @@ async function onCustomPriceSubmit() {
           </article>
         </div>
 
-        <div v-if="aiInsight" class="dss-system-judgment" aria-labelledby="price-ai-title">
-          <h3 id="price-ai-title" class="dss-system-judgment__title">Nhận định từ hệ thống</h3>
-          <p class="dss-system-judgment__text">{{ aiInsight.title }}</p>
-        </div>
         <div v-if="result.recommendation" class="dss-recommendation-block">
           <h3 class="dss-system-judgment__title">Khuyến nghị</h3>
           <p>{{ result.recommendation }}</p>
@@ -457,7 +459,6 @@ async function onCustomPriceSubmit() {
       <DssPredictionContextPanel
         :product-context="result.productContext"
         :price-change-impacts="result.priceChangeImpacts"
-        :ai-insight="result.aiInsight"
       />
 
       <!-- 4. Scenario table -->
@@ -584,6 +585,13 @@ async function onCustomPriceSubmit() {
           />
         </template>
       </section>
+
+      <DssAiInsightCollapsible
+        v-if="aiInsight"
+        label="Nhận định AI · Khuyến nghị giá"
+        :backend="aiInsight.backend"
+        :structured="aiInsight.structured"
+      />
     </template>
   </div>
 </template>

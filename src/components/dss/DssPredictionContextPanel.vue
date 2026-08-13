@@ -1,14 +1,9 @@
 <script setup lang="ts">
-import type {
-  DssAiInsightApi,
-  DssPriceChangeImpactApi,
-  DssProductContextApi,
-} from '@/api/real/dss'
+import type { DssPriceChangeImpactApi, DssProductContextApi } from '@/api/real/dss'
 
 defineProps<{
   productContext?: DssProductContextApi | null
   priceChangeImpacts?: DssPriceChangeImpactApi[] | null
-  aiInsight?: DssAiInsightApi | null
 }>()
 
 function tierLabel(tier?: string) {
@@ -29,11 +24,11 @@ function tierLabel(tier?: string) {
 
 <template>
   <section
-    v-if="productContext || (priceChangeImpacts?.length ?? 0) || aiInsight"
+    v-if="productContext || (priceChangeImpacts?.length ?? 0)"
     class="dss-card dss-context-panel"
     aria-labelledby="dss-context-title"
   >
-    <h2 id="dss-context-title" class="dss-card__title">Ngữ cảnh & phân tích nâng cao</h2>
+    <h2 id="dss-context-title" class="dss-card__title">Ngữ cảnh sản phẩm</h2>
 
     <article v-if="productContext" class="dss-context-block">
       <h3 class="dss-context-block__title">Vị thế trong shop</h3>
@@ -57,16 +52,6 @@ function tierLabel(tier?: string) {
       </ul>
     </article>
 
-    <article v-if="aiInsight" class="dss-context-block dss-ai-block">
-      <div class="dss-ai-block__head">
-        <h3 class="dss-context-block__title">{{ aiInsight.title }}</h3>
-        <span class="dss-badge" :class="aiInsight.fallback ? 'dss-badge--muted' : 'dss-badge--best'">
-          {{ aiInsight.fallback ? 'Phân tích nội bộ' : `AI · ${aiInsight.provider ?? 'API'}` }}
-        </span>
-      </div>
-      <div class="dss-ai-block__body" v-html="aiInsight.summary.replace(/\n/g, '<br>')" />
-      <p v-if="aiInsight.disclaimer" class="dss-hint dss-ai-disclaimer">{{ aiInsight.disclaimer }}</p>
-    </article>
   </section>
 </template>
 
@@ -91,29 +76,5 @@ function tierLabel(tier?: string) {
   gap: 0.45rem;
   font-size: 0.88rem;
   line-height: 1.45;
-}
-
-.dss-ai-block__head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-  justify-content: space-between;
-}
-
-.dss-ai-block__body {
-  font-size: 0.9rem;
-  line-height: 1.55;
-  color: var(--slate-800, #14275c);
-}
-
-.dss-ai-disclaimer {
-  margin: 0.65rem 0 0;
-  font-size: 0.78rem;
-}
-
-.dss-badge--muted {
-  background: var(--slate-100, #eef1f6);
-  color: var(--slate-600, #5b6c93);
 }
 </style>

@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import InventoryStockBarChart from '@/components/dss/InventoryStockBarChart.vue'
 import InventorySalesTrendChart from '@/components/dss/InventorySalesTrendChart.vue'
+import DssAiInsightCollapsible from '@/components/dss/DssAiInsightCollapsible.vue'
 import { apiConfig } from '@/api/config'
 import { dssApi } from '@/api/services'
 import { useAuthStore } from '@/stores/auth'
@@ -301,37 +302,6 @@ function clearError() {
           </p>
         </section>
 
-        <section
-          v-if="aiInsight"
-          class="dss-card dss-ai-panel"
-          :class="`dss-ai-panel--${aiInsight.tone}`"
-          aria-labelledby="inventory-ai-title"
-        >
-          <div class="dss-ai-panel__head">
-            <div>
-              <span class="dss-ai-panel__badge">{{ aiInsight.badge }}</span>
-              <h2 id="inventory-ai-title" class="dss-card__title" style="margin: 0">Nhận định AI</h2>
-            </div>
-            <p class="dss-ai-panel__method">ROP · safety stock · nhu cầu TB</p>
-          </div>
-          <h3 class="dss-ai-panel__title">{{ aiInsight.title }}</h3>
-          <p class="dss-ai-panel__summary">{{ aiInsight.summary }}</p>
-          <div class="dss-ai-panel__cols">
-            <div>
-              <h4>Kế hoạch đề xuất</h4>
-              <ol>
-                <li v-for="(a, i) in aiInsight.actions" :key="i">{{ a }}</li>
-              </ol>
-            </div>
-            <div>
-              <h4>Rủi ro cần theo dõi</h4>
-              <ul>
-                <li v-for="(r, i) in aiInsight.risks" :key="i">{{ r }}</li>
-              </ul>
-            </div>
-          </div>
-        </section>
-
         <section class="dss-card">
           <h2 class="dss-card__title">Bảng khuyến nghị chi tiết</h2>
           <div class="dss-table-wrap">
@@ -389,6 +359,12 @@ function clearError() {
             </p>
           </section>
         </div>
+
+        <DssAiInsightCollapsible
+          v-if="aiInsight"
+          label="Nhận định AI · Tồn kho"
+          :structured="aiInsight"
+        />
       </template>
   </div>
 </template>
