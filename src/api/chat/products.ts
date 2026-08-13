@@ -719,6 +719,19 @@ export function rankRecommendedProducts(products: Product[], limit = 6): Product
     .slice(0, limit)
 }
 
+/** SP mới lên kệ / mới nhất — dùng cho "có món gì mới không". */
+export function newestProducts(products: Product[], limit = 6): Product[] {
+  return [...products]
+    .filter((p) => (p.stock ?? 0) > 0)
+    .sort((a, b) => {
+      const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0
+      const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0
+      if (tb !== ta) return tb - ta
+      return (b.soldCount ?? 0) - (a.soldCount ?? 0)
+    })
+    .slice(0, limit)
+}
+
 function formatCompactVnd(amount: number): string {
   if (amount >= 1_000_000 && amount % 1_000_000 === 0) {
     return `${amount / 1_000_000} triệu`

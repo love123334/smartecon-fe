@@ -221,6 +221,7 @@ export function asksProductReview(normalized: string): boolean {
     return true
   }
   if (/dang mua khong|co nen mua|nen mua khong|co tot khong|co on khong|on khong|tot khong|duoc khong|co duoc khong/.test(n)) {
+    if (/^co gi |^co mon |^co sp |^co hang /.test(n)) return false
     return true
   }
   if (/tot khong|chat luong|ngon khong|co tot khong|ok khong|co on khong/.test(n)) {

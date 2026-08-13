@@ -8,6 +8,12 @@ import {
   priceBrief,
   sellerWhatIfBrief,
 } from '@/api/chat/dssBrief'
+import {
+  asksProductDiscovery,
+  discoveryReplyIntro,
+  isAmbiguousShoppingQuery,
+  isDiscoveryNewestQuery,
+} from '@/api/chat/discovery'
 import { formatVnd, normalizeText, asksProductListedDate, asksProductOrigin } from '@/api/chat/match'
 import {
   affordableProductsForQuery,
@@ -155,6 +161,19 @@ function whereToBuyReply(ctx: ChatContext, raw: string): string {
 
 function recommendReply(ctx: ChatContext, raw: string): string {
   const name = greet(ctx.userName ?? '')
+  const lower = normalizeText(raw)
+  if (isAmbiguousShoppingQuery(lower)) {
+    return discoveryReplyIntro(ctx.userName, 0, 'clarify')
+  }
+  if (asksProductDiscovery(lower)) {
+    const pool = resolveProductHits(ctx, raw)
+    const count = pool.length ? Math.min(pool.length, 6) : ctx.products.length ? Math.min(ctx.products.length, 6) : 0
+    return discoveryReplyIntro(
+      ctx.userName,
+      count,
+      isDiscoveryNewestQuery(lower) ? 'newest' : 'recommend',
+    )
+  }
   if (ctx.recommendations.length) {
     const picks = ctx.recommendations
       .slice(0, 4)

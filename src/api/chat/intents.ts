@@ -1,4 +1,5 @@
 import { isShortGreeting, normalizeText, phraseBoost, scoreKeywords, matchAnyKeyword } from '@/api/chat/match'
+import { asksProductDiscovery, isAmbiguousShoppingQuery } from '@/api/chat/discovery'
 import { extractPriceRange } from '@/api/chat/products'
 import type { UserRole } from '@/types'
 
@@ -304,8 +305,11 @@ const COMMON: IntentRule[] = [
       'goi y', 'recommend', 'nen mua', 'tu van san pham', 'suggest',
       'what should i buy', 'best product', 'goi y mua', 'ngon', 'tot nhat',
       'dang mua', 'chat luong', 'sp nao ngon', 'hang nao ngon', 'nen chon',
-      'goi y sp', 'tu van mua', 'tu van giup', 'co gi hay', 'nen lay gi',
-      'mua gi cho hop', 'cho xin y kien', 'xin tu van', 'co gi tot',
+      'goi y sp', 'tu van mua', 'tu van giup', 'nen lay gi',
+      'mua gi cho hop', 'cho xin y kien', 'xin tu van',
+      'co mon gi moi', 'co gi moi', 'mon moi', 'hang moi', 'sp moi', 'san pham moi',
+      'co gi dang mua', 'co gi dang xem', 'gioi thieu vai mon', 'goi y vai mon',
+      'co gi dang ban', 'co ban gi moi', 'co mon nao',
       // trending / hot — tránh nhầm với hotline (match.ts yêu cầu substring ≥4 ký tự)
       'hot', 'dang hot', 'mon do hot', 'san pham hot', 'sp hot', 'hang hot',
       'ban chay', 'top ban chay', 'best seller', 'bestseller', 'trending',
@@ -316,6 +320,7 @@ const COMMON: IntentRule[] = [
       'hang nao ngon', 'tot nhat', 'nen chon',
       'mon do hot', 'san pham hot', 'dang hot', 'ban chay', 'top ban chay',
       'best seller', 'dang thinh hanh',
+      'co mon gi moi', 'co gi moi', 'mon moi', 'hang moi',
     ],
     minScore: 3,
     priority: 8,
@@ -567,6 +572,9 @@ function refineIntent(
   detected: { intent: ChatIntent; score: number },
   role: UserRole,
 ): ChatIntent {
+  if (isAmbiguousShoppingQuery(normalized)) return detected.intent
+  if (asksProductDiscovery(normalized)) return 'recommend'
+
   // Đơn hàng — luôn ưu tiên trước product search
   if (
     /(?:^|\s)(don hang|don cua|trang thai don|lich su mua|theo doi don|order status|my order|don the nao|tinh trang don)/.test(
@@ -719,7 +727,12 @@ export function detectIntent(
     }
   }
 
-  if (!best) return null
+  if (!best) {
+    if (asksProductDiscovery(normalized)) {
+      return { intent: 'recommend', score: 48 }
+    }
+    return null
+  }
 
   const intent = refineIntent(normalized, best, role)
   return { intent, score: best.score }

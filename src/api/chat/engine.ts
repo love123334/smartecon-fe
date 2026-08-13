@@ -4,6 +4,13 @@ import { formatVnd, normalizeText, normalizeChatTypos, asksProductListedDate, as
 import { toChatProducts } from '@/api/chat/productCards'
 import { resolveReplySellers, sellerCardFromProduct, toChatSellers } from '@/api/chat/sellerCards'
 import {
+  asksProductDiscovery,
+  discoveryReplyIntro,
+  isAmbiguousShoppingQuery,
+  isDiscoveryNewestQuery,
+  isUnknownEscalateText,
+} from '@/api/chat/discovery'
+import {
   cheapestProducts,
   affordableProductsForQuery,
   computeProductPriceStats,
@@ -20,6 +27,7 @@ import {
   groupProductsByShop,
   isAffordableProductQuery,
   isPriceStatsQuery,
+  newestProducts,
   pickProductCatalog,
   productsUnderBudget,
   rankRecommendedProducts,
@@ -130,8 +138,22 @@ function sellerHintFromProducts(products: Product[]): string {
   return `\nShop đang bán: ${groups.map((g) => g.shop).join(', ')}.`
 }
 
-function wrapReply(payload: AssistantReplyPayload): AssistantReplyPayload {
-  return { ...payload, content: sanitizeChatReply(payload.content) }
+function wrapReply(
+  payload: AssistantReplyPayload,
+  ctx?: ChatContext,
+  raw?: string,
+): AssistantReplyPayload {
+  let content = payload.content
+  if (payload.products?.length && isUnknownEscalateText(content) && ctx) {
+    const lower = normalizeText(raw ?? '')
+    content =
+      discoveryReplyIntro(
+        ctx.userName,
+        payload.products.length,
+        isDiscoveryNewestQuery(lower) ? 'newest' : 'recommend',
+      ) + '\n\nChọn card bên dưới để xem chi tiết nhé.'
+  }
+  return { ...payload, content: sanitizeChatReply(content) }
 }
 
 function resolveAttachmentFollowUpIntent(lower: string): ChatIntent | null {
@@ -206,6 +228,28 @@ function shoppingStructuredReply(
 
   // Không bao giờ biến câu đơn hàng / tài khoản thành tìm SP
   if (intent && NON_SHOPPING_INTENTS.has(intent)) return null
+
+  const lower = normalizeText(raw)
+
+  if (isAmbiguousShoppingQuery(lower)) {
+    return {
+      content: discoveryReplyIntro(ctx.userName, 0, 'clarify'),
+    }
+  }
+
+  if (asksProductDiscovery(lower)) {
+    const hits = isDiscoveryNewestQuery(lower)
+      ? newestProducts(catalog, 6)
+      : rankRecommendedProducts(catalog, 6)
+    return {
+      content: discoveryReplyIntro(
+        ctx.userName,
+        hits.length,
+        isDiscoveryNewestQuery(lower) ? 'newest' : 'recommend',
+      ),
+      products: hits.length ? toChatProducts(hits, 6) : undefined,
+    }
+  }
 
   const range = extractPriceRange(raw)
   const filter = filterProductsForQuery(catalog, raw, ctx.categories, 8)
@@ -586,15 +630,23 @@ export async function generateAssistantReply(
 ): Promise<AssistantReplyPayload> {
   const raw = text.trim()
   const lower = normalizeText(raw)
+  const finish = (payload: AssistantReplyPayload) => wrapReply(payload, ctx, raw)
 
   if (!raw && !attachments?.length) {
-    return wrapReply({ content: 'Bạn muốn hỏi gì về sản phẩm, giỏ hàng hay đơn hàng?' })
+    return finish({ content: 'Bạn muốn hỏi gì về sản phẩm, giỏ hàng hay đơn hàng?' })
   }
 
   if (raw && isOffTopic(lower) && !attachments?.length) {
-    return wrapReply({
+    return finish({
       content:
         'Mình là trợ lý mua sắm SEDSP nên chỉ hỗ trợ **sản phẩm, giỏ hàng, đơn hàng và chính sách shop**. Câu hỏi này nằm ngoài phạm vi — bạn hỏi giúp mình về mua sắm nhé!',
+    })
+  }
+
+  // In-domain nhưng quá mơ hồ — hỏi lại, không gắn card SP ngẫu nhiên
+  if (raw && isAmbiguousShoppingQuery(lower)) {
+    return finish({
+      content: discoveryReplyIntro(ctx.userName, 0, 'clarify'),
     })
   }
 
@@ -602,7 +654,7 @@ export async function generateAssistantReply(
   if (attached && attachments?.length) {
     const attachIntent = resolveAttachmentFollowUpIntent(lower)
     const skipFollowUp = Boolean(attached.reviewSummary)
-    return wrapReply({
+    return finish({
       content:
         attached.content + (skipFollowUp ? '' : followUps(attachIntent, ctx.role)),
       products: attached.products,
@@ -631,7 +683,7 @@ export async function generateAssistantReply(
   if (intent !== 'where_to_buy' && intent !== 'recommend') {
     const shopping = shoppingStructuredReply(ctx, raw, intent)
     if (shopping) {
-      return wrapReply({
+      return finish({
         content: shopping.content + followUps(intent, ctx.role),
         products: shopping.products,
         sellers: shopping.sellers,
@@ -661,14 +713,23 @@ export async function generateAssistantReply(
           : []
       const ranked =
         intent === 'recommend'
-          ? rankRecommendedProducts(
-              ctx.enrichment?.searchResults?.length
-                ? ctx.enrichment.searchResults
-                : filterHits.length
-                  ? filterHits
-                  : catalog,
-              6,
-            )
+          ? asksProductDiscovery(lower)
+            ? newestProducts(
+                ctx.enrichment?.searchResults?.length
+                  ? ctx.enrichment.searchResults
+                  : filterHits.length
+                    ? filterHits
+                    : catalog,
+                6,
+              )
+            : rankRecommendedProducts(
+                ctx.enrichment?.searchResults?.length
+                  ? ctx.enrichment.searchResults
+                  : filterHits.length
+                    ? filterHits
+                    : catalog,
+                6,
+              )
           : []
       const enrichProducts =
         ranked.length
@@ -710,14 +771,14 @@ export async function generateAssistantReply(
       } else if (products?.length && (intent === 'where_to_buy' || intent === 'recommend')) {
         content += `\n\nChọn card bên dưới để xem SP nhé.`
       }
-      return wrapReply({ content, products, sellers, reviewSummary })
+      return finish({ content, products, sellers, reviewSummary })
     }
   }
 
   const catalog = pickProductCatalog(ctx.products, ctx.sellerProducts, ctx.role)
   // Không fallback tìm SP khi đã biết là đơn hàng / tài khoản / chính sách
   if (intent && NON_SHOPPING_INTENTS.has(intent)) {
-    return wrapReply({
+    return finish({
       content: escalateReply(ctx, raw, 'unknown'),
     })
   }
@@ -727,7 +788,7 @@ export async function generateAssistantReply(
 
   const smart = smartProductFallback(ctx, raw, matched)
   if (smart) {
-    return wrapReply({
+    return finish({
       content: smart.content + followUps(null, ctx.role),
       products: smart.products,
     })
@@ -741,7 +802,7 @@ export async function generateAssistantReply(
     const cheap = cheapestProducts(catalog, 4)
     if (cheap.length) {
       const floor = formatVnd(cheap[0].price)
-      return wrapReply({
+      return finish({
         content:
           warmProductIntro(ctx, cheap.length, undefined, 'cheapest') +
           (cheap.length === 1
@@ -755,23 +816,23 @@ export async function generateAssistantReply(
   if (budget != null && catalog.length) {
     const hits = productsUnderBudget(catalog, budget, 6)
     if (hits.length) {
-      return wrapReply({
+      return finish({
         content: warmProductIntro(ctx, hits.length, formatVnd(budget), 'budget') + sellerHintFromProducts(hits),
         products: toChatProducts(hits, 6),
       })
     }
-    return wrapReply({
+    return finish({
       content: `${greet(ctx.userName ?? '')}Không có SP trong ngân sách **${formatVnd(budget)}**. Thử mức cao hơn hoặc hỏi "sp rẻ nhất".`,
     })
   }
 
   if (/dang nhap|login|sign in/.test(lower) && ctx.role === 'guest') {
-    return wrapReply({
+    return finish({
       content: `${greet(ctx.userName ?? '')}**Đăng nhập** role Khách hàng để mua hàng, xem đơn & gợi ý AI.\nDemo: **customer@sedsp.vn** / **12345678**`,
     })
   }
 
-  return wrapReply({ content: escalateReply(ctx, raw, 'unknown') })
+  return finish({ content: escalateReply(ctx, raw, 'unknown') })
 }
 
 export function typingDelay(content: string): number {
