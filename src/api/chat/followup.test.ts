@@ -170,10 +170,9 @@ describe('chat follow-up context', () => {
       history,
       minimalCtx(),
     )
-    expect(reply.content.toLowerCase()).toMatch(/danh gia|review|rating|★/)
-    expect(reply.content).toMatch(/tổng hợp|chỉ số chung/i)
-    expect(reply.content).toMatch(/nhận xét tiêu biểu/i)
-    expect(reply.content).toMatch(/42/)
+    expect(reply.content).toMatch(/tổng hợp|bảng bên dưới/i)
+    expect(reply.reviewSummary?.productName).toBe('High Waist Jeans')
+    expect(reply.reviewSummary?.highlights.length).toBeGreaterThan(0)
     expect(reply.content).not.toMatch(/danh thiếp shop bên dưới/)
     expect(reply.content).not.toMatch(/đang bán\s+\*\*899/)
   })
@@ -194,8 +193,9 @@ describe('chat follow-up context', () => {
       minimalCtx(),
       [keyboard],
     )
-    expect(reply.content).toMatch(/tổng hợp đánh giá/i)
-    expect(reply.content).toMatch(/KeyPro K87/)
+    expect(reply.content).toMatch(/tổng hợp|bảng bên dưới/i)
+    expect(reply.reviewSummary?.productName).toMatch(/KeyPro K87/)
+    expect(reply.products?.[0]?.id).toBe('kb-1')
     expect(reply.content).not.toMatch(/Hỏi thêm: công dụng, giá, còn hàng/)
   })
 

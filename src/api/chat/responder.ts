@@ -1,5 +1,5 @@
 import type { ChatContext } from '@/api/chat/context'
-import { enrichChatContext } from '@/api/chat/enrich'
+import { enrichChatContext, enrichFocusProduct } from '@/api/chat/enrich'
 import { generateAssistantReply } from '@/api/chat/engine'
 import {
   isContinuingProductChat,
@@ -24,7 +24,8 @@ import { extractPriceRange, isPriceStatsQuery } from '@/api/chat/products'
 import { sanitizeChatReply } from '@/api/chat/responses'
 import { buildSystemPrompt } from '@/api/chat/systemPrompt'
 import { buildVerifiedFacts } from '@/api/chat/verifiedFacts'
-import type { ChatMessage, ChatProductRef, ChatSellerRef, Product } from '@/types'
+import { toChatProducts } from '@/api/chat/productCards'
+import type { ChatMessage, ChatProductRef, ChatReviewSummary, ChatSellerRef, Product } from '@/types'
 
 export type ChatReplySource = 'llm' | 'local'
 
@@ -33,6 +34,7 @@ export interface ChatReply {
   source: ChatReplySource
   products?: ChatProductRef[]
   sellers?: ChatSellerRef[]
+  reviewSummary?: ChatReviewSummary
 }
 
 /**
@@ -171,6 +173,52 @@ function preferLocalOverLlm(
   return false
 }
 
+async function alignContextToFocus(
+  ctx: ChatContext,
+  focusRef: ChatProductRef,
+  wantsReviews: boolean,
+): Promise<ChatContext> {
+  const focus = resolveFocusProduct(ctx, focusRef)
+  const sameId =
+    ctx.enrichment?.productId != null &&
+    String(ctx.enrichment.productId) === String(focus.id)
+
+  if (sameId && ctx.enrichment?.product) {
+    return {
+      ...ctx,
+      enrichment: {
+        ...ctx.enrichment,
+        productId: focus.id,
+        product: { ...ctx.enrichment.product, ...focus, name: focus.name, price: focus.price },
+      },
+    }
+  }
+
+  const fresh = await enrichFocusProduct(focus, { reviews: wantsReviews, detail: true })
+  const mergedProduct: Product = {
+    ...(fresh.product ?? focus),
+    id: focus.id,
+    name: focus.name,
+    price: focus.price,
+    imageUrl: focus.imageUrl || fresh.product?.imageUrl || '',
+    category: focus.category || fresh.product?.category || '',
+    shopName: focus.shopName || fresh.product?.shopName,
+    rating: fresh.product?.rating ?? focus.rating ?? 0,
+    soldCount: fresh.product?.soldCount ?? focus.soldCount ?? 0,
+    stock: fresh.product?.stock ?? focus.stock ?? 0,
+  }
+  return {
+    ...ctx,
+    enrichment: {
+      ...ctx.enrichment,
+      productId: focus.id,
+      product: mergedProduct,
+      ratingSummary: fresh.ratingSummary,
+      reviews: fresh.reviews,
+    },
+  }
+}
+
 /** Hybrid: local facts trước → LLM diễn đạt; fallback local nếu LLM lệch facts. */
 export async function resolveChatReply(
   userMessage: string,
@@ -188,11 +236,16 @@ export async function resolveChatReply(
     attachments?.length ? attachments : followUp ? priorProducts.slice(0, 2) : undefined
 
   let detected = detectIntent(userMessage, ctx.role)
-  if (followUp) {
+  if (attachments?.length && asksProductReview(normalized)) {
+    detected = { intent: 'product_review', score: 50 }
+  } else if (followUp) {
     detected = resolveFollowUpIntent(normalized, detected)
   }
 
   const focusRef = effectiveAttachments?.[0] ?? (!attachments?.length ? priorProducts[0] : undefined)
+  const wantsReviews =
+    asksProductReview(normalized) || detected?.intent === 'product_review'
+
   const enriched = await enrichChatContext(
     ctx,
     userMessage,
@@ -201,16 +254,8 @@ export async function resolveChatReply(
   )
 
   let ctxForReply = enriched
-  if (focusRef && !enriched.enrichment?.product) {
-    const focus = resolveFocusProduct(enriched, focusRef)
-    ctxForReply = {
-      ...enriched,
-      enrichment: {
-        ...enriched.enrichment,
-        productId: focus.id,
-        product: focus,
-      },
-    }
+  if (focusRef) {
+    ctxForReply = await alignContextToFocus(enriched, focusRef, wantsReviews)
   }
 
   const intent = detected?.intent ?? null
@@ -221,20 +266,29 @@ export async function resolveChatReply(
 
   const local = await generateAssistantReply(userMessage, ctxForReply, effectiveAttachments)
   const facts = buildVerifiedFacts(ctxForReply, intent, intentScore, local)
-  const products = local.products?.length
+  let products = local.products?.length
     ? local.products
     : facts.products.length
       ? facts.products
       : effectiveAttachments?.slice(0, 2)
   const sellers = local.sellers?.length ? local.sellers : undefined
+  const reviewSummary = local.reviewSummary
+
+  if (focusRef && wantsReviews) {
+    const focusProduct = resolveFocusProduct(ctxForReply, focusRef)
+    products = toChatProducts([focusProduct], 1)
+  }
+
+  const replyPayload = {
+    content: sanitizeChatReply(local.content),
+    source: 'local' as const,
+    products,
+    sellers,
+    reviewSummary,
+  }
 
   if (forceLocal) {
-    return {
-      content: sanitizeChatReply(local.content),
-      source: 'local',
-      products,
-      sellers,
-    }
+    return replyPayload
   }
 
   if (isLlmConfigured()) {
@@ -244,26 +298,16 @@ export async function resolveChatReply(
       const content = sanitizeChatReply(llmRaw)
 
       if (preferLocalOverLlm(normalized, content, local.content, facts)) {
-        return {
-          content: sanitizeChatReply(local.content),
-          source: 'local',
-          products,
-          sellers,
-        }
+        return replyPayload
       }
 
-      return { content, source: 'llm', products, sellers }
+      return { content, source: 'llm', products, sellers, reviewSummary }
     } catch {
       /* fallback local */
     }
   }
 
-  return {
-    content: sanitizeChatReply(local.content),
-    source: 'local',
-    products,
-    sellers,
-  }
+  return replyPayload
 }
 
 export function chatModeLabel(): string {

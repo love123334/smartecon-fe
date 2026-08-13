@@ -5,6 +5,7 @@ import type { QuickPrompt } from '@/api/chat/prompts'
 import { formatChatHtml } from '@/api/chat/engine'
 import { parseDraggedProduct } from '@/api/chat/productCards'
 import ChatProductMiniCard from '@/components/ChatProductMiniCard.vue'
+import ChatReviewSummaryCard from '@/components/ChatReviewSummaryCard.vue'
 import ChatSellerMiniCard from '@/components/ChatSellerMiniCard.vue'
 import defaultChatAvatar from '@/assets/chatavt.png'
 
@@ -149,6 +150,10 @@ defineExpose({ scrollToEnd: scrollEnd })
               />
             </div>
             <p class="chat-bubble__text" v-html="formatChatHtml(m.content)" />
+            <ChatReviewSummaryCard
+              v-if="m.reviewSummary?.productId"
+              :summary="m.reviewSummary"
+            />
             <div v-if="m.sellers?.length" class="chat-bubble__sellers">
               <ChatSellerMiniCard
                 v-for="s in m.sellers"

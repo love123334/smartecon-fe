@@ -133,6 +133,28 @@ export interface ChatSellerRef {
   showContact?: boolean
 }
 
+export interface ChatReviewHighlight {
+  id: string
+  userName: string
+  rating: number
+  comment: string
+}
+
+/** Tổng hợp đánh giá SP — render card trong chat */
+export interface ChatReviewSummary {
+  productId: string
+  productName: string
+  averageRating: number
+  totalReviews: number
+  soldCount: number
+  hasReviews: boolean
+  purchaseInsight?: string
+  origin?: string
+  shopName?: string
+  price?: number
+  highlights: ChatReviewHighlight[]
+}
+
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
@@ -146,6 +168,8 @@ export interface ChatMessage {
   attachments?: ChatProductRef[]
   /** Danh thiếp shop khi hỏi người bán / chỗ bán */
   sellers?: ChatSellerRef[]
+  /** Tổng hợp đánh giá (card trực quan) */
+  reviewSummary?: ChatReviewSummary
   meta?: {
     source?: 'llm' | 'local'
     kind?: 'order_update' | 'system'

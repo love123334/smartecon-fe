@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildProductReviewSummary,
   formatReviewStars,
   pickRepresentativeReviews,
-  purchaseReviewInsight,
 } from '@/api/chat/productReviewSummary'
 import type { ProductReview } from '@/types'
 
@@ -33,6 +33,21 @@ const reviews: ProductReview[] = [
   },
 ]
 
+const baseProduct = {
+  id: 'p1',
+  name: 'Test Product',
+  description: '',
+  price: 100_000,
+  stock: 5,
+  category: 'Test',
+  imageUrl: '',
+  sellerId: 's1',
+  shopName: 'Shop',
+  rating: 4.5,
+  soldCount: 42,
+  createdAt: '',
+}
+
 describe('productReviewSummary', () => {
   it('picks longer substantive reviews first', () => {
     const picked = pickRepresentativeReviews(reviews, 2)
@@ -44,8 +59,19 @@ describe('productReviewSummary', () => {
     expect(formatReviewStars(4)).toBe('★★★★☆')
   })
 
-  it('explains review vs purchase ratio', () => {
-    expect(purchaseReviewInsight(42, 8)).toMatch(/42/)
-    expect(purchaseReviewInsight(42, 8)).toMatch(/8/)
+  it('marks hasReviews when highlights exist even if summary empty', () => {
+    const summary = buildProductReviewSummary(baseProduct, null, reviews)
+    expect(summary.hasReviews).toBe(true)
+    expect(summary.totalReviews).toBeGreaterThan(0)
+    expect(summary.highlights.length).toBeGreaterThan(0)
+  })
+
+  it('includes purchase insight from sold vs review counts', () => {
+    const summary = buildProductReviewSummary(
+      baseProduct,
+      { averageRating: 4.5, totalReviews: 8 },
+      reviews,
+    )
+    expect(summary.purchaseInsight).toMatch(/42/)
   })
 })

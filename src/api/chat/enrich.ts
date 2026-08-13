@@ -122,6 +122,18 @@ async function enrichProduct(
   return out
 }
 
+/** Enrich đúng SP đang focus — tránh dùng enrichment lệch product id. */
+export async function enrichFocusProduct(
+  product: Product,
+  opts: { reviews?: boolean; detail?: boolean } = {},
+): Promise<ChatEnrichment> {
+  return enrichProduct(product, {
+    reviews: opts.reviews ?? false,
+    inventory: false,
+    detail: opts.detail ?? true,
+  })
+}
+
 /** Gọi thêm API theo intent / nội dung câu hỏi — tránh gọi dư khi không cần */
 export async function enrichChatContext(
   ctx: ChatContext,
@@ -194,9 +206,13 @@ export async function enrichChatContext(
     ctx.role === 'seller' && ctx.sellerProducts.length ? ctx.sellerProducts : ctx.products
   const normalized = normalizeText(raw)
   const matched = findProductsByQuery(catalog, raw)
-  let topProduct: Product | undefined = matched[0]
-  if (!topProduct && focusProductId) {
+
+  let topProduct: Product | undefined
+  if (focusProductId) {
     topProduct = catalog.find((p) => String(p.id) === String(focusProductId))
+  }
+  if (!topProduct) {
+    topProduct = matched[0]
   }
 
   const wantsReviews =

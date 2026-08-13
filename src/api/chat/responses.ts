@@ -26,17 +26,14 @@ import {
   stripPriceTokens,
 } from '@/api/chat/products'
 import { matchCategoryFromText } from '@/api/chat/synonyms'
-import type { Order, Product } from '@/types'
-import type { ChatSellerRef } from '@/types'
+import {
+  buildProductReviewSummary,
+  reviewSummaryIntro,
+} from '@/api/chat/productReviewSummary'
+import type { Order, Product, ChatReviewSummary, ChatSellerRef } from '@/types'
 import { orderStatusLabel } from '@/utils/orderStatus'
 import { salesEligibleOrders, totalRevenue } from '@/utils/orderAnalytics'
 import { rankForUseCase } from '@/utils/recommendationScore'
-import {
-  formatReviewStars,
-  pickRepresentativeReviews,
-  purchaseReviewInsight,
-} from '@/api/chat/productReviewSummary'
-import type { ProductReview } from '@/types'
 
 export { findProductsByQuery } from '@/api/chat/products'
 
@@ -444,72 +441,32 @@ function checkoutReply(ctx: ChatContext): string {
   return `${name}**Cách đặt hàng:**\n1. Chọn SP → **Thêm vào giỏ**\n2. **Giỏ hàng** → kiểm tra số lượng\n3. **Thanh toán** → điền địa chỉ & phương thức (**COD** / **VNPay**)\n4. Xác nhận — theo dõi tại **Đơn hàng của tôi**${loginNote}`
 }
 
-export function productReviewReply(ctx: ChatContext, raw: string): string {
-  const name = greet(ctx.userName ?? '')
+export function productReviewReply(
+  ctx: ChatContext,
+  raw: string,
+  focusProduct?: Product,
+): { text: string; reviewSummary: ChatReviewSummary } {
   const e = ctx.enrichment
-  const p = e?.product ?? findProductsByQuery(ctx.products, raw)[0]
+  const p = focusProduct ?? e?.product ?? findProductsByQuery(ctx.products, raw)[0]
   if (!p) {
-    return `${name}Hỏi tên SP cụ thể (vd: "tai nghe review") hoặc mở **chi tiết SP** → **Đánh giá**.`
+    const fallback: ChatReviewSummary = {
+      productId: '',
+      productName: 'Sản phẩm',
+      averageRating: 0,
+      totalReviews: 0,
+      soldCount: 0,
+      hasReviews: false,
+      highlights: [],
+    }
+    return {
+      text: `${greet(ctx.userName ?? '')}Hỏi tên SP cụ thể (vd: "tai nghe review") hoặc mở **chi tiết SP** → **Đánh giá**.`,
+      reviewSummary: fallback,
+    }
   }
 
-  const summary = e?.ratingSummary
-  const allReviews = e?.reviews ?? []
-  const totalReviews = summary?.totalReviews ?? p.reviewCount ?? allReviews.length ?? 0
-  const avgRating =
-    summary?.averageRating && summary.averageRating > 0
-      ? summary.averageRating
-      : p.rating > 0
-        ? p.rating
-        : null
-  const soldCount = p.soldCount ?? 0
-  const picked = pickRepresentativeReviews(allReviews, 3)
-
-  let block = `${name}**Tổng hợp đánh giá — ${p.name}**\n\n`
-  block += `**Chỉ số chung**\n`
-
-  if (avgRating != null && totalReviews > 0) {
-    block += `• Điểm trung bình: **${avgRating.toFixed(1)}★** · **${totalReviews}** lượt đánh giá\n`
-  } else if (avgRating != null) {
-    block += `• Rating hiển thị: **${avgRating.toFixed(1)}★**`
-    if (totalReviews > 0) block += ` · **${totalReviews}** lượt`
-    block += `\n`
-  } else {
-    block += `• Chưa có đánh giá — bạn có thể là người đầu tiên review trên trang SP.\n`
-  }
-
-  if (soldCount > 0) {
-    block += `• Lượt đã mua: **${soldCount}**\n`
-  }
-
-  const purchaseInsight = purchaseReviewInsight(soldCount, totalReviews)
-  if (purchaseInsight) {
-    block += `• ${purchaseInsight}\n`
-  }
-
-  const origin = productOriginText(p)
-  if (origin) block += `• Xuất xứ: **${origin}**\n`
-
-  if (picked.length) {
-    block += `\n**Nhận xét tiêu biểu** _(khách đã mua, ưu tiên nội dung chi tiết)_\n`
-    block += picked
-      .map((r, i) => formatReviewHighlight(r, i + 1))
-      .join('\n')
-  } else if (totalReviews > 0) {
-    block += `\n_Có **${totalReviews}** đánh giá trên hệ thống — mở tab **Đánh giá** tại **/products/${p.id}** để đọc đầy đủ._`
-  }
-
-  block += `\n\n• Shop **${p.shopName ?? 'SEDSP Official'}** · Giá **${formatVnd(p.price)}**`
-  if (p.id && totalReviews > 0) {
-    block += `\n• [Xem tất cả review](/products/${p.id})`
-  }
-
-  return block
-}
-
-function formatReviewHighlight(r: ProductReview, index: number): string {
-  const excerpt =
-    r.comment.trim().slice(0, 140) + (r.comment.trim().length > 140 ? '…' : '')
-  return `${index}. **${r.userName}** · ${formatReviewStars(r.rating)}\n   _"${excerpt}"_`
+  const reviewSummary = buildProductReviewSummary(p, e?.ratingSummary, e?.reviews ?? [])
+  const text = reviewSummaryIntro(reviewSummary, ctx.userName ?? undefined)
+  return { text, reviewSummary }
 }
 
 export function productOriginReply(ctx: ChatContext, product: Product): string {
@@ -949,7 +906,7 @@ export function buildIntentReply(ctx: ChatContext, intent: ChatIntent, raw: stri
     case 'product_info':
       return productInfoReply(ctx, raw)
     case 'product_review':
-      return productReviewReply(ctx, raw)
+      return productReviewReply(ctx, raw).text
     case 'compare':
       return compareReply(ctx, raw)
     case 'category_browse':

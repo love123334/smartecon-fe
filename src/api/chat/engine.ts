@@ -33,7 +33,7 @@ import {
   sanitizeChatReply,
   sellerShopSummaryReply,
 } from '@/api/chat/responses'
-import type { ChatProductRef, ChatSellerRef, Product } from '@/types'
+import type { ChatProductRef, ChatReviewSummary, ChatSellerRef, Product } from '@/types'
 
 export { formatVnd, normalizeText } from '@/api/chat/match'
 
@@ -41,6 +41,7 @@ export interface AssistantReplyPayload {
   content: string
   products?: ChatProductRef[]
   sellers?: ChatSellerRef[]
+  reviewSummary?: ChatReviewSummary
 }
 
 const SHOPPING_INTENTS = new Set<ChatIntent>([
@@ -405,8 +406,10 @@ function attachmentReply(
 
   const top = products[0]
   if (asksProductReview(lower)) {
+    const built = productReviewReply(reviewContextForAttached(ctx, top), raw, top)
     return {
-      content: productReviewReply(reviewContextForAttached(ctx, top), raw),
+      content: built.text,
+      reviewSummary: built.reviewSummary,
       products: cards.slice(0, 1),
     }
   }
@@ -511,8 +514,10 @@ function smartProductFallback(
     }
   }
   if (asksProductReview(lower)) {
+    const built = productReviewReply(ctx, raw, top)
     return {
-      content: productReviewReply(ctx, raw),
+      content: built.text,
+      reviewSummary: built.reviewSummary,
       products: cards.slice(0, 1),
     }
   }
@@ -578,6 +583,7 @@ export async function generateAssistantReply(
       content: attached.content + followUps(resolveAttachmentFollowUpIntent(lower), ctx.role),
       products: attached.products,
       sellers: attached.sellers,
+      reviewSummary: attached.reviewSummary,
     })
   }
 
@@ -610,7 +616,19 @@ export async function generateAssistantReply(
   }
 
   if (intent) {
-    const reply = buildIntentReply(ctx, intent, raw)
+    let reviewSummary: ChatReviewSummary | undefined
+    let reply: string | null = null
+    if (intent === 'product_review' || asksProductReview(lower)) {
+      const focus = ctx.enrichment?.product
+      if (focus) {
+        const built = productReviewReply(ctx, raw, focus)
+        reply = built.text
+        reviewSummary = built.reviewSummary
+      }
+    }
+    if (!reply) {
+      reply = buildIntentReply(ctx, intent, raw)
+    }
     if (reply) {
       const catalog = pickProductCatalog(ctx.products, ctx.sellerProducts, ctx.role)
       const filterHits =
@@ -666,7 +684,7 @@ export async function generateAssistantReply(
       } else if (products?.length && (intent === 'where_to_buy' || intent === 'recommend')) {
         content += `\n\nChọn card bên dưới để xem SP nhé.`
       }
-      return wrapReply({ content, products, sellers })
+      return wrapReply({ content, products, sellers, reviewSummary })
     }
   }
 
