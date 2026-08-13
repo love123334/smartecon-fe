@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildProductReviewSummary,
+  buildReviewReplyText,
   formatReviewStars,
   pickRepresentativeReviews,
+  reviewSampleConfidence,
 } from '@/api/chat/productReviewSummary'
 import type { ProductReview } from '@/types'
 
@@ -73,5 +75,26 @@ describe('productReviewSummary', () => {
       reviews,
     )
     expect(summary.purchaseInsight).toMatch(/42/)
+  })
+
+  it('buildReviewReplyText warns on small sample and mentions purchase gap', () => {
+    const summary = buildProductReviewSummary(
+      { ...baseProduct, name: 'Bàn phím cơ RGB KeyPro K87', soldCount: 1535 },
+      { averageRating: 4.7, totalReviews: 3 },
+      reviews,
+    )
+    const text = buildReviewReplyText(summary, 'Test')
+    expect(text).toMatch(/3.*đánh giá|3.*review/i)
+    expect(text).toMatch(/4\.7/)
+    expect(text).not.toMatch(/Mọi người nhìn chung/)
+    expect(text).not.toMatch(/tóm tắt bên dưới/)
+    expect(text).toMatch(/1535|1\.535/)
+    expect(reviewSampleConfidence(summary.totalReviews)).toBe('small')
+  })
+
+  it('includes praise themes and quote when reviews exist', () => {
+    const summary = buildProductReviewSummary(baseProduct, { averageRating: 4.8, totalReviews: 12 }, reviews)
+    const text = buildReviewReplyText(summary)
+    expect(text).toMatch(/👍|💬/)
   })
 })

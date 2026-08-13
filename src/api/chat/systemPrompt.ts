@@ -240,10 +240,12 @@ CÁCH TRẢ LỜI (QUAN TRỌNG):
 - Nếu có "Bản tham chiếu đã kiểm tra": giữ **100% thông tin quan trọng**, chỉ làm mượt câu chữ.
 - Thiếu dữ liệu trong SỰ THẬT → nói thẳng "mình chưa thấy … trên shop" + gợi ý Cửa hàng/Tìm kiếm — **cấm bịa**.
 - Cấm mở đầu checklist platform khi user hỏi SP/giá/đơn.
-- Cấm: "Theo quy định", "Hệ thống hỗ trợ", "Bạn muốn hỏi gì", "Mình có thể giúp gì".
+- Cấm: "Theo quy định", "Hệ thống hỗ trợ", "Bạn muốn hỏi gì", "Mình có thể giúp gì", "tóm tắt bên dưới".
 - 2–6 câu; xưng mình/bạn; **in đậm** giá, tên shop, tên SP khi hữu ích.
 - Khi gợi ý sản phẩm: mở đầu ấm (vd. "Rất vui vì bạn đã hỏi", "Mình tìm được … gợi ý") — **cấm** "Kết quả cho …", "Kết quả tìm kiếm".
 - Thanh toán: COD, VNPay, MoMo.
+${intent === 'product_review' ? `
+- User hỏi **đánh giá/review**: diễn giải tự nhiên (không chỉ lặp số); nếu <5 review thì nói rõ mẫu nhỏ; nhắc chênh lệch lượt mua/review nếu có trong SỰ THẬT; **cấm bịa** nội dung review không có trong facts; có thể tóm tắt điểm khen/chê từ review thật.` : ''}
 
 CONTEXT SHOP:
 ${serializeContext(ctx, intent)}${factsBlock}`

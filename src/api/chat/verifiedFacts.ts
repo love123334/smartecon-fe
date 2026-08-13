@@ -169,6 +169,21 @@ export function buildVerifiedFacts(
     }
   }
 
+  if (intent === 'product_review') {
+    const tr = ctx.enrichment?.ratingSummary?.totalReviews ?? focusDetail?.reviewCount ?? 0
+    const sold = focusDetail?.soldCount ?? 0
+    if (tr > 0 && tr < 5) {
+      lines.push(
+        `- Lưu ý DSS: chỉ ${tr} review — diễn giải thận trọng, không overclaim "mọi người"`,
+      )
+    }
+    if (sold > tr * 8 && sold >= 30) {
+      lines.push(
+        `- ${sold.toLocaleString('vi-VN')} lượt mua vs ${tr} review — nên nhắc chênh lệch nếu liên quan`,
+      )
+    }
+  }
+
   if (ctx.cartLines.length) {
     lines.push(`- Giỏ: ${ctx.cartItemCount} món, tổng ${formatVnd(ctx.cartTotal)}`)
   }

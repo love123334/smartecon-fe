@@ -159,7 +159,6 @@ function shouldForceLocal(
     followUp &&
     (intent === 'product_price' ||
       intent === 'product_stock' ||
-      asksProductReview(normalized) ||
       asksSellerInfo(normalized) ||
       asksProductOrigin(normalized) ||
       asksProductListedDate(normalized) ||

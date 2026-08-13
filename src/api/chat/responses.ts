@@ -28,7 +28,7 @@ import {
 import { matchCategoryFromText } from '@/api/chat/synonyms'
 import {
   buildProductReviewSummary,
-  reviewSummaryIntro,
+  buildReviewReplyText,
 } from '@/api/chat/productReviewSummary'
 import type { Order, Product, ChatReviewSummary, ChatSellerRef } from '@/types'
 import { orderStatusLabel } from '@/utils/orderStatus'
@@ -465,7 +465,7 @@ export function productReviewReply(
   }
 
   const reviewSummary = buildProductReviewSummary(p, e?.ratingSummary, e?.reviews ?? [])
-  const text = reviewSummaryIntro(reviewSummary, ctx.userName ?? undefined)
+  const text = buildReviewReplyText(reviewSummary, ctx.userName ?? undefined)
   return { text, reviewSummary }
 }
 

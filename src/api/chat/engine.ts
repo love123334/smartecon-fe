@@ -148,7 +148,7 @@ function followUps(intent: ChatIntent | null, role: ChatContext['role']): string
   const tips: Partial<Record<ChatIntent, string>> = {
     shop_overview: '\n\nMuốn mình lọc theo danh mục hoặc ngân sách không?',
     product_price: '\n\nCần check còn hàng hoặc review không?',
-    product_review: '\n\nXem thêm nhận xét đầy đủ trên trang sản phẩm nhé.',
+    product_review: '',
     product_stock: '\n\nThêm vào giỏ trên trang sản phẩm nếu bạn ưng.',
     cart_summary: '\n\nSẵn thì hỏi mình cách thanh toán nhé.',
     orders: '\n\nHỏi chi tiết đơn #… nếu cần.',
@@ -600,8 +600,11 @@ export async function generateAssistantReply(
 
   const attached = attachmentReply(ctx, raw || 'cho tôi thông tin', attachments ?? [])
   if (attached && attachments?.length) {
+    const attachIntent = resolveAttachmentFollowUpIntent(lower)
+    const skipFollowUp = Boolean(attached.reviewSummary)
     return wrapReply({
-      content: attached.content + followUps(resolveAttachmentFollowUpIntent(lower), ctx.role),
+      content:
+        attached.content + (skipFollowUp ? '' : followUps(attachIntent, ctx.role)),
       products: attached.products,
       sellers: attached.sellers,
       reviewSummary: attached.reviewSummary,
@@ -689,7 +692,9 @@ export async function generateAssistantReply(
             : enrichProducts?.length
               ? toChatProducts(enrichProducts, 6)
               : undefined
-      let content = reply + followUps(intent, ctx.role)
+      let content =
+        reply +
+        (intent === 'product_review' && reviewSummary ? '' : followUps(intent, ctx.role))
       // Giữ directory shop cho where_to_buy / recommend — không xóa bullet
       if (
         products?.length &&

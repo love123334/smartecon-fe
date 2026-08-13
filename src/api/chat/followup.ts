@@ -1,6 +1,7 @@
 import type { ChatMessage, ChatProductRef } from '@/types'
 import type { VerifiedFacts } from '@/api/chat/verifiedFacts'
 import { extractVndNumbers } from '@/api/chat/verifiedFacts'
+import { asksProductReview } from '@/api/chat/match'
 
 /** SP vừa được bàn trong hội thoại (card bot hoặc đính kèm user). */
 export function lastDiscussedProducts(history: ChatMessage[]): ChatProductRef[] {
@@ -136,6 +137,15 @@ export function llmMissingCriticalFacts(
     /tim|mua|goi y|re nhat|san pham|sp |tai nghe|laptop|iphone|macbook|so sanh/.test(
       userNormalized,
     )
+
+  if (askedProductReview(userNormalized)) {
+    const hasRatingFact = facts.lines.some(
+      (l) => /danh gia tb|review|★/i.test(l) || /\d\.\d.*★/.test(l),
+    )
+    if (hasRatingFact && !/\d[\d.,]*\s*★|★|\d\.\d\s*\/\s*5|sao/.test(llmContent)) {
+      return true
+    }
+  }
 
   if (askedPrice && facts.verifiedPricesVnd.length > 0) {
     const llmPrices = extractVndNumbers(llmContent)
