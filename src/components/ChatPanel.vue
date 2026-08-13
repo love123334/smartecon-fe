@@ -31,6 +31,7 @@ const input = ref('')
 const listEl = ref<HTMLElement | null>(null)
 const dropActive = ref(false)
 const effectiveAvatar = computed(() => props.avatarSrc ?? defaultChatAvatar)
+const isDev = import.meta.env.DEV
 
 const lastAssistantId = computed(() => {
   for (let i = props.messages.length - 1; i >= 0; i--) {
@@ -194,7 +195,11 @@ defineExpose({ scrollToEnd: scrollEnd })
               Cập nhật đơn
             </span>
             <span
-              v-else-if="m.meta?.source === 'local'"
+              v-else-if="m.meta?.source === 'local' && m.reviewSummary?.hasReviews"
+              class="chat-bubble__tag chat-bubble__tag--local"
+            >Tóm từ đánh giá người mua</span>
+            <span
+              v-else-if="m.meta?.source === 'local' && isDev"
               class="chat-bubble__tag chat-bubble__tag--local"
             >Dữ liệu hệ thống</span>
             <span

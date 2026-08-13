@@ -174,33 +174,59 @@ export function isShortGreeting(normalized: string): boolean {
   return /^(xin chao|chao|hello|hi|hey|alo|yo|chao shop|chao ban)$/.test(normalized)
 }
 
+/** Chuẩn hóa typo chat phổ biến — "nghi seo" → "nghi sao". */
+export function normalizeChatTypos(normalized: string): string {
+  return normalized
+    .replace(/\bnghi\s+seo\b/g, 'nghi sao')
+    .replace(/\bthay\s+seo\b/g, 'thay sao')
+    .replace(/\bnghi\s+the\b/g, 'nghi the nao')
+    .replace(/\bsao\s+vay\b/g, 'sao')
+}
+
 /** Hỏi đánh giá / review — không nhầm với "giá" trong "đánh giá". */
 export function asksProductReview(normalized: string): boolean {
+  const n = normalizeChatTypos(normalized)
   if (
     /danh gia|review|rating|feedback|nhan xet|y kien khach|cam nhan|danh gia sao/.test(
-      normalized,
+      n,
     )
   ) {
     return true
   }
   if (
     /khach.*(danh gia|nhan xet|thay|noi|bao|cam nhan)|nguoi mua.*(danh gia|nhan xet|thay|noi)|mua roi.*(thay|danh gia|sao)/.test(
-      normalized,
+      n,
+    )
+  ) {
+    return true
+  }
+  if (
+    /(?:^|\s)(?:khach|nguoi mua|moi nguoi|nguoi ta)\s+(?:nghi|thay|noi|danh gia)\s+(?:sao|the nao|ra sao|on khong|tot khong|gi)(?:\s|$)/.test(
+      n,
     )
   ) {
     return true
   }
   if (
     /(?:^|\s)(?:khach|nguoi mua|moi nguoi)\s+thay\s+(?:sao|the nao|ra sao|on khong|tot khong)(?:\s|$)/.test(
-      normalized,
+      n,
     )
   ) {
     return true
   }
-  if (/tot khong|chat luong|ngon khong|co tot khong|on khong|ok khong|co on khong/.test(normalized)) {
+  if (/nguoi ta nghi|moi nguoi nghi|nguoi ta thay|moi nguoi thay|nguoi dung nghi|khach hang nghi/.test(n)) {
     return true
   }
-  if (/(?:may|\d)\s*sao/.test(normalized)) return true
+  if (/y kien.*(the nao|sao|ra sao)|noi gi ve|ai phan nan|phan nan gi|diem tru|khong hai long/.test(n)) {
+    return true
+  }
+  if (/dang mua khong|co nen mua|nen mua khong|co tot khong|co on khong|on khong|tot khong|duoc khong|co duoc khong/.test(n)) {
+    return true
+  }
+  if (/tot khong|chat luong|ngon khong|co tot khong|ok khong|co on khong/.test(n)) {
+    return true
+  }
+  if (/(?:may|\d)\s*sao/.test(n)) return true
   return false
 }
 

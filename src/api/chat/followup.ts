@@ -27,7 +27,7 @@ export function isProductFollowUp(normalized: string): boolean {
   if (!normalized || normalized.length > 80) return false
 
   if (
-    /cong dung|dung lam|dung de|mo ta|tinh nang|dac diem|gioi thieu|what (is|does)|ve no|ve cai nay|san pham nay|sp nay|cai nay|no the nao|dung nhu the nao|cho minh biet|chat luong|nghe duoc|pin tru|mau sac|size|kich thuoc|bao nhieu tien|gia bao nhieu|con hang|het hang|con khong|tot khong|review|danh gia|no la gi|sp nay sao|hang nay sao|giai thich|xuat xu|ngay len ke|len ke|bao lau|khi nao len|khach.*danh gia|danh gia.*khach|khach.*thay|thay sao|y kien khach|nguoi mua|nguoi ban|shop nay|thong tin shop|lien he nguoi ban|danh thiep/.test(
+    /cong dung|dung lam|dung de|mo ta|tinh nang|dac diem|gioi thieu|what (is|does)|ve no|ve cai nay|san pham nay|sp nay|cai nay|no the nao|dung nhu the nao|cho minh biet|chat luong|nghe duoc|pin tru|mau sac|size|kich thuoc|bao nhieu tien|gia bao nhieu|con hang|het hang|con khong|tot khong|review|danh gia|no la gi|sp nay sao|hang nay sao|giai thich|xuat xu|ngay len ke|len ke|bao lau|khi nao len|khach.*danh gia|danh gia.*khach|khach.*thay|thay sao|y kien khach|nguoi mua|nguoi ta nghi|moi nguoi nghi|nguoi ta thay|dang mua khong|co nen mua|shop nay|thong tin shop|lien he nguoi ban|danh thiep/.test(
       normalized,
     )
   ) {
@@ -44,7 +44,7 @@ export function isProductFollowUp(normalized: string): boolean {
 
   const words = normalized.split(/\s+/).filter(Boolean)
   if (words.length <= 5) {
-    return /^(la gi|gia bao nhieu|bao nhieu tien|con hang khong|het hang chua|tot khong|nhu the nao|the nao|con bao nhieu|sao vay|the nao vay)$/.test(
+    return /^(la gi|gia bao nhieu|bao nhieu tien|con hang khong|het hang chua|tot khong|nhu the nao|the nao|con bao nhieu|sao vay|the nao vay|sao|on khong|duoc khong|nghi sao|nghi the nao)$/.test(
       normalized,
     )
   }

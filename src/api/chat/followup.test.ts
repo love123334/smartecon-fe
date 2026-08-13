@@ -170,7 +170,7 @@ describe('chat follow-up context', () => {
       history,
       minimalCtx(),
     )
-    expect(reply.content).toMatch(/tổng hợp|bảng bên dưới/i)
+    expect(reply.content).toMatch(/mọi người|tóm tắt|đánh giá/i)
     expect(reply.reviewSummary?.productName).toBe('High Waist Jeans')
     expect(reply.reviewSummary?.highlights.length).toBeGreaterThan(0)
     expect(reply.content).not.toMatch(/danh thiếp shop bên dưới/)
@@ -193,10 +193,32 @@ describe('chat follow-up context', () => {
       minimalCtx(),
       [keyboard],
     )
-    expect(reply.content).toMatch(/tổng hợp|bảng bên dưới/i)
+    expect(reply.content).toMatch(/mọi người|tóm tắt|đánh giá/i)
     expect(reply.reviewSummary?.productName).toMatch(/KeyPro K87/)
     expect(reply.products?.[0]?.id).toBe('kb-1')
     expect(reply.content).not.toMatch(/Hỏi thêm: công dụng, giá, còn hàng/)
+  })
+
+  it('answers "người ta nghĩ seo" typo as review for attached keyboard', async () => {
+    const keyboard = {
+      id: 'kb-1',
+      name: 'Bàn phím cơ RGB KeyPro K87',
+      price: 2_450_000,
+      imageUrl: '/kb.jpg',
+      category: 'Điện tử',
+      rating: 4.2,
+      stock: 5,
+    }
+    const reply = await resolveChatReply(
+      'người ta nghĩ seo',
+      [],
+      minimalCtx(),
+      [keyboard],
+    )
+    expect(reply.reviewSummary?.productName).toMatch(/KeyPro K87/)
+    expect(reply.content).toMatch(/mọi người|tóm tắt|đánh giá|chưa có đánh giá/i)
+    expect(reply.content).not.toMatch(/Hỏi thêm: công dụng, giá, còn hàng/)
+    expect(reply.content).not.toMatch(/Giá \*\*2\.450\.000/)
   })
 
   it('shows seller card for shop follow-up on prior product', async () => {

@@ -92,5 +92,10 @@ export function reviewSummaryIntro(summary: ChatReviewSummary, userName?: string
   if (!summary.hasReviews) {
     return `${greet}**${summary.productName}** chưa có đánh giá từ khách — bạn có thể là người đầu tiên trên trang sản phẩm.`
   }
-  return `${greet}Tổng hợp đánh giá khách hàng cho **${summary.productName}** — xem bảng bên dưới.`
+  const stars = summary.averageRating > 0 ? ` **${summary.averageRating}★**` : ''
+  const count =
+    summary.totalReviews > 0
+      ? ` từ **${summary.totalReviews}** đánh giá người mua`
+      : ''
+  return `${greet}Mọi người nhìn chung${stars}${count} về **${summary.productName}** — tóm tắt bên dưới nhé.`
 }

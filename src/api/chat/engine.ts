@@ -1,6 +1,6 @@
 import type { ChatContext } from '@/api/chat/context'
 import { detectIntent, type ChatIntent } from '@/api/chat/intents'
-import { formatVnd, normalizeText, asksProductListedDate, asksProductOrigin, asksProductPrice, asksProductReview, asksSellerInfo } from '@/api/chat/match'
+import { formatVnd, normalizeText, normalizeChatTypos, asksProductListedDate, asksProductOrigin, asksProductPrice, asksProductReview, asksSellerInfo } from '@/api/chat/match'
 import { toChatProducts } from '@/api/chat/productCards'
 import { resolveReplySellers, sellerCardFromProduct, toChatSellers } from '@/api/chat/sellerCards'
 import {
@@ -135,11 +135,12 @@ function wrapReply(payload: AssistantReplyPayload): AssistantReplyPayload {
 }
 
 function resolveAttachmentFollowUpIntent(lower: string): ChatIntent | null {
-  if (asksProductReview(lower)) return 'product_review'
-  if (asksSellerInfo(lower)) return 'contact_seller'
-  if (asksProductOrigin(lower) || asksProductListedDate(lower)) return 'product_info'
-  if (asksProductPrice(lower)) return 'product_price'
-  if (/con hang|het hang|ton|stock/.test(lower)) return 'product_stock'
+  const n = normalizeChatTypos(lower)
+  if (asksProductReview(n)) return 'product_review'
+  if (asksSellerInfo(n)) return 'contact_seller'
+  if (asksProductOrigin(n) || asksProductListedDate(n)) return 'product_info'
+  if (asksProductPrice(n)) return 'product_price'
+  if (/con hang|het hang|ton|stock/.test(n)) return 'product_stock'
   return null
 }
 function followUps(intent: ChatIntent | null, role: ChatContext['role']): string {
@@ -379,6 +380,17 @@ function reviewContextForAttached(ctx: ChatContext, product: Product): ChatConte
   }
 }
 
+function isAmbiguousProductOpinion(lower: string): boolean {
+  const n = normalizeChatTypos(lower)
+  if (asksProductReview(n)) return true
+  const words = n.split(/\s+/).filter(Boolean)
+  if (words.length > 6) return false
+  return (
+    /^(sao|the nao|ra sao|on khong|tot khong|duoc khong|the)$/.test(n) ||
+    /nguoi ta|moi nguoi|khach hang/.test(n)
+  )
+}
+
 function attachmentReply(
   ctx: ChatContext,
   raw: string,
@@ -387,7 +399,7 @@ function attachmentReply(
   if (!attachments.length) return null
   const name = greet(ctx.userName ?? '')
   const products = resolveAttachedProducts(ctx, attachments)
-  const lower = normalizeText(raw)
+  const lower = normalizeChatTypos(normalizeText(raw))
   const cards = toChatProducts(products, 4)
 
   if (products.length >= 2 && (/so sanh|compare|khac nhau|nen mua|hon|vs/.test(lower) || !lower || lower.length < 12)) {
@@ -463,7 +475,16 @@ function attachmentReply(
       ? desc.slice(0, 280) + (desc.length > 280 ? '…' : '')
       : `${top.name} thuộc danh mục **${top.category || 'sản phẩm'}**, phù hợp nhu cầu mua sắm trên SEDSP.`
     return {
-      content: `${name}**${top.name}** — công dụng / mô tả:\n${useLine}\n\nGiá hiện tại **${formatVnd(top.price)}** · shop **${top.shopName ?? 'SEDSP'}**. Bạn muốn hỏi thêm giá, còn hàng, hay so sánh với SP khác?`,
+      content: `${name}**${top.name}** — công dụng / mô tả:\n${useLine}\n\nGiá hiện tại **${formatVnd(top.price)}** · shop **${top.shopName ?? 'SEDSP'}**.`,
+      products: cards.slice(0, 1),
+    }
+  }
+
+  if (isAmbiguousProductOpinion(lower)) {
+    const built = productReviewReply(reviewContextForAttached(ctx, top), raw, top)
+    return {
+      content: built.text,
+      reviewSummary: built.reviewSummary,
       products: cards.slice(0, 1),
     }
   }
@@ -471,13 +492,13 @@ function attachmentReply(
   const desc = top.description?.trim()
   if (desc) {
     return {
-      content: `${name}**${top.name}**: ${desc.slice(0, 220)}${desc.length > 220 ? '…' : ''}\n\nGiá **${formatVnd(top.price)}**. Hỏi thêm: công dụng, giá, còn hàng, hoặc kéo thêm SP để so sánh.`,
+      content: `${name}**${top.name}**: ${desc.slice(0, 220)}${desc.length > 220 ? '…' : ''}\n\nGiá **${formatVnd(top.price)}**.`,
       products: cards.slice(0, 1),
     }
   }
 
   return {
-    content: `${name}Bạn đang hỏi về **${top.name}** (${formatVnd(top.price)}, danh mục ${top.category || '—'}).\nMình chưa có mô tả chi tiết — bạn mở trang SP hoặc hỏi cụ thể: **công dụng**, **giá**, **còn hàng**.`,
+    content: `${name}Bạn đang hỏi về **${top.name}** (${formatVnd(top.price)}, danh mục ${top.category || '—'}).\nMình chưa có mô tả chi tiết — mở trang SP hoặc hỏi **giá**, **còn hàng**, **đánh giá khách**.`,
     products: cards.slice(0, 1),
   }
 }
