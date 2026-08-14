@@ -5,7 +5,9 @@ import { chatApi } from '@/api/services'
 import { quickPromptsForRole, welcomeMessage } from '@/api/chat/prompts'
 import type { ChatMessage, ChatProductRef, UserRole } from '@/types'
 import { useAuthStore } from '@/stores/auth'
+import { useChatSessionStore } from '@/stores/chatSession'
 import { useChatWidgetStore } from '@/stores/chatWidget'
+import type { ChatLoginSession } from '@/api/chat/chatPersistence'
 import { isChatPage, roleChatPath } from '@/utils/roleAiNav'
 import { isShopBrowsePath } from '@/utils/roleNav'
 import ChatPanel from '@/components/ChatPanel.vue'
@@ -15,11 +17,14 @@ import chatbotAvatar from '@/assets/chatavt.png'
 const CHATBOT_AVATAR = chatbotAvatar
 
 const auth = useAuthStore()
+const chatSession = useChatSessionStore()
 const route = useRoute()
 const router = useRouter()
 const widget = useChatWidgetStore()
 
 const messages = ref<ChatMessage[]>([])
+const savedSessions = ref<ChatLoginSession[]>([])
+const showHistory = ref(false)
 const loading = ref(false)
 const chatError = ref('')
 const lastFailedText = ref('')
@@ -86,11 +91,28 @@ const showFab = computed(() => {
 async function loadHistory() {
   prewarmChat()
   await chatApi.ensureAiReady()
-  messages.value = await chatApi.getHistory(chatUserId.value)
+  messages.value = await chatApi.getHistory(chatUserId.value, effectiveRole.value)
+  savedSessions.value = chatApi.listSessions(chatUserId.value)
   ready.value = true
   if (shouldPollNotifications.value) {
     await pullProactiveNotifications(true)
   }
+}
+
+async function onNewChat() {
+  messages.value = chatApi.startNewSession(chatUserId.value, effectiveRole.value)
+  savedSessions.value = chatApi.listSessions(chatUserId.value)
+  widget.clearAttachments()
+  chatError.value = ''
+  lastFailedText.value = ''
+  showHistory.value = false
+}
+
+async function onOpenSession(sessionId: string) {
+  if (loading.value) return
+  messages.value = await chatApi.openSession(chatUserId.value, sessionId)
+  savedSessions.value = chatApi.listSessions(chatUserId.value)
+  showHistory.value = false
 }
 
 async function pullProactiveNotifications(silent = false) {
@@ -212,6 +234,7 @@ async function onSend(text: string) {
       attachments: attached,
       optimisticHistory: messages.value,
     })
+    savedSessions.value = chatApi.listSessions(chatUserId.value)
     if (seq !== sendSeq) return
   } catch (e) {
     if (seq !== sendSeq) return
@@ -232,8 +255,9 @@ async function retrySend() {
 }
 
 async function onClear() {
-  await chatApi.clear(chatUserId.value)
+  await chatApi.clear(chatUserId.value, effectiveRole.value)
   messages.value = []
+  savedSessions.value = chatApi.listSessions(chatUserId.value)
   widget.clearAttachments()
   chatError.value = ''
   lastFailedText.value = ''
@@ -311,17 +335,54 @@ function onFabDrop(e: DragEvent) {
             width="40"
             height="40"
           />
-          <div>
+          <div class="chat-popup__head-text">
             <h2 class="chat-popup__title">{{ title }}</h2>
+            <p class="chat-popup__session-title" :title="chatSession.sessionTitle">
+              {{ chatSession.sessionTitle }}
+            </p>
             <p class="chat-popup__hint-inline">
               Kéo ảnh sản phẩm vào khung chat · Esc hoặc × để đóng
             </p>
           </div>
         </div>
-        <button type="button" class="chat-popup__close" aria-label="Đóng trợ lý AI" @click.stop="widget.hide()">
-          ×
-        </button>
+        <div class="chat-popup__head-actions">
+          <button
+            type="button"
+            class="chat-popup__action"
+            title="Cuộc chat mới"
+            @click="onNewChat"
+          >
+            Mới
+          </button>
+          <button
+            v-if="savedSessions.length"
+            type="button"
+            class="chat-popup__action"
+            :class="{ 'chat-popup__action--active': showHistory }"
+            title="Cuộc chat trước"
+            @click="showHistory = !showHistory"
+          >
+            Lịch sử
+          </button>
+          <button type="button" class="chat-popup__close" aria-label="Đóng trợ lý AI" @click.stop="widget.hide()">
+            ×
+          </button>
+        </div>
       </header>
+      <div v-if="showHistory && savedSessions.length" class="chat-popup__history">
+        <button
+          v-for="session in savedSessions"
+          :key="session.id"
+          type="button"
+          class="chat-popup__history-item"
+          @click="onOpenSession(session.id)"
+        >
+          <span class="chat-popup__history-title">{{ session.title }}</span>
+          <span class="chat-popup__history-meta">
+            {{ new Date(session.updatedAt).toLocaleDateString('vi-VN') }}
+          </span>
+        </button>
+      </div>
       <p v-if="chatError" class="chat-popup__error">
         {{ chatError }}
         <button
@@ -469,6 +530,83 @@ function onFabDrop(e: DragEvent) {
   flex-shrink: 0;
   border-bottom: 1px solid var(--color-border);
   background: linear-gradient(180deg, #fafafa 0%, #fff 100%);
+}
+
+.chat-popup__head-text {
+  min-width: 0;
+}
+
+.chat-popup__head-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.chat-popup__action {
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #334155;
+  border-radius: 8px;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chat-popup__action--active,
+.chat-popup__action:hover {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}
+
+.chat-popup__session-title {
+  margin: 0.15rem 0 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #475569;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 14rem;
+}
+
+.chat-popup__history {
+  flex-shrink: 0;
+  max-height: 140px;
+  overflow-y: auto;
+  border-bottom: 1px solid var(--color-border);
+  background: #f8fafc;
+}
+
+.chat-popup__history-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  width: 100%;
+  padding: 0.55rem 1rem;
+  border: none;
+  border-bottom: 1px solid #e2e8f0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.chat-popup__history-item:hover {
+  background: #eff6ff;
+}
+
+.chat-popup__history-title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.chat-popup__history-meta {
+  font-size: 0.68rem;
+  color: #64748b;
 }
 
 .chat-popup__title {

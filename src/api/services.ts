@@ -28,6 +28,17 @@ import * as realProductImages from '@/api/real/productImages'
 import { typingDelay } from '@/api/chat/engine'
 import { buildChatContext, prewarmChatContext } from '@/api/chat/context'
 import { emptyConversationContext } from '@/api/chat/conversationContext'
+import {
+  activateSavedSession,
+  closeLoginSession,
+  ensureActiveSession,
+  listSavedSessions,
+  replaceActiveMessages,
+  saveActiveSessionTurn,
+  startLoginSession,
+  startNewChatInLogin,
+  type ChatLoginSession,
+} from '@/api/chat/chatPersistence'
 import { chatModeLabel, resolveChatReply, refreshBeAiStatus } from '@/api/chat/responder'
 import { useChatSessionStore } from '@/stores/chatSession'
 import { refreshChatProductStock } from '@/api/chat/productCards'
@@ -153,15 +164,6 @@ function getCarts(): CartMap {
 
 function saveCarts(carts: CartMap): void {
   storageSet(STORAGE_KEYS.carts, carts)
-}
-
-function getChatMap(): ChatMap {
-  ensureInitialized()
-  return storageGet(STORAGE_KEYS.chatHistory, {})
-}
-
-function saveChatMap(map: ChatMap): void {
-  storageSet(STORAGE_KEYS.chatHistory, map)
 }
 
 function publicUser(u: User): User {
@@ -2079,8 +2081,57 @@ export const chatApi = {
     await refreshBeAiStatus()
   },
 
-  async getHistory(userId: string): Promise<ChatMessage[]> {
-    return getChatMap()[userId] ?? []
+  async getHistory(userId: string, role: UserRole = 'customer'): Promise<ChatMessage[]> {
+    const session = ensureActiveSession(userId, role)
+    try {
+      useChatSessionStore().loadFromSession(session)
+    } catch {
+      /* pinia chưa mount */
+    }
+    return session.messages
+  },
+
+  listSessions(userId: string): ChatLoginSession[] {
+    return listSavedSessions(userId)
+  },
+
+  async openSession(userId: string, sessionId: string): Promise<ChatMessage[]> {
+    const session = activateSavedSession(userId, sessionId)
+    if (!session) return []
+    try {
+      useChatSessionStore().loadFromSession(session)
+    } catch {
+      /* pinia chưa mount */
+    }
+    return session.messages
+  },
+
+  startNewSession(userId: string, role: UserRole): ChatMessage[] {
+    const session = startNewChatInLogin(userId, role)
+    try {
+      useChatSessionStore().loadFromSession(session)
+    } catch {
+      /* pinia chưa mount */
+    }
+    return []
+  },
+
+  onUserLogin(userId: string, role: UserRole): void {
+    const session = startLoginSession(userId, role)
+    try {
+      useChatSessionStore().loadFromSession(session)
+    } catch {
+      /* pinia chưa mount */
+    }
+  },
+
+  onUserLogout(userId: string): void {
+    closeLoginSession(userId)
+    try {
+      useChatSessionStore().resetSession()
+    } catch {
+      /* pinia chưa mount */
+    }
   },
 
   async send(
@@ -2095,8 +2146,8 @@ export const chatApi = {
       optimisticHistory?: ChatMessage[]
     },
   ): Promise<ChatMessage[]> {
-    const map = getChatMap()
-    const storedHistory = map[userId] ?? []
+    const session = ensureActiveSession(userId, role)
+    const storedHistory = session.messages
     const attachments = opts?.attachments?.length ? opts.attachments : undefined
 
     let priorHistory: ChatMessage[]
@@ -2167,7 +2218,10 @@ export const chatApi = {
     )
 
     try {
-      useChatSessionStore().applyTurn(conversationContext, telemetry)
+      const store = useChatSessionStore()
+      store.applyTurn(conversationContext, telemetry)
+      const refreshed = ensureActiveSession(userId, role)
+      store.loadFromSession(refreshed)
     } catch {
       /* pinia chưa mount */
     }
@@ -2200,18 +2254,16 @@ export const chatApi = {
       },
     }
     const updated = [...priorHistory, userMsg, assistantMsg]
-    map[userId] = updated
-    saveChatMap(map)
+    saveActiveSessionTurn(userId, updated, conversationContext)
     return updated
   },
 
-  async clear(userId: string): Promise<void> {
+  async clear(userId: string, role: UserRole = 'customer'): Promise<void> {
     await delay(30)
-    const map = getChatMap()
-    delete map[userId]
-    saveChatMap(map)
+    startNewChatInLogin(userId, role)
     try {
       useChatSessionStore().resetSession()
+      useChatSessionStore().loadFromSession(ensureActiveSession(userId, role))
     } catch {
       /* pinia chưa mount */
     }
@@ -2223,13 +2275,12 @@ export const chatApi = {
     unread: number
   }> {
     if (!hasBackendToken()) {
-      return { messages: getChatMap()[userId] ?? [], appended: 0, unread: 0 }
+      return { messages: ensureActiveSession(userId, 'customer').messages, appended: 0, unread: 0 }
     }
     try {
       const afterId = readNotificationCursor(userId)
       const pending = await realNotifications.listUnreadNotifications(afterId || undefined)
-      const map = getChatMap()
-      const history = map[userId] ?? []
+      const history = ensureActiveSession(userId, 'customer').messages
       const knownIds = new Set(
         history
           .map((m) => m.meta?.notificationId)
@@ -2265,8 +2316,7 @@ export const chatApi = {
 
       if (maxId > afterId) writeNotificationCursor(userId, maxId)
       if (appended) {
-        map[userId] = next
-        saveChatMap(map)
+        replaceActiveMessages(userId, next)
       }
 
       let unread = 0
@@ -2279,7 +2329,7 @@ export const chatApi = {
 
       return { messages: appended ? next : history, appended, unread }
     } catch {
-      return { messages: getChatMap()[userId] ?? [], appended: 0, unread: 0 }
+      return { messages: ensureActiveSession(userId, 'customer').messages, appended: 0, unread: 0 }
     }
   },
 }

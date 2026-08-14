@@ -2,8 +2,10 @@
 import { computed, onMounted, ref } from 'vue'
 import { chatApi } from '@/api/services'
 import { quickPromptsForRole, welcomeMessage } from '@/api/chat/prompts'
+import type { ChatLoginSession } from '@/api/chat/chatPersistence'
 import type { ChatMessage, UserRole } from '@/types'
 import { useAuthStore } from '@/stores/auth'
+import { useChatSessionStore } from '@/stores/chatSession'
 import PageHeader from '@/components/PageHeader.vue'
 import ChatPanel from '@/components/ChatPanel.vue'
 import AiShortcutBar from '@/components/AiShortcutBar.vue'
@@ -22,7 +24,10 @@ const props = defineProps<{
 }>()
 
 const auth = useAuthStore()
+const chatSession = useChatSessionStore()
 const messages = ref<ChatMessage[]>([])
+const savedSessions = ref<ChatLoginSession[]>([])
+const showHistory = ref(false)
 const loading = ref(false)
 const chatError = ref('')
 const lastFailedText = ref('')
@@ -61,8 +66,21 @@ const header = computed(() => {
 
 onMounted(async () => {
   await chatApi.ensureAiReady()
-  messages.value = await chatApi.getHistory(chatUserId.value)
+  messages.value = await chatApi.getHistory(chatUserId.value, effectiveRole.value)
+  savedSessions.value = chatApi.listSessions(chatUserId.value)
 })
+
+async function onNewChat() {
+  messages.value = chatApi.startNewSession(chatUserId.value, effectiveRole.value)
+  savedSessions.value = chatApi.listSessions(chatUserId.value)
+  showHistory.value = false
+}
+
+async function onOpenSession(sessionId: string) {
+  messages.value = await chatApi.openSession(chatUserId.value, sessionId)
+  savedSessions.value = chatApi.listSessions(chatUserId.value)
+  showHistory.value = false
+}
 
 async function onSend(text: string) {
   loading.value = true
@@ -87,8 +105,9 @@ async function retrySend() {
 }
 
 async function onClear() {
-  await chatApi.clear(chatUserId.value)
+  await chatApi.clear(chatUserId.value, effectiveRole.value)
   messages.value = []
+  savedSessions.value = chatApi.listSessions(chatUserId.value)
   chatError.value = ''
   lastFailedText.value = ''
 }
@@ -103,6 +122,32 @@ async function onClear() {
       :lead="header.lead"
     />
     <AiShortcutBar title="Module liên quan:" :links="shortcuts" />
+    <div class="chat-page__session-bar">
+      <span class="chat-page__session-title">{{ chatSession.sessionTitle }}</span>
+      <div class="chat-page__session-actions">
+        <button type="button" class="chat-page__session-btn" @click="onNewChat">Chat mới</button>
+        <button
+          v-if="savedSessions.length"
+          type="button"
+          class="chat-page__session-btn"
+          @click="showHistory = !showHistory"
+        >
+          Lịch sử ({{ savedSessions.length }})
+        </button>
+      </div>
+    </div>
+    <div v-if="showHistory && savedSessions.length" class="chat-page__history">
+      <button
+        v-for="session in savedSessions"
+        :key="session.id"
+        type="button"
+        class="chat-page__history-item"
+        @click="onOpenSession(session.id)"
+      >
+        <span>{{ session.title }}</span>
+        <small>{{ new Date(session.updatedAt).toLocaleDateString('vi-VN') }}</small>
+      </button>
+    </div>
     <p v-if="chatError" class="chat-error">
       {{ chatError }}
       <button
@@ -132,6 +177,72 @@ async function onClear() {
 .chat-page {
   max-width: 720px;
   margin: 0 auto;
+}
+
+.chat-page__session-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.chat-page__session-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #334155;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-page__session-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.chat-page__session-btn {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  border-radius: 8px;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chat-page__session-btn:hover {
+  background: #eff6ff;
+  border-color: #93c5fd;
+}
+
+.chat-page__history {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+}
+
+.chat-page__history-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.chat-page__history-item small {
+  color: #64748b;
+  flex-shrink: 0;
 }
 
 .chat-error {

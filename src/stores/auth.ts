@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { authApi } from '@/api/services'
+import { authApi, chatApi } from '@/api/services'
 import type { User, UserRole } from '@/types'
 import { saveUserAvatar } from '@/utils/avatar'
 import { clearUserSnapshot, readUserSnapshot, saveUserSnapshot } from '@/utils/sessionSnapshot'
@@ -62,7 +62,12 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null
     try {
       user.value = await authApi.login(email, password)
-      if (user.value) saveUserSnapshot(user.value)
+      if (user.value) {
+        saveUserSnapshot(user.value)
+        const chatKey =
+          user.value.role === 'seller' ? `seller-${user.value.id}` : user.value.id
+        chatApi.onUserLogin(chatKey, user.value.role)
+      }
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Đăng nhập thất bại'
       throw e
@@ -85,6 +90,9 @@ export const useAuthStore = defineStore('auth', () => {
       if (result.status === 'active') {
         user.value = result.user
         saveUserSnapshot(result.user)
+        const chatKey =
+          result.user.role === 'seller' ? `seller-${result.user.id}` : result.user.id
+        chatApi.onUserLogin(chatKey, result.user.role)
       }
       return result
     } catch (e) {
@@ -104,7 +112,13 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function logout() {
+    const chatKey = user.value
+      ? user.value.role === 'seller'
+        ? `seller-${user.value.id}`
+        : user.value.id
+      : null
     await authApi.logout()
+    if (chatKey) chatApi.onUserLogout(chatKey)
     user.value = null
     clearUserSnapshot()
     try {
