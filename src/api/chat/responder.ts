@@ -38,6 +38,10 @@ import {
 import { extractPriceRange, isPriceStatsQuery } from '@/api/chat/products'
 import { sanitizeChatReply } from '@/api/chat/responses'
 import { deriveSuggestedActions } from '@/api/chat/suggestedActions'
+import { buildChatMemoryLayers } from '@/api/chat/conversationMemory'
+import { executeChatTools } from '@/api/chat/chatTools'
+import { routeFromIntent } from '@/api/chat/intentRouter'
+import { buildSlimSystemPrompt } from '@/api/chat/slimPrompt'
 import { buildSystemPrompt } from '@/api/chat/systemPrompt'
 import { buildVerifiedFacts } from '@/api/chat/verifiedFacts'
 import { toChatProducts } from '@/api/chat/productCards'
@@ -367,8 +371,27 @@ export async function resolveChatReply(
   if (isLlmConfigured()) {
     try {
       const llmStarted = performance.now()
-      const systemPrompt = buildSystemPrompt(ctxForReply, intent, facts)
-      const llmRaw = await callChatLlm(systemPrompt, history, userMessage, facts)
+      const route = routeFromIntent(intent)
+      const memory = buildChatMemoryLayers(
+        history,
+        conversationContext,
+        intent,
+        ctx.role,
+        route,
+        ctx.userName,
+      )
+      const toolResults = executeChatTools(ctx.role, route, ctxForReply)
+      const useSlimOrchestration = route !== 'GENERAL_CHAT' && route !== 'UNKNOWN'
+      const systemPrompt = useSlimOrchestration
+        ? buildSlimSystemPrompt(ctxForReply, route, memory, toolResults, facts)
+        : buildSystemPrompt(ctxForReply, intent, facts)
+      const llmRaw = await callChatLlm(
+        systemPrompt,
+        history,
+        userMessage,
+        facts,
+        { recentTurns: memory.recentTurns },
+      )
       llmLatencyMs = Math.round(performance.now() - llmStarted)
       const content = sanitizeChatReply(llmRaw)
 

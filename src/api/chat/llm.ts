@@ -63,12 +63,14 @@ export async function callChatLlm(
   history: ChatMessage[],
   userMessage: string,
   facts?: VerifiedFacts | null,
+  options?: { recentTurns?: ChatMessage[] },
 ): Promise<string> {
   const groundedUser = facts?.localDraft?.trim()
     ? `${userMessage}\n\n[Gợi ý nội dung đã kiểm tra — viết lại tự nhiên, giữ nguyên số liệu]\n${facts.localDraft.slice(0, 900)}`
     : userMessage
 
-  const recent = history.slice(-16).map((m) => {
+  const sourceHistory = options?.recentTurns ?? history
+  const recent = sourceHistory.slice(-6).map((m) => {
     let content = m.content.slice(0, 1600)
     if (m.role === 'assistant' && m.products?.length) {
       content += `\n[SP đang bàn: ${m.products.map((p) => p.name).join(', ')}]`

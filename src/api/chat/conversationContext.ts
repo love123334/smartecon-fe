@@ -1,5 +1,6 @@
 import type { ChatIntent } from '@/api/chat/intents'
 import { isClearTopicSwitch } from '@/api/chat/followup'
+import { refreshConversationMemoryFields } from '@/api/chat/conversationMemory'
 import { normalizeText } from '@/api/chat/match'
 import type { ChatMessage, ChatProductRef } from '@/types'
 
@@ -19,6 +20,10 @@ export interface ConversationContext {
   lastResults: ChatProductRef[]
   activeTask: ActiveTask
   lastIntent?: ChatIntent
+  /** Tóm tắt các lượt cũ — không gửi full history cho LLM. */
+  summary?: string
+  /** Mục tiêu phiên hiện tại (SP đang bàn, what-if, …). */
+  goal?: string
   updatedAt: string
 }
 
@@ -130,11 +135,19 @@ export function updateConversationContext(
 
   const task = turn.intent ? taskForIntent(turn.intent) : prev.activeTask
 
+  const withMemory = refreshConversationMemoryFields(prev, {
+    userMessage: turn.userMessage,
+    intent: turn.intent,
+    products: turn.products,
+  })
+
   return {
     currentProduct: focus,
     lastResults: turn.products?.length ? turn.products.slice(0, 4) : prev.lastResults,
     activeTask: focus && task === 'general' ? 'product_qa' : task,
     lastIntent: turn.intent ?? prev.lastIntent,
+    summary: withMemory.summary,
+    goal: withMemory.goal,
     updatedAt: new Date().toISOString(),
   }
 }
