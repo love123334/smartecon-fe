@@ -1,4 +1,5 @@
 import { containsWholePhrase, fieldContainsToken, normalizeText, wordSimilarity } from '@/api/chat/match'
+import { isShopCatalogQuestion, stripTrailingFillers } from '@/api/chat/chatLocale'
 import { expandQueryTerms } from '@/api/chat/synonyms'
 import type { Product } from '@/types'
 
@@ -387,9 +388,11 @@ export function extractProductSearchTerms(raw: string): string {
     if (stripped === normalizeText(n)) break
     n = stripped
   }
-  n = normalizeText(n)
+  n = stripTrailingFillers(normalizeText(n))
+  if (isShopCatalogQuestion(n)) return ''
+  n = n
     .replace(/^(?:co|shop co)\s+/i, '')
-    .replace(/\s+gi(?:\s|$)/, ' ')
+    .replace(/(?<!ban)\s+gi\s*$/, '')
     .replace(/\b(loai|danh muc|category|phan loai|thuoc|thuoc loai|hang|san pham|sp|mon|do)\b/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()

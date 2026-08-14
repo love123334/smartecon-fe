@@ -10,6 +10,7 @@ import {
   isDiscoveryNewestQuery,
   isUnknownEscalateText,
 } from '@/api/chat/discovery'
+import { buildProcessingLocale, isShopCatalogQuestion } from '@/api/chat/chatLocale'
 import {
   cheapestProducts,
   affordableProductsForQuery,
@@ -229,7 +230,12 @@ function shoppingStructuredReply(
   // Không bao giờ biến câu đơn hàng / tài khoản thành tìm SP
   if (intent && NON_SHOPPING_INTENTS.has(intent)) return null
 
-  const lower = normalizeText(raw)
+  const locale = buildProcessingLocale(raw)
+  const lower = locale.processing
+
+  if (intent === 'shop_overview' || intent === 'categories' || isShopCatalogQuestion(lower)) {
+    return null
+  }
 
   if (isAmbiguousShoppingQuery(lower)) {
     return {
@@ -629,7 +635,8 @@ export async function generateAssistantReply(
   attachments?: ChatProductRef[],
 ): Promise<AssistantReplyPayload> {
   const raw = text.trim()
-  const lower = normalizeText(raw)
+  const locale = buildProcessingLocale(raw)
+  const lower = locale.processing
   const finish = (payload: AssistantReplyPayload) => wrapReply(payload, ctx, raw)
 
   if (!raw && !attachments?.length) {

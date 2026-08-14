@@ -63,11 +63,14 @@ export async function callChatLlm(
   history: ChatMessage[],
   userMessage: string,
   facts?: VerifiedFacts | null,
-  options?: { recentTurns?: ChatMessage[] },
+  options?: { recentTurns?: ChatMessage[]; englishGloss?: string },
 ): Promise<string> {
+  const gloss = options?.englishGloss?.trim()
   const groundedUser = facts?.localDraft?.trim()
-    ? `${userMessage}\n\n[Gợi ý nội dung đã kiểm tra — viết lại tự nhiên, giữ nguyên số liệu]\n${facts.localDraft.slice(0, 900)}`
-    : userMessage
+    ? `${userMessage}\n\n[English gloss — internal]\n${gloss ?? '—'}\n\n[Gợi ý nội dung đã kiểm tra — viết lại tự nhiên bằng tiếng Việt, giữ nguyên số liệu]\n${facts.localDraft.slice(0, 900)}`
+    : gloss
+      ? `${userMessage}\n\n[English gloss — internal reasoning only]\n${gloss}\n\nTrả lời user bằng tiếng Việt tự nhiên.`
+      : userMessage
 
   const sourceHistory = options?.recentTurns ?? history
   const recent = sourceHistory.slice(-6).map((m) => {

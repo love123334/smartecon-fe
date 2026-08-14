@@ -80,6 +80,7 @@ export function isStandaloneShoppingQuery(rawOrNormalized: string): boolean {
 export function isAmbiguousShoppingQuery(rawOrNormalized: string): boolean {
   const n = normalizeDiscoveryText(rawOrNormalized)
   if (asksProductDiscovery(n)) return false
+  if (/^web ban gi|^ban gi(?:\s|$)/.test(n)) return false
   return /^(co gi do|co gi vay|co gi khong|co gi|hay khong|tot khong)$/.test(n)
 }
 

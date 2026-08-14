@@ -38,6 +38,7 @@ import {
 import { extractPriceRange, isPriceStatsQuery } from '@/api/chat/products'
 import { sanitizeChatReply } from '@/api/chat/responses'
 import { deriveSuggestedActions } from '@/api/chat/suggestedActions'
+import { buildProcessingLocale, englishGlossForPrompt } from '@/api/chat/chatLocale'
 import { buildChatMemoryLayers } from '@/api/chat/conversationMemory'
 import { executeChatTools } from '@/api/chat/chatTools'
 import { routeFromIntent } from '@/api/chat/intentRouter'
@@ -253,7 +254,8 @@ export async function resolveChatReply(
   let localLatencyMs = 0
   let llmLatencyMs: number | undefined
 
-  const normalized = normalizeText(userMessage)
+  const locale = buildProcessingLocale(userMessage)
+  const normalized = locale.normalized
   const priorProducts = lastDiscussedProducts(history)
 
   let detected = detectIntent(userMessage, ctx.role)
@@ -390,7 +392,10 @@ export async function resolveChatReply(
         history,
         userMessage,
         facts,
-        { recentTurns: memory.recentTurns },
+        {
+          recentTurns: memory.recentTurns,
+          englishGloss: englishGlossForPrompt(locale),
+        },
       )
       llmLatencyMs = Math.round(performance.now() - llmStarted)
       const content = sanitizeChatReply(llmRaw)

@@ -1,4 +1,5 @@
-import { isShortGreeting, normalizeText, phraseBoost, scoreKeywords, matchAnyKeyword } from '@/api/chat/match'
+import { isShortGreeting, phraseBoost, scoreKeywords, matchAnyKeyword } from '@/api/chat/match'
+import { buildProcessingLocale, isShopCatalogQuestion } from '@/api/chat/chatLocale'
 import { asksProductDiscovery, isAmbiguousShoppingQuery, isStandaloneShoppingQuery } from '@/api/chat/discovery'
 import { extractPriceRange } from '@/api/chat/products'
 import type { UserRole } from '@/types'
@@ -115,8 +116,8 @@ const COMMON: IntentRule[] = [
       'mua gi o day', 'co ban gi', 'what can i buy', 'hang hoa',
     ],
     phrases: [
-      'web ban gi', 'ban gi vay', 'what do you sell', 'shop ban gi', 'cua hang ban gi',
-      'co nhung san pham gi', 'mua gi o day',
+      'web ban gi', 'what do you sell', 'shop ban gi', 'cua hang ban gi',
+      'co nhung san pham gi', 'mua gi o day', 'what does the website sell',
     ],
     minScore: 3,
     priority: 10,
@@ -707,11 +708,10 @@ function refineIntent(
   return detected.intent
 }
 
-export function detectIntent(
-  raw: string,
+function scoreIntentCandidate(
+  normalized: string,
   role: UserRole,
 ): { intent: ChatIntent; score: number } | null {
-  const normalized = normalizeText(raw)
   if (!normalized) return null
 
   if (isShortGreeting(normalized)) {
@@ -754,6 +754,28 @@ export function detectIntent(
 
   const intent = refineIntent(normalized, best, role)
   return { intent, score: best.score }
+}
+
+export function detectIntent(
+  raw: string,
+  role: UserRole,
+): { intent: ChatIntent; score: number } | null {
+  const locale = buildProcessingLocale(raw)
+  if (!locale.normalized && !locale.processing) return null
+
+  if (isShopCatalogQuestion(locale.normalized)) {
+    return { intent: 'shop_overview', score: 110 }
+  }
+
+  const fromVi = scoreIntentCandidate(locale.normalized, role)
+  const fromEn =
+    locale.english !== locale.normalized
+      ? scoreIntentCandidate(locale.english, role)
+      : null
+
+  if (!fromVi) return fromEn
+  if (!fromEn) return fromVi
+  return fromEn.score > fromVi.score + 0.5 ? fromEn : fromVi
 }
 
 export function hasKeyword(normalized: string, keywords: string[]): boolean {
