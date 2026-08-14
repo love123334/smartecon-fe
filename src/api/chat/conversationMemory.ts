@@ -23,6 +23,11 @@ export interface SessionContextPayload {
     currentProduct?: { id: string; name: string; price?: number }
     lastProductNames: string[]
     goal: string
+    topic?: ConversationContext['topic']
+    userGoal?: string
+    currentCategory?: string
+    budget?: number
+    lastAnalysis?: string
   }
 }
 
@@ -81,6 +86,19 @@ export function deriveConversationGoal(
 ): string {
   if (conversation.goal?.trim()) return conversation.goal.trim()
 
+  if (conversation.currentCategory && conversation.budget) {
+    return `Tìm ${conversation.currentCategory} tầm ~${Math.round(conversation.budget / 1_000_000)} triệu`
+  }
+  if (conversation.currentCategory) {
+    return `Duyệt / gợi ý ${conversation.currentCategory}`
+  }
+  if (conversation.budget) {
+    return `Mua sắm trong ngân sách ~${Math.round(conversation.budget / 1_000_000)} triệu`
+  }
+  if (conversation.userGoal === 'analyze_sales') {
+    return 'Phân tích doanh số / bán chạy'
+  }
+
   const focus = conversation.currentProduct?.name
   if (focus) {
     if (conversation.activeTask === 'compare') {
@@ -132,6 +150,11 @@ export function buildChatMemoryLayers(
         : undefined,
       lastProductNames: conversation.lastResults.map((p) => p.name).slice(0, 4),
       goal,
+      topic: conversation.topic,
+      userGoal: conversation.userGoal,
+      currentCategory: conversation.currentCategory,
+      budget: conversation.budget,
+      lastAnalysis: conversation.lastAnalysis,
     },
   }
 
@@ -145,13 +168,21 @@ export function refreshConversationMemoryFields(
     userMessage: string
     intent: ChatIntent | null
     products?: ChatProductRef[]
+    conversation?: ConversationContext
   },
 ): ConversationContext {
   const normalized = normalizeText(input.userMessage)
   let goal = prev.goal ?? ''
+  const conv = input.conversation ?? prev
 
   if (input.products?.[0]?.name) {
     goal = `Tập trung SP: ${input.products[0].name}`
+  } else if (conv.currentCategory && conv.budget) {
+    goal = `Tìm ${conv.currentCategory} ~${Math.round(conv.budget / 1_000_000)} triệu`
+  } else if (conv.currentCategory) {
+    goal = `Duyệt ${conv.currentCategory}`
+  } else if (conv.budget) {
+    goal = `Ngân sách ~${Math.round(conv.budget / 1_000_000)} triệu`
   } else if (/so sanh|compare/.test(normalized)) {
     goal = 'So sánh sản phẩm đang bàn'
   } else if (/what\s*if|giam gia|giam \d|mo phong/.test(normalized)) {

@@ -1,6 +1,13 @@
 import type { AssistantReplyPayload } from '@/api/chat/engine'
 import type { ChatContext } from '@/api/chat/context'
 import type { ChatIntent } from '@/api/chat/intents'
+import {
+  buildCatalogInsight,
+  buildRecommendInsight,
+  buildSellerTopInsight,
+  serializeInsightsForFacts,
+  type CatalogInsightBundle,
+} from '@/api/chat/insightEngine'
 import { formatVnd } from '@/api/chat/match'
 import { pickRepresentativeReviews } from '@/api/chat/productReviewSummary'
 import type { ChatProductRef, ChatSellerRef } from '@/types'
@@ -20,6 +27,8 @@ export interface VerifiedFacts {
   products: ChatProductRef[]
   /** Danh thiếp shop kèm theo */
   sellers: ChatSellerRef[]
+  /** Insight engine — fact/derived/opinion tách bạch */
+  insights?: CatalogInsightBundle
 }
 
 const CARD_BOILERPLATE =
@@ -199,6 +208,19 @@ export function buildVerifiedFacts(
     if (!verifiedPricesVnd.includes(n)) verifiedPricesVnd.push(n)
   }
 
+  let insights: CatalogInsightBundle | undefined
+  if (intent === 'shop_overview' || intent === 'categories') {
+    insights = buildCatalogInsight(ctx)
+  } else if (intent === 'recommend' && ctx.products.length) {
+    insights = buildRecommendInsight(ctx, ctx.products.slice(0, 6))
+  } else if (intent === 'seller_top_products') {
+    const catalog = ctx.sellerProducts.length ? ctx.sellerProducts : ctx.products
+    insights = buildSellerTopInsight(ctx, catalog)
+  }
+  if (insights) {
+    lines.push(...serializeInsightsForFacts(insights))
+  }
+
   const localDraft = stripCardBoilerplate(local.content)
 
   if (localDraft && !lines.some((l) => localDraft.includes(l.slice(0, 20)))) {
@@ -214,6 +236,7 @@ export function buildVerifiedFacts(
     localDraft,
     products,
     sellers,
+    insights,
   }
 }
 

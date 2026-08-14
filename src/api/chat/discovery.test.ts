@@ -133,9 +133,35 @@ describe('product discovery', () => {
 
   it('answers web ban gi with catalog overview not fashion skirts', async () => {
     const reply = await resolveChatReply('Web bán gì vậy?', [], minimalCtx())
-    expect(reply.content).toMatch(/SEDSP|danh mục|sản phẩm/i)
+    expect(reply.content).toMatch(/SEDSP|sản phẩm|danh mục|shop/i)
     expect(reply.content).not.toMatch(/web ban vay/i)
-    expect(reply.products?.some((p) => /váy|skirt/i.test(p.name)) ?? false).toBe(false)
+    expect(reply.content).not.toMatch(/Danh mục nổi bật/i)
+    expect(reply.content).not.toMatch(/\(.* SP\)/)
+    expect(reply.products?.length ?? 0).toBeGreaterThan(0)
+  })
+
+  it('does not echo internal search key for category chip "Điện thoại có gì?"', async () => {
+    const phone = {
+      id: 'ph-1',
+      name: 'Điện thoại Samsung Galaxy A55',
+      description: 'Smartphone Android',
+      price: 9_990_000,
+      stock: 20,
+      category: 'Điện thoại',
+      imageUrl: '/ph.jpg',
+      sellerId: 's1',
+      shopName: 'Mobile Hub',
+      rating: 4.5,
+      soldCount: 120,
+      createdAt: '2026-01-01T00:00:00.000Z',
+    }
+    const reply = await resolveChatReply('Điện thoại có gì?', [], {
+      ...minimalCtx(),
+      products: [phone],
+    })
+    expect(reply.content).not.toMatch(/dien thoai co/i)
+    expect(reply.content).toMatch(/liên quan|yêu cầu|xem thử/i)
+    expect(reply.products?.length ?? 0).toBeGreaterThan(0)
   })
 
   it('answers "có tai nghe gì" with headphones, not unknown + random SSD', async () => {

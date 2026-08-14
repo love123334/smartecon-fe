@@ -191,6 +191,7 @@ export function prepareCatalogSearchQuery(raw: string): string {
 
   n = n
     .replace(/^(?:co|shop co)\s+/i, '')
+    .replace(/\s+co\s+gi\s*$/i, '')
     .replace(/(?<!ban)\s+gi\s*$/, '')
     .replace(/\b(loai|danh muc|category|phan loai|hang|san pham|sp|mon)\b/g, ' ')
     .replace(/\s+/g, ' ')

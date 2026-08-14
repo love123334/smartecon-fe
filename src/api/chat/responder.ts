@@ -323,6 +323,7 @@ export async function resolveChatReply(
       intent,
       products,
       attachments: effectiveAttachments,
+      categories: ctxForReply.categories,
     },
   )
 

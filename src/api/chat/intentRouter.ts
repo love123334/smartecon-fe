@@ -4,6 +4,7 @@ import type { ChatIntent } from '@/api/chat/intents'
 export type ChatRoute =
   | 'GENERAL_CHAT'
   | 'PRODUCT_QUERY'
+  | 'CATALOG_INSIGHT'
   | 'SALES_ANALYSIS'
   | 'INVENTORY'
   | 'PRICE_RECOMMENDATION'
@@ -83,9 +84,12 @@ const GENERAL_INTENTS = new Set<ChatIntent>([
   'password',
 ])
 
+const CATALOG_INSIGHT_INTENTS = new Set<ChatIntent>(['shop_overview', 'categories', 'recommend'])
+
 export function routeFromIntent(intent: ChatIntent | null): ChatRoute {
   if (!intent) return 'UNKNOWN'
   if (GENERAL_INTENTS.has(intent)) return 'GENERAL_CHAT'
+  if (CATALOG_INSIGHT_INTENTS.has(intent)) return 'CATALOG_INSIGHT'
   if (PRODUCT_INTENTS.has(intent)) return 'PRODUCT_QUERY'
   if (WHAT_IF_INTENTS.has(intent)) return 'WHAT_IF'
   if (PRICE_INTENTS.has(intent)) return 'PRICE_RECOMMENDATION'
@@ -101,6 +105,7 @@ export function routeLabel(route: ChatRoute): string {
   const labels: Record<ChatRoute, string> = {
     GENERAL_CHAT: 'Hội thoại chung',
     PRODUCT_QUERY: 'Tra cứu sản phẩm',
+    CATALOG_INSIGHT: 'Phân tích catalog / gợi ý',
     SALES_ANALYSIS: 'Phân tích bán hàng',
     INVENTORY: 'Tồn kho',
     PRICE_RECOMMENDATION: 'Gợi ý giá / nhu cầu',

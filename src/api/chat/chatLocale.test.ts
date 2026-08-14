@@ -67,6 +67,11 @@ describe('chatLocale fillers & homophones', () => {
     expect(isMetaShoppingQuestion('web ban gi vay')).toBe(true)
     expect(prepareCatalogSearchQuery('Web bán gì vậy?')).toBe('')
   })
+
+  it('category browse "X có gì" strips co gi frame from search terms', () => {
+    expect(prepareCatalogSearchQuery('Điện thoại có gì?')).toBe('dien thoai')
+    expect(prepareCatalogSearchQuery('Có tai nghe gì?')).toBe('tai nghe')
+  })
 })
 
 describe('quick prompt coverage', () => {

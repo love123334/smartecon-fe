@@ -1,7 +1,9 @@
 import type { ChatIntent } from '@/api/chat/intents'
 import { isClearTopicSwitch } from '@/api/chat/followup'
 import { refreshConversationMemoryFields } from '@/api/chat/conversationMemory'
+import { deriveStateFromTurn } from '@/api/chat/insightEngine'
 import { normalizeText } from '@/api/chat/match'
+import type { ChatCategory } from '@/api/chat/context'
 import type { ChatMessage, ChatProductRef } from '@/types'
 
 /** Nhiệm vụ đang làm — working memory ngắn hạn, không lưu sở thích lâu dài. */
@@ -15,6 +17,13 @@ export type ActiveTask =
   | 'seller_ops'
   | 'manager_ops'
 
+export type ConversationTopic =
+  | 'catalog_overview'
+  | 'product_recommendation'
+  | 'product_qa'
+  | 'seller_analytics'
+  | 'general'
+
 export interface ConversationContext {
   currentProduct?: ChatProductRef
   lastResults: ChatProductRef[]
@@ -24,6 +33,13 @@ export interface ConversationContext {
   summary?: string
   /** Mục tiêu phiên hiện tại (SP đang bàn, what-if, …). */
   goal?: string
+  /** Chủ đề hội thoại — giúp follow-up không reset về zero. */
+  topic?: ConversationTopic
+  userGoal?: string
+  currentCategory?: string
+  budget?: number
+  lastAnalysis?: string
+  lastInsightType?: string
   updatedAt: string
 }
 
@@ -108,6 +124,7 @@ export interface ConversationTurnInput {
   intent: ChatIntent | null
   products?: ChatProductRef[]
   attachments?: ChatProductRef[]
+  categories?: ChatCategory[]
 }
 
 /** Cập nhật working memory sau mỗi lượt. */
@@ -139,7 +156,15 @@ export function updateConversationContext(
     userMessage: turn.userMessage,
     intent: turn.intent,
     products: turn.products,
+    conversation: prev,
   })
+
+  const stateDelta = deriveStateFromTurn(
+    turn.userMessage,
+    turn.intent,
+    turn.categories ?? [],
+    turn.products,
+  )
 
   return {
     currentProduct: focus,
@@ -148,6 +173,12 @@ export function updateConversationContext(
     lastIntent: turn.intent ?? prev.lastIntent,
     summary: withMemory.summary,
     goal: withMemory.goal,
+    topic: (stateDelta.topic as ConversationContext['topic']) ?? prev.topic,
+    userGoal: stateDelta.userGoal ?? prev.userGoal,
+    currentCategory: stateDelta.currentCategory ?? prev.currentCategory,
+    budget: stateDelta.budget ?? prev.budget,
+    lastAnalysis: stateDelta.lastAnalysis ?? prev.lastAnalysis,
+    lastInsightType: stateDelta.lastAnalysis ?? prev.lastInsightType,
     updatedAt: new Date().toISOString(),
   }
 }

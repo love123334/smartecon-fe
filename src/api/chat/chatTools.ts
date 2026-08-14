@@ -1,5 +1,6 @@
 import type { ChatContext } from '@/api/chat/context'
 import type { ChatRoute } from '@/api/chat/intentRouter'
+import { buildCatalogInsight, serializeInsightsForPrompt } from '@/api/chat/insightEngine'
 import { formatVnd } from '@/api/chat/match'
 import { orderStatusLabel } from '@/utils/orderStatus'
 import type { VerifiedFacts } from '@/api/chat/verifiedFacts'
@@ -15,6 +16,7 @@ export type ChatToolName =
   | 'get_seller_dashboard'
   | 'get_dss_insights'
   | 'get_manager_kpi'
+  | 'get_catalog_insights'
 
 export interface ChatToolResult {
   name: ChatToolName
@@ -24,8 +26,8 @@ export interface ChatToolResult {
 }
 
 const TOOLS_BY_ROLE: Record<UserRole, ChatToolName[]> = {
-  guest: ['search_products', 'get_product'],
-  customer: ['search_products', 'get_product', 'get_cart', 'get_orders'],
+  guest: ['search_products', 'get_product', 'get_catalog_insights'],
+  customer: ['search_products', 'get_product', 'get_cart', 'get_orders', 'get_catalog_insights'],
   seller: [
     'search_products',
     'get_product',
@@ -35,25 +37,29 @@ const TOOLS_BY_ROLE: Record<UserRole, ChatToolName[]> = {
     'get_seller_sales',
     'get_seller_dashboard',
     'get_dss_insights',
+    'get_catalog_insights',
   ],
   manager: [
     'search_products',
     'get_product',
     'get_manager_kpi',
     'get_dss_insights',
+    'get_catalog_insights',
   ],
   admin: [
     'search_products',
     'get_product',
     'get_manager_kpi',
     'get_seller_dashboard',
+    'get_catalog_insights',
   ],
 }
 
 const ROUTE_TOOLS: Record<ChatRoute, ChatToolName[]> = {
   GENERAL_CHAT: [],
-  PRODUCT_QUERY: ['search_products', 'get_product', 'get_inventory'],
-  SALES_ANALYSIS: ['get_seller_sales', 'get_seller_dashboard'],
+  PRODUCT_QUERY: ['search_products', 'get_product', 'get_inventory', 'get_catalog_insights'],
+  CATALOG_INSIGHT: ['get_catalog_insights', 'search_products'],
+  SALES_ANALYSIS: ['get_seller_sales', 'get_seller_dashboard', 'get_catalog_insights'],
   INVENTORY: ['get_inventory', 'get_seller_dashboard'],
   PRICE_RECOMMENDATION: ['get_dss_insights', 'get_product'],
   WHAT_IF: ['get_dss_insights', 'get_product', 'get_seller_sales'],
@@ -236,6 +242,16 @@ function pickManagerKpi(ctx: ChatContext): ChatToolResult {
   }
 }
 
+function pickCatalogInsights(ctx: ChatContext): ChatToolResult {
+  const bundle = buildCatalogInsight(ctx)
+  return {
+    name: 'get_catalog_insights',
+    ok: bundle.stats.totalProducts > 0,
+    data: JSON.parse(serializeInsightsForPrompt(bundle)) as Record<string, unknown>,
+    error: bundle.stats.totalProducts ? undefined : 'EMPTY_CATALOG',
+  }
+}
+
 const EXECUTORS: Record<
   ChatToolName,
   (ctx: ChatContext) => ChatToolResult
@@ -249,6 +265,7 @@ const EXECUTORS: Record<
   get_seller_dashboard: pickSellerDashboard,
   get_dss_insights: pickDssInsights,
   get_manager_kpi: pickManagerKpi,
+  get_catalog_insights: pickCatalogInsights,
 }
 
 /** Gọi tool local (RBAC đã lọc) — dữ liệu từ enrich + facts, không bịa. */
@@ -284,6 +301,9 @@ export function formatVerifiedFactsCompact(facts: VerifiedFacts): string {
   const names = facts.allowedProductNames.slice(0, 4)
   const chunks: string[] = []
   if (lines.length) chunks.push(lines.join('\n'))
+  if (facts.insights) {
+    chunks.push(`INSIGHTS: ${serializeInsightsForPrompt(facts.insights)}`)
+  }
   if (names.length) chunks.push(`SP: ${names.join(', ')}`)
   if (prices.length) chunks.push(`Giá: ${prices.join(', ')}`)
   if (facts.localDraft?.trim()) {

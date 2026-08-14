@@ -11,6 +11,7 @@ import {
   isUnknownEscalateText,
 } from '@/api/chat/discovery'
 import { buildProcessingLocale, isShopCatalogQuestion } from '@/api/chat/chatLocale'
+import { catalogInsightHighlights } from '@/api/chat/insightEngine'
 import {
   cheapestProducts,
   affordableProductsForQuery,
@@ -202,20 +203,19 @@ function warmProductIntro(
 ): string {
   const name = greet(ctx.userName ?? '')
   if (count <= 0) {
-    return `${name}Mình chưa thấy sản phẩm phù hợp${topic ? ` cho **${topic}**` : ''} trên shop lúc này. Bạn thử từ khóa khác hoặc mở **Cửa hàng** nhé.`
+    return `${name}Mình chưa thấy sản phẩm phù hợp trên shop lúc này. Bạn thử cách hỏi khác hoặc mở **Cửa hàng** nhé.`
   }
-  const topicBit = topic ? ` về **${topic}**` : ''
   switch (mode) {
     case 'shop':
       return `${name}Mình tìm được **${count}** sản phẩm từ shop **${topic}** — mời bạn xem qua nhé.`
     case 'budget':
-      return `${name}Trong tầm giá bạn hỏi, mình lọc được **${count}** lựa chọn${topicBit} — tham khảo bên dưới nhé.`
+      return `${name}Mình lọc được **${count}** lựa chọn trong tầm giá bạn hỏi — mời xem thử bên dưới nhé.`
     case 'cheapest':
-      return `${name}Đây là **${count}** lựa chọn giá mềm nhất mình tìm được${topicBit} — xem thử nhé.`
+      return `${name}Đây là **${count}** lựa chọn giá mềm nhất — mời bạn tham khảo nhé.`
     case 'affordable':
-      return `${name}Mình gom **${count}** món **${topic}** giá hợp lý trên shop — bạn tham khảo nhé.`
+      return `${name}Mình gom **${count}** gợi ý giá hợp lý — xem thử bên dưới nhé.`
     default:
-      return `${name}Rất vui vì bạn đã hỏi! Mình tìm được **${count}** gợi ý liên quan${topicBit} — mời bạn tham khảo bên dưới nhé.`
+      return `${name}Mình tìm được **${count}** phần liên quan đến yêu cầu của bạn — mời xem thử bên dưới nhé.`
   }
 }
 
@@ -356,10 +356,9 @@ function shoppingStructuredReply(
   }
 
   if (filter.products.length) {
-    const topic = filter.queryText || (filter.range ? formatPriceRangeLabel(filter.range) : undefined)
     const mode: IntroMode = filter.range ? 'budget' : 'search'
     return {
-      content: warmProductIntro(ctx, filter.products.length, topic, mode),
+      content: warmProductIntro(ctx, filter.products.length, undefined, mode),
       products: toChatProducts(filter.products, 6),
     }
   }
@@ -738,10 +737,18 @@ export async function generateAssistantReply(
                 6,
               )
           : []
+      const insightHighlights =
+        intent === 'shop_overview' ||
+        intent === 'categories' ||
+        intent === 'seller_top_products'
+          ? catalogInsightHighlights(ctx, intent)
+          : []
       const enrichProducts =
         ranked.length
           ? ranked
-          : ctx.enrichment?.searchResults?.length
+          : insightHighlights.length
+            ? insightHighlights
+            : ctx.enrichment?.searchResults?.length
             ? ctx.enrichment.searchResults
             : ctx.enrichment?.categoryProducts?.length
               ? ctx.enrichment.categoryProducts

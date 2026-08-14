@@ -1,6 +1,5 @@
 import type { ChatContext } from '@/api/chat/context'
 import type { ChatIntent } from '@/api/chat/intents'
-import { apiConfig } from '@/api/config'
 import {
   demandBrief,
   extractDiscountPct,
@@ -40,6 +39,14 @@ import type { Order, Product, ChatReviewSummary, ChatSellerRef } from '@/types'
 import { orderStatusLabel } from '@/utils/orderStatus'
 import { salesEligibleOrders, totalRevenue } from '@/utils/orderAnalytics'
 import { rankForUseCase } from '@/utils/recommendationScore'
+import {
+  buildCatalogInsight,
+  buildRecommendInsight,
+  buildSellerTopInsight,
+  formatCatalogInsightReply,
+  formatRecommendInsightReply,
+  formatSellerTopInsightReply,
+} from '@/api/chat/insightEngine'
 
 export { findProductsByQuery } from '@/api/chat/products'
 
@@ -194,7 +201,8 @@ function recommendReply(ctx: ChatContext, raw: string): string {
   if (!ranked.length) {
     return `${name}Chưa có gợi ý phù hợp — xem **Cửa hàng** hoặc hỏi danh mục (laptop, điện thoại…).`
   }
-  return `${name}**Gợi ý theo yêu cầu của bạn** (giá · rating · phù hợp use-case):\n${productLines(ranked, 6)}\n\n**Shop nổi bật:**\n${shopDirectoryLines(ranked, 3)}`
+  const bundle = buildRecommendInsight(ctx, ranked)
+  return formatRecommendInsightReply(ctx, bundle)
 }
 
 function formatOrderSummary(orders: Order[], limit = 3): string {
@@ -221,39 +229,23 @@ export function roleHelpHints(role: ChatContext['role']): string {
   }
 }
 
-function categoryOverview(ctx: ChatContext): string {
-  if (ctx.categories.length) {
-    return ctx.categories
-      .slice(0, 10)
-      .map((c) => `• **${c.name}** (${c.productCount} SP)`)
-      .join('\n')
-  }
-  const cats = new Map<string, number>()
-  for (const p of ctx.products) {
-    cats.set(p.category, (cats.get(p.category) ?? 0) + 1)
-  }
-  return [...cats.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 8)
-    .map(([c, n]) => `• **${c}** (${n} SP)`)
-    .join('\n') || '• Điện thoại · Laptop · Thời trang · Nhà bếp · Chăm sóc da'
-}
-
 function shopOverviewReply(ctx: ChatContext): string {
-  const name = greet(ctx.userName ?? '')
-  const top = [...ctx.products].sort((a, b) => b.soldCount - a.soldCount).slice(0, 5)
-  const total = ctx.products.length
-  const catCount = ctx.categories.length || new Set(ctx.products.map((p) => p.category)).size
-  const offlineHint =
-    !ctx.backendOnline && !apiConfig.useMock
-      ? '\n\n⚠ Catalog tạm thời hạn chế — thử lại sau hoặc mở **Cửa hàng**.'
-      : ''
-  return `${name}SEDSP đang có khoảng **${total}** sản phẩm trong **${catCount}** danh mục.\n\n**Danh mục nổi bật:**\n${categoryOverview(ctx)}\n\n**Đang bán chạy:**\n${top.length ? productLines(top, 5) : '• Xem Cửa hàng để khám phá.'}\n\nBạn muốn mình gợi ý theo nhu cầu nào — điện thoại, laptop, hay khoảng giá?${offlineHint}`
+  const bundle = buildCatalogInsight(ctx)
+  return formatCatalogInsightReply(ctx, bundle)
 }
 
 function categoriesReply(ctx: ChatContext): string {
+  const bundle = buildCatalogInsight(ctx)
   const name = greet(ctx.userName ?? '')
-  return `${name}**Danh mục tiếng Việt:**\n${categoryOverview(ctx)}\n\nLọc tại **Cửa hàng** hoặc hỏi vd: "laptop có gì", "thời trang nữ", "nhà bếp có gì".`
+  const topCats = ctx.categories.length
+    ? ctx.categories
+        .slice()
+        .sort((a, b) => b.productCount - a.productCount)
+        .slice(0, 4)
+        .map((c) => c.name)
+        .join(', ')
+    : bundle.stats.topCategory ?? 'Điện thoại, Laptop, Thời trang'
+  return `${name}${bundle.paragraphs[0] ?? 'Shop có nhiều danh mục để khám phá.'}\n\nCác nhóm chính: **${topCats}**. Hỏi vd: "laptop có gì", "dưới 2 triệu".`
 }
 
 function cartSummaryReply(ctx: ChatContext): string {
@@ -316,7 +308,7 @@ function productSearchReply(ctx: ChatContext, raw: string): string {
   if (!hits.length) {
     return `${name}Chưa thấy **${terms || 'sản phẩm đó'}** trên shop. Thử tên ngắn hơn (vd: "kính", "tai nghe") hoặc mở **Tìm kiếm** trên header.`
   }
-  return `${name}Rất vui vì bạn đã hỏi! Mình tìm được vài lựa chọn cho **${terms || 'nhu cầu của bạn'}**:\n${productLines(hits.slice(0, 6), 6)}\n\nMời bạn tham khảo bên dưới, hoặc nói rõ hơn nếu cần lọc thêm nhé.`
+  return `${name}Mình tìm được vài phần liên quan đến yêu cầu của bạn:\n${productLines(hits.slice(0, 6), 6)}\n\nMời xem thử bên dưới, hoặc nói rõ hơn nếu cần lọc thêm nhé.`
 }
 
 function cheapestReply(ctx: ChatContext): string {
@@ -784,12 +776,8 @@ function buildSellerIntent(ctx: ChatContext, intent: ChatIntent, raw: string): s
       return `${name}Chưa có đơn gần đây trên dashboard. Xem **Bảng doanh số**.`
     }
     case 'seller_top_products': {
-      const top = ctx.salesPerformance?.topProducts ?? []
-      if (top.length) {
-        return `${name}**SP bán chạy:**\n${top.slice(0, 5).map((p) => `• ${p.productName}: **${p.quantitySold}** sp · ${formatVnd(p.revenue)}`).join('\n')}`
-      }
-      const local = [...catalog].sort((a, b) => b.soldCount - a.soldCount).slice(0, 5)
-      return `${name}**Top catalog:**\n${productLines(local, 5)}`
+      const bundle = buildSellerTopInsight(ctx, catalog)
+      return formatSellerTopInsightReply(ctx, bundle)
     }
     case 'seller_rating':
       return sellerRatingReply(ctx)

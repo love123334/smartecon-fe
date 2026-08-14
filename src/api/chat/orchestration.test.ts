@@ -18,6 +18,11 @@ describe('intentRouter', () => {
   it('routes seller revenue to SALES_ANALYSIS', () => {
     expect(routeFromIntent('seller_revenue')).toBe('SALES_ANALYSIS')
   })
+
+  it('routes shop overview to CATALOG_INSIGHT', () => {
+    expect(routeFromIntent('shop_overview')).toBe('CATALOG_INSIGHT')
+    expect(routeFromIntent('recommend')).toBe('CATALOG_INSIGHT')
+  })
 })
 
 describe('conversationMemory', () => {
@@ -53,7 +58,7 @@ describe('chatTools RBAC', () => {
     expect(tools).not.toContain('get_seller_sales')
   })
 
-  it('executeChatTools returns search results from context', () => {
+  it('executeChatTools returns catalog insights', () => {
     const ctx: ChatContext = {
       role: 'customer',
       products: [
@@ -91,5 +96,6 @@ describe('chatTools RBAC', () => {
     }
     const results = executeChatTools('customer', 'PRODUCT_QUERY', ctx)
     expect(results.some((r) => r.name === 'search_products' && r.ok)).toBe(true)
+    expect(results.some((r) => r.name === 'get_catalog_insights' && r.ok)).toBe(true)
   })
 })
