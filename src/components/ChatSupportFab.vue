@@ -189,7 +189,20 @@ onUnmounted(() => {
 })
 
 function onKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape' && widget.open) widget.hide()
+  if (e.key !== 'Escape') return
+  if (showHistory.value) {
+    showHistory.value = false
+    return
+  }
+  if (widget.open) widget.hide()
+}
+
+function toggleHistory() {
+  showHistory.value = !showHistory.value
+}
+
+function closeHistory() {
+  showHistory.value = false
 }
 
 function onFabClick() {
@@ -322,95 +335,164 @@ function onFabDrop(e: DragEvent) {
     <div
       v-if="widget.open"
       class="chat-popup"
+      :class="{ 'chat-popup--drawer-open': showHistory }"
       role="dialog"
       aria-modal="true"
       aria-label="Trợ lý AI SEDSP"
     >
-      <header class="chat-popup__head">
-        <div class="chat-popup__head-main">
-          <img
-            class="chat-popup__avatar"
-            :src="CHATBOT_AVATAR"
-            alt=""
-            width="40"
-            height="40"
-          />
-          <div class="chat-popup__head-text">
-            <h2 class="chat-popup__title">{{ title }}</h2>
-            <p class="chat-popup__session-title" :title="chatSession.sessionTitle">
-              {{ chatSession.sessionTitle }}
-            </p>
-            <p class="chat-popup__hint-inline">
-              Kéo ảnh sản phẩm vào khung chat · Esc hoặc × để đóng
-            </p>
-          </div>
-        </div>
-        <div class="chat-popup__head-actions">
+      <button
+        v-if="showHistory"
+        type="button"
+        class="chat-popup__drawer-backdrop"
+        aria-label="Đóng lịch sử"
+        @click="closeHistory"
+      />
+
+      <aside
+        class="chat-popup__drawer"
+        :class="{ 'chat-popup__drawer--open': showHistory }"
+        aria-label="Lịch sử chat"
+        :aria-hidden="!showHistory"
+      >
+        <div class="chat-popup__drawer-head">
+          <h3 class="chat-popup__drawer-title">Lịch sử</h3>
           <button
             type="button"
-            class="chat-popup__action"
-            title="Cuộc chat mới"
-            @click="onNewChat"
+            class="chat-popup__drawer-close"
+            aria-label="Đóng lịch sử"
+            @click="closeHistory"
           >
-            Mới
-          </button>
-          <button
-            v-if="savedSessions.length"
-            type="button"
-            class="chat-popup__action"
-            :class="{ 'chat-popup__action--active': showHistory }"
-            title="Cuộc chat trước"
-            @click="showHistory = !showHistory"
-          >
-            Lịch sử
-          </button>
-          <button type="button" class="chat-popup__close" aria-label="Đóng trợ lý AI" @click.stop="widget.hide()">
             ×
           </button>
         </div>
-      </header>
-      <div v-if="showHistory && savedSessions.length" class="chat-popup__history">
-        <button
-          v-for="session in savedSessions"
-          :key="session.id"
-          type="button"
-          class="chat-popup__history-item"
-          @click="onOpenSession(session.id)"
-        >
-          <span class="chat-popup__history-title">{{ session.title }}</span>
-          <span class="chat-popup__history-meta">
-            {{ new Date(session.updatedAt).toLocaleDateString('vi-VN') }}
-          </span>
+        <button type="button" class="chat-popup__drawer-new" @click="onNewChat">
+          <span class="chat-popup__drawer-new-icon" aria-hidden="true">+</span>
+          Cuộc chat mới
         </button>
+        <div class="chat-popup__drawer-list">
+          <button
+            type="button"
+            class="chat-popup__history-item chat-popup__history-item--current"
+            @click="closeHistory"
+          >
+            <span class="chat-popup__history-title">{{ chatSession.sessionTitle }}</span>
+            <span class="chat-popup__history-meta">Đang chat</span>
+          </button>
+          <template v-if="savedSessions.length">
+            <p class="chat-popup__drawer-divider">Trước đó</p>
+            <button
+              v-for="session in savedSessions"
+              :key="session.id"
+              type="button"
+              class="chat-popup__history-item"
+              :class="{
+                'chat-popup__history-item--active': chatSession.activeSessionId === session.id,
+              }"
+              @click="onOpenSession(session.id)"
+            >
+              <span class="chat-popup__history-title">{{ session.title }}</span>
+              <span class="chat-popup__history-meta">
+                {{ new Date(session.updatedAt).toLocaleDateString('vi-VN') }}
+              </span>
+            </button>
+          </template>
+          <p v-else class="chat-popup__drawer-empty">Chưa có cuộc chat đã lưu.</p>
+        </div>
+      </aside>
+
+      <div class="chat-popup__main">
+        <header class="chat-popup__head">
+          <button
+            type="button"
+            class="chat-popup__menu"
+            :class="{ 'chat-popup__menu--active': showHistory }"
+            aria-label="Mở lịch sử chat"
+            :aria-expanded="showHistory"
+            @click="toggleHistory"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path
+                d="M4 6h16M4 12h16M4 18h16"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+              />
+            </svg>
+          </button>
+          <div class="chat-popup__head-main">
+            <img
+              class="chat-popup__avatar"
+              :src="CHATBOT_AVATAR"
+              alt=""
+              width="40"
+              height="40"
+            />
+            <div class="chat-popup__head-text">
+              <h2 class="chat-popup__title">{{ title }}</h2>
+              <p class="chat-popup__session-title" :title="chatSession.sessionTitle">
+                {{ chatSession.sessionTitle }}
+              </p>
+            </div>
+          </div>
+          <div class="chat-popup__head-actions">
+            <button
+              type="button"
+              class="chat-popup__icon-btn"
+              title="Cuộc chat mới"
+              aria-label="Cuộc chat mới"
+              @click="onNewChat"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path
+                  d="M12 5v14M5 12h14"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </button>
+            <button
+              type="button"
+              class="chat-popup__close"
+              aria-label="Đóng trợ lý AI"
+              @click.stop="widget.hide()"
+            >
+              ×
+            </button>
+          </div>
+        </header>
+        <p class="chat-popup__hint-inline">
+          Kéo ảnh sản phẩm vào khung chat · Esc để đóng
+        </p>
+        <p v-if="chatError" class="chat-popup__error">
+          {{ chatError }}
+          <button
+            v-if="lastFailedText"
+            type="button"
+            class="chat-popup__retry"
+            :disabled="loading"
+            @click="retrySend"
+          >
+            Thử lại
+          </button>
+        </p>
+        <ChatPanel
+          v-if="ready || messages.length"
+          compact
+          :avatar-src="CHATBOT_AVATAR"
+          :messages="messages"
+          :quick-prompts="quickPrompts"
+          :loading="loading"
+          :placeholder="placeholder"
+          :empty-text="welcomeMessage(effectiveRole)"
+          :attachments="widget.attachments"
+          @send="onSend"
+          @clear="onClear"
+          @attach-product="onAttach"
+          @remove-attachment="onRemoveAttachment"
+        />
+        <p v-else class="chat-popup__loading">Đang tải trợ lý…</p>
       </div>
-      <p v-if="chatError" class="chat-popup__error">
-        {{ chatError }}
-        <button
-          v-if="lastFailedText"
-          type="button"
-          class="chat-popup__retry"
-          :disabled="loading"
-          @click="retrySend"
-        >
-          Thử lại
-        </button>
-      </p>
-      <ChatPanel
-        v-if="ready || messages.length"
-        compact
-        :avatar-src="CHATBOT_AVATAR"
-        :messages="messages"
-        :quick-prompts="quickPrompts"
-        :loading="loading"
-        :placeholder="placeholder"
-        :empty-text="welcomeMessage(effectiveRole)"
-        :attachments="widget.attachments"
-        @send="onSend"
-        @clear="onClear"
-        @attach-product="onAttach"
-        @remove-attachment="onRemoveAttachment"
-      />
-      <p v-else class="chat-popup__loading">Đang tải trợ lý…</p>
     </div>
   </Teleport>
 </template>
@@ -504,16 +586,150 @@ function onFabDrop(e: DragEvent) {
   overflow: hidden;
 }
 
+.chat-popup__main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+
+.chat-popup__drawer-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 12;
+  border: none;
+  padding: 0;
+  margin: 0;
+  background: rgba(15, 23, 42, 0.38);
+  cursor: pointer;
+  animation: chat-drawer-fade 0.2s ease;
+}
+
+.chat-popup__drawer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 13;
+  display: flex;
+  flex-direction: column;
+  width: min(272px, 88%);
+  background: #fff;
+  border-right: 1px solid #e2e8f0;
+  box-shadow: 8px 0 24px rgba(15, 23, 42, 0.12);
+  transform: translateX(-100%);
+  transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+
+.chat-popup__drawer--open {
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+.chat-popup__drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.85rem 0.85rem 0.55rem;
+  flex-shrink: 0;
+}
+
+.chat-popup__drawer-title {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.chat-popup__drawer-close {
+  width: 1.85rem;
+  height: 1.85rem;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #64748b;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.chat-popup__drawer-close:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.chat-popup__drawer-new {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0 0.75rem 0.65rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  flex-shrink: 0;
+}
+
+.chat-popup__drawer-new:hover {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}
+
+.chat-popup__drawer-new-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 6px;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.chat-popup__drawer-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 0.45rem 0.75rem;
+}
+
+.chat-popup__drawer-divider {
+  margin: 0.35rem 0.45rem 0.4rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.chat-popup__drawer-empty {
+  margin: 0.5rem 0.55rem;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  line-height: 1.45;
+}
+
 .chat-popup__head-main {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.65rem;
   min-width: 0;
+  flex: 1;
 }
 
 .chat-popup__avatar {
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 2.35rem;
+  height: 2.35rem;
   border-radius: 50%;
   object-fit: cover;
   flex-shrink: 0;
@@ -523,13 +739,33 @@ function onFabDrop(e: DragEvent) {
 
 .chat-popup__head {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.95rem 1rem 0.55rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 0.85rem 0.35rem;
   flex-shrink: 0;
   border-bottom: 1px solid var(--color-border);
   background: linear-gradient(180deg, #fafafa 0%, #fff 100%);
+}
+
+.chat-popup__menu {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.15rem;
+  height: 2.15rem;
+  flex-shrink: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  color: #334155;
+  cursor: pointer;
+}
+
+.chat-popup__menu:hover,
+.chat-popup__menu--active {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
 }
 
 .chat-popup__head-text {
@@ -543,65 +779,71 @@ function onFabDrop(e: DragEvent) {
   flex-shrink: 0;
 }
 
-.chat-popup__action {
+.chat-popup__icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.15rem;
+  height: 2.15rem;
   border: 1px solid #e2e8f0;
+  border-radius: 10px;
   background: #fff;
   color: #334155;
-  border-radius: 8px;
-  padding: 0.25rem 0.5rem;
-  font-size: 0.72rem;
-  font-weight: 600;
   cursor: pointer;
 }
 
-.chat-popup__action--active,
-.chat-popup__action:hover {
-  background: #eff6ff;
-  border-color: #bfdbfe;
-  color: #1d4ed8;
+.chat-popup__icon-btn:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
 }
 
 .chat-popup__session-title {
-  margin: 0.15rem 0 0;
+  margin: 0.1rem 0 0;
   font-size: 0.72rem;
   font-weight: 600;
-  color: #475569;
+  color: #64748b;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 14rem;
-}
-
-.chat-popup__history {
-  flex-shrink: 0;
-  max-height: 140px;
-  overflow-y: auto;
-  border-bottom: 1px solid var(--color-border);
-  background: #f8fafc;
 }
 
 .chat-popup__history-item {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.1rem;
+  gap: 0.12rem;
   width: 100%;
-  padding: 0.55rem 1rem;
+  padding: 0.55rem 0.65rem;
   border: none;
-  border-bottom: 1px solid #e2e8f0;
+  border-radius: 10px;
   background: transparent;
   text-align: left;
   cursor: pointer;
 }
 
 .chat-popup__history-item:hover {
+  background: #f1f5f9;
+}
+
+.chat-popup__history-item--active,
+.chat-popup__history-item--current {
   background: #eff6ff;
+}
+
+.chat-popup__history-item--active:hover,
+.chat-popup__history-item--current:hover {
+  background: #dbeafe;
 }
 
 .chat-popup__history-title {
   font-size: 0.78rem;
   font-weight: 600;
   color: #0f172a;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.35;
 }
 
 .chat-popup__history-meta {
@@ -611,16 +853,20 @@ function onFabDrop(e: DragEvent) {
 
 .chat-popup__title {
   margin: 0;
-  font-size: 1.05rem;
+  font-size: 0.98rem;
   font-weight: 750;
   letter-spacing: -0.02em;
+  line-height: 1.2;
 }
 
 .chat-popup__hint-inline {
-  margin: 0.2rem 0 0;
-  font-size: 0.72rem;
+  margin: 0;
+  padding: 0.35rem 0.85rem 0.45rem;
+  font-size: 0.68rem;
   line-height: 1.35;
   color: var(--slate-500);
+  flex-shrink: 0;
+  border-bottom: 1px solid #f1f5f9;
 }
 
 .chat-popup__close {
@@ -634,13 +880,20 @@ function onFabDrop(e: DragEvent) {
   cursor: pointer;
   color: #0f172a;
   flex-shrink: 0;
-  position: relative;
-  z-index: 2;
 }
 
 .chat-popup__close:hover {
   background: #f1f5f9;
   border-color: #cbd5e1;
+}
+
+@keyframes chat-drawer-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .chat-popup__error {
@@ -683,7 +936,7 @@ function onFabDrop(e: DragEvent) {
 .chat-popup :deep(.chat-panel) {
   border: none;
   border-radius: 0;
-  padding-top: 0.55rem;
+  padding-top: 0.45rem;
   min-height: 0;
   flex: 1;
 }
