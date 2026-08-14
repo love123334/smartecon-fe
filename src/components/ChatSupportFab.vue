@@ -584,6 +584,10 @@ function onFabDrop(e: DragEvent) {
   border-radius: 18px;
   box-shadow: 0 18px 50px rgba(15, 23, 42, 0.2);
   overflow: hidden;
+  font-family: var(--font-body);
+  color: var(--color-text);
+  line-height: 1.68;
+  -webkit-font-smoothing: antialiased;
 }
 
 .chat-popup__main {
@@ -799,9 +803,9 @@ function onFabDrop(e: DragEvent) {
 
 .chat-popup__session-title {
   margin: 0.1rem 0 0;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  color: #64748b;
+  color: var(--color-text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -853,18 +857,20 @@ function onFabDrop(e: DragEvent) {
 
 .chat-popup__title {
   margin: 0;
-  font-size: 0.98rem;
-  font-weight: 750;
+  font-size: 1rem;
+  font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1.2;
+  color: var(--navy);
+  font-family: var(--font-body);
 }
 
 .chat-popup__hint-inline {
   margin: 0;
   padding: 0.35rem 0.85rem 0.45rem;
-  font-size: 0.68rem;
-  line-height: 1.35;
-  color: var(--slate-500);
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: var(--color-text-muted);
   flex-shrink: 0;
   border-bottom: 1px solid #f1f5f9;
 }

@@ -40,6 +40,10 @@ const lastAssistantId = computed(() => {
   return null
 })
 
+const visibleQuickPrompts = computed(() =>
+  (props.quickPrompts ?? []).filter((p) => p.text.trim()),
+)
+
 async function scrollEnd() {
   await nextTick()
   // Instant scroll — smooth gây giật khi nhiều bubble/product card
@@ -61,7 +65,7 @@ async function submit(): Promise<void> {
 }
 
 function usePrompt(p: QuickPrompt) {
-  if (props.loading || p.disabled || !p.text) return
+  if (props.loading || !p.text.trim()) return
   emit('send', p.text)
 }
 
@@ -97,15 +101,14 @@ defineExpose({ scrollToEnd: scrollEnd })
     @dragleave="onDragLeave"
     @drop="onDrop"
   >
-    <div v-if="quickPrompts?.length" class="chat-quick">
+    <div v-if="visibleQuickPrompts.length" class="chat-quick">
       <button
-        v-for="p in quickPrompts"
+        v-for="p in visibleQuickPrompts"
         :key="p.label"
         type="button"
         class="chat-quick__chip btn-interactive"
-        :class="{ 'chat-quick__chip--disabled': p.disabled }"
-        :disabled="loading || p.disabled"
-        :title="p.disabled ? 'Module không dùng trong trợ lý — mở trang DSS nếu cần' : p.text"
+        :disabled="loading"
+        :title="p.text"
         @click="usePrompt(p)"
       >
         {{ p.label }}
@@ -291,6 +294,9 @@ defineExpose({ scrollToEnd: scrollEnd })
   border-radius: var(--radius-lg);
   background: #fff;
   border: 1px solid transparent;
+  font-family: var(--font-body);
+  color: var(--color-text);
+  line-height: 1.68;
   transition: border-color var(--transition), box-shadow var(--transition);
 }
 
@@ -309,13 +315,14 @@ defineExpose({ scrollToEnd: scrollEnd })
 
 .chat-quick__chip {
   padding: 0.3rem 0.55rem;
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   font-weight: 600;
   border: 1px solid var(--color-border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--slate-50);
+  color: var(--color-text);
   cursor: pointer;
-  font-family: inherit;
+  font-family: var(--font-body);
   transition: border-color var(--transition), background var(--transition);
 }
 
@@ -324,11 +331,9 @@ defineExpose({ scrollToEnd: scrollEnd })
   background: var(--primary-50);
 }
 
-.chat-quick__chip:disabled,
-.chat-quick__chip--disabled {
-  opacity: 0.45;
+.chat-quick__chip:disabled {
+  opacity: 0.55;
   cursor: not-allowed;
-  text-decoration: line-through;
 }
 
 .chat-messages {
@@ -408,8 +413,9 @@ defineExpose({ scrollToEnd: scrollEnd })
 .chat-bubble__text {
   margin: 0;
   white-space: pre-wrap;
-  line-height: 1.5;
-  font-size: 0.84rem;
+  line-height: 1.68;
+  font-size: 0.875rem;
+  font-family: var(--font-body);
 }
 
 .chat-bubble__text :deep(strong) {

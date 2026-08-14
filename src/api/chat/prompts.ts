@@ -3,22 +3,22 @@ import type { UserRole } from '@/types'
 export interface QuickPrompt {
   label: string
   text: string
-  /** Hiển thị nhưng không gửi chat (module đã bỏ khỏi trợ lý) */
-  disabled?: boolean
+}
+
+function usablePrompts(items: QuickPrompt[]): QuickPrompt[] {
+  return items.filter((p) => p.text.trim())
 }
 
 export function quickPromptsForRole(role: UserRole): QuickPrompt[] {
   switch (role) {
     case 'seller':
-      return [
+      return usablePrompts([
         { label: 'Doanh số', text: 'Doanh thu tháng này thế nào?' },
         { label: 'Đơn mua', text: 'Đơn mua của tôi thế nào?' },
         { label: 'Mua hàng', text: 'Gợi ý sản phẩm đang bán chạy để nhập / mua?' },
-        // Chỉ hiện, không bấm — bỏ khỏi trọng tâm trợ lý
-        { label: 'Tồn kho', text: '', disabled: true },
-        { label: 'DSS bán hàng', text: '', disabled: true },
-        { label: 'What-if', text: '', disabled: true },
-      ]
+        { label: 'Tồn kho', text: 'Sản phẩm nào sắp hết hàng?' },
+        { label: 'What-if', text: 'What if giảm giá 10% thì sao?' },
+      ])
     case 'manager':
       return [
         { label: 'KPI', text: 'Tóm tắt KPI tháng này' },
@@ -56,7 +56,7 @@ export function quickPromptsForRole(role: UserRole): QuickPrompt[] {
 export function welcomeMessage(role: UserRole): string {
   switch (role) {
     case 'seller':
-      return 'Xin chào! Hỏi **doanh số**, **đơn mua** hoặc **mua hàng**. Các module tồn kho / DSS / what-if dùng trang DSS riêng.'
+      return 'Xin chào! Hỏi **doanh số**, **đơn mua**, **tồn kho** hoặc **what-if giảm giá** — dữ liệu lấy từ shop của bạn.'
     case 'manager':
       return 'Xin chào! Hỏi KPI, đơn chờ, phân khúc hoặc xu hướng danh mục.'
     case 'admin':
