@@ -2,6 +2,8 @@ import type { ChatMessage, ChatProductRef } from '@/types'
 import type { VerifiedFacts } from '@/api/chat/verifiedFacts'
 import { extractVndNumbers } from '@/api/chat/verifiedFacts'
 import { asksProductReview } from '@/api/chat/match'
+import { isStandaloneShoppingQuery } from '@/api/chat/discovery'
+import type { ChatIntent } from '@/api/chat/intents'
 
 /** SP vừa được bàn trong hội thoại (card bot hoặc đính kèm user). */
 export function lastDiscussedProducts(history: ChatMessage[]): ChatProductRef[] {
@@ -13,11 +15,25 @@ export function lastDiscussedProducts(history: ChatMessage[]): ChatProductRef[] 
   return []
 }
 
+const BROWSE_INTENTS = new Set<ChatIntent>([
+  'category_browse',
+  'product_search',
+  'product_budget',
+  'product_cheapest',
+  'recommend',
+  'where_to_buy',
+])
+
 /** Chủ đề rõ ràng không phải follow-up SP */
 export function isClearTopicSwitch(normalized: string): boolean {
+  if (isStandaloneShoppingQuery(normalized)) return true
   return /(?:^|\s)(don hang|don cua|gio hang|thanh toan|dang nhap|dang ky|mat khau|khuyen mai|flash sale|danh muc|web ban gi|ban gi vay|sedsp la gi|lien he|khieu nai|doi tra|bao hanh|doanh thu|du bao nhu cau|what\s*if)(?:\s|$)/.test(
     normalized,
   )
+}
+
+export function isBrowseOrSearchIntent(intent: ChatIntent | null | undefined): boolean {
+  return intent != null && BROWSE_INTENTS.has(intent)
 }
 
 /**
@@ -62,14 +78,20 @@ export function isContinuingProductChat(
   hasPriorProducts: boolean,
 ): boolean {
   if (!hasPriorProducts || !normalized) return false
+  if (isStandaloneShoppingQuery(normalized)) return false
   if (isProductFollowUp(normalized)) return true
   if (isClearTopicSwitch(normalized)) return false
   const words = normalized.split(/\s+/).filter(Boolean)
   if (words.length > 8) return false
+  const shortAck = /^(ok|oke|uhm|vay|vay a|vay ha|duoc|roi)$/.test(normalized)
+  const priceCue = /\b(gia bao nhieu|gia ca|bao nhieu tien|gia re|gia tot|gia nay)\b/.test(normalized)
+  const productCue =
+    /\b(hang|sp|san pham|mua|tot|con|het|bao|nhu|the)\b/.test(normalized) ||
+    (/\bgia\b/.test(normalized) && !/\bgia dung\b/.test(normalized) && priceCue)
   // Đại từ / hỏi thêm ngắn
   return /^(no|cai do|cai nay|sp nay|hang nay|tiep|them|chi tiet|giai thich|noi them|con gi|sao|the nao)/.test(
     normalized,
-  ) || (words.length <= 4 && /^(ok|oke|uhm|vay|vay a|vay ha|duoc|roi)$/.test(normalized) === false && /gia|hang|sp|san pham|mua|dung|tot|con|het|bao|nhu|the/.test(normalized))
+  ) || (words.length <= 4 && !shortAck && productCue)
 }
 
 /** LLM trả lời lệch (giải thích platform) khi user hỏi về SP */

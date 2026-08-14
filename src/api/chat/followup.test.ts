@@ -221,6 +221,83 @@ describe('chat follow-up context', () => {
     expect(reply.content).not.toMatch(/Giá \*\*2\.450\.000/)
   })
 
+  it('does not treat "đồ gia dụng" as follow-up on prior compare context', () => {
+    expect(isContinuingProductChat(normalizeText('đồ gia dụng'), true)).toBe(false)
+    expect(isContinuingProductChat(normalizeText('do gia dung'), true)).toBe(false)
+  })
+
+  it('switches topic to household goods instead of comparing prior products', async () => {
+    const cleanser = {
+      id: 'skin-1',
+      name: 'Sữa rửa mặt Centella',
+      price: 299_000,
+      imageUrl: '/c.jpg',
+      category: 'Chăm sóc da',
+      rating: 5,
+      stock: 79,
+    }
+    const crop = {
+      id: 'top-1',
+      name: 'Áo crop top basic',
+      price: 299_000,
+      imageUrl: '/t.jpg',
+      category: 'Thời trang nữ',
+      rating: 4,
+      stock: 160,
+    }
+    const history: ChatMessage[] = [
+      {
+        id: '1',
+        role: 'assistant',
+        content: 'So sánh 2 SP',
+        timestamp: '',
+        products: [cleanser, crop],
+      },
+    ]
+    const ctx: ChatContext = {
+      ...minimalCtx(),
+      products: [
+        jeansProduct,
+        {
+          id: 'kettle-1',
+          name: 'Ấm điện 1.8L',
+          description: 'Ấm siêu tốc',
+          price: 499_000,
+          stock: 20,
+          category: 'Nhà bếp',
+          imageUrl: '/k.jpg',
+          sellerId: 's3',
+          shopName: 'HomeStyle',
+          rating: 4.3,
+          soldCount: 10,
+          createdAt: '2026-01-01T00:00:00.000Z',
+        },
+        {
+          id: 'sofa-1',
+          name: 'Sofa hiện đại 3 chỗ',
+          description: '',
+          price: 15_990_000,
+          stock: 3,
+          category: 'Nội thất',
+          imageUrl: '/s.jpg',
+          sellerId: 's3',
+          shopName: 'HomeStyle',
+          rating: 4.1,
+          soldCount: 2,
+          createdAt: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+      categories: [
+        { id: 'c1', name: 'Gia dụng', slug: 'gia-dung', productCount: 2 },
+        { id: 'c2', name: 'Nhà bếp', slug: 'kitchen', productCount: 1 },
+        { id: 'c3', name: 'Nội thất', slug: 'furniture', productCount: 1 },
+      ],
+    }
+    const reply = await resolveChatReply('Đồ gia dụng', history, ctx)
+    expect(reply.content).not.toMatch(/So sánh 2 sản phẩm đã đính kèm/)
+    expect(reply.content).not.toMatch(/Centella|Crop Top/i)
+  })
+
   it('shows seller card for shop follow-up on prior product', async () => {
     const history: ChatMessage[] = [
       {

@@ -15,6 +15,7 @@ import {
 } from '@/api/chat/chatTelemetry'
 import { repairPriceFactsInReply } from '@/api/chat/factRepair'
 import {
+  isBrowseOrSearchIntent,
   isContinuingProductChat,
   isProductFollowUp,
   lastDiscussedProducts,
@@ -23,6 +24,7 @@ import {
   looksLikeLowQualityReply,
   looksLikeOffTopicPlatformReply,
 } from '@/api/chat/followup'
+import { isStandaloneShoppingQuery } from '@/api/chat/discovery'
 import { detectIntent, type ChatIntent } from '@/api/chat/intents'
 import { callChatLlm, isLlmConfigured, llmProviderLabel, refreshBeAiStatus } from '@/api/chat/llm'
 import {
@@ -249,21 +251,26 @@ export async function resolveChatReply(
 
   const normalized = normalizeText(userMessage)
   const priorProducts = lastDiscussedProducts(history)
+
+  let detected = detectIntent(userMessage, ctx.role)
+  const standaloneBrowse =
+    isStandaloneShoppingQuery(normalized) || isBrowseOrSearchIntent(detected?.intent ?? null)
   const followUp =
     !attachments?.length &&
     priorProducts.length > 0 &&
+    !standaloneBrowse &&
     (isProductFollowUp(normalized) || isContinuingProductChat(normalized, true))
   const effectiveAttachments =
     attachments?.length ? attachments : followUp ? priorProducts.slice(0, 2) : undefined
-
-  let detected = detectIntent(userMessage, ctx.role)
   if (attachments?.length && asksProductReview(normalized)) {
     detected = { intent: 'product_review', score: 50 }
   } else if (followUp) {
     detected = resolveFollowUpIntent(normalized, detected)
   }
 
-  const focusRef = effectiveAttachments?.[0] ?? (!attachments?.length ? priorProducts[0] : undefined)
+  const focusRef =
+    effectiveAttachments?.[0] ??
+    (followUp && !attachments?.length ? priorProducts[0] : undefined)
   const wantsReviews =
     asksProductReview(normalized) || detected?.intent === 'product_review'
 

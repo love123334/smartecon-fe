@@ -1,5 +1,5 @@
 import { isShortGreeting, normalizeText, phraseBoost, scoreKeywords, matchAnyKeyword } from '@/api/chat/match'
-import { asksProductDiscovery, isAmbiguousShoppingQuery } from '@/api/chat/discovery'
+import { asksProductDiscovery, isAmbiguousShoppingQuery, isStandaloneShoppingQuery } from '@/api/chat/discovery'
 import { extractPriceRange } from '@/api/chat/products'
 import type { UserRole } from '@/types'
 
@@ -136,12 +136,13 @@ const COMMON: IntentRule[] = [
       'cham soc da', 'trang diem', 'phu kien co gi', 'noi that co gi',
       'san pham dien tu', 'hang dien tu', 'browse category', 'xem danh muc',
       'thoi trang nam', 'thoi trang nu', 'may tinh bang', 'do da ngoai',
-      'thiet bi the hinh',
+      'thiet bi the hinh', 'do gia dung', 'gia dung', 'co tai nghe gi',
+      'co laptop gi', 'co dien thoai gi',
     ],
     phrases: [
       'dien tu co gi', 'thoi trang co gi', 'the thao co gi', 'gia dung co gi',
       'dien thoai co gi', 'laptop co gi', 'giay dep co gi', 'nha bep co gi',
-      'thoi trang nam', 'thoi trang nu', 'cham soc da',
+      'thoi trang nam', 'thoi trang nu', 'cham soc da', 'do gia dung', 'co tai nghe gi',
     ],
     minScore: 3,
     priority: 8,
@@ -575,6 +576,17 @@ function refineIntent(
   if (isAmbiguousShoppingQuery(normalized)) return detected.intent
   if (asksProductDiscovery(normalized)) return 'recommend'
 
+  if (
+    /^co\s+[a-z0-9\s]{2,28}\s+gi(?:\s|$)/.test(normalized) &&
+    !asksProductDiscovery(normalized) &&
+    !/(?:^|\s)(?:hot|moi|ban chay|dang hot|noi bat)(?:\s|$)/.test(normalized)
+  ) {
+    return 'product_search'
+  }
+  if (/^(?:do|hang|mon)\s+(?:gia dung|do gia dung|dien tu|thoi trang|the thao|nha bep|noi that|cham soc da|trang diem|do da ngoai)/.test(normalized)) {
+    return 'category_browse'
+  }
+
   // Đơn hàng — luôn ưu tiên trước product search
   if (
     /(?:^|\s)(don hang|don cua|trang thai don|lich su mua|theo doi don|order status|my order|don the nao|tinh trang don)/.test(
@@ -730,6 +742,12 @@ export function detectIntent(
   if (!best) {
     if (asksProductDiscovery(normalized)) {
       return { intent: 'recommend', score: 48 }
+    }
+    if (isStandaloneShoppingQuery(normalized)) {
+      if (/^co\s+[a-z0-9\s]{2,28}\s+gi(?:\s|$)/.test(normalized)) {
+        return { intent: 'product_search', score: 45 }
+      }
+      return { intent: 'category_browse', score: 42 }
     }
     return null
   }

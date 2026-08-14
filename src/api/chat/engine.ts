@@ -446,7 +446,7 @@ function attachmentReply(
   const lower = normalizeChatTypos(normalizeText(raw))
   const cards = toChatProducts(products, 4)
 
-  if (products.length >= 2 && (/so sanh|compare|khac nhau|nen mua|hon|vs/.test(lower) || !lower || lower.length < 12)) {
+  if (products.length >= 2 && /so sanh|compare|khac nhau|nen mua|hon|vs/.test(lower)) {
     const lines = products
       .map(
         (p, i) =>

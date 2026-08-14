@@ -333,3 +333,32 @@ describe('seller name product search', () => {
     expect(products.some((x) => x.id === 'o1')).toBe(false)
   })
 })
+
+describe('tablet search — no camping table false match', () => {
+  const tabletCatalog: Product[] = [
+    p({
+      id: 'tab1',
+      name: 'iPad Air 6',
+      price: 18_990_000,
+      category: 'Máy tính bảng',
+      description: 'Tablet Apple',
+    }),
+    p({
+      id: 'camp1',
+      name: 'Bàn picnic gấp gọn',
+      price: 1_499_000,
+      category: 'Đồ dã ngoại',
+      description: 'Bàn picnic ngoài trời',
+    }),
+  ]
+
+  it('finds tablet not camping table for "máy tính bảng dưới 5 triệu"', () => {
+    const { products } = filterProductsForQuery(tabletCatalog, 'máy tính bảng dưới 5 triệu')
+    expect(products.some((x) => x.id === 'camp1')).toBe(false)
+  })
+
+  it('extractProductSearchTerms strips co/gi question frame', () => {
+    expect(extractProductSearchTerms('Có tai nghe gì?')).toContain('tai nghe')
+    expect(extractProductSearchTerms('Có tai nghe gì?')).not.toMatch(/\bgi\b/)
+  })
+})

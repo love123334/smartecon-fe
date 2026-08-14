@@ -1,10 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
-import { asksProductDiscovery, isAmbiguousShoppingQuery, isUnknownEscalateText } from '@/api/chat/discovery'
+import { asksProductDiscovery, isAmbiguousShoppingQuery, isStandaloneShoppingQuery, isUnknownEscalateText } from '@/api/chat/discovery'
 import { detectIntent } from '@/api/chat/intents'
 import { normalizeText } from '@/api/chat/match'
 import { resolveChatReply } from '@/api/chat/responder'
 import { escalateReply } from '@/api/chat/responses'
 import type { ChatContext } from '@/api/chat/context'
+import type { ChatMessage } from '@/types'
 
 vi.mock('@/api/chat/llm', () => ({
   isLlmConfigured: () => false,
@@ -123,5 +124,58 @@ describe('product discovery', () => {
 
   it('flags unknown escalate text for reconciliation', () => {
     expect(isUnknownEscalateText(escalateReply(minimalCtx(), '', 'unknown'))).toBe(true)
+  })
+
+  it('detects standalone browse queries like "có tai nghe gì"', () => {
+    expect(isStandaloneShoppingQuery('có tai nghe gì')).toBe(true)
+    expect(detectIntent('có tai nghe gì', 'customer')?.intent).toBe('product_search')
+  })
+
+  it('answers "có tai nghe gì" with headphones, not unknown + random SSD', async () => {
+    const headphone = {
+      id: 'hp-1',
+      name: 'Tai nghe Bluetooth Pro ANC',
+      description: 'Tai nghe chống ồn',
+      price: 1_890_000,
+      stock: 45,
+      category: 'Điện tử',
+      imageUrl: '/hp.jpg',
+      sellerId: 's1',
+      shopName: 'NT Tech',
+      rating: 4.6,
+      soldCount: 200,
+      createdAt: '2026-01-01T00:00:00.000Z',
+    }
+    const ssd = {
+      id: 'ssd-1',
+      name: 'Ổ cứng SSD Samsung T7 1TB',
+      description: 'SSD portable',
+      price: 3_490_000,
+      stock: 10,
+      category: 'Phụ kiện',
+      imageUrl: '/ssd.jpg',
+      sellerId: 's2',
+      shopName: 'Electronics',
+      rating: 4.8,
+      soldCount: 80,
+      createdAt: '2026-01-01T00:00:00.000Z',
+    }
+    const ctx: ChatContext = {
+      ...minimalCtx(),
+      products: [headphone, ssd],
+    }
+    const history: ChatMessage[] = [
+      {
+        id: '1',
+        role: 'assistant',
+        content: 'SSD info',
+        timestamp: '',
+        products: [{ id: 'ssd-1', name: ssd.name, price: ssd.price, imageUrl: ssd.imageUrl, category: ssd.category }],
+      },
+    ]
+    const reply = await resolveChatReply('Có tai nghe gì?', history, ctx)
+    expect(reply.content).not.toMatch(/chưa hiểu rõ câu hỏi/i)
+    expect(reply.products?.some((p) => /tai nghe/i.test(p.name))).toBe(true)
+    expect(reply.products?.some((p) => /ssd/i.test(p.name))).toBe(false)
   })
 })

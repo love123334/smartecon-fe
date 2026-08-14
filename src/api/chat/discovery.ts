@@ -43,6 +43,39 @@ export function asksProductDiscovery(rawOrNormalized: string): boolean {
   )
 }
 
+/** Câu mới về tìm / duyệt SP — không gắn SP cũ trong hội thoại. */
+export function isStandaloneShoppingQuery(rawOrNormalized: string): boolean {
+  const n = normalizeDiscoveryText(rawOrNormalized)
+  if (!n) return false
+  if (asksProductDiscovery(n)) return true
+  if (/^co\s+[a-z0-9\s]{2,28}\s+gi(?:\s|$)/.test(n) && !/co gi (?:hay|xin|ngon|tot|dinh|moi)/.test(n) && !/(?:^|\s)(?:hot|moi|ban chay|dang hot)(?:\s|$)/.test(n)) {
+    return true
+  }
+  if (
+    /^(?:do|hang|mon|san pham)\s+(?:gia dung|do gia dung|dien tu|thoi trang|the thao|nha bep|noi that|cham soc da|trang diem|do da ngoai|may tinh bang|tai nghe|laptop|dien thoai|giay|phu kien)/.test(
+      n,
+    )
+  ) {
+    return true
+  }
+  if (
+    /^(?:gia dung|do gia dung|dien tu|thoi trang nam|thoi trang nu|may tinh bang|tai nghe|laptop|dien thoai|giay dep|phu kien|nha bep|noi that|cham soc da|trang diem|do da ngoai)(?:\s|$)/.test(
+      n,
+    )
+  ) {
+    return true
+  }
+  if (
+    /(?:duoi|tren|tu)\s+\d|trieu|\d+\s*tr\b|\d+\s*cu\b/.test(n) &&
+    /tai nghe|laptop|may tinh bang|dien thoai|giay|tablet|ipad|macbook|iphone|noi chien|ao |quan |vay/.test(
+      n,
+    )
+  ) {
+    return true
+  }
+  return false
+}
+
 /** Câu quá mơ hồ — hỏi lại, không đoán SP (chỉ khi không có tính từ gợi ý). */
 export function isAmbiguousShoppingQuery(rawOrNormalized: string): boolean {
   const n = normalizeDiscoveryText(rawOrNormalized)

@@ -71,6 +71,16 @@ const SEARCH_CATEGORY_INTENTS: SearchCategoryIntent[] = [
     blockedCategories: ['thoi trang', 'nha bep', 'sach'],
   },
   {
+    triggers: ['may tinh bang', 'tablet', 'ipad'],
+    allowedCategories: ['may tinh bang', 'tablet', 'dien tu', 'phu kien'],
+    blockedCategories: ['do da ngoai', 'outdoor', 'camping', 'nha bep', 'thoi trang', 'cham soc da'],
+  },
+  {
+    triggers: ['gia dung', 'do gia dung', 'nha cua'],
+    allowedCategories: ['gia dung', 'nha cua', 'nha bep', 'noi that', 'trang tri', 'kitchen'],
+    blockedCategories: ['dien thoai', 'laptop', 'thoi trang', 'cham soc da', 'makeup'],
+  },
+  {
     triggers: ['giay', 'sneaker', 'giay dep'],
     allowedCategories: ['giay dep', 'the thao', 'thoi trang'],
     blockedCategories: ['dien thoai', 'laptop', 'nha bep'],
@@ -378,6 +388,8 @@ export function extractProductSearchTerms(raw: string): string {
     n = stripped
   }
   n = normalizeText(n)
+    .replace(/^(?:co|shop co)\s+/i, '')
+    .replace(/\s+gi(?:\s|$)/, ' ')
     .replace(/\b(loai|danh muc|category|phan loai|thuoc|thuoc loai|hang|san pham|sp|mon|do)\b/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
@@ -465,6 +477,12 @@ export function findProductsByQuery(products: Product[], query: string): Product
           continue
         }
         if (w.includes(' ') || w.length < 3) continue
+        if (
+          (w === 'bang' || w === 'ban') &&
+          (normalizedQuery.includes('may tinh bang') || normalizedQuery.includes('tablet') || normalizedQuery.includes('ipad'))
+        ) {
+          continue
+        }
         for (const hw of hay.split(/\s+/)) {
           if (hw.length < 3) continue
           const sim = wordSimilarity(hw, w)
@@ -583,9 +601,10 @@ export function filterProductsForQuery(
   }
 
   let hits: Product[] = []
+  const meaningfulTerms = queryText.split(/\s+/).filter((w) => w.length >= 3)
   if (queryText.length >= 2) {
     hits = findProductsByQuery(pool, queryText)
-    if (!hits.length && range) {
+    if (!hits.length && range && meaningfulTerms.length === 0) {
       hits = [...pool].sort((a, b) => a.price - b.price)
     }
   } else if (range) {
