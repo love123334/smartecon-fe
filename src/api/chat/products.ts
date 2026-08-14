@@ -377,10 +377,6 @@ export function applyPriceRange(products: Product[], range: PriceRange | null): 
   })
 }
 
-/** Bỏ token giá + động từ tìm kiếm + "loại/danh mục" để lấy từ khóa SP thuần */
-const SEARCH_VERB_PREFIX =
-  /^(?:tim\s+kiem|tim kiem|tim sp|tim san pham|search for|search|find product|find|lookup|kiem san pham|kiem sp|kiem|goi y tim|muon tim|can tim|xem tim)\s+/i
-
 export function extractProductSearchTerms(raw: string): string {
   const prepared = prepareCatalogSearchQuery(raw)
   if (!prepared) return ''

@@ -1,5 +1,5 @@
 import { normalizeChatTypos, normalizeText } from '@/api/chat/match'
-import { normalizeUserQuery, stripTrailingFillers } from '@/api/chat/chatLocale'
+import { normalizeUserQuery } from '@/api/chat/chatLocale'
 
 /** Chuẩn hóa câu khám phá SP — bỏ dấu, typo chat, slang TMĐT. */
 export function normalizeDiscoveryText(raw: string): string {

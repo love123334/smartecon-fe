@@ -135,7 +135,7 @@ describe('product discovery', () => {
     const reply = await resolveChatReply('Web bán gì vậy?', [], minimalCtx())
     expect(reply.content).toMatch(/SEDSP|danh mục|sản phẩm/i)
     expect(reply.content).not.toMatch(/web ban vay/i)
-    expect(reply.products?.some((p) => /váy|skirt/i.test(p.name))).toBe(false)
+    expect(reply.products?.some((p) => /váy|skirt/i.test(p.name)) ?? false).toBe(false)
   })
 
   it('answers "có tai nghe gì" with headphones, not unknown + random SSD', async () => {
