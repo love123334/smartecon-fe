@@ -1,36 +1,101 @@
 import { describe, expect, it } from 'vitest'
+import { quickPromptsForRole } from '@/api/chat/prompts'
 import {
   buildProcessingLocale,
+  isMetaShoppingQuestion,
   isShopCatalogQuestion,
+  prepareCatalogSearchQuery,
   stripTrailingFillers,
   toEnglishProcessingText,
 } from '@/api/chat/chatLocale'
 import { normalizeText } from '@/api/chat/match'
 import { detectIntent } from '@/api/chat/intents'
 import { extractProductSearchTerms } from '@/api/chat/products'
+import type { UserRole } from '@/types'
 
-describe('chatLocale', () => {
-  it('strips trailing vay filler without breaking ban gi', () => {
+const FILLER_SUFFIXES = [' vậy?', ' nhỉ?', ' thế?', ' hả?', ' không?', ' à?', ' nha?']
+
+describe('chatLocale fillers & homophones', () => {
+  it('strips trailing vay without breaking ban gi', () => {
     expect(stripTrailingFillers(normalizeText('Web bán gì vậy?'))).toBe('web ban gi')
+    expect(stripTrailingFillers(normalizeText('shop bán gì nhỉ'))).toBe('shop ban gi')
   })
 
-  it('maps web ban gi to English catalog question', () => {
-    expect(toEnglishProcessingText('Web bán gì vậy?')).toBe('what does the website sell')
-    expect(isShopCatalogQuestion(normalizeText('web ban gi'))).toBe(true)
+  it('maps web/shop ban gi variants to catalog EN gloss', () => {
+    for (const q of [
+      'Web bán gì vậy?',
+      'shop bán gì nhỉ',
+      'website bán gì',
+      'cửa hàng bán gì',
+      'SEDSP bán gì',
+    ]) {
+      expect(toEnglishProcessingText(q)).toBe('what does the website sell')
+      expect(isShopCatalogQuestion(normalizeText(q))).toBe(true)
+      expect(extractProductSearchTerms(q)).toBe('')
+    }
   })
 
-  it('detectIntent shop_overview for web ban gi vay', () => {
-    const hit = detectIntent('Web bán gì vậy?', 'guest')
-    expect(hit?.intent).toBe('shop_overview')
+  it('generic co X gi maps to English and detects intent', () => {
+    const cases: Array<{ q: string; en: RegExp; intent: string }> = [
+      { q: 'Có tai nghe gì?', en: /tai nghe|headphones/, intent: 'product_search' },
+      { q: 'Điện thoại có gì?', en: /phone|dien thoai/, intent: 'category_browse' },
+      { q: 'Có laptop gì vậy?', en: /laptop/, intent: 'product_search' },
+      { q: 'Máy tính bảng có gì?', en: /tablet|may tinh bang/, intent: 'category_browse' },
+      { q: 'Đồ gia dụng có gì?', en: /gia dung/, intent: 'category_browse' },
+    ]
+    for (const { q, en, intent } of cases) {
+      expect(toEnglishProcessingText(q)).toMatch(en)
+      expect(detectIntent(q, 'customer')?.intent).toBe(intent)
+      expect(extractProductSearchTerms(q)).not.toMatch(/\bvay\b/)
+    }
   })
 
-  it('does not extract vay as product search term', () => {
-    const terms = extractProductSearchTerms('Web bán gì vậy?')
-    expect(terms).toBe('')
+  it('budget and discovery queries map correctly', () => {
+    expect(toEnglishProcessingText('Có gì dưới 2 triệu không?')).toMatch(/budget/)
+    expect(detectIntent('Có gì dưới 2 triệu không?', 'customer')?.intent).toBe('product_budget')
+    expect(detectIntent('có gì hay', 'customer')?.intent).toBe('recommend')
+    expect(detectIntent('có món gì mới không', 'customer')?.intent).toBe('recommend')
   })
 
-  it('maps co tai nghe gi to English', () => {
-    const locale = buildProcessingLocale('Có tai nghe gì?')
-    expect(locale.english).toBe('what headphones are available')
+  it('cheapest and seller queries', () => {
+    expect(detectIntent('Sản phẩm nào rẻ nhất?', 'customer')?.intent).toBe('product_cheapest')
+    expect(detectIntent('Doanh thu tháng này thế nào?', 'seller')?.intent).toBe('seller_revenue')
+    expect(detectIntent('What if giảm giá 10% thì sao?', 'seller')?.intent).toBe('seller_whatif')
+  })
+
+  it('meta questions do not produce vay/skirt search terms', () => {
+    expect(isMetaShoppingQuestion('web ban gi vay')).toBe(true)
+    expect(prepareCatalogSearchQuery('Web bán gì vậy?')).toBe('')
+  })
+})
+
+describe('quick prompt coverage', () => {
+  const roles: UserRole[] = ['guest', 'customer', 'seller', 'manager', 'admin']
+
+  for (const role of roles) {
+    it(`detectIntent works for all ${role} quick prompts`, () => {
+      for (const p of quickPromptsForRole(role)) {
+        for (const suffix of ['', ...FILLER_SUFFIXES.slice(0, 2)]) {
+          const q = `${p.text.replace(/\?$/, '')}${suffix}`.trim()
+          const hit = detectIntent(q, role)
+          expect(hit?.intent, `no intent for [${role}] "${q}"`).toBeTruthy()
+          if (isShopCatalogQuestion(buildProcessingLocale(q).normalized)) {
+            expect(extractProductSearchTerms(q)).toBe('')
+          }
+        }
+      }
+    })
+  }
+})
+
+describe('browse topic switch regression', () => {
+  it('do gia dung is category browse not compare follow-up', () => {
+    expect(detectIntent('đồ gia dụng', 'customer')?.intent).toBe('category_browse')
+    expect(extractProductSearchTerms('đồ gia dụng')).not.toMatch(/vay/)
+  })
+
+  it('co gi vay alone is meta not skirt search', () => {
+    expect(isMetaShoppingQuestion('co gi vay')).toBe(true)
+    expect(prepareCatalogSearchQuery('có gì vậy')).toBe('')
   })
 })

@@ -1,5 +1,5 @@
 import { containsWholePhrase, fieldContainsToken, normalizeText, wordSimilarity } from '@/api/chat/match'
-import { isShopCatalogQuestion, stripTrailingFillers } from '@/api/chat/chatLocale'
+import { stripTrailingFillers, filterHomophoneSearchTokens, isMetaShoppingQuestion, prepareCatalogSearchQuery } from '@/api/chat/chatLocale'
 import { expandQueryTerms } from '@/api/chat/synonyms'
 import type { Product } from '@/types'
 
@@ -382,29 +382,23 @@ const SEARCH_VERB_PREFIX =
   /^(?:tim\s+kiem|tim kiem|tim sp|tim san pham|search for|search|find product|find|lookup|kiem san pham|kiem sp|kiem|goi y tim|muon tim|can tim|xem tim)\s+/i
 
 export function extractProductSearchTerms(raw: string): string {
-  let n = stripAffordableMarkers(stripPriceTokens(raw))
-  for (let i = 0; i < 4; i++) {
-    const stripped = normalizeText(n).replace(SEARCH_VERB_PREFIX, '').trim()
-    if (stripped === normalizeText(n)) break
-    n = stripped
-  }
-  n = stripTrailingFillers(normalizeText(n))
-  if (isShopCatalogQuestion(n)) return ''
-  n = n
-    .replace(/^(?:co|shop co)\s+/i, '')
-    .replace(/(?<!ban)\s+gi\s*$/, '')
-    .replace(/\b(loai|danh muc|category|phan loai|thuoc|thuoc loai|hang|san pham|sp|mon|do)\b/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-  return n
+  const prepared = prepareCatalogSearchQuery(raw)
+  if (!prepared) return ''
+  return prepared
 }
 
 export function findProductsByQuery(products: Product[], query: string): Product[] {
   const cleaned = extractProductSearchTerms(query)
+  if (!cleaned && isMetaShoppingQuestion(stripTrailingFillers(normalizeText(query)))) {
+    return []
+  }
   const normalizedQuery = normalizeText(cleaned || query)
-  const originalWords = normalizedQuery
-    .split(/\s+/)
-    .filter((w) => w.length >= 2 && !STOP_WORDS.has(w))
+  const originalWords = filterHomophoneSearchTokens(
+    normalizedQuery
+      .split(/\s+/)
+      .filter((w) => w.length >= 2 && !STOP_WORDS.has(w)),
+    query,
+  )
   const searchPhrases = deriveSearchPhrases(normalizedQuery, originalWords)
   const categoryIntent = detectSearchCategoryIntent(normalizedQuery, originalWords, searchPhrases)
   const expanded = expandQueryTerms(cleaned || query, { search: true })

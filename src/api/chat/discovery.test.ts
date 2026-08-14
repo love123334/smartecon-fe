@@ -131,6 +131,13 @@ describe('product discovery', () => {
     expect(detectIntent('có tai nghe gì', 'customer')?.intent).toBe('product_search')
   })
 
+  it('answers web ban gi with catalog overview not fashion skirts', async () => {
+    const reply = await resolveChatReply('Web bán gì vậy?', [], minimalCtx())
+    expect(reply.content).toMatch(/SEDSP|danh mục|sản phẩm/i)
+    expect(reply.content).not.toMatch(/web ban vay/i)
+    expect(reply.products?.some((p) => /váy|skirt/i.test(p.name))).toBe(false)
+  })
+
   it('answers "có tai nghe gì" with headphones, not unknown + random SSD', async () => {
     const headphone = {
       id: 'hp-1',

@@ -1,8 +1,9 @@
 import { normalizeChatTypos, normalizeText } from '@/api/chat/match'
+import { normalizeUserQuery, stripTrailingFillers } from '@/api/chat/chatLocale'
 
 /** Chuẩn hóa câu khám phá SP — bỏ dấu, typo chat, slang TMĐT. */
 export function normalizeDiscoveryText(raw: string): string {
-  let n = normalizeChatTypos(normalizeText(raw))
+  let n = normalizeChatTypos(normalizeUserQuery(raw))
   n = n
     .replace(/\bxiin\b|\bxijn\b|\bxij\b|\bxin xo\b|\bxin so\b/g, 'xin')
     .replace(/\bngonn\b|\bngonnn\b/g, 'ngon')
