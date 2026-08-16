@@ -1,7 +1,7 @@
 # SEDSP — Demo Script (Seed SQL Reference)
 
 > **Nguồn:** Flyway migrations `backend/src/main/resources/db/migration/`  
-> **Mục đích:** Tra cứu lệnh SQL đã dùng để seed dữ liệu demo. Hướng dẫn chạy demo ở **cuối tài liệu**.
+> **Mục đích:** Tra cứu lệnh SQL đã dùng để seed dữ liệu demo.
 
 ---
 
@@ -644,73 +644,3 @@ WHERE slug = 'samsung-galaxy-s24' AND deleted_at IS NULL;
 -- V31: Soft-delete duplicate English categories, đặt tên VI
 -- V48: Việt hóa attribute names; set Nhà cung cấp = store_name seller
 ```
-
----
-
-## Migration Index
-
-| File | Nội dung |
-|------|----------|
-| V2 | Roles |
-| V23 | Backfill inventory zero |
-| V24 | Users sedsp.vn + 4 SP dev |
-| V25 | +3 danh mục marketplace |
-| V27 | 27 users + 19 categories + 50 SP |
-| V28 | 150 ảnh + inventory + price_history |
-| V29 | Attributes, cart, 6 orders, wishlist |
-| V30 | Backfill ảnh thiếu |
-| V36, V39 | Lịch sử bán DSS |
-| V41 | ~70 review VI |
-| V43, V46 | DSS platform + owner sales |
-| V52 | Voucher SEDSP10, SHOP50K |
-| V56 | Việt hóa tên SP |
-
-> Export full DB: Admin API `GET /api/v1/admin/seed-data/download` → `sedsp_seed.sql`
-
----
-
-## Hướng dẫn demo
-
-### Tài khoản (ưu tiên Tier A — UI production)
-
-| Role | Email | Password |
-|------|-------|----------|
-| Khách hàng | `customer@sedsp.vn` | `12345678` |
-| Người bán | `seller@sedsp.vn` | `12345678` |
-| Quản lý | `manager@sedsp.vn` | `12345678` |
-| Admin | `admin@sedsp.vn` | `12345678` |
-
-**Mẹo:** Trang Đăng nhập → **Ctrl + click** nút Đăng nhập → chọn chip demo.
-
-### Tier B — Capstone catalog lớn
-
-| Role | Email mẫu | Password |
-|------|-----------|----------|
-| Seller | `seller01@secdsp.com` | `Seller@123` |
-| Customer | `customer01@gmail.com` | `Customer@123` |
-
-### Tier C — DSS analytics
-
-| Email | Password |
-|-------|----------|
-| `seller.dss.demo@example.com` | `password` |
-
-### Voucher checkout
-
-| Mã | Giảm | Điều kiện |
-|----|------|-----------|
-| `SEDSP10` | 10% (max 100k) | Đơn ≥ 200k |
-| `SHOP50K` | 50.000đ | Shop seller@sedsp.vn, đơn ≥ 300k |
-
-### Kịch bản nhanh (5 phút)
-
-1. Login `customer@sedsp.vn` → Cửa hàng → chat "Web bán gì vậy?"
-2. Thêm SP → Checkout → nhập `SEDSP10`
-3. Login `seller@sedsp.vn` → Quản lý SP / DSS / chat "doanh thu"
-4. Login `seller.dss.demo@example.com` / `password` → `/seller/dss/` demand & what-if
-
-### Lưu ý
-
-- Mock offline (`VITE_USE_MOCK=true`): password `123456` thay vì `12345678`
-- Flyway chạy tự động khi backend boot — **không** cần chạy tay SQL trên Railway
-- File SQL trong tài liệu này = tham chiếu từ migration; idempotent guards (`NOT EXISTS`) giữ an toàn khi re-run
