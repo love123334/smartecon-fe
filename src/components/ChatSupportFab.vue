@@ -11,6 +11,7 @@ import type { ChatLoginSession } from '@/api/chat/chatPersistence'
 import { isChatPage, roleChatPath } from '@/utils/roleAiNav'
 import { isShopBrowsePath } from '@/utils/roleNav'
 import ChatPanel from '@/components/ChatPanel.vue'
+import HammerSickleLoader from '@/components/HammerSickleLoader.vue'
 import { parseDraggedProduct, refreshChatProductStock } from '@/api/chat/productCards'
 import chatbotAvatar from '@/assets/chatavt.png'
 
@@ -491,7 +492,13 @@ function onFabDrop(e: DragEvent) {
           @attach-product="onAttach"
           @remove-attachment="onRemoveAttachment"
         />
-        <p v-else class="chat-popup__loading">Đang tải trợ lý…</p>
+        <HammerSickleLoader
+          v-else
+          class="chat-popup__loading"
+          size="sm"
+          label="Đang tải trợ lý"
+          :show-bang="false"
+        />
       </div>
     </div>
   </Teleport>
@@ -934,9 +941,11 @@ function onFabDrop(e: DragEvent) {
 
 .chat-popup__loading {
   margin: auto;
-  padding: 2rem;
-  color: var(--slate-500);
-  font-size: 0.875rem;
+  padding: 1.5rem 1rem;
+  min-height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .chat-popup :deep(.chat-panel) {
