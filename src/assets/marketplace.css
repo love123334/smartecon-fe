@@ -3040,7 +3040,7 @@
   position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0.4);
-  animation: flyout-fade-in 0.2s ease;
+  animation: flyout-fade-in var(--dur-ui) var(--ease-out);
 }
 
 .cart-flyout {
@@ -3053,7 +3053,8 @@
   display: flex;
   flex-direction: column;
   box-shadow: -8px 0 32px rgba(0, 0, 0, 0.15);
-  animation: flyout-slide-in 0.28s var(--ease-out);
+  transform-origin: right center;
+  animation: flyout-slide-in var(--dur-panel) var(--ease-drawer);
 }
 
 .cart-flyout__header {
@@ -3204,9 +3205,11 @@
 
 @keyframes flyout-slide-in {
   from {
+    opacity: 0;
     transform: translateX(100%);
   }
   to {
+    opacity: 1;
     transform: translateX(0);
   }
 }

@@ -202,6 +202,12 @@ Quick prompts: `prompts.ts` theo role.
 - Agent tool-calling framework
 - Chart embed trong bubble chat
 
+**Đang chuẩn bị (Phase 1 — FE):**
+
+- MCP bridge stub: `src/api/chat/mcp/` + `toolExecutor.ts`
+- Tool registry có `mcpName` map sang server MCP (bật qua `VITE_CHAT_MCP_ENABLED`)
+- Local executors giữ nguyên — MCP chỉ bổ sung / fallback khi cấu hình
+
 ---
 
 ## 11. Test
@@ -225,6 +231,14 @@ Chạy: `npm test` trong `smart-ecommerce-dssp-frontend`.
 src/api/chat/
   responder.ts          # Hybrid orchestrator
   engine.ts             # Local reply generator
+  toolExecutor.ts       # Local + MCP tool dispatch
+  tools/
+    types.ts            # ChatToolName, McpClient interfaces
+    registry.ts         # RBAC + mcpName mapping
+  mcp/
+    config.ts           # VITE_CHAT_MCP_* env
+    client.ts           # Stub → HttpMcpClient (Phase 2)
+    adapter.ts          # MCP ↔ ChatToolResult
   intents.ts / match.ts # Intent & patterns
   enrich.ts             # API enrichment
   verifiedFacts.ts      # Grounding cho LLM
@@ -253,9 +267,30 @@ src/stores/
 ## 13. Mở rộng sau demo (gợi ý)
 
 1. Streaming UI khi BE hỗ trợ SSE.
-2. Confidence band + “vì sao” trên panel DSS seller (độc lập timeout AI insight).
-3. Thêm scenario E2E (Playwright) cho 30 câu demo.
-4. Badge “verified facts count” cho debug nội bộ.
+2. **MCP chatbot (Phase 2):** `HttpMcpClient` gọi server MCP; tool catalog sync `listTools()`.
+3. Confidence band + “vì sao” trên panel DSS seller (độc lập timeout AI insight).
+4. Thêm scenario E2E (Playwright) cho 30 câu demo.
+5. Badge “verified facts count” cho debug nội bộ.
+
+### Env MCP (chuẩn bị)
+
+| Biến | Mặc định | Ý nghĩa |
+|------|----------|---------|
+| `VITE_CHAT_MCP_ENABLED` | `false` | Bật bridge MCP |
+| `VITE_CHAT_MCP_SERVER_URL` | — | URL MCP server |
+| `VITE_CHAT_MCP_FALLBACK_ONLY` | `true` | Chỉ MCP khi local tool fail |
+| `VITE_CHAT_MCP_TIMEOUT_MS` | `8000` | Timeout callTool |
+
+---
+
+## 14. Design motion (Emil skills)
+
+Project cài [emilkowalski/skills](https://github.com/emilkowalski/skills) (`skills-lock.json`, `.agents/skills/`):
+
+- `emil-design-eng` — UI polish, easing, press feedback
+- `improve-animations` / `review-animations` / `animate`
+
+Token motion: `--ease-out`, `--ease-drawer`, `--dur-press`, `--dur-ui`, `--dur-panel` trong `main.css`.
 
 ---
 

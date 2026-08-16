@@ -333,6 +333,7 @@ function onFabDrop(e: DragEvent) {
       </span>
     </button>
 
+    <Transition name="chat-popup">
     <div
       v-if="widget.open"
       class="chat-popup"
@@ -501,6 +502,7 @@ function onFabDrop(e: DragEvent) {
         />
       </div>
     </div>
+    </Transition>
   </Teleport>
 </template>
 
@@ -546,6 +548,11 @@ function onFabDrop(e: DragEvent) {
 
 .chat-fab:hover .chat-fab__avatar {
   transform: scale(1.04);
+}
+
+.chat-fab:active {
+  transform: scale(0.94);
+  transition-duration: var(--dur-press);
 }
 
 .chat-fab--hot {
@@ -595,6 +602,25 @@ function onFabDrop(e: DragEvent) {
   color: var(--color-text);
   line-height: 1.68;
   -webkit-font-smoothing: antialiased;
+  transform-origin: bottom right;
+}
+
+.chat-popup-enter-active {
+  transition:
+    opacity var(--dur-panel) var(--ease-drawer),
+    transform var(--dur-panel) var(--ease-drawer);
+}
+
+.chat-popup-leave-active {
+  transition:
+    opacity 180ms var(--ease-out),
+    transform 180ms var(--ease-out);
+}
+
+.chat-popup-enter-from,
+.chat-popup-leave-to {
+  opacity: 0;
+  transform: translateY(10px) scale(0.96);
 }
 
 .chat-popup__main {
@@ -613,7 +639,7 @@ function onFabDrop(e: DragEvent) {
   margin: 0;
   background: rgba(15, 23, 42, 0.38);
   cursor: pointer;
-  animation: chat-drawer-fade 0.2s ease;
+  animation: chat-drawer-fade var(--dur-ui) var(--ease-out);
 }
 
 .chat-popup__drawer {
@@ -629,7 +655,8 @@ function onFabDrop(e: DragEvent) {
   border-right: 1px solid #e2e8f0;
   box-shadow: 8px 0 24px rgba(15, 23, 42, 0.12);
   transform: translateX(-100%);
-  transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+  transform-origin: left center;
+  transition: transform var(--dur-panel) var(--ease-drawer);
   pointer-events: none;
 }
 
