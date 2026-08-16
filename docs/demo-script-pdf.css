@@ -1,0 +1,70 @@
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: 10pt;
+  line-height: 1.35;
+  color: #14275c;
+}
+
+h1 {
+  font-size: 16pt;
+  border-bottom: 2px solid #2e7df6;
+  padding-bottom: 6px;
+  margin-top: 0;
+}
+
+h2 {
+  font-size: 13pt;
+  color: #1f63d4;
+  page-break-before: always;
+  margin-top: 24px;
+}
+
+h2:first-of-type {
+  page-break-before: avoid;
+}
+
+h3 {
+  font-size: 11pt;
+  margin-top: 16px;
+}
+
+pre, code {
+  font-family: Consolas, 'Courier New', monospace;
+  font-size: 7.5pt;
+  line-height: 1.25;
+}
+
+pre {
+  background: #f3f5f8;
+  border: 1px solid #e4e9f2;
+  border-radius: 4px;
+  padding: 10px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  page-break-inside: avoid;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 9pt;
+  margin: 12px 0;
+}
+
+th, td {
+  border: 1px solid #e4e9f2;
+  padding: 6px 8px;
+  text-align: left;
+}
+
+th {
+  background: #eaf2ff;
+}
+
+blockquote {
+  border-left: 3px solid #2e7df6;
+  margin: 8px 0;
+  padding: 4px 12px;
+  color: #5b6c93;
+  font-size: 9pt;
+}

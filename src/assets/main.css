@@ -269,12 +269,12 @@ a:hover {
 .btn-primary {
   background: var(--primary-600);
   color: #fff;
-  box-shadow: 0 4px 14px rgba(56, 203, 137, 0.35);
+  box-shadow: 0 4px 14px rgba(46, 125, 246, 0.35);
 }
 
 .btn-primary:hover:not(:disabled) {
   background: var(--primary-700);
-  box-shadow: 0 10px 24px rgba(56, 203, 137, 0.4);
+  box-shadow: 0 10px 24px rgba(46, 125, 246, 0.4);
 }
 
 .btn-secondary {

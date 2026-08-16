@@ -18,6 +18,7 @@ import ProductCard from '@/components/ProductCard.vue'
 import SellerShopTag from '@/components/SellerShopTag.vue'
 import NewsletterBanner from '@/components/NewsletterBanner.vue'
 import StarRating from '@/components/StarRating.vue'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import { handleProductImageError, repairProductImageUrl } from '@/utils/productImage'
 
 const route = useRoute()
@@ -244,7 +245,7 @@ async function addRelated(id: string) {
 
 
 <template>
-  <p v-if="loading" class="empty container">Đang tải sản phẩm…</p>
+  <LoadingSpinner v-if="loading" page size="lg" label="Đang tải sản phẩm" />
   <div v-else-if="product" class="elegant-page">
     <div class="elegant-page__inner">
       <nav class="elegant-crumb" aria-label="Breadcrumb">

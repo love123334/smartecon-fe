@@ -5,6 +5,7 @@ import type { ChartPoint } from '@/types'
 import type { SalesPerformance, SellerDashboard } from '@/api/real/seller'
 import { useAuthStore } from '@/stores/auth'
 import LineChart from '@/components/LineChart.vue'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import { backendStatusLabel } from '@/utils/backendOrderStatus'
 import { dedupeRecentSellerOrders } from '@/utils/orderAnalytics'
@@ -53,7 +54,7 @@ onMounted(async () => {
       lead="Doanh thu đã giao, đơn và hiệu suất shop — một khung nhìn gọn."
     />
     <p v-if="error" class="form-error">{{ error }}</p>
-    <p v-if="loading" class="muted">Đang tải…</p>
+    <LoadingSpinner v-if="loading" label="Đang tải" />
 
     <section v-if="performance || dashboard" class="sales-hero" aria-label="Chỉ số chính">
       <div class="sales-hero__main">

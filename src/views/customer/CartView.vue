@@ -7,6 +7,7 @@ import { useNoticeStore } from '@/stores/notice'
 import QuantityStepper from '@/components/QuantityStepper.vue'
 import CheckoutStepper from '@/components/CheckoutStepper.vue'
 import EmptyState from '@/components/EmptyState.vue'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import NewsletterBanner from '@/components/NewsletterBanner.vue'
 
 const PENDING_PAY_KEY = 'sedsp_pending_vnpay_order'
@@ -185,7 +186,7 @@ function applyCoupon() {
         </div>
       </div>
 
-      <p v-if="cart.loading" class="empty">Đang tải...</p>
+      <LoadingSpinner v-if="cart.loading" page label="Đang tải giỏ hàng" />
       <EmptyState
         v-else-if="!cart.lines.length"
         icon="🛒"

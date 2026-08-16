@@ -12,7 +12,7 @@ import { canShopAsBuyer } from '@/utils/roleNav'
 import ShopHero from '@/components/ShopHero.vue'
 import ShopSidebar from '@/components/ShopSidebar.vue'
 import ProductCard from '@/components/ProductCard.vue'
-import ProductSkeletonGrid from '@/components/ProductSkeletonGrid.vue'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import ShopPagination from '@/components/ShopPagination.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import NewsletterBanner from '@/components/NewsletterBanner.vue'
@@ -195,7 +195,7 @@ async function onPageChange(next: number) {
           </label>
         </div>
 
-        <ProductSkeletonGrid v-if="loading" :count="8" />
+        <LoadingSpinner v-if="loading" page label="Đang tải sản phẩm" />
         <EmptyState
           v-else-if="!filtered.length"
           title="Không có kết quả"

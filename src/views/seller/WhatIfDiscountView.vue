@@ -5,6 +5,7 @@ import { dssApi } from '@/api/services'
 import type { SellerWhatIfApi } from '@/api/real/dss'
 import { useAuthStore } from '@/stores/auth'
 import { loadSellerCatalogForDss } from '@/utils/sellerCatalog'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import {
   PRICE_CHANGE_MAX,
   PRICE_CHANGE_MIN,
@@ -306,7 +307,7 @@ function retrySubmit() {
     <section class="dss-card" aria-labelledby="whatif-config-title">
       <h2 id="whatif-config-title" class="dss-card__title">Tham số mô phỏng</h2>
 
-      <p v-if="productsLoading" class="dss-hint" role="status">Đang tải sản phẩm…</p>
+      <LoadingSpinner v-if="productsLoading" size="sm" label="Đang tải sản phẩm" />
       <p v-else-if="productsError" class="dss-alert dss-alert--warn" role="alert">{{ productsError }}</p>
 
       <form class="dss-form" @submit.prevent="onSubmit">

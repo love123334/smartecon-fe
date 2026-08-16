@@ -15,6 +15,7 @@ import NewsletterBanner from '@/components/NewsletterBanner.vue'
 import OrderTrackStepper from '@/components/OrderTrackStepper.vue'
 import SellerShopTag from '@/components/SellerShopTag.vue'
 import OrderProductReview from '@/components/OrderProductReview.vue'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import { getOrderOverlay } from '@/utils/orderStatusOverlay'
 
 const route = useRoute()
@@ -268,7 +269,7 @@ async function onReviewSubmitted(productId: string) {
 </script>
 
 <template>
-  <div v-if="loading" class="empty container">Đang tải đơn hàng…</div>
+  <LoadingSpinner v-if="loading" page label="Đang tải đơn hàng" />
   <div v-else-if="order" class="elegant-page">
     <div class="elegant-page__inner">
       <template v-if="showCheckoutSuccess">

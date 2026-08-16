@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { productApi, formatVnd } from '@/api/services'
 import type { Product } from '@/types'
 import { useAuthStore } from '@/stores/auth'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 
 const auth = useAuthStore()
 const products = ref<Product[]>([])
@@ -45,7 +46,7 @@ function stockLevel(stock: number) {
   <div>
     <h1 class="page-title">Tồn kho</h1>
 
-    <p v-if="loading" class="muted" role="status">Đang tải tồn kho…</p>
+    <LoadingSpinner v-if="loading" label="Đang tải tồn kho" />
 
     <div v-else-if="error" class="card" role="alert" style="border-color: #fecaca; background: #fef2f2">
       <p style="margin: 0 0 0.75rem; color: #b91c1c; font-weight: 600">{{ error }}</p>

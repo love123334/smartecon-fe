@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { dssApi } from '@/api/services'
 import type { ChartPoint } from '@/types'
 import BarChart from '@/components/BarChart.vue'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import PageHeader from '@/components/PageHeader.vue'
 
 const categoryData = ref<ChartPoint[]>([])
@@ -30,7 +31,7 @@ onMounted(async () => {
       <h2>Doanh thu theo danh mục</h2>
       <BarChart v-if="categoryData.length" :data="categoryData" label="Doanh thu" />
       <p v-else-if="!loading" class="muted">Chưa có dữ liệu phân tích.</p>
-      <p v-else class="muted">Đang tải…</p>
+      <LoadingSpinner v-else size="sm" label="Đang tải" />
     </div>
   </div>
 </template>

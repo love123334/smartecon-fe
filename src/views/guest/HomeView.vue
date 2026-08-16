@@ -11,7 +11,7 @@ import VoucherPromoBanner from '@/components/VoucherPromoBanner.vue'
 import HomeCategories from '@/components/home/HomeCategories.vue'
 import HomeFeatures from '@/components/home/HomeFeatures.vue'
 import ProductCard from '@/components/ProductCard.vue'
-import ProductSkeletonGrid from '@/components/ProductSkeletonGrid.vue'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import NewsletterBanner from '@/components/NewsletterBanner.vue'
 import { useChatWidgetStore } from '@/stores/chatWidget'
 
@@ -116,7 +116,7 @@ async function addToCart(id: string) {
           </div>
         </div>
 
-        <ProductSkeletonGrid v-if="loading" :count="4" />
+        <LoadingSpinner v-if="loading" page label="Đang tải sản phẩm" />
         <div v-else class="home-bestsellers__grid grid-stagger">
           <ProductCard
             v-for="p in bestSellers"
@@ -130,7 +130,7 @@ async function addToCart(id: string) {
         <div class="home-bestsellers__cta">
           <button
             type="button"
-            class="btn-elegant-primary home-explore-btn"
+            class="btn-elegant-primary home-explore-btn btn-interactive"
             @click="router.push({ name: 'search' })"
           >
             Khám phá toàn bộ cửa hàng

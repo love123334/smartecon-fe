@@ -5,6 +5,7 @@ import { storeToRefs } from 'pinia'
 import { formatVnd } from '@/api/services'
 import { useCartStore } from '@/stores/cart'
 import QuantityStepper from '@/components/QuantityStepper.vue'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 
 const cart = useCartStore()
 const { drawerOpen, lines, loading } = storeToRefs(cart)
@@ -63,7 +64,7 @@ watch(drawerOpen, (open) => {
           </button>
         </header>
 
-        <div v-if="loading && !lines.length" class="cart-flyout__empty">Đang tải...</div>
+        <LoadingSpinner v-if="loading && !lines.length" size="sm" label="Đang tải giỏ hàng" />
         <div v-else-if="!lines.length" class="cart-flyout__empty">
           <p>Giỏ hàng trống</p>
           <button type="button" class="btn-elegant-outline" @click="close(); router.push('/')">

@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
 import PageHeader from '@/components/PageHeader.vue'
 import ProductCard from '@/components/ProductCard.vue'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import AiShortcutBar from '@/components/AiShortcutBar.vue'
 
 const auth = useAuthStore()
@@ -68,7 +69,7 @@ async function addToCart(productId: string) {
       ]"
     />
 
-    <p v-if="loading" class="muted">Đang phân tích sở thích của bạn...</p>
+    <LoadingSpinner v-if="loading" page label="Đang phân tích sở thích" />
 
     <div v-else-if="pairs.length" class="rec-grid">
       <article v-for="{ rec, product } in pairs" :key="product.id" class="rec-card card">

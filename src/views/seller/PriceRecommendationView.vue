@@ -5,6 +5,7 @@ import { dssApi } from '@/api/services'
 import type { PricePredictionApi } from '@/api/real/dss'
 import { useAuthStore } from '@/stores/auth'
 import { loadSellerCatalogForDss } from '@/utils/sellerCatalog'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import {
   defaultPriceRange,
   formatElasticity,
@@ -231,7 +232,7 @@ async function onCustomPriceSubmit() {
     <section class="dss-card" aria-labelledby="price-config-title">
       <h2 id="price-config-title" class="dss-card__title">Cấu hình khuyến nghị</h2>
 
-      <p v-if="productsLoading" class="dss-hint" role="status">Đang tải sản phẩm…</p>
+      <LoadingSpinner v-if="productsLoading" size="sm" label="Đang tải sản phẩm" />
       <p v-else-if="productsError" class="dss-alert dss-alert--warn" role="alert">{{ productsError }}</p>
 
       <form class="dss-form" @submit.prevent="onSubmit">

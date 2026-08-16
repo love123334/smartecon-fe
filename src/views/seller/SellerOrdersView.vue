@@ -9,6 +9,7 @@ import {
   nextBackendStatuses,
 } from '@/utils/backendOrderStatus'
 import OrderTrackStepper from '@/components/OrderTrackStepper.vue'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import PageHeader from '@/components/PageHeader.vue'
 
 const orders = ref<Order[]>([])
@@ -121,7 +122,7 @@ async function applyStatus(order: Order) {
     />
 
     <p v-if="error" class="form-error">{{ error }}</p>
-    <p v-if="loading" class="muted">Đang tải đơn hàng…</p>
+    <LoadingSpinner v-if="loading" label="Đang tải đơn hàng" />
     <p v-else-if="!orders.length" class="seller-orders-empty">Chưa có đơn hàng nào.</p>
 
     <template v-else>

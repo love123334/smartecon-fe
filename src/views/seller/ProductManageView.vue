@@ -408,7 +408,7 @@ async function remove(id: string) {
           </label>
         </div>
 
-        <LoadingSpinner v-if="loading" label="Đang tải sản phẩm..." />
+        <LoadingSpinner v-if="loading" page label="Đang tải sản phẩm" />
         <EmptyState
           v-else-if="!filtered.length"
           icon="📦"

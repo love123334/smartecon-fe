@@ -5,6 +5,7 @@ import { dedupeOrdersById, monthlyRevenueChart, salesEligibleOrders, totalRevenu
 import type { ChartPoint, Order } from '@/types'
 import PageHeader from '@/components/PageHeader.vue'
 import LineChart from '@/components/LineChart.vue'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import { orderStatusLabel } from '@/utils/orderStatus'
 
 const sales = ref<ChartPoint[]>([])
@@ -65,7 +66,7 @@ onMounted(async () => {
       <h2 class="card-title">Xu hướng doanh thu</h2>
       <LineChart v-if="sales.length" :data="sales" label="Doanh thu" />
       <p v-else-if="!loading" class="muted">Chưa có dữ liệu biểu đồ.</p>
-      <p v-else class="muted">Đang tải…</p>
+      <LoadingSpinner v-else size="sm" label="Đang tải" />
     </div>
 
     <div v-if="recentOrders.length" class="card card--flat" style="margin-top: 1.25rem">

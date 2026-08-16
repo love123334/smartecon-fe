@@ -6,6 +6,7 @@ import type { Order } from '@/types'
 import { isMobileBrowser, momoTransferDeeplink, momoTransferQrImageUrl, openMomoTransfer } from '@/utils/momoTransfer'
 import { resolvePublicAssetUrl } from '@/utils/productImage'
 import CheckoutStepper from '@/components/CheckoutStepper.vue'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import NewsletterBanner from '@/components/NewsletterBanner.vue'
 
 const route = useRoute()
@@ -154,7 +155,7 @@ onUnmounted(() => {
       <h1 class="elegant-page-title elegant-page-title--center">Chuyển MoMo tới shop</h1>
       <CheckoutStepper :step="3" />
 
-      <p v-if="loading" class="empty">Đang tải…</p>
+      <LoadingSpinner v-if="loading" page label="Đang tải" />
       <p v-else-if="error" class="elegant-alert elegant-alert--error">{{ error }}</p>
 
       <div v-else-if="order" class="momo-pay">

@@ -9,6 +9,7 @@ import { dssApi } from '@/api/services'
 import type { DemandPredictionApi } from '@/api/real/dss'
 import { useAuthStore } from '@/stores/auth'
 import { loadSellerCatalogForDss } from '@/utils/sellerCatalog'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import {
   FORECAST_PERIOD_OPTIONS,
   HISTORICAL_DAYS_OPTIONS,
@@ -258,7 +259,7 @@ function resetResult() {
       <section class="dss-card demand-config" aria-labelledby="demand-config-title">
         <h2 id="demand-config-title" class="dss-card__title demand-config__title">Cấu hình dự báo</h2>
 
-        <p v-if="productsLoading" class="dss-hint" role="status">Đang tải sản phẩm…</p>
+        <LoadingSpinner v-if="productsLoading" size="sm" label="Đang tải sản phẩm" />
         <p v-else-if="productsError" class="dss-alert dss-alert--warn" role="alert">{{ productsError }}</p>
 
         <form class="dss-form" @submit.prevent="onSubmit">
