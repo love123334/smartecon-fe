@@ -1,0 +1,93 @@
+/**
+ * Shared surface motion — popovers, drawers, modals (Emil design-eng).
+ * Prefer CSS transitions over keyframes for interruptible UI.
+ */
+
+/* ——— Cart drawer (interruptible) ——— */
+.cart-flyout-enter-active,
+.cart-flyout-leave-active {
+  transition: opacity var(--dur-ui) var(--ease-out);
+}
+
+.cart-flyout-enter-active .cart-flyout,
+.cart-flyout-leave-active .cart-flyout {
+  transition:
+    transform var(--dur-panel) var(--ease-drawer),
+    opacity var(--dur-ui) var(--ease-out);
+}
+
+.cart-flyout-enter-from,
+.cart-flyout-leave-to {
+  opacity: 0;
+}
+
+.cart-flyout-enter-from .cart-flyout,
+.cart-flyout-leave-to .cart-flyout {
+  opacity: 0.96;
+  transform: translateX(100%);
+}
+
+/* ——— Header search popover (origin: top-right) ——— */
+.search-pop-enter-active,
+.search-pop-leave-active {
+  transition:
+    opacity var(--dur-ui) var(--ease-out),
+    transform var(--dur-ui) var(--ease-out);
+}
+
+.search-pop-enter-from,
+.search-pop-leave-to {
+  opacity: 0;
+  transform: translateY(-6px) scale(0.97);
+}
+
+.header-search__panel {
+  transform-origin: top right;
+}
+
+/* ——— Account menu popover ——— */
+.account-menu__panel {
+  transform-origin: top right;
+}
+
+.account-pop-enter-active,
+.account-pop-leave-active {
+  transition:
+    opacity var(--dur-ui) var(--ease-out),
+    transform var(--dur-ui) var(--ease-out);
+}
+
+.account-pop-enter-from,
+.account-pop-leave-to {
+  opacity: 0;
+  transform: translateY(-6px) scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cart-flyout-enter-active,
+  .cart-flyout-leave-active,
+  .cart-flyout-enter-active .cart-flyout,
+  .cart-flyout-leave-active .cart-flyout,
+  .search-pop-enter-active,
+  .search-pop-leave-active,
+  .account-pop-enter-active,
+  .account-pop-leave-active {
+    transition-duration: 0.01ms !important;
+  }
+
+  .cart-flyout-enter-from .cart-flyout,
+  .cart-flyout-leave-to .cart-flyout,
+  .search-pop-enter-from,
+  .search-pop-leave-to,
+  .account-pop-enter-from,
+  .account-pop-leave-to {
+    transform: none;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .product-card--mkt:hover,
+  .product-card--elegant:hover {
+    transform: translateY(-1px);
+  }
+}

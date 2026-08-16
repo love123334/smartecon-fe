@@ -44,19 +44,20 @@ watch(drawerOpen, (open) => {
 
 <template>
   <Teleport to="body">
-    <div v-if="drawerOpen" class="cart-flyout-root" role="presentation">
-      <div
-        class="cart-flyout-backdrop"
-        aria-hidden="true"
-        @click="close"
-      />
+    <Transition name="cart-flyout">
+      <div v-if="drawerOpen" class="cart-flyout-root" role="presentation">
+        <div
+          class="cart-flyout-backdrop"
+          aria-hidden="true"
+          @click="close"
+        />
 
-      <aside
-        class="cart-flyout"
-        role="dialog"
-        aria-label="Giỏ hàng"
-        aria-modal="true"
-      >
+        <aside
+          class="cart-flyout"
+          role="dialog"
+          aria-label="Giỏ hàng"
+          aria-modal="true"
+        >
         <header class="cart-flyout__header">
           <h2 class="cart-flyout__title">Giỏ hàng</h2>
           <button type="button" class="cart-flyout__close" aria-label="Đóng" @click="close">
@@ -125,5 +126,6 @@ watch(drawerOpen, (open) => {
         </template>
       </aside>
     </div>
+    </Transition>
   </Teleport>
 </template>

@@ -450,10 +450,12 @@
   border: none;
   box-shadow: none;
   background: transparent;
+  transition:
+    transform var(--dur-ui) var(--ease-out),
+    box-shadow var(--dur-ui) var(--ease-out);
 }
 
 .product-card--mkt:hover {
-  transform: translateY(-2px);
   box-shadow: none;
   border-color: transparent;
 }
@@ -1642,11 +1644,11 @@
   width: 78%;
   height: 78%;
   object-fit: contain;
-  transition: transform var(--transition-slow, 0.48s cubic-bezier(0.22, 1, 0.36, 1));
+  transition: opacity var(--dur-ui) var(--ease-out);
 }
 
 .product-card--elegant:hover .product-card__media img {
-  transform: scale(1.02);
+  opacity: 0.94;
 }
 
 .product-card__badges {
@@ -3040,7 +3042,6 @@
   position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0.4);
-  animation: flyout-fade-in var(--dur-ui) var(--ease-out);
 }
 
 .cart-flyout {
@@ -3054,7 +3055,7 @@
   flex-direction: column;
   box-shadow: -8px 0 32px rgba(0, 0, 0, 0.15);
   transform-origin: right center;
-  animation: flyout-slide-in var(--dur-panel) var(--ease-drawer);
+  will-change: transform, opacity;
 }
 
 .cart-flyout__header {
@@ -3192,26 +3193,6 @@
   text-underline-offset: 3px;
   cursor: pointer;
   text-align: center;
-}
-
-@keyframes flyout-fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes flyout-slide-in {
-  from {
-    opacity: 0;
-    transform: translateX(100%);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
 }
 
 /* ——— Footer elegant ——— */

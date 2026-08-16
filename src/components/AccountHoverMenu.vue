@@ -189,6 +189,7 @@ async function logout() {
   border: 1px solid var(--color-border);
   border-radius: 12px;
   box-shadow: 0 12px 40px rgba(15, 23, 42, 0.12);
+  transform-origin: top right;
 }
 
 .account-menu__head {
@@ -279,16 +280,5 @@ async function logout() {
 .account-menu__logout:hover {
   background: #fef2f2;
   color: #b91c1c;
-}
-
-.account-pop-enter-active,
-.account-pop-leave-active {
-  transition: opacity 0.15s ease, transform 0.15s ease;
-}
-
-.account-pop-enter-from,
-.account-pop-leave-to {
-  opacity: 0;
-  transform: translateY(-4px);
 }
 </style>

@@ -541,13 +541,15 @@ function onFabDrop(e: DragEvent) {
     transform var(--transition-slow, 0.48s cubic-bezier(0.22, 1, 0.36, 1));
 }
 
-.chat-fab:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 14px 32px rgba(37, 99, 235, 0.42);
-}
+@media (hover: hover) and (pointer: fine) {
+  .chat-fab:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 32px rgba(37, 99, 235, 0.42);
+  }
 
-.chat-fab:hover .chat-fab__avatar {
-  transform: scale(1.04);
+  .chat-fab:hover .chat-fab__avatar {
+    transform: scale(1.02);
+  }
 }
 
 .chat-fab:active {

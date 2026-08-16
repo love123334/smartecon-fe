@@ -110,19 +110,29 @@ const { open, title, message, kind } = storeToRefs(notice)
 
 .center-notice-enter-active,
 .center-notice-leave-active {
-  transition: opacity 0.18s ease;
+  transition: opacity var(--dur-ui) var(--ease-out);
 }
+
 .center-notice-enter-active .center-notice__box,
 .center-notice-leave-active .center-notice__box {
-  transition: transform 0.18s ease, opacity 0.18s ease;
+  transition:
+    transform var(--dur-ui) var(--ease-out),
+    opacity var(--dur-ui) var(--ease-out);
 }
+
 .center-notice-enter-from,
 .center-notice-leave-to {
   opacity: 0;
 }
+
 .center-notice-enter-from .center-notice__box,
 .center-notice-leave-to .center-notice__box {
   opacity: 0;
-  transform: translateY(8px) scale(0.96);
+  transform: translateY(8px) scale(0.97);
+}
+
+.center-notice__ok:active {
+  transform: scale(0.97);
+  transition: transform var(--dur-press) var(--ease-out);
 }
 </style>

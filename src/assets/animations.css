@@ -84,7 +84,7 @@ img.img-fade[complete] {
 
 /* ——— Stagger grid ——— */
 .grid-stagger > * {
-  animation: rise-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation: rise-in var(--dur-panel) var(--ease-out) backwards;
 }
 
 .grid-stagger > *:nth-child(1) { animation-delay: 0.03s; }
@@ -376,11 +376,11 @@ img.img-fade[complete] {
 }
 
 .card--glow:hover {
-  transform: translateY(-2px);
+  transform: translateY(-1px);
   border-color: var(--primary-200);
   box-shadow:
     var(--shadow-md),
-    0 0 0 1px rgba(56, 203, 137, 0.08);
+    0 0 0 1px rgba(46, 125, 246, 0.08);
 }
 
 .product-card--glow .product-card__media::after {
@@ -480,7 +480,7 @@ img.img-fade[complete] {
 }
 
 .stat-card--hover:hover {
-  transform: translateY(-2px);
+  transform: translateY(-1px);
   box-shadow: var(--shadow-md);
   border-color: var(--secondary-200);
 }
@@ -549,7 +549,7 @@ img.img-fade[complete] {
 
 /* ——— Nav ——— */
 .nav--dropdown {
-  animation: nav-drop 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: nav-drop var(--dur-ui) var(--ease-out);
 }
 
 @keyframes nav-drop {
@@ -709,7 +709,7 @@ img.img-fade[complete] {
 }
 
 .reveal-up {
-  animation: reveal-up 0.65s var(--ease-out) backwards;
+  animation: reveal-up var(--dur-panel) var(--ease-out) backwards;
   animation-delay: var(--delay, 0s);
 }
 

@@ -161,13 +161,14 @@ onUnmounted(() => {
       </svg>
     </button>
 
-    <div
-      v-if="open"
-      id="header-search-panel"
-      class="header-search__panel"
-      role="dialog"
-      aria-label="Tìm kiếm sản phẩm"
-    >
+    <Transition name="search-pop">
+      <div
+        v-if="open"
+        id="header-search-panel"
+        class="header-search__panel"
+        role="dialog"
+        aria-label="Tìm kiếm sản phẩm"
+      >
       <form class="header-search__form" role="search" @submit.prevent="submit">
         <label class="sr-only" for="header-search-input">Từ khóa</label>
         <input
@@ -255,6 +256,7 @@ onUnmounted(() => {
         </div>
       </template>
     </div>
+    </Transition>
   </div>
 </template>
 
