@@ -13,9 +13,7 @@ import { isShopBrowsePath } from '@/utils/roleNav'
 import ChatPanel from '@/components/ChatPanel.vue'
 import HammerSickleLoader from '@/components/HammerSickleLoader.vue'
 import { parseDraggedProduct, refreshChatProductStock } from '@/api/chat/productCards'
-import chatbotAvatar from '@/assets/chatavt.png'
-
-const CHATBOT_AVATAR = chatbotAvatar
+import ChatBotIcon from '@/components/icons/ChatBotIcon.vue'
 
 const auth = useAuthStore()
 const chatSession = useChatSessionStore()
@@ -320,14 +318,9 @@ function onFabDrop(e: DragEvent) {
       @dragleave="widget.dragOver = false"
       @drop="onFabDrop"
     >
-      <img
-        class="chat-fab__avatar"
-        :src="CHATBOT_AVATAR"
-        alt=""
-        width="64"
-        height="64"
-        draggable="false"
-      />
+      <span class="chat-fab__icon" aria-hidden="true">
+        <ChatBotIcon :size="34" />
+      </span>
       <span v-if="widget.unreadBadge > 0" class="chat-fab__badge" aria-label="Thông báo đơn hàng mới">
         {{ widget.unreadBadge > 9 ? '9+' : widget.unreadBadge }}
       </span>
@@ -422,13 +415,9 @@ function onFabDrop(e: DragEvent) {
             </svg>
           </button>
           <div class="chat-popup__head-main">
-            <img
-              class="chat-popup__avatar"
-              :src="CHATBOT_AVATAR"
-              alt=""
-              width="40"
-              height="40"
-            />
+            <span class="chat-popup__avatar" aria-hidden="true">
+              <ChatBotIcon :size="28" />
+            </span>
             <div class="chat-popup__head-text">
               <h2 class="chat-popup__title">{{ title }}</h2>
               <p class="chat-popup__session-title" :title="chatSession.sessionTitle">
@@ -481,7 +470,6 @@ function onFabDrop(e: DragEvent) {
         <ChatPanel
           v-if="ready || messages.length"
           compact
-          :avatar-src="CHATBOT_AVATAR"
           :messages="messages"
           :quick-prompts="quickPrompts"
           :loading="loading"
@@ -528,12 +516,15 @@ function onFabDrop(e: DragEvent) {
     box-shadow var(--transition-slow, 0.48s cubic-bezier(0.22, 1, 0.36, 1));
 }
 
-.chat-fab__avatar {
+.chat-fab__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  object-fit: cover;
-  display: block;
+  color: #fff;
+  background: linear-gradient(145deg, #2563eb 0%, #1d4ed8 100%);
   border: 3px solid #fff;
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.45);
   transition:
@@ -547,7 +538,7 @@ function onFabDrop(e: DragEvent) {
     box-shadow: 0 14px 32px rgba(37, 99, 235, 0.42);
   }
 
-  .chat-fab:hover .chat-fab__avatar {
+  .chat-fab:hover .chat-fab__icon {
     transform: scale(1.02);
   }
 }
@@ -565,7 +556,7 @@ function onFabDrop(e: DragEvent) {
     box-shadow var(--transition-slow, 0.48s cubic-bezier(0.22, 1, 0.36, 1));
 }
 
-.chat-fab--hot .chat-fab__avatar {
+.chat-fab--hot .chat-fab__icon {
   box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.75);
 }
 
@@ -768,10 +759,14 @@ function onFabDrop(e: DragEvent) {
 }
 
 .chat-popup__avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 2.35rem;
   height: 2.35rem;
   border-radius: 50%;
-  object-fit: cover;
+  color: #2563eb;
+  background: linear-gradient(145deg, #eff6ff 0%, #dbeafe 100%);
   flex-shrink: 0;
   border: 2px solid #fff;
   box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.35);

@@ -7,7 +7,7 @@ import { parseDraggedProduct } from '@/api/chat/productCards'
 import ChatProductMiniCard from '@/components/ChatProductMiniCard.vue'
 import ChatReviewSummaryCard from '@/components/ChatReviewSummaryCard.vue'
 import ChatSellerMiniCard from '@/components/ChatSellerMiniCard.vue'
-import defaultChatAvatar from '@/assets/chatavt.png'
+import ChatBotIcon from '@/components/icons/ChatBotIcon.vue'
 
 const props = defineProps<{
   messages: ChatMessage[]
@@ -17,7 +17,6 @@ const props = defineProps<{
   loading?: boolean
   attachments?: ChatProductRef[]
   compact?: boolean
-  avatarSrc?: string
 }>()
 
 const emit = defineEmits<{
@@ -30,7 +29,6 @@ const emit = defineEmits<{
 const input = ref('')
 const listEl = ref<HTMLElement | null>(null)
 const dropActive = ref(false)
-const effectiveAvatar = computed(() => props.avatarSrc ?? defaultChatAvatar)
 const isDev = import.meta.env.DEV
 
 const lastAssistantId = computed(() => {
@@ -117,13 +115,9 @@ defineExpose({ scrollToEnd: scrollEnd })
 
     <div ref="listEl" class="chat-messages" :class="{ 'chat-messages--compact': compact }">
       <div v-if="!messages.length" class="chat-empty">
-        <img
-          class="chat-empty__avatar"
-          :src="effectiveAvatar"
-          alt=""
-          width="48"
-          height="48"
-        />
+        <span class="chat-empty__avatar" aria-hidden="true">
+          <ChatBotIcon :size="48" />
+        </span>
         <p class="empty empty--dashed">
           {{ emptyText ?? 'Xin chào! Hãy đặt câu hỏi.' }}
         </p>
@@ -137,14 +131,9 @@ defineExpose({ scrollToEnd: scrollEnd })
             m.role === 'user' ? 'chat-row--user' : 'chat-row--assistant',
           ]"
         >
-          <img
-            v-if="m.role !== 'user'"
-            class="chat-row__avatar"
-            :src="effectiveAvatar"
-            alt="Trợ lý SmarTEcon"
-            width="36"
-            height="36"
-          />
+          <span v-if="m.role !== 'user'" class="chat-row__avatar" aria-hidden="true">
+            <ChatBotIcon :size="36" />
+          </span>
           <div
             :class="[
               'chat-bubble',
@@ -216,13 +205,9 @@ defineExpose({ scrollToEnd: scrollEnd })
           </div>
         </div>
         <div v-if="loading" key="typing" class="chat-row chat-row--assistant">
-          <img
-            class="chat-row__avatar"
-            :src="effectiveAvatar"
-            alt="Trợ lý SmarTEcon"
-            width="36"
-            height="36"
-          />
+          <span class="chat-row__avatar" aria-hidden="true">
+            <ChatBotIcon :size="36" />
+          </span>
           <div class="chat-bubble assistant chat-bubble--typing">
             <span class="typing-dots" aria-label="Đang trả lời"><i /><i /><i /></span>
           </div>
@@ -384,19 +369,27 @@ defineExpose({ scrollToEnd: scrollEnd })
 }
 
 .chat-empty__avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 3rem;
   height: 3rem;
   border-radius: 50%;
-  object-fit: cover;
+  color: #2563eb;
+  background: linear-gradient(145deg, #eff6ff 0%, #dbeafe 100%);
   border: 2px solid #fff;
   box-shadow: 0 4px 14px rgba(59, 130, 246, 0.25);
 }
 
 .chat-row__avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 2.25rem;
   height: 2.25rem;
   border-radius: 50%;
-  object-fit: cover;
+  color: #2563eb;
+  background: linear-gradient(145deg, #eff6ff 0%, #dbeafe 100%);
   flex-shrink: 0;
   align-self: flex-start;
   margin-top: 0.15rem;

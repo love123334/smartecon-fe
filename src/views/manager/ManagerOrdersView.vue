@@ -6,7 +6,7 @@ import type { BackendOrderStatus } from '@/utils/backendOrderStatus'
 import {
   BACKEND_STATUS_LABEL,
   backendStatusLabel,
-  nextBackendStatuses,
+  selectableBackendStatuses,
 } from '@/utils/backendOrderStatus'
 import OrderTrackStepper from '@/components/OrderTrackStepper.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
@@ -16,7 +16,7 @@ const orders = ref<Order[]>([])
 const loading = ref(true)
 const error = ref('')
 const updatingId = ref<string | null>(null)
-const selectedStatus = ref<Record<string, BackendOrderStatus>>({})
+const selectedStatus = ref<Record<string, BackendOrderStatus | ''>>({})
 const statusNotes = ref<Record<string, string>>({})
 
 async function load() {
@@ -24,10 +24,6 @@ async function load() {
   error.value = ''
   try {
     orders.value = await orderApi.listAll()
-    for (const o of orders.value) {
-      const next = nextBackendStatuses(o.rawStatus)[0]
-      if (next) selectedStatus.value[o.id] = next
-    }
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Không tải được đơn'
   } finally {
@@ -38,12 +34,16 @@ async function load() {
 onMounted(load)
 
 function statusOptions(order: Order): BackendOrderStatus[] {
-  return nextBackendStatuses(order.rawStatus)
+  return selectableBackendStatuses(order.rawStatus, 'manager')
+}
+
+function canUpdateStatus(order: Order): boolean {
+  return statusOptions(order).length > 0
 }
 
 async function applyStatus(order: Order) {
   const status = selectedStatus.value[order.id]
-  if (!status) return
+  if (!status || status === order.rawStatus) return
   updatingId.value = order.id
   error.value = ''
   const prev = { ...order }
@@ -64,9 +64,6 @@ async function applyStatus(order: Order) {
   }
   const idx = orders.value.findIndex((o) => o.id === order.id)
   if (idx >= 0) orders.value[idx] = optimistic
-  const nextOpt = nextBackendStatuses(status)[0]
-  if (nextOpt) selectedStatus.value[order.id] = nextOpt
-  else delete selectedStatus.value[order.id]
 
   try {
     const { order: updated } = await orderApi.updateBackendStatus(
@@ -75,12 +72,9 @@ async function applyStatus(order: Order) {
       statusNotes.value[order.id]?.trim() || undefined,
     )
     if (idx >= 0) orders.value[idx] = updated
-    const next = nextBackendStatuses(updated.rawStatus)[0]
-    if (next) selectedStatus.value[order.id] = next
-    else delete selectedStatus.value[order.id]
+    delete selectedStatus.value[order.id]
   } catch (e) {
     if (idx >= 0) orders.value[idx] = prev
-    selectedStatus.value[order.id] = status
     error.value = e instanceof Error ? e.message : 'Cập nhật thất bại'
   } finally {
     updatingId.value = null
@@ -127,8 +121,9 @@ async function applyStatus(order: Order) {
         </ul>
 
         <div class="status-cell">
-          <template v-if="statusOptions(o).length">
+          <template v-if="canUpdateStatus(o)">
             <select v-model="selectedStatus[o.id]" class="input input--sm">
+              <option disabled value="">— Chọn trạng thái —</option>
               <option v-for="s in statusOptions(o)" :key="s" :value="s">
                 {{ BACKEND_STATUS_LABEL[s] }}
               </option>
@@ -142,7 +137,7 @@ async function applyStatus(order: Order) {
             <button
               type="button"
               class="btn btn--sm btn--primary"
-              :disabled="updatingId === o.id"
+              :disabled="updatingId === o.id || !selectedStatus[o.id] || selectedStatus[o.id] === o.rawStatus"
               @click="applyStatus(o)"
             >
               {{ updatingId === o.id ? 'Đang lưu…' : 'Cập nhật' }}
