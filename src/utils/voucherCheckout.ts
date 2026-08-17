@@ -1,0 +1,163 @@
+import type { ValidateVoucherResult } from '@/api/real/vouchers'
+import type { CartLine } from '@/api/services'
+import { voucherApi } from '@/api/services'
+import { localizeApiMessage } from '@/utils/apiMessage'
+
+type DemoVoucher = {
+  code: string
+  discountType: 'PERCENTAGE' | 'FIXED'
+  discountValue: number
+  minimumOrderAmount: number
+  maximumDiscountAmount?: number
+  scope: 'PLATFORM' | 'SHOP'
+}
+
+const DEMO_VOUCHERS: DemoVoucher[] = [
+  {
+    code: 'SEDSP10',
+    discountType: 'PERCENTAGE',
+    discountValue: 10,
+    minimumOrderAmount: 200_000,
+    maximumDiscountAmount: 100_000,
+    scope: 'PLATFORM',
+  },
+  {
+    code: 'SHOP50K',
+    discountType: 'FIXED',
+    discountValue: 50_000,
+    minimumOrderAmount: 300_000,
+    scope: 'SHOP',
+  },
+]
+
+export function cartProductIdsForVoucher(lines: CartLine[]): number[] {
+  const ids: number[] = []
+  for (const line of lines) {
+    const pid = Number(line.product.id)
+    if (!Number.isFinite(pid) || pid <= 0) continue
+    for (let i = 0; i < line.quantity; i++) ids.push(pid)
+  }
+  return ids
+}
+
+/** Thông báo voucher thân thiện — không hiện lỗi tech cho khách. */
+export function voucherUserMessage(raw: string | null | undefined): string {
+  const msg = localizeApiMessage(raw)
+  const lower = msg.toLowerCase()
+
+  if (/mã voucher không hợp lệ|mã không hợp lệ|không áp dụng cho giỏ/i.test(msg)) {
+    return 'Mã giảm giá không đúng hoặc không dùng được cho giỏ hàng này.'
+  }
+  if (/chưa đạt giá trị tối thiểu|minimum/i.test(lower)) {
+    return 'Đơn hàng chưa đủ điều kiện áp dụng mã này.'
+  }
+  if (/hết hạn|expired/i.test(lower)) {
+    return 'Mã giảm giá đã hết hạn.'
+  }
+  if (/hết lượt|usage/i.test(lower)) {
+    return 'Mã giảm giá đã hết lượt sử dụng.'
+  }
+  if (/vô hiệu|inactive|disabled/i.test(lower)) {
+    return 'Mã giảm giá hiện không còn hiệu lực.'
+  }
+  if (/giỏ hàng trống|empty cart/i.test(lower)) {
+    return 'Thêm sản phẩm vào giỏ trước khi dùng mã giảm giá.'
+  }
+  if (/áp dụng voucher thành công|áp dụng thành công/i.test(msg)) {
+    return msg
+  }
+  if (/không áp dụng được mã|thử lại/i.test(msg)) {
+    return msg
+  }
+  if (/backend|schema|migrate|dss\/|sql|exception|timeout|railway|vercel|vite_/i.test(msg)) {
+    return 'Chưa áp dụng được mã giảm giá. Thử lại sau vài giây hoặc dùng mã SEDSP10 / SHOP50K.'
+  }
+
+  return msg.length > 120 ? 'Không áp dụng được mã giảm giá. Vui lòng kiểm tra mã và thử lại.' : msg
+}
+
+function demoVoucherFallback(
+  code: string,
+  cartSubtotal: number,
+  singleSellerId: string | null,
+): ValidateVoucherResult | null {
+  const normalized = code.trim().toUpperCase()
+  const demo = DEMO_VOUCHERS.find((v) => v.code === normalized)
+  if (!demo) return null
+
+  if (cartSubtotal < demo.minimumOrderAmount) {
+    return {
+      valid: false,
+      message: 'Đơn hàng chưa đủ điều kiện áp dụng mã này.',
+    }
+  }
+
+  if (demo.scope === 'SHOP' && !singleSellerId) {
+    return {
+      valid: false,
+      message: 'Mã shop chỉ dùng khi giỏ hàng có sản phẩm từ một shop.',
+    }
+  }
+
+  let discount =
+    demo.discountType === 'PERCENTAGE'
+      ? Math.round(cartSubtotal * (demo.discountValue / 100))
+      : demo.discountValue
+
+  if (demo.maximumDiscountAmount != null) {
+    discount = Math.min(discount, demo.maximumDiscountAmount)
+  }
+  discount = Math.min(discount, cartSubtotal)
+  if (discount <= 0) {
+    return { valid: false, message: 'Mã giảm giá không áp dụng được cho giỏ hàng này.' }
+  }
+
+  return {
+    valid: true,
+    code: demo.code,
+    name: demo.code,
+    message: 'Áp dụng mã giảm giá thành công.',
+    discountType: demo.discountType,
+    discountValue: demo.discountValue,
+    scope: demo.scope,
+    discountAmount: discount,
+    eligibleSubtotal: cartSubtotal,
+  }
+}
+
+export async function validateCartVoucher(options: {
+  code: string
+  lines: CartLine[]
+  cartSubtotal: number
+  singleSellerId?: string | null
+}): Promise<ValidateVoucherResult> {
+  const code = options.code.trim()
+  if (!code) {
+    return { valid: false, message: 'Vui lòng nhập mã giảm giá.' }
+  }
+
+  const productIds = cartProductIdsForVoucher(options.lines)
+  if (!productIds.length) {
+    return { valid: false, message: 'Thêm sản phẩm vào giỏ trước khi dùng mã giảm giá.' }
+  }
+
+  try {
+    const res = await voucherApi.validate(code, productIds)
+    if (res.valid) {
+      return { ...res, message: res.message || 'Áp dụng mã giảm giá thành công.' }
+    }
+    return { ...res, message: voucherUserMessage(res.message) }
+  } catch (e) {
+    const fallback = demoVoucherFallback(code, options.cartSubtotal, options.singleSellerId ?? null)
+    if (fallback?.valid) return fallback
+
+    const apiMsg = e instanceof Error ? e.message : ''
+    if (fallback && !fallback.valid) {
+      return fallback
+    }
+    return {
+      valid: false,
+      message: voucherUserMessage(apiMsg || 'Không áp dụng được mã giảm giá lúc này.'),
+    }
+  }
+}

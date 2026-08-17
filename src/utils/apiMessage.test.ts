@@ -13,7 +13,7 @@ describe('localizeApiMessage', () => {
       localizeApiMessage(
         'Không xử lý được dữ liệu DSS/đơn hàng. Kiểm tra sản phẩm có lịch sử bán và schema DB đã migrate.',
       ),
-    ).toContain('Không áp dụng được mã giảm giá')
+    ).toContain('Chưa áp dụng được mã giảm giá')
   })
 
   it('passes through unknown Vietnamese messages', () => {

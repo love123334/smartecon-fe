@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { formatVnd, orderApi, productApi, sellerMomoApi, voucherApi } from '@/api/services'
+import { formatVnd, orderApi, productApi, sellerMomoApi } from '@/api/services'
 import type { SellerMomoPublic } from '@/api/real/sellerMomo'
 import type { ValidateVoucherResult } from '@/api/real/vouchers'
+import { validateCartVoucher, voucherUserMessage } from '@/utils/voucherCheckout'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
 import { trySiteFx } from '@/utils/siteFx'
@@ -30,6 +31,7 @@ const coupon = ref('')
 const couponApplied = ref(false)
 const couponInfo = ref<ValidateVoucherResult | null>(null)
 const couponMessage = ref('')
+const couponIsError = ref(false)
 const couponLoading = ref(false)
 const error = ref('')
 const loading = ref(false)
@@ -133,20 +135,31 @@ async function applyCoupon() {
   if (!code) return
   couponLoading.value = true
   couponMessage.value = ''
+  couponIsError.value = false
   couponApplied.value = false
   couponInfo.value = null
   try {
-    const productIds = cart.lines.flatMap((l) => Array.from({ length: l.quantity }, () => Number(l.product.id)))
-    const res = await voucherApi.validate(code, productIds)
+    const res = await validateCartVoucher({
+      code,
+      lines: cart.lines,
+      cartSubtotal: cart.total,
+      singleSellerId: singleSellerId.value,
+    })
     if (res.valid) {
       couponApplied.value = true
       couponInfo.value = res
-      couponMessage.value = res.message || `Áp dụng ${res.code} — giảm ${formatVnd(res.discountAmount ?? 0)}`
+      couponMessage.value =
+        res.discountAmount != null
+          ? `Đã áp dụng ${res.code ?? code} — giảm ${formatVnd(res.discountAmount)}`
+          : voucherUserMessage(res.message)
+      couponIsError.value = false
     } else {
-      couponMessage.value = res.message || 'Mã không hợp lệ.'
+      couponMessage.value = voucherUserMessage(res.message)
+      couponIsError.value = true
     }
   } catch (e) {
-    couponMessage.value = e instanceof Error ? e.message : 'Không kiểm tra được mã.'
+    couponMessage.value = voucherUserMessage(e instanceof Error ? e.message : '')
+    couponIsError.value = true
   } finally {
     couponLoading.value = false
   }
@@ -315,9 +328,15 @@ async function placeOrder() {
             </button>
           </div>
           <p class="elegant-muted" style="font-size: 0.8rem; margin: 0.35rem 0 0">
-            Mã demo: <strong>SEDSP10</strong> (toàn sàn) · <strong>SHOP50K</strong> (theo shop)
+            Gợi ý: thử <strong>SEDSP10</strong> (giảm 10%) hoặc <strong>SHOP50K</strong> (giảm 50.000đ).
           </p>
-          <p v-if="couponMessage" class="muted" style="margin-top: 0.35rem">{{ couponMessage }}</p>
+          <p
+            v-if="couponMessage"
+            class="elegant-coupon-msg"
+            :class="{ 'elegant-coupon-msg--error': couponIsError, 'elegant-coupon-msg--ok': !couponIsError && couponApplied }"
+          >
+            {{ couponMessage }}
+          </p>
           <p v-if="couponApplied" class="elegant-coupon-applied">
             {{ couponInfo?.code || coupon }}
             <span>-{{ formatVnd(discount) }}</span>
@@ -328,6 +347,7 @@ async function placeOrder() {
                 couponApplied = false;
                 couponInfo = null;
                 couponMessage = '';
+                couponIsError = false;
               "
             >
               [Xóa]

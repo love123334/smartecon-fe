@@ -49,7 +49,7 @@ async function submit() {
   } catch {
     localError.value =
       auth.error ??
-      'Đăng ký thất bại. Nếu đợi lâu rồi lỗi — backend Railway có thể đang down; thử lại sau.'
+      'Đăng ký thất bại. Vui lòng thử lại sau vài phút.'
   }
 }
 

@@ -2661,6 +2661,20 @@
   cursor: pointer;
 }
 
+.elegant-coupon-msg {
+  margin: 0.45rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.elegant-coupon-msg--error {
+  color: #b91c1c;
+}
+
+.elegant-coupon-msg--ok {
+  color: #047857;
+}
+
 /* ——— Summary sidebar ——— */
 .elegant-summary,
 .elegant-order-summary {

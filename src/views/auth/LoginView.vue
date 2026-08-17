@@ -113,8 +113,7 @@ function onLoginButtonClick(e: MouseEvent) {
           v-if="apiConfig.useRealAuth && backendChecked && !backendOnline"
           class="login-offline-hint"
         >
-          Không gọi được API (<code>{{ apiConfig.backendOrigin }}</code>). Kiểm tra
-          <code>VITE_BACKEND_ORIGIN</code> / <code>VITE_API_BASE_URL</code> trên Vercel rồi redeploy FE.
+          Không kết nối được hệ thống lúc này. Vui lòng thử lại sau vài phút.
         </p>
 
         <div class="border-glow">

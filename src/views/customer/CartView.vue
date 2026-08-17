@@ -8,7 +8,7 @@ import QuantityStepper from '@/components/QuantityStepper.vue'
 import CheckoutStepper from '@/components/CheckoutStepper.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
-import NewsletterBanner from '@/components/NewsletterBanner.vue'
+import { validateCartVoucher, voucherUserMessage } from '@/utils/voucherCheckout'
 
 const PENDING_PAY_KEY = 'sedsp_pending_vnpay_order'
 const PAY_RETURN_KEY = 'sedsp_pay_return'
@@ -20,6 +20,10 @@ const notice = useNoticeStore()
 const shipping = ref<'free' | 'express' | 'pickup'>('free')
 const coupon = ref('')
 const couponApplied = ref(false)
+const couponDiscount = ref(0)
+const couponMessage = ref('')
+const couponIsError = ref(false)
+const couponLoading = ref(false)
 const payBanner = ref<{ kind: 'ok' | 'warn' | 'err'; text: string; orderId?: string } | null>(null)
 const checkoutLoading = ref(false)
 
@@ -29,7 +33,7 @@ const shippingFee = computed(() => {
   return cart.total >= 500_000 ? 0 : 30_000
 })
 
-const discount = computed(() => (couponApplied.value ? 25_000 : 0))
+const discount = computed(() => (couponApplied.value ? couponDiscount.value : 0))
 const grandTotal = computed(() => Math.max(0, cart.total + shippingFee.value - discount.value))
 
 function applyPayStatus(pay: string, orderId: string, gateway: string) {
@@ -147,9 +151,33 @@ async function checkout() {
   }
 }
 
-function applyCoupon() {
-  if (coupon.value.trim().toUpperCase() === 'SEDSP30') {
-    couponApplied.value = true
+async function applyCoupon() {
+  const code = coupon.value.trim()
+  if (!code) return
+  couponLoading.value = true
+  couponMessage.value = ''
+  couponIsError.value = false
+  couponApplied.value = false
+  couponDiscount.value = 0
+  try {
+    const res = await validateCartVoucher({
+      code,
+      lines: cart.lines,
+      cartSubtotal: cart.total,
+    })
+    if (res.valid && res.discountAmount != null) {
+      couponApplied.value = true
+      couponDiscount.value = res.discountAmount
+      couponMessage.value = `Đã áp dụng ${res.code ?? code} — giảm ${formatVnd(res.discountAmount)}`
+    } else {
+      couponMessage.value = voucherUserMessage(res.message)
+      couponIsError.value = true
+    }
+  } catch (e) {
+    couponMessage.value = voucherUserMessage(e instanceof Error ? e.message : '')
+    couponIsError.value = true
+  } finally {
+    couponLoading.value = false
   }
 }
 </script>
@@ -236,14 +264,25 @@ function applyCoupon() {
 
           <section class="elegant-coupon">
             <h2>Bạn có mã giảm giá?</h2>
-            <p>Nhập mã để được giảm ngay trên giỏ hàng (thử: SEDSP30)</p>
+            <p>Nhập mã tại đây hoặc ở bước thanh toán (gợi ý: SEDSP10, SHOP50K).</p>
             <div class="elegant-coupon__form">
               <input v-model="coupon" type="text" placeholder="Mã giảm giá" />
-              <button type="button" class="btn-elegant-primary btn-interactive" @click="applyCoupon">
-                Áp dụng
+              <button
+                type="button"
+                class="btn-elegant-primary btn-interactive"
+                :disabled="couponLoading"
+                @click="applyCoupon"
+              >
+                {{ couponLoading ? 'Đang kiểm tra…' : 'Áp dụng' }}
               </button>
             </div>
-            <p v-if="couponApplied" class="elegant-alert elegant-alert--success">Đã áp dụng mã giảm giá!</p>
+            <p
+              v-if="couponMessage"
+              class="elegant-coupon-msg"
+              :class="{ 'elegant-coupon-msg--error': couponIsError, 'elegant-coupon-msg--ok': couponApplied }"
+            >
+              {{ couponMessage }}
+            </p>
           </section>
         </div>
 

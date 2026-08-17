@@ -15,11 +15,19 @@ const EXACT: Record<string, string> = {
 const CONTAINS: [RegExp, string][] = [
   [
     /Không xử lý được dữ liệu DSS/i,
-    'Không áp dụng được mã giảm giá lúc này. Kiểm tra mã (vd. SEDSP10) và thử lại.',
+    'Chưa áp dụng được mã giảm giá. Kiểm tra mã (vd. SEDSP10) và thử lại.',
   ],
-  [/schema DB|lịch sử bán/i, 'Không áp dụng được mã giảm giá. Kiểm tra mã và thử lại.'],
+  [/schema DB|lịch sử bán/i, 'Chưa áp dụng được mã giảm giá. Vui lòng thử lại.'],
+  [/Không xử lý được yêu cầu lúc này/i, 'Tạm thời không xử lý được. Vui lòng thử lại sau.'],
   [/Invalid or expired OTP/i, 'Mã OTP không hợp lệ hoặc đã hết hạn.'],
-  [/voucher|coupon/i, 'Mã giảm giá không hợp lệ hoặc không áp dụng cho giỏ hàng.'],
+  [/Invalid status transition/i, 'Không thể chuyển sang trạng thái này.'],
+  [/Authentication failed|Authentication required/i, 'Vui lòng đăng nhập lại.'],
+  [/Access denied|Unauthorized/i, 'Bạn không có quyền thực hiện thao tác này.'],
+  [/Backend phản hồi chậm|timeout/i, 'Hệ thống phản hồi chậm. Vui lòng thử lại.'],
+  [/Không kết nối được backend|CONNECTIVITY/i, 'Không kết nối được máy chủ. Kiểm tra mạng và thử lại.'],
+  [/Malformed request|Validation failed/i, 'Thông tin gửi lên không hợp lệ. Kiểm tra và thử lại.'],
+  [/An unexpected error|Internal Server/i, 'Đã xảy ra lỗi. Vui lòng thử lại sau.'],
+  [/SQL|Jdbc| Hibernate|DataAccess|schema DB|migrate/i, 'Tạm thời không xử lý được yêu cầu. Vui lòng thử lại.'],
 ]
 
 export function localizeApiMessage(message: string | null | undefined): string {

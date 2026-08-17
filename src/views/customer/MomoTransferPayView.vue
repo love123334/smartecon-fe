@@ -244,7 +244,7 @@ onUnmounted(() => {
           </p>
         </template>
         <p v-else class="elegant-muted" style="text-align: center">
-          Đơn dùng MoMo shop nhưng chưa có QR/SĐT từ API.
+          Đơn dùng MoMo shop nhưng chưa có thông tin chuyển khoản.
           <RouterLink :to="`/orders/${order.id}`">Mở chi tiết đơn</RouterLink>
         </p>
       </div>
