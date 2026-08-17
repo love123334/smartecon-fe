@@ -357,6 +357,9 @@ export const authApi = apiConfig.useRealAuth
       },
       resendOtp: realAuth.resendOtp,
       verifyEmail: realAuth.verifyEmail,
+      forgotPassword: realAuth.forgotPassword,
+      verifyResetOtp: realAuth.verifyResetOtp,
+      updatePassword: realAuth.updatePassword,
     }
   : {
       ...mockAuthApi,
@@ -380,6 +383,15 @@ export const authApi = apiConfig.useRealAuth
       },
       verifyEmail: async (_email: string, _otp: string) => {
         /* mock: already active */
+      },
+      forgotPassword: async (_email: string) => {
+        /* mock: no email */
+      },
+      verifyResetOtp: async (_email: string, otp: string) => {
+        if (otp.trim() !== '123456') throw new Error('Mã OTP không hợp lệ hoặc đã hết hạn.')
+      },
+      updatePassword: async (_email: string, _newPassword: string, _confirmPassword: string) => {
+        /* mock: ok */
       },
     }
 

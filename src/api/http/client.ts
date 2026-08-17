@@ -1,4 +1,5 @@
 import { apiConfig } from '@/api/config'
+import { localizeApiMessage } from '@/utils/apiMessage'
 
 /** Định dạng response chuẩn backend (docs/project-architecture.md) */
 export interface ApiResponse<T> {
@@ -75,17 +76,21 @@ async function parseJsonBody(res: Response): Promise<unknown> {
 
 function unwrapApiBody<T>(res: Response, body: unknown, fallbackMessage: string): T {
   if (!res.ok) {
-    const msg =
+    const rawMsg =
       body && typeof body === 'object' && 'message' in body
         ? String((body as ApiResponse<unknown>).message)
         : res.statusText
-    throw new ApiError(msg || fallbackMessage, res.status, body)
+    throw new ApiError(
+      localizeApiMessage(rawMsg || fallbackMessage),
+      res.status,
+      body,
+    )
   }
 
   if (body && typeof body === 'object' && 'success' in body && 'data' in body) {
     const wrapped = body as ApiResponse<T>
     if (!wrapped.success) {
-      throw new ApiError(wrapped.message || 'API error', res.status, body)
+      throw new ApiError(localizeApiMessage(wrapped.message || 'API error'), res.status, body)
     }
     return wrapped.data
   }

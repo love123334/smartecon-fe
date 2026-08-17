@@ -51,6 +51,12 @@ const router = createRouter({
       meta: { guestOnly: true, title: 'Đăng nhập', fullBleed: true },
     },
     {
+      path: '/forgot-password',
+      name: 'forgot-password',
+      component: () => import('@/views/auth/ForgotPasswordView.vue'),
+      meta: { guestOnly: true, title: 'Quên mật khẩu', fullBleed: true },
+    },
+    {
       path: '/profile',
       name: 'profile',
       component: () => import('@/views/customer/ProfileView.vue'),

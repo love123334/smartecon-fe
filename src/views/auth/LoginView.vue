@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
 import { apiConfig } from '@/api/config'
+import AuthHeroIllustration from '@/components/auth/AuthHeroIllustration.vue'
 import {
   DEMO_ACCOUNTS,
   DEMO_PASSWORD,
@@ -61,6 +62,10 @@ async function checkBackend() {
 
 onMounted(() => {
   void checkBackend()
+  const prefill = route.query.email
+  if (typeof prefill === 'string' && prefill.trim()) {
+    email.value = prefill.trim()
+  }
 })
 
 async function submit() {
@@ -86,17 +91,17 @@ function onLoginButtonClick(e: MouseEvent) {
 <template>
   <div class="auth-layout">
     <aside class="auth-panel-brand">
-      <p class="brand-tag">SEDSP Platform</p>
+      <p class="brand-tag">Nền tảng SEDSP</p>
       <h1>Đăng nhập để tiếp tục</h1>
       <p>
-        Hệ thống hỗ trợ quyết định kinh doanh tích hợp AI — kết nối backend Spring Boot khi
-        API sẵn sàng.
+        Sàn thương mại thông minh — mua sắm dễ dàng, người bán có công cụ dự báo và tư vấn AI.
       </p>
       <ul class="features">
-        <li>JWT & phân quyền RBAC</li>
-        <li>DSS: dự báo, gợi ý giá & tồn kho</li>
-        <li>Chatbot tư vấn khách hàng & seller</li>
+        <li>Đăng nhập an toàn, phân quyền theo vai trò</li>
+        <li>Gợi ý giá, tồn kho và khuyến mãi thông minh</li>
+        <li>Chatbot hỗ trợ khách hàng & người bán 24/7</li>
       </ul>
+      <AuthHeroIllustration />
     </aside>
 
     <section class="auth-panel-form">
@@ -122,7 +127,10 @@ function onLoginButtonClick(e: MouseEvent) {
             <input id="email" v-model="email" type="email" required autocomplete="email" class="input-glow" />
           </div>
           <div class="form-group">
-            <label for="pw">Mật khẩu</label>
+            <div class="password-row">
+              <label for="pw">Mật khẩu</label>
+              <RouterLink to="/forgot-password" class="forgot-link">Quên mật khẩu?</RouterLink>
+            </div>
             <input id="pw" v-model="password" type="password" required autocomplete="current-password" class="input-glow" />
           </div>
           <button
@@ -294,6 +302,24 @@ function onLoginButtonClick(e: MouseEvent) {
   background: #fffbeb;
   border: 1px solid #fcd34d;
   color: #92400e;
+}
+
+.password-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.forgot-link {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--primary-600);
+  text-decoration: none;
+}
+
+.forgot-link:hover {
+  text-decoration: underline;
 }
 
 @media (max-width: 520px) {

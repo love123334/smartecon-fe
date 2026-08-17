@@ -15,10 +15,14 @@ const order = ref<Order | null>(null)
 const loading = ref(true)
 const error = ref('')
 const completing = ref(false)
+const processingPayment = ref(false)
+const processingCountdown = ref(0)
 const qrImageFailed = ref(false)
 
-const AUTO_COMPLETE_MS = 6_000
+const AUTO_COMPLETE_MS = 9_000
+const PAYMENT_PROCESSING_MS = 2_500
 let autoCompleteTimer: ReturnType<typeof setTimeout> | undefined
+let countdownTimer: ReturnType<typeof setInterval> | undefined
 
 const transfer = computed(() => order.value?.momoTransfer)
 const amount = computed(() => transfer.value?.amount ?? order.value?.total ?? 0)
@@ -60,8 +64,18 @@ function onQrError() {
 }
 
 async function completePayment() {
-  if (!order.value || completing.value || !isPending.value) return
+  if (!order.value || completing.value || processingPayment.value || !isPending.value) return
   clearAutoCompleteTimers()
+  processingPayment.value = true
+  processingCountdown.value = Math.ceil(PAYMENT_PROCESSING_MS / 1000)
+  countdownTimer = setInterval(() => {
+    processingCountdown.value = Math.max(0, processingCountdown.value - 1)
+  }, 1000)
+  await new Promise((r) => setTimeout(r, PAYMENT_PROCESSING_MS))
+  if (countdownTimer) {
+    clearInterval(countdownTimer)
+    countdownTimer = undefined
+  }
   completing.value = true
   error.value = ''
   try {
@@ -76,6 +90,8 @@ async function completePayment() {
     error.value = e instanceof Error ? e.message : 'Không xác nhận được thanh toán'
   } finally {
     completing.value = false
+    processingPayment.value = false
+    processingCountdown.value = 0
   }
 }
 
@@ -83,6 +99,10 @@ function clearAutoCompleteTimers() {
   if (autoCompleteTimer) {
     clearTimeout(autoCompleteTimer)
     autoCompleteTimer = undefined
+  }
+  if (countdownTimer) {
+    clearInterval(countdownTimer)
+    countdownTimer = undefined
   }
 }
 
@@ -159,7 +179,15 @@ onUnmounted(() => {
       <p v-else-if="error" class="elegant-alert elegant-alert--error">{{ error }}</p>
 
       <div v-else-if="order" class="momo-pay">
-        <template v-if="transfer">
+        <div v-if="processingPayment" class="momo-pay__processing" role="status" aria-live="polite">
+          <LoadingSpinner label="Đang xác nhận thanh toán…" />
+          <p class="elegant-muted">
+            Hệ thống đang đối soát giao dịch MoMo
+            <template v-if="processingCountdown"> ({{ processingCountdown }}s)</template>
+            …
+          </p>
+        </div>
+        <template v-else-if="transfer">
           <p class="momo-pay__lead">
             MoMo sẽ tự điền số tiền và nội dung chuyển khoản tới <strong>{{ storeName }}</strong>.
           </p>
@@ -195,7 +223,7 @@ onUnmounted(() => {
               v-if="phone && isPending"
               type="button"
               class="btn-elegant-primary btn-interactive"
-              :disabled="completing"
+              :disabled="completing || processingPayment"
               @click="launchMomo"
             >
               Mở MoMo & chuyển tiền
@@ -210,6 +238,9 @@ onUnmounted(() => {
 
           <p class="elegant-muted momo-pay__hint">
             Đơn #{{ order.id }} · Tổng {{ formatVnd(order.total) }}
+            <template v-if="isPending && route.query.placed === '1'">
+              · Sau khi chuyển tiền, hệ thống sẽ tự xác nhận trong vài giây.
+            </template>
           </p>
         </template>
         <p v-else class="elegant-muted" style="text-align: center">
@@ -223,6 +254,16 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+.momo-pay__processing {
+  text-align: center;
+  padding: 2rem 1rem;
+}
+
+.momo-pay__processing .elegant-muted {
+  margin-top: 0.75rem;
+  font-size: 0.9rem;
+}
+
 .momo-pay {
   max-width: 480px;
   margin: 1.5rem auto 0;

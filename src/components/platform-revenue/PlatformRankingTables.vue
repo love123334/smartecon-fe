@@ -34,7 +34,7 @@ const tab = ref<'sellers' | 'products' | 'categories'>('sellers')
           :aria-selected="tab === 'sellers'"
           @click="tab = 'sellers'"
         >
-          Top Sellers
+          Top người bán
         </button>
         <button
           type="button"
@@ -44,7 +44,7 @@ const tab = ref<'sellers' | 'products' | 'categories'>('sellers')
           :aria-selected="tab === 'products'"
           @click="tab = 'products'"
         >
-          Top Products
+          Top sản phẩm
         </button>
         <button
           type="button"
@@ -54,7 +54,7 @@ const tab = ref<'sellers' | 'products' | 'categories'>('sellers')
           :aria-selected="tab === 'categories'"
           @click="tab = 'categories'"
         >
-          Top Categories
+          Top danh mục
         </button>
       </div>
     </div>
@@ -63,12 +63,12 @@ const tab = ref<'sellers' | 'products' | 'categories'>('sellers')
       <table v-if="sellers.length" class="data">
         <thead>
           <tr>
-            <th>Rank</th>
-            <th>Seller Name</th>
+            <th>Hạng</th>
+            <th>Tên người bán</th>
             <th>GMV</th>
-            <th>Delivered Orders</th>
-            <th>Units Sold</th>
-            <th>Market Share</th>
+            <th>Đơn đã giao</th>
+            <th>Sản phẩm bán</th>
+            <th>Thị phần</th>
           </tr>
         </thead>
         <tbody>
@@ -82,18 +82,18 @@ const tab = ref<'sellers' | 'products' | 'categories'>('sellers')
           </tr>
         </tbody>
       </table>
-      <p v-else class="muted">Chưa có top sellers.</p>
+      <p v-else class="muted">Chưa có dữ liệu top người bán.</p>
     </div>
 
     <div v-show="tab === 'products'" class="table-wrap" role="tabpanel">
       <table v-if="products.length" class="data">
         <thead>
           <tr>
-            <th>Rank</th>
-            <th>Product Name</th>
-            <th>Seller Name</th>
-            <th>Delivered Orders</th>
-            <th>Units Sold</th>
+            <th>Hạng</th>
+            <th>Tên sản phẩm</th>
+            <th>Người bán</th>
+            <th>Đơn đã giao</th>
+            <th>Sản phẩm bán</th>
             <th>GMV</th>
           </tr>
         </thead>
@@ -108,19 +108,19 @@ const tab = ref<'sellers' | 'products' | 'categories'>('sellers')
           </tr>
         </tbody>
       </table>
-      <p v-else class="muted">Chưa có top products.</p>
+      <p v-else class="muted">Chưa có dữ liệu top sản phẩm.</p>
     </div>
 
     <div v-show="tab === 'categories'" class="table-wrap" role="tabpanel">
       <table v-if="categories.length" class="data">
         <thead>
           <tr>
-            <th>Rank</th>
-            <th>Category Name</th>
-            <th>Delivered Orders</th>
-            <th>Units Sold</th>
+            <th>Hạng</th>
+            <th>Danh mục</th>
+            <th>Đơn đã giao</th>
+            <th>Sản phẩm bán</th>
             <th>GMV</th>
-            <th>Market Share</th>
+            <th>Thị phần</th>
           </tr>
         </thead>
         <tbody>
@@ -137,7 +137,7 @@ const tab = ref<'sellers' | 'products' | 'categories'>('sellers')
           </tr>
         </tbody>
       </table>
-      <p v-else class="muted">Chưa có top categories.</p>
+      <p v-else class="muted">Chưa có dữ liệu top danh mục.</p>
     </div>
   </section>
 </template>

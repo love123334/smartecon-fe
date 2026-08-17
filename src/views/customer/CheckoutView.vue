@@ -302,11 +302,21 @@ async function placeOrder() {
             <input
               v-model="coupon"
               type="text"
-              placeholder="Mã giảm giá"
+              placeholder="Mã giảm giá (vd. SEDSP10)"
               @keyup.enter="applyCoupon"
             />
-            <button type="button" class="btn-elegant-primary btn-interactive" @click="applyCoupon">Áp dụng</button>
+            <button
+              type="button"
+              class="btn-elegant-primary btn-interactive"
+              :disabled="couponLoading"
+              @click="applyCoupon"
+            >
+              {{ couponLoading ? 'Đang kiểm tra…' : 'Áp dụng' }}
+            </button>
           </div>
+          <p class="elegant-muted" style="font-size: 0.8rem; margin: 0.35rem 0 0">
+            Mã demo: <strong>SEDSP10</strong> (toàn sàn) · <strong>SHOP50K</strong> (theo shop)
+          </p>
           <p v-if="couponMessage" class="muted" style="margin-top: 0.35rem">{{ couponMessage }}</p>
           <p v-if="couponApplied" class="elegant-coupon-applied">
             {{ couponInfo?.code || coupon }}

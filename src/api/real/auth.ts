@@ -161,3 +161,29 @@ export async function verifyEmail(email: string, otp: string): Promise<void> {
     otp: otp.trim(),
   })
 }
+
+export async function forgotPassword(email: string): Promise<void> {
+  await http.post<void>(
+    `${apiPaths.auth.forgotPassword}?email=${encodeURIComponent(email.trim().toLowerCase())}`,
+    {},
+  )
+}
+
+export async function verifyResetOtp(email: string, otp: string): Promise<void> {
+  await http.post<void>(apiPaths.auth.verifyResetOtp, {
+    email: email.trim().toLowerCase(),
+    otp: otp.trim(),
+  })
+}
+
+export async function updatePassword(
+  email: string,
+  newPassword: string,
+  confirmPassword: string,
+): Promise<void> {
+  await http.post<void>(apiPaths.auth.updatePassword, {
+    email: email.trim().toLowerCase(),
+    newPassword,
+    confirmPassword,
+  })
+}
