@@ -155,6 +155,12 @@ const router = createRouter({
       meta: { roles: ['seller'], title: 'Dự báo nhu cầu' },
     },
     {
+      path: '/seller/dss/demand-lightgbm-demo',
+      name: 'seller-dss-demand-lightgbm-demo',
+      component: () => import('@/views/seller/LightGbmDemandDemoView.vue'),
+      meta: { roles: ['seller'], title: 'Demo dự báo LightGBM' },
+    },
+    {
       path: '/seller/dss/price',
       name: 'seller-dss-price',
       component: () => import('@/views/seller/PriceRecommendationView.vue'),

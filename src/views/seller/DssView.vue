@@ -82,6 +82,7 @@ onMounted(async () => {
     <AiShortcutBar
       title="Tiếp theo:"
       :links="[
+        { to: '/seller/dss/demand-lightgbm-demo', label: 'Demo LightGBM', highlight: true },
         { to: '/seller/dss/demand', label: 'Dự báo nhu cầu', highlight: true },
         { to: '/seller/dss/price', label: 'Gợi ý giá', highlight: true },
         { to: '/seller/dss/what-if', label: 'What-if giảm giá', highlight: true },

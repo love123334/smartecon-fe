@@ -117,11 +117,11 @@ async function loadSellerProducts() {
 }
 
 function normalizeSeries(
-  rows: { day: number; qty: number }[] | undefined,
+  rows: { day?: number; qty: number }[] | undefined,
 ): SeriesPoint[] {
   if (!rows?.length) return []
   return rows
-    .map((r) => ({ day: Number(r.day), qty: Number(r.qty) }))
+    .map((r, index) => ({ day: Number(r.day ?? index + 1), qty: Number(r.qty) }))
     .filter((r) => Number.isFinite(r.day) && Number.isFinite(r.qty))
 }
 
