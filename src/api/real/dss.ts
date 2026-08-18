@@ -10,9 +10,35 @@ export interface DemandForecastApi {
   predictedDemand: number
   method: string
   insufficientData: boolean
-  historicalSales: { day: number; qty: number; date?: string }[]
-  forecastSales: { day: number; qty: number }[]
+  historicalSales: { day?: number; date?: string; qty: number }[]
+  forecastSales: { day?: number; date?: string; qty: number }[]
+  featureSnapshot?: DemandFeatureSnapshotApi
   generatedAt: string
+}
+
+export interface DemandFeatureSnapshotApi {
+  method?: string
+  onnxModelAvailable?: boolean
+  onnxModelUsed?: boolean
+  totalHistoricalQuantity?: number
+  positiveDays?: number
+  recentAverageDailyDemand?: number
+  mediumAverageDailyDemand?: number
+  longAverageDailyDemand?: number
+  previousAverageDailyDemand?: number
+  momentum?: number
+  trendSlope?: number
+  lag7?: number
+  seasonalSignal?: number
+  currentPrice?: number
+  currentStock?: number
+  reservedStock?: number
+  stockCoverDays?: number
+  averageRating?: number
+  reviewCount?: number
+  insufficientData?: boolean
+  baseForecastDailyDemand?: number
+  forecastAverageDailyDemand?: number
 }
 
 /** POST /api/v1/dss/demand-predictions */

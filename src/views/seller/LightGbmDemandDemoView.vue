@@ -42,13 +42,19 @@ const trendLabel = computed(() => {
 })
 const historicalSeries = computed(() =>
   (result.value?.historicalSales ?? [])
-    .filter((p) => p.date && Number.isFinite(Number(p.qty)))
-    .map((p) => ({ date: p.date, qty: Number(p.qty) })),
+    .filter((p) => (p.date || p.day != null) && Number.isFinite(Number(p.qty)))
+    .map((p) => ({
+      date: p.date ?? String(p.day ?? ''),
+      qty: Number(p.qty),
+    })),
 )
 const forecastSeries = computed(() =>
   (result.value?.forecastSales ?? [])
-    .filter((p) => p.date && Number.isFinite(Number(p.qty)))
-    .map((p) => ({ date: p.date, qty: Number(p.qty) })),
+    .filter((p) => (p.date || p.day != null) && Number.isFinite(Number(p.qty)))
+    .map((p) => ({
+      date: p.date ?? String(p.day ?? ''),
+      qty: Number(p.qty),
+    })),
 )
 
 onMounted(loadProducts)

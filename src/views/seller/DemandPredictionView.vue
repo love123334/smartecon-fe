@@ -143,12 +143,12 @@ async function loadSellerProducts() {
 }
 
 function normalizeSeries(
-  rows: { day: number; qty: number; date?: string }[] | undefined,
+  rows: { day?: number; qty: number; date?: string }[] | undefined,
 ): SeriesPoint[] {
   if (!rows?.length) return []
   return rows
-    .map((r) => ({
-      day: Number(r.day),
+    .map((r, i) => ({
+      day: Number(r.day ?? i + 1),
       qty: Number(r.qty),
       date: r.date,
     }))
@@ -451,9 +451,9 @@ function resetResult() {
         <div class="demand-ai__similar" aria-label="Tính năng liên quan">
           <span class="demand-ai__similar-label">Module liên quan</span>
           <div class="demand-ai__similar-links">
-            <RouterLink class="demand-ai__similar-link" to="/seller/dss/price">Gợi ý giá</RouterLink>
+            <RouterLink class="demand-ai__similar-link" to="/seller/dss/advanced-price">Gợi ý Giá bán</RouterLink>
             <span class="demand-ai__similar-sep" aria-hidden="true">·</span>
-            <RouterLink class="demand-ai__similar-link" to="/seller/dss/what-if">What-if</RouterLink>
+            <RouterLink class="demand-ai__similar-link" to="/seller/dss/order-economics">What-if Hiệu suất</RouterLink>
           </div>
         </div>
       </DssAiInsightCollapsible>
