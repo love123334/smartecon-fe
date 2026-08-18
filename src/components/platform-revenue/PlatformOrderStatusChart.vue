@@ -47,7 +47,7 @@ const options = {
 
 <template>
   <section class="card" aria-labelledby="pr-order-status-title">
-    <h2 id="pr-order-status-title" class="pr-section-title">Order Status Distribution</h2>
+    <h2 id="pr-order-status-title" class="pr-section-title">Phân bố trạng thái đơn hàng</h2>
     <div v-if="hasData" class="pr-split">
       <div class="chart-box">
         <Doughnut :data="chartData" :options="options" />
@@ -56,8 +56,8 @@ const options = {
         <table class="data">
           <thead>
             <tr>
-              <th>Status</th>
-              <th>Orders</th>
+              <th>Trạng thái</th>
+              <th>Số đơn</th>
               <th>%</th>
             </tr>
           </thead>

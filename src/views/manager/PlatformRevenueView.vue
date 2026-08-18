@@ -10,6 +10,10 @@ import PlatformRevenueFilter from '@/components/platform-revenue/PlatformRevenue
 import PlatformRevenueKpis from '@/components/platform-revenue/PlatformRevenueKpis.vue'
 import PlatformRevenueTrendChart from '@/components/platform-revenue/PlatformRevenueTrendChart.vue'
 import PlatformRankingTables from '@/components/platform-revenue/PlatformRankingTables.vue'
+import PlatformPaymentChart from '@/components/platform-revenue/PlatformPaymentChart.vue'
+import PlatformOrderStatusChart from '@/components/platform-revenue/PlatformOrderStatusChart.vue'
+import PlatformActivitySection from '@/components/platform-revenue/PlatformActivitySection.vue'
+import PlatformActivityTrendChart from '@/components/platform-revenue/PlatformActivityTrendChart.vue'
 import { LOOKER_STUDIO_PLATFORM_REVENUE_URL } from '@/constants/lookerStudio'
 import {
   defaultPlatformRevenueFilter,
@@ -41,6 +45,10 @@ const revenueTrend = computed(() => data.value?.revenueTrend ?? [])
 const sellers = computed(() => data.value?.topSellers ?? [])
 const products = computed(() => data.value?.topProducts ?? [])
 const categories = computed(() => data.value?.topCategories ?? [])
+const payments = computed(() => data.value?.paymentMethodDistribution ?? [])
+const orderStatuses = computed(() => data.value?.orderStatusDistribution ?? [])
+const activity = computed(() => data.value?.platformActivity ?? null)
+const activityTrend = computed(() => data.value?.activityTrend ?? [])
 
 onMounted(() => {
   lookerTimer = setTimeout(() => {
@@ -109,8 +117,8 @@ function retry() {
   <div class="pr-page">
     <PageHeader
       eyebrow="Quản lý"
-      title="Bảng điều khiển"
-      lead="Báo cáo Looker Studio nhúng — tổng quan doanh thu sàn."
+      title="Doanh thu sàn"
+      lead="Báo cáo Looker Studio nhúng — tổng quan GMV và vận hành toàn nền tảng."
     >
       <template v-if="SHOW_NATIVE_PLATFORM_REPORT && data" #actions>
         <p class="pr-generated muted">
@@ -119,10 +127,10 @@ function retry() {
       </template>
     </PageHeader>
 
-    <section class="pr-looker card" aria-label="Looker Studio — SEDSP Dashboard">
+    <section class="pr-looker card" aria-label="Looker Studio — Doanh thu sàn">
       <div class="pr-looker__head">
         <div>
-          <h2 class="pr-looker__title">SEDSP Dashboard · Looker Studio</h2>
+          <h2 class="pr-looker__title">Doanh thu sàn · Looker Studio</h2>
           <p class="pr-looker__lead muted">
             Báo cáo tổng hợp nhúng từ Google Looker Studio
           </p>
@@ -133,12 +141,12 @@ function retry() {
           target="_blank"
           rel="noopener noreferrer"
         >
-          Mở full báo cáo
+          Mở báo cáo đầy đủ
         </a>
       </div>
       <div class="pr-looker__frame-wrap">
         <p v-if="!lookerLoaded && !lookerFailed" class="pr-looker__loading muted" role="status">
-          Đang tải dashboard Looker Studio…
+          Đang tải báo cáo Looker Studio…
         </p>
         <div v-if="lookerFailed && !lookerLoaded" class="pr-looker__fallback" role="status">
           <p>Không nhúng được Looker trong trang (chặn iframe / mạng).</p>
@@ -148,12 +156,12 @@ function retry() {
             target="_blank"
             rel="noopener noreferrer"
           >
-            Mở full báo cáo
+            Mở báo cáo đầy đủ
           </a>
         </div>
         <iframe
           class="pr-looker__frame"
-          title="SEDSP Dashboard — Looker Studio"
+          title="Doanh thu sàn — Looker Studio"
           :src="LOOKER_STUDIO_EMBED_URL"
           loading="lazy"
           referrerpolicy="no-referrer-when-downgrade"
@@ -190,6 +198,15 @@ function retry() {
           :products="products"
           :categories="categories"
         />
+
+        <PlatformOrderStatusChart v-if="orderStatuses.length" :items="orderStatuses" />
+        <PlatformPaymentChart v-if="payments.length" :items="payments" />
+        <PlatformActivityTrendChart
+          v-if="activityTrend.length"
+          :trend="activityTrend"
+          :granularity="filter.granularity"
+        />
+        <PlatformActivitySection v-if="activity" :activity="activity" />
       </template>
 
       <div

@@ -75,7 +75,7 @@ describe('advanced price scenario helpers', () => {
   })
 
   it('formats backend method and signed percentage labels', () => {
-    expect(formatForecastMethod('lightgbm_onnx')).toContain('LightGBM')
+    expect(formatForecastMethod('lightgbm_onnx')).toContain('học máy')
     expect(formatSignedPercent(10)).toContain('+10')
     expect(formatSignedPercent(-10)).toContain('-10')
   })

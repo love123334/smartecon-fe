@@ -87,9 +87,9 @@ describe('platform revenue helpers', () => {
     expect(orderStatusDisplayLabel('PENDING')).toBe('Chờ xử lý')
   })
 
-  it('renders Uncategorized for null category', () => {
-    expect(categoryDisplayName(null, null)).toBe('Uncategorized')
-    expect(categoryDisplayName(null, '')).toBe('Uncategorized')
+  it('renders Chưa phân loại for null category', () => {
+    expect(categoryDisplayName(null, null)).toBe('Chưa phân loại')
+    expect(categoryDisplayName(null, '')).toBe('Chưa phân loại')
   })
 
   it('default filter uses last 30 days ending today', () => {

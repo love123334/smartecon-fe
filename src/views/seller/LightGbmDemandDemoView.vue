@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import LightGbmForecastChart from '@/components/dss/LightGbmForecastChart.vue'
+import DssThinkingLoader from '@/components/dss/DssThinkingLoader.vue'
 import { dssApi } from '@/api/services'
 import type { DemandForecastApi } from '@/api/real/dss'
 import { useAuthStore } from '@/stores/auth'
@@ -30,9 +31,9 @@ const onnxUsed = computed(() => Boolean(features.value?.onnxModelUsed) || result
 const modelAvailable = computed(() => Boolean(features.value?.onnxModelAvailable) || onnxUsed.value)
 const modelState = computed(() => {
   if (!result.value) return { label: 'Chưa chạy', tone: 'idle', detail: 'Chọn sản phẩm và chạy thử mô hình.' }
-  if (onnxUsed.value) return { label: 'LightGBM ONNX', tone: 'success', detail: 'Backend đã suy luận bằng model LightGBM đã export sang ONNX.' }
-  if (modelAvailable.value) return { label: 'Hybrid fallback', tone: 'warn', detail: 'Model có sẵn nhưng lần dự báo này đã dùng phương án dự phòng.' }
-  return { label: 'Baseline fallback', tone: 'muted', detail: 'Chưa dùng ONNX; kết quả đến từ mô hình xu hướng dự phòng.' }
+  if (onnxUsed.value) return { label: 'Mô hình học máy', tone: 'success', detail: 'Hệ thống đã dự báo bằng mô hình LightGBM đã huấn luyện trên lịch sử bán hàng.' }
+  if (modelAvailable.value) return { label: 'Kết hợp dự phòng', tone: 'warn', detail: 'Mô hình có sẵn nhưng lần này đã dùng phương án dự phòng.' }
+  return { label: 'Dự báo xu hướng', tone: 'muted', detail: 'Kết quả đến từ mô hình xu hướng dự phòng khi chưa dùng mô hình học máy.' }
 })
 const trendLabel = computed(() => {
   const slope = Number(features.value?.trendSlope ?? 0)
@@ -128,12 +129,12 @@ async function saveForecast() {
         <h1>Dự báo Nhu cầu</h1>
         <p class="dss-page__sub">Kiểm tra trực tiếp dữ liệu lịch sử, xu hướng và dự báo trả về từ backend.</p>
       </div>
-      <span class="demo-badge">GBDT · ONNX Runtime</span>
+      <span class="demo-badge">Dự báo nhu cầu</span>
     </header>
 
     <section class="dss-card config-card">
       <div class="section-head">
-        <div><h2 class="dss-card__title">Cấu hình lần chạy</h2><p>GET chỉ xem trước; nút lưu bên dưới mới gọi POST.</p></div>
+        <div><h2 class="dss-card__title">Cấu hình lần chạy</h2><p>Chạy để xem trước; lưu kết quả khi bạn hài lòng với dự báo.</p></div>
         <span :class="['model-state', `model-state--${modelState.tone}`]">{{ modelState.label }}</span>
       </div>
 
@@ -151,22 +152,29 @@ async function saveForecast() {
           <select v-model="forecastDays" class="dss-input"><option v-for="d in forecastOptions" :key="d" :value="d">{{ d }} ngày</option></select>
         </label>
       </div>
-      <button class="dss-btn dss-btn--primary" :disabled="!productId || running" @click="runForecast">{{ running ? 'Đang suy luận…' : 'Chạy dự báo' }}</button>
+      <button class="dss-btn dss-btn--primary" :disabled="!productId || running" @click="runForecast">{{ running ? 'Đang dự báo…' : 'Chạy dự báo' }}</button>
     </section>
+
+    <DssThinkingLoader
+      v-if="running"
+      title="Đang tính toán dự báo"
+      detail="Máy đang đọc lịch sử bán, ước lượng xu hướng và chạy mô hình nhu cầu."
+      :cards="2"
+    />
 
     <div v-if="error" class="dss-alert dss-alert--warn" role="alert">{{ error }}</div>
     <div v-if="savedMessage" class="dss-alert dss-alert--success" role="status">{{ savedMessage }}</div>
 
-    <template v-if="result">
+    <template v-if="result && !running">
       <section :class="['model-panel', `model-panel--${modelState.tone}`]">
-        <div><small>MÔ HÌNH THỰC TẾ ĐÃ CHẠY</small><strong>{{ modelState.label }}</strong><p>{{ modelState.detail }}</p></div>
-        <div class="model-flags"><span>Model available <b>{{ modelAvailable ? 'Có' : 'Không' }}</b></span><span>ONNX used <b>{{ onnxUsed ? 'Có' : 'Không' }}</b></span></div>
+        <div><small>MÔ HÌNH ĐÃ CHẠY</small><strong>{{ modelState.label }}</strong><p>{{ modelState.detail }}</p></div>
+        <div class="model-flags"><span>Mô hình sẵn sàng <b>{{ modelAvailable ? 'Có' : 'Không' }}</b></span><span>Đã dùng mô hình học máy <b>{{ onnxUsed ? 'Có' : 'Không' }}</b></span></div>
       </section>
 
       <section class="metric-grid">
         <article><span>Tổng dự báo</span><strong>{{ formatViNumber(result.predictedDemand) }}</strong><small>đơn vị / {{ result.forecastDays }} ngày</small></article>
         <article><span>TB dự báo/ngày</span><strong>{{ formatViNumber(features?.forecastAverageDailyDemand ?? result.predictedDemand / result.forecastDays) }}</strong><small>đơn vị</small></article>
-        <article><span>Xu hướng</span><strong>{{ trendLabel }}</strong><small>slope {{ formatViNumber(features?.trendSlope) }}</small></article>
+        <article><span>Xu hướng</span><strong>{{ trendLabel }}</strong><small>độ dốc {{ formatViNumber(features?.trendSlope) }}</small></article>
         <article><span>Ngày có bán</span><strong>{{ formatViNumber(features?.positiveDays) }}</strong><small>/ {{ result.historicalDays }} ngày</small></article>
       </section>
 
@@ -177,19 +185,19 @@ async function saveForecast() {
 
       <section class="detail-grid">
         <article class="dss-card">
-          <h2 class="dss-card__title">Feature tối thiểu đã đưa vào model</h2>
+          <h2 class="dss-card__title">Chỉ số đầu vào đã dùng</h2>
           <dl class="feature-list">
             <div><dt>Nhu cầu gần đây</dt><dd>{{ formatViNumber(features?.recentAverageDailyDemand) }}</dd></div>
             <div><dt>Nhu cầu trung hạn</dt><dd>{{ formatViNumber(features?.mediumAverageDailyDemand) }}</dd></div>
-            <div><dt>Momentum</dt><dd>{{ formatViNumber(features?.momentum) }}</dd></div>
-            <div><dt>Lag 7 ngày</dt><dd>{{ formatViNumber(features?.lag7) }}</dd></div>
+            <div><dt>Đà nhu cầu</dt><dd>{{ formatViNumber(features?.momentum) }}</dd></div>
+            <div><dt>Cách đây 7 ngày</dt><dd>{{ formatViNumber(features?.lag7) }}</dd></div>
             <div><dt>Tín hiệu mùa vụ tuần</dt><dd>{{ formatViNumber(features?.seasonalSignal) }}</dd></div>
             <div><dt>Tồn kho hiện tại</dt><dd>{{ formatViNumber(features?.currentStock) }}</dd></div>
           </dl>
         </article>
         <article class="dss-card action-card">
           <h2 class="dss-card__title">Xác nhận kết quả</h2>
-          <p>Biểu đồ trên là kết quả xem trước từ GET. Nếu hợp lý, lưu lần dự báo này bằng POST để backend ghi nhận.</p>
+          <p>Biểu đồ trên là kết quả xem trước. Nếu hợp lý, lưu lần dự báo này để hệ thống ghi nhận.</p>
           <button class="dss-btn dss-btn--outline" :disabled="saving" @click="saveForecast">{{ saving ? 'Đang lưu…' : 'Lưu kết quả dự báo' }}</button>
         </article>
       </section>

@@ -51,7 +51,7 @@ const chartData = computed(() => {
         fill: true,
       },
       {
-        label: 'LightGBM / fallback',
+        label: 'Đường dự báo',
         data: forecastData,
         borderColor: '#f97316',
         backgroundColor: 'rgba(249, 115, 22, 0.10)',

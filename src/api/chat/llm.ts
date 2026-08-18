@@ -51,10 +51,10 @@ export function isLlmConfigured(): boolean {
 }
 
 export function llmProviderLabel(): string {
-  if (beAiConfigured === true) return 'OpenRouter/AI (via backend)'
-  if (isDirectLlmConfigured()) return 'Groq/OpenAI (browser)'
-  if (hasBackendToken()) return 'Backend AI (checking…)'
-  return 'Local'
+  if (beAiConfigured === true) return 'trợ lý trên máy chủ'
+  if (isDirectLlmConfigured()) return 'trợ lý trình duyệt'
+  if (hasBackendToken()) return 'đang kết nối trợ lý…'
+  return 'trợ lý local'
 }
 
 /** Pattern: history + user message → BE HF proxy, else optional direct Groq */

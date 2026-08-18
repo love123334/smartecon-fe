@@ -90,20 +90,20 @@ export function validatePlatformRevenueFilter(
   const granularity = String(input.granularity ?? '') as RevenueGranularity
   const topLimit = Number(input.topLimit)
 
-  if (!fromDate) errors.fromDate = 'From Date phải có định dạng YYYY-MM-DD.'
-  if (!toDate) errors.toDate = 'To Date phải có định dạng YYYY-MM-DD.'
+  if (!fromDate) errors.fromDate = 'Ngày bắt đầu không hợp lệ.'
+  if (!toDate) errors.toDate = 'Ngày kết thúc không hợp lệ.'
   if (granularity !== 'DAY' && granularity !== 'MONTH') {
-    errors.granularity = 'Granularity phải là DAY hoặc MONTH.'
+    errors.granularity = 'Đơn vị thời gian phải là theo ngày hoặc theo tháng.'
   }
   if (!Number.isInteger(topLimit) || topLimit < 1 || topLimit > 20) {
-    errors.topLimit = 'Top Limit phải từ 1 đến 20.'
+    errors.topLimit = 'Số dòng xếp hạng phải từ 1 đến 20.'
   }
 
   if (fromDate && toDate && fromDate > toDate) {
-    errors.fromDate = 'From Date không được sau To Date.'
+    errors.fromDate = 'Ngày bắt đầu không được sau ngày kết thúc.'
   }
   if (toDate && toDate > today) {
-    errors.toDate = 'To Date không được ở tương lai.'
+    errors.toDate = 'Ngày kết thúc không được ở tương lai.'
   }
   if (fromDate && toDate && fromDate <= toDate) {
     const days = inclusiveDayCount(fromDate, toDate)
@@ -176,6 +176,10 @@ export function formatGeneratedAt(value: string | null | undefined): string {
   }).format(date)
 }
 
+export function granularityLabel(granularity: RevenueGranularity): string {
+  return granularity === 'MONTH' ? 'Theo tháng' : 'Theo ngày'
+}
+
 export function formatPeriodLabel(periodStart: string, granularity: RevenueGranularity): string {
   if (!periodStart) return '—'
   if (granularity === 'MONTH') {
@@ -204,9 +208,9 @@ export function categoryDisplayName(
   categoryName: string | null | undefined,
 ): string {
   if (categoryId == null && (!categoryName || !String(categoryName).trim())) {
-    return 'Uncategorized'
+    return 'Chưa phân loại'
   }
-  if (!categoryName || !String(categoryName).trim()) return 'Uncategorized'
+  if (!categoryName || !String(categoryName).trim()) return 'Chưa phân loại'
   return categoryName
 }
 
@@ -221,7 +225,7 @@ export function mapPlatformRevenueError(error: unknown): string {
     if (error.status === 404) {
       return (
         error.message ||
-        'Backend này chưa có API doanh thu sàn. Bạn vẫn xem được Looker Studio phía trên.'
+        'Hệ thống chưa có API doanh thu sàn. Bạn vẫn xem được Looker Studio phía trên.'
       )
     }
     if (error.status >= 500) {

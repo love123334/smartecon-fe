@@ -48,7 +48,7 @@ const options = {
 
 <template>
   <section class="card pr-pay" aria-labelledby="pr-payment-title">
-    <h2 id="pr-payment-title" class="pr-section-title">Payment Method Distribution</h2>
+    <h2 id="pr-payment-title" class="pr-section-title">Phân bố phương thức thanh toán</h2>
     <div class="pr-split">
       <div v-if="hasData" class="chart-box">
         <Doughnut :data="chartData" :options="options" />
@@ -58,12 +58,12 @@ const options = {
         <table class="data">
           <thead>
             <tr>
-              <th>Method</th>
-              <th>Total</th>
-              <th>Success</th>
-              <th>Pending</th>
-              <th>Failed</th>
-              <th>Successful amount</th>
+              <th>Phương thức</th>
+              <th>Tổng</th>
+              <th>Thành công</th>
+              <th>Đang chờ</th>
+              <th>Thất bại</th>
+              <th>Số tiền thành công</th>
               <th>%</th>
             </tr>
           </thead>

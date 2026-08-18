@@ -12,7 +12,7 @@ defineProps<{
     <article class="card stat-card">
       <span class="stat-label">Người bán</span>
       <span class="stat-value">{{ formatPlatformNumber(overview.activeSellerCount) }}</span>
-      <small class="pr-hint">Seller có đơn đã giao trong kỳ đã chọn</small>
+      <small class="pr-hint">Người bán có đơn đã giao trong kỳ đã chọn</small>
     </article>
 
     <article class="card stat-card">

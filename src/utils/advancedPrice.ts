@@ -124,9 +124,9 @@ export function formatSignedPercent(value: number): string {
 }
 
 export function formatForecastMethod(method: string): string {
-  if (method === 'lightgbm_onnx') return 'LightGBM · ONNX Runtime'
+  if (method === 'lightgbm_onnx') return 'Mô hình học máy'
   if (method === 'lightgbm_onnx_with_baseline_fallback') {
-    return 'LightGBM · có sử dụng fallback'
+    return 'Mô hình học máy · có dùng dự phòng'
   }
   if (method === 'trend_blended_feature_forecast') return 'Dự báo xu hướng dự phòng'
   return method || 'Không xác định'

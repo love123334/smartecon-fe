@@ -74,8 +74,8 @@ const options = computed(() =>
             const row = props.trend[idx]
             if (!row) return []
             return [
-              `Delivered orders: ${formatPlatformNumber(row.deliveredOrders)}`,
-              `Units sold: ${formatPlatformNumber(row.unitsSold)}`,
+              `Đơn đã giao: ${formatPlatformNumber(row.deliveredOrders)}`,
+              `Sản phẩm bán: ${formatPlatformNumber(row.unitsSold)}`,
             ]
           },
           label(ctx: { dataset: { label?: string }; parsed: { y: number | null } }) {

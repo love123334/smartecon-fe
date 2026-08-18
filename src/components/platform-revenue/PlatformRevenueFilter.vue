@@ -4,6 +4,7 @@ import type { PlatformRevenueDashboardQuery, RevenueGranularity } from '@/api/re
 import {
   GRANULARITY_OPTIONS,
   TOP_LIMIT_OPTIONS,
+  granularityLabel,
   validatePlatformRevenueFilter,
 } from '@/utils/platformRevenue'
 import { todayIsoDate } from '@/utils/pricePrediction'
@@ -88,7 +89,7 @@ function setGranularity(g: RevenueGranularity) {
     <div v-show="open" id="pr-filter-panel" class="pr-filter__panel">
       <form class="pr-filter__grid" @submit.prevent="onApply">
         <label class="pr-field">
-          <span>From Date</span>
+          <span>Từ ngày</span>
           <input
             v-model="draft.fromDate"
             type="date"
@@ -107,7 +108,7 @@ function setGranularity(g: RevenueGranularity) {
         </label>
 
         <label class="pr-field">
-          <span>To Date</span>
+          <span>Đến ngày</span>
           <input
             v-model="draft.toDate"
             type="date"
@@ -127,19 +128,19 @@ function setGranularity(g: RevenueGranularity) {
         </label>
 
         <label class="pr-field">
-          <span>Granularity</span>
+          <span>Đơn vị thời gian</span>
           <select
             v-model="draft.granularity"
             class="pr-input"
             :disabled="loading"
             @change="setGranularity(draft.granularity)"
           >
-            <option v-for="g in GRANULARITY_OPTIONS" :key="g" :value="g">{{ g }}</option>
+            <option v-for="g in GRANULARITY_OPTIONS" :key="g" :value="g">{{ granularityLabel(g) }}</option>
           </select>
         </label>
 
         <label class="pr-field">
-          <span>Top Limit</span>
+          <span>Số dòng xếp hạng</span>
           <select v-model.number="draft.topLimit" class="pr-input" :disabled="loading">
             <option v-for="n in TOP_LIMIT_OPTIONS" :key="n" :value="n">{{ n }}</option>
           </select>

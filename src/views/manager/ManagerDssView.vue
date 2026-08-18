@@ -5,6 +5,7 @@ import { dssApi } from '@/api/services'
 import type { DssInsight } from '@/types'
 import PageHeader from '@/components/PageHeader.vue'
 import AiShortcutBar from '@/components/AiShortcutBar.vue'
+import DssThinkingLoader from '@/components/dss/DssThinkingLoader.vue'
 import { LOOKER_STUDIO_PLATFORM_REVENUE_URL } from '@/constants/lookerStudio'
 import { buildManagerDssCommentary } from '@/utils/dssCommentary'
 
@@ -58,17 +59,17 @@ function onLookerLoad() {
       title="Tiếp theo:"
       :links="[
         { to: '/manager/platform-revenue', label: 'Doanh thu sàn', highlight: true },
-        { to: '/manager/dashboard', label: 'Dashboard KPI', highlight: true },
+        { to: '/manager/dashboard', label: 'KPI vận hành', highlight: true },
         { to: '/manager/analytics', label: 'Phân tích' },
       ]"
     />
 
-    <section class="dss-looker card" aria-label="Looker Studio — Platform Revenue">
+    <section class="dss-looker card" aria-label="Looker Studio — Doanh thu sàn">
       <div class="dss-looker__head">
         <div>
           <h2 class="dss-looker__title">Looker Studio — Doanh thu sàn</h2>
           <p class="muted dss-looker__lead">
-            Báo cáo Platform Revenue Management nhúng trực tiếp (cùng nguồn với trang Doanh thu sàn).
+            Báo cáo doanh thu nền tảng nhúng trực tiếp (cùng nguồn với trang Doanh thu sàn).
           </p>
         </div>
         <a
@@ -77,7 +78,7 @@ function onLookerLoad() {
           target="_blank"
           rel="noopener noreferrer"
         >
-          Mở full báo cáo
+          Mở báo cáo đầy đủ
         </a>
       </div>
       <div class="dss-looker__frame-wrap">
@@ -92,12 +93,12 @@ function onLookerLoad() {
             target="_blank"
             rel="noopener noreferrer"
           >
-            Mở full báo cáo
+            Mở báo cáo đầy đủ
           </a>
         </div>
         <iframe
           class="dss-looker__frame"
-          title="Platform Revenue Management — Looker Studio"
+          title="Doanh thu sàn — Looker Studio"
           :src="LOOKER_STUDIO_PLATFORM_REVENUE_URL"
           loading="lazy"
           referrerpolicy="no-referrer-when-downgrade"
@@ -111,16 +112,21 @@ function onLookerLoad() {
       <div class="dss-brain__head">
         <h3>Nhận xét & kế hoạch vận hành</h3>
       </div>
-      <p v-if="planLoading">Đang tổng hợp số liệu…</p>
+      <DssThinkingLoader
+        v-if="planLoading"
+        compact
+        title="Đang tính toán nhận xét"
+        detail="Máy đang tổng hợp số liệu vận hành toàn sàn."
+      />
       <p v-else-if="planError" class="dss-brain__err">{{ planError }}</p>
       <pre v-else class="dss-brain__md">{{ commentary }}</pre>
     </section>
 
     <div class="dss-hub">
       <RouterLink class="dss-hub__card" to="/manager/platform-revenue">
-        <span class="dss-hub__tag">Revenue</span>
-        <h2>Platform Revenue</h2>
-        <p>GMV toàn sàn · xu hướng · top sellers/products · Looker Studio + API live.</p>
+        <span class="dss-hub__tag">Doanh thu</span>
+        <h2>Doanh thu sàn</h2>
+        <p>GMV toàn sàn, xu hướng, top người bán / sản phẩm, Looker Studio và số liệu trực tiếp.</p>
         <span class="dss-hub__cta">Mở →</span>
       </RouterLink>
       <RouterLink class="dss-hub__card" to="/manager/analytics">
@@ -131,7 +137,7 @@ function onLookerLoad() {
       </RouterLink>
       <RouterLink class="dss-hub__card" to="/manager/dashboard">
         <span class="dss-hub__tag">KPI</span>
-        <h2>Dashboard quản lý</h2>
+        <h2>Bảng điều khiển quản lý</h2>
         <p>Tổng quan đơn hàng, doanh thu và trạng thái vận hành.</p>
         <span class="dss-hub__cta">Mở →</span>
       </RouterLink>
@@ -148,8 +154,7 @@ function onLookerLoad() {
 
     <p class="dss-seller-note muted">
       Phân tích <strong>What-if giảm giá</strong> (mô phỏng lợi nhuận theo sản phẩm) dành cho
-      <strong>Người bán</strong> tại
-      <code>/seller/dss/what-if</code> — không nằm trong DSS quản lý.
+      <strong>Người bán</strong> tại trang What-if Hiệu suất — không nằm trong DSS quản lý.
     </p>
   </div>
 </template>
@@ -223,6 +228,10 @@ function onLookerLoad() {
   border: 1px solid #dbeafe;
   border-radius: 12px;
   background: linear-gradient(180deg, #f8fbff 0%, #fff 100%);
+}
+.dss-brain :deep(.dss-think) {
+  margin: 0;
+  padding: 0.75rem 0.85rem;
 }
 .dss-brain__head {
   display: flex;

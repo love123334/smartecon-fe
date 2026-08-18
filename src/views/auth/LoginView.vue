@@ -151,8 +151,8 @@ function onLoginButtonClick(e: MouseEvent) {
           <p class="card-title" style="margin-bottom: 0.5rem">Tài khoản demo (Ctrl + Đăng nhập)</p>
           <p class="muted" style="margin: 0 0 0.75rem">
             Mật khẩu chung: <code>{{ demoPassword }}</code>
-            <span v-if="apiConfig.useRealAuth" class="demo-hint">(backend)</span>
-            <span v-else class="demo-hint">(mock)</span>
+            <span v-if="apiConfig.useRealAuth" class="demo-hint">(hệ thống)</span>
+            <span v-else class="demo-hint">(demo cục bộ)</span>
             · Seller DSS: <code>password</code>
           </p>
           <div class="demo-grid">

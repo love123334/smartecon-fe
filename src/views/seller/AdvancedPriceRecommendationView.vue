@@ -11,6 +11,7 @@ import {
 } from '@/api/real/dss'
 import { listProducts } from '@/api/real/products'
 import { useAuthStore } from '@/stores/auth'
+import DssThinkingLoader from '@/components/dss/DssThinkingLoader.vue'
 import {
   ADVANCED_PRICE_CHANGE_MAX,
   ADVANCED_PRICE_CHANGE_MIN,
@@ -105,7 +106,7 @@ async function loadSellerProducts() {
   productsError.value = ''
   try {
     if (!sellerId.value) {
-      throw new Error('Không xác định được Seller ID từ phiên đăng nhập backend.')
+      throw new Error('Không xác định được tài khoản người bán từ phiên đăng nhập.')
     }
     const backendProducts = await listProducts({ sellerId: sellerId.value, size: 100 })
     products.value = backendProducts
@@ -114,7 +115,7 @@ async function loadSellerProducts() {
 
     if (!products.value.length) {
       productId.value = ''
-      productsError.value = 'Backend chưa trả về sản phẩm nào thuộc Seller hiện tại.'
+      productsError.value = 'Hệ thống chưa trả về sản phẩm nào thuộc người bán hiện tại.'
       return
     }
     if (!products.value.some((product) => product.id === productId.value)) {
@@ -194,7 +195,7 @@ async function createScenario() {
       priceChangePercent: priceChangePercent.value,
     })
     setSession(updated)
-    successMessage.value = `Đã tạo kịch bản ${formatSignedPercent(priceChangePercent.value)} từ dữ liệu Backend.`
+    successMessage.value = `Đã tạo kịch bản ${formatSignedPercent(priceChangePercent.value)} từ dữ liệu hệ thống.`
   } catch (error) {
     submitError.value = mapAdvancedPriceError(error)
   } finally {
@@ -285,14 +286,20 @@ function scenarioClass(change: number): string {
         </div>
         <div class="advanced-source-chip" title="Trang này không sử dụng mock hoặc dữ liệu sản phẩm cứng">
           <span class="advanced-source-chip__dot" aria-hidden="true"></span>
-          Dữ liệu trực tiếp từ Backend
+          Dữ liệu trực tiếp từ hệ thống
         </div>
       </div>
     </header>
 
-    <div v-if="restoring" class="dss-alert advanced-info" role="status">
-      Đang khôi phục phiên phân tích gần nhất từ Backend…
-    </div>
+    <DssThinkingLoader
+      v-if="restoring || submitting"
+      compact
+      :title="restoring ? 'Đang khôi phục phiên phân tích' : 'Đang tính toán kịch bản giá'"
+      :detail="restoring
+        ? 'Máy đang đọc phiên gợi ý giá gần nhất.'
+        : 'Máy đang mô phỏng nhu cầu, lợi nhuận và mức giá mới.'
+      "
+    />
 
     <section class="dss-card advanced-config" aria-labelledby="advanced-config-title">
       <div class="advanced-section-head">
@@ -305,7 +312,7 @@ function scenarioClass(change: number): string {
         </span>
       </div>
 
-      <p v-if="productsLoading" class="dss-hint" role="status">Đang tải sản phẩm từ Backend…</p>
+      <p v-if="productsLoading" class="dss-hint" role="status">Đang tải sản phẩm…</p>
       <div v-else-if="productsError" class="dss-alert dss-alert--warn" role="alert">
         {{ productsError }}
       </div>
@@ -321,7 +328,7 @@ function scenarioClass(change: number): string {
               :aria-invalid="Boolean(fieldErrors.productId)"
               required
             >
-              <option disabled value="">— Chọn sản phẩm từ Backend —</option>
+              <option disabled value="">— Chọn sản phẩm —</option>
               <option v-for="product in products" :key="product.id" :value="product.id">
                 {{ product.name }}
               </option>
@@ -636,7 +643,7 @@ function scenarioClass(change: number): string {
       <div>
         <h2>Chưa có phiên phân tích</h2>
         <p>
-          Các chỉ số chỉ xuất hiện sau khi Backend trả kết quả. Trang này không tự sinh số liệu mẫu.
+          Các chỉ số chỉ xuất hiện sau khi hệ thống trả kết quả. Trang này không tự sinh số liệu mẫu.
         </p>
       </div>
     </section>

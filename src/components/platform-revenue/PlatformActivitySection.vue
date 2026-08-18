@@ -8,32 +8,32 @@ defineProps<{
 </script>
 
 <template>
-  <section class="pr-activity" aria-label="Platform activity">
+  <section class="pr-activity" aria-label="Hoạt động nền tảng">
     <article class="card">
-      <h2 class="pr-section-title">User activity</h2>
+      <h2 class="pr-section-title">Hoạt động người dùng</h2>
       <p class="muted pr-note">
-        Active Seller/Customer Accounts = tài khoản trạng thái ACTIVE, không phải số người đang online.
+        Tài khoản đang hoạt động là tài khoản trạng thái Active — không phải số người đang online.
       </p>
       <div class="pr-mini-grid">
-        <div><span>Total Sellers</span><strong>{{ formatPlatformNumber(activity.totalSellers) }}</strong></div>
-        <div><span>Active Seller Accounts</span><strong>{{ formatPlatformNumber(activity.activeSellerAccounts) }}</strong></div>
-        <div><span>New Sellers</span><strong>{{ formatPlatformNumber(activity.newSellers) }}</strong></div>
-        <div><span>Total Customers</span><strong>{{ formatPlatformNumber(activity.totalCustomers) }}</strong></div>
-        <div><span>Active Customer Accounts</span><strong>{{ formatPlatformNumber(activity.activeCustomerAccounts) }}</strong></div>
-        <div><span>New Customers</span><strong>{{ formatPlatformNumber(activity.newCustomers) }}</strong></div>
+        <div><span>Tổng người bán</span><strong>{{ formatPlatformNumber(activity.totalSellers) }}</strong></div>
+        <div><span>Tài khoản người bán đang hoạt động</span><strong>{{ formatPlatformNumber(activity.activeSellerAccounts) }}</strong></div>
+        <div><span>Người bán mới</span><strong>{{ formatPlatformNumber(activity.newSellers) }}</strong></div>
+        <div><span>Tổng khách hàng</span><strong>{{ formatPlatformNumber(activity.totalCustomers) }}</strong></div>
+        <div><span>Tài khoản khách đang hoạt động</span><strong>{{ formatPlatformNumber(activity.activeCustomerAccounts) }}</strong></div>
+        <div><span>Khách hàng mới</span><strong>{{ formatPlatformNumber(activity.newCustomers) }}</strong></div>
       </div>
     </article>
 
     <article class="card">
-      <h2 class="pr-section-title">Product activity</h2>
+      <h2 class="pr-section-title">Hoạt động sản phẩm</h2>
       <div class="pr-mini-grid">
-        <div><span>Total Products</span><strong>{{ formatPlatformNumber(activity.totalProducts) }}</strong></div>
-        <div><span>Active Products</span><strong>{{ formatPlatformNumber(activity.activeProducts) }}</strong></div>
-        <div><span>Inactive Products</span><strong>{{ formatPlatformNumber(activity.inactiveProducts) }}</strong></div>
-        <div><span>Out-of-stock Products</span><strong>{{ formatPlatformNumber(activity.outOfStockProducts) }}</strong></div>
-        <div><span>New Products</span><strong>{{ formatPlatformNumber(activity.newProducts) }}</strong></div>
-        <div><span>Uncategorized Products</span><strong>{{ formatPlatformNumber(activity.uncategorizedProducts) }}</strong></div>
-        <div><span>Total Categories</span><strong>{{ formatPlatformNumber(activity.totalCategories) }}</strong></div>
+        <div><span>Tổng sản phẩm</span><strong>{{ formatPlatformNumber(activity.totalProducts) }}</strong></div>
+        <div><span>Đang bán</span><strong>{{ formatPlatformNumber(activity.activeProducts) }}</strong></div>
+        <div><span>Ngừng bán</span><strong>{{ formatPlatformNumber(activity.inactiveProducts) }}</strong></div>
+        <div><span>Hết hàng</span><strong>{{ formatPlatformNumber(activity.outOfStockProducts) }}</strong></div>
+        <div><span>Sản phẩm mới</span><strong>{{ formatPlatformNumber(activity.newProducts) }}</strong></div>
+        <div><span>Chưa phân loại</span><strong>{{ formatPlatformNumber(activity.uncategorizedProducts) }}</strong></div>
+        <div><span>Tổng danh mục</span><strong>{{ formatPlatformNumber(activity.totalCategories) }}</strong></div>
       </div>
     </article>
   </section>
@@ -68,8 +68,6 @@ defineProps<{
   font-size: 0.75rem;
   font-weight: 600;
   color: #64748b;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
 }
 .pr-mini-grid strong {
   font-size: 1.1rem;

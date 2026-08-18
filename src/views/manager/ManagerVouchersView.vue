@@ -147,7 +147,7 @@ function discountLabel(v: Pick<Voucher, 'discountType' | 'discountValue'>) {
         :class="tab === 'requests' ? 'btn-primary' : 'btn-outline'"
         @click="tab = 'requests'"
       >
-        Yêu cầu seller
+        Yêu cầu người bán
         <span v-if="requests.length" class="voucher-tabs__badge">{{ requests.length }}</span>
       </button>
     </div>
@@ -189,7 +189,7 @@ function discountLabel(v: Pick<Voucher, 'discountType' | 'discountValue'>) {
               </select>
             </div>
             <div v-if="form.scope === 'SHOP'" class="form-group">
-              <label for="m-seller">Seller ID</label>
+              <label for="m-seller">Mã người bán</label>
               <input id="m-seller" v-model.number="form.sellerId" type="number" min="1" />
             </div>
             <div class="form-group">

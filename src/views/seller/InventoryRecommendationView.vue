@@ -102,7 +102,7 @@ async function generate() {
   if (apiConfig.useRealSeller && !usingApi.value) {
     apiError.value =
       catalogError.value ||
-      'Chưa kết nối được catalog backend — không chạy mô phỏng demo khi đang ở chế độ API thật.'
+      'Chưa kết nối được danh mục sản phẩm — không chạy mô phỏng demo khi đang dùng dữ liệu thật.'
     errorCode.value = 'failed'
     loading.value = false
     return
@@ -134,7 +134,7 @@ async function generate() {
       }))
       if (!rows.length) {
         errorCode.value = 'failed'
-        apiError.value = 'Backend không trả về dòng khuyến nghị nào.'
+        apiError.value = 'Hệ thống không trả về dòng khuyến nghị nào.'
         return
       }
       const focus = rows[0]
@@ -157,7 +157,7 @@ async function generate() {
       success.value = true
       return
     } catch (e) {
-      apiError.value = e instanceof Error ? e.message : 'Không gọi được DSS API'
+      apiError.value = e instanceof Error ? e.message : 'Không tải được khuyến nghị tồn kho'
       errorCode.value = 'failed'
       return
     } finally {
@@ -355,7 +355,7 @@ function clearError() {
               :product-name="result.rows[0]?.productName"
             />
             <p v-else class="dss-hint">
-              Backend chưa trả chuỗi lịch sử bán — biểu đồ ẩn. Nhu cầu TB/ngày vẫn lấy từ API khuyến nghị.
+              Hệ thống chưa trả chuỗi lịch sử bán — biểu đồ ẩn. Nhu cầu trung bình/ngày vẫn lấy từ khuyến nghị.
             </p>
           </section>
         </div>

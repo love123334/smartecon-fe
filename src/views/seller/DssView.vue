@@ -6,6 +6,7 @@ import type { DssInsight, Product } from '@/types'
 import { useAuthStore } from '@/stores/auth'
 import PageHeader from '@/components/PageHeader.vue'
 import AiShortcutBar from '@/components/AiShortcutBar.vue'
+import DssThinkingLoader from '@/components/dss/DssThinkingLoader.vue'
 import { buildSellerDssModuleCards } from '@/utils/sellerDssModuleAi'
 import { loadSellerCatalogForDss } from '@/utils/sellerCatalog'
 import { formatViNumber } from '@/utils/demandPrediction'
@@ -97,7 +98,13 @@ onMounted(async () => {
           <p>Tổng hợp ngắn gọn để xem nhanh tình hình và việc nên làm trong kỳ.</p>
         </div>
       </div>
-      <div class="dss-plan__grid">
+      <DssThinkingLoader
+        v-if="hubLoading"
+        compact
+        title="Đang tổng hợp kế hoạch"
+        detail="Đọc danh mục sản phẩm và tín hiệu bán hàng trước khi đưa gợi ý."
+      />
+      <div v-else class="dss-plan__grid">
         <article v-for="section in businessPlanSections" :key="section.title" class="dss-plan__card">
           <h4>{{ section.title }}</h4>
           <p>{{ section.body }}</p>
@@ -105,26 +112,33 @@ onMounted(async () => {
       </div>
     </section>
 
-    <h3 class="dss-hub__section">Module DSS</h3>
-    <p v-if="hubLoading" class="muted" role="status">Đang đọc catalog &amp; insight…</p>
-    <div v-else class="dss-hub">
-      <RouterLink
-        v-for="card in moduleCards"
-        :key="card.key"
-        class="dss-hub__card"
-        :class="`dss-hub__card--${card.tone}`"
-        :to="card.to"
-      >
-        <div class="dss-hub__top">
-          <span class="dss-hub__tag">{{ card.tag }}</span>
-          <span class="dss-hub__badge" :class="`dss-hub__badge--${card.tone}`">{{ card.badge }}</span>
-        </div>
-        <h2>{{ card.title }}</h2>
-        <p class="dss-hub__blurb">{{ card.blurb }}</p>
-        <div class="dss-hub__summary">{{ card.summary }}</div>
-        <span class="dss-hub__cta">Mở chức năng →</span>
-      </RouterLink>
-    </div>
+    <section class="dss-modules" aria-labelledby="dss-modules-title">
+      <h3 id="dss-modules-title" class="dss-hub__section">Chức năng DSS</h3>
+      <DssThinkingLoader
+        v-if="hubLoading"
+        title="Đang tính toán DSS"
+        detail="Máy đang đọc danh mục, đối chiếu lịch sử bán và chuẩn bị 3 chức năng hỗ trợ quyết định."
+        :cards="3"
+      />
+      <div v-else class="dss-hub">
+        <RouterLink
+          v-for="card in moduleCards"
+          :key="card.key"
+          class="dss-hub__card"
+          :class="`dss-hub__card--${card.tone}`"
+          :to="card.to"
+        >
+          <div class="dss-hub__top">
+            <span class="dss-hub__tag">{{ card.tag }}</span>
+            <span class="dss-hub__badge" :class="`dss-hub__badge--${card.tone}`">{{ card.badge }}</span>
+          </div>
+          <h2>{{ card.title }}</h2>
+          <p class="dss-hub__blurb">{{ card.blurb }}</p>
+          <div class="dss-hub__summary">{{ card.summary }}</div>
+          <span class="dss-hub__cta">Mở chức năng →</span>
+        </RouterLink>
+      </div>
+    </section>
 
     <h3 class="dss-hub__section">Gợi ý nhanh</h3>
     <div class="quick-links">
@@ -151,6 +165,12 @@ onMounted(async () => {
   border: 1px solid #dbeafe;
   border-radius: 12px;
   background: linear-gradient(180deg, #f8fbff 0%, #fff 100%);
+}
+
+.dss-plan :deep(.dss-think) {
+  margin: 0.15rem 0 0;
+  padding: 0.7rem 0.8rem;
+  border-style: dashed;
 }
 
 .dss-plan__head {
@@ -199,11 +219,21 @@ onMounted(async () => {
   line-height: 1.55;
 }
 
+.dss-modules {
+  margin-bottom: 1.65rem;
+}
+
 .dss-hub {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1rem;
-  margin-bottom: 1.5rem;
+}
+
+.dss-hub__section {
+  margin: 0 0 0.9rem;
+  font-size: 1.12rem;
+  font-weight: 750;
+  color: #0d47a1;
 }
 
 .dss-hub__card {
@@ -331,16 +361,11 @@ onMounted(async () => {
   color: #1565c0;
 }
 
-.dss-hub__section {
-  margin: 0 0 0.75rem;
-  font-size: 1rem;
-  color: #0d47a1;
-}
-
 .quick-links {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.85rem;
+  margin-bottom: 0.5rem;
 }
 
 .quick-links__card {

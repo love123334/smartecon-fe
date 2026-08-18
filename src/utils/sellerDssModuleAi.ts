@@ -44,10 +44,10 @@ export function buildSellerDssModuleCards(input: {
       tag: 'Dữ liệu bán',
       title: 'Dự báo Nhu cầu',
       blurb: 'Xem xu hướng bán theo lịch sử và chọn khoảng thời gian để ước lượng nhu cầu.',
-      badge: count > 0 ? 'Mở chức năng' : 'Bắt đầu từ catalog',
+      badge: count > 0 ? 'Mở chức năng' : 'Bắt đầu từ danh mục',
       tone: count > 0 ? 'steady' : 'soft',
       summary: count > 0
-        ? `Có ${formatViNumber(count)} sản phẩm trong catalog. Ưu tiên chạy dự báo cho ${topName} để kiểm tra nhịp bán và kế hoạch nhập hàng.`
+        ? `Có ${formatViNumber(count)} sản phẩm trong danh mục. Ưu tiên chạy dự báo cho ${topName} để kiểm tra nhịp bán và kế hoạch nhập hàng.`
         : 'Thêm sản phẩm trước, sau đó chạy Dự báo Nhu cầu để xem xu hướng bán.',
     },
     {

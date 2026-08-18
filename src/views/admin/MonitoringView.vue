@@ -14,7 +14,7 @@ onMounted(async () => {
 <template>
   <div>
     <PageHeader
-      eyebrow="Admin"
+      eyebrow="Quản trị"
       title="Giám sát hệ thống"
       lead="Trạng thái hệ thống và các chỉ số hạ tầng."
     />

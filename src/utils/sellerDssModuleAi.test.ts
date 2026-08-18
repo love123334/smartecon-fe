@@ -40,7 +40,7 @@ describe('buildSellerDssModuleCards', () => {
     expect(cards[0].title).toBe('Dự báo Nhu cầu')
     expect(cards[1].title).toBe('Gợi ý Giá bán')
     expect(cards[2].title).toBe('What-if Hiệu suất')
-    expect(cards[0].summary).toMatch(/catalog|dự báo/i)
+    expect(cards[0].summary).toMatch(/danh mục|dự báo/i)
   })
 })
 

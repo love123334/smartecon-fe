@@ -184,7 +184,7 @@ async function generate() {
         </section>
         <section class="dss-card dss-insight">
           <h2 class="dss-card__title">Nhận định AI</h2>
-          <p class="dss-insight__badge">Promotion What-if</p>
+          <p class="dss-insight__badge">What-if khuyến mãi</p>
           <p>{{ result.insight }}</p>
         </section>
       </div>

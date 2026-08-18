@@ -154,7 +154,7 @@ async function onPageChange(next: number) {
     <ShopHero
       variant="catalog"
       title="Cửa hàng"
-      subtitle="Lọc, tìm kiếm và sắp xếp — trải nghiệm catalog đầy đủ."
+      subtitle="Lọc, tìm kiếm và sắp xếp — xem đầy đủ sản phẩm đang bán."
       :breadcrumb="[
         { label: 'Trang chủ', to: '/' },
         { label: 'Cửa hàng', to: '/search' },

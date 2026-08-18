@@ -35,21 +35,21 @@ const chartData = computed(() => ({
   labels: props.trend.map((p) => formatPeriodLabel(p.periodStart, props.granularity)),
   datasets: [
     {
-      label: 'New Sellers',
+      label: 'Người bán mới',
       data: props.trend.map((p) => Number(p.newSellers) || 0),
       borderColor: '#0d9488',
       backgroundColor: 'transparent',
       tension: 0.25,
     },
     {
-      label: 'New Customers',
+      label: 'Khách hàng mới',
       data: props.trend.map((p) => Number(p.newCustomers) || 0),
       borderColor: '#2563eb',
       backgroundColor: 'transparent',
       tension: 0.25,
     },
     {
-      label: 'New Products',
+      label: 'Sản phẩm mới',
       data: props.trend.map((p) => Number(p.newProducts) || 0),
       borderColor: '#f59e0b',
       backgroundColor: 'transparent',
@@ -68,7 +68,7 @@ const options = {
 
 <template>
   <section class="card pr-trend" aria-labelledby="pr-activity-trend-title">
-    <h2 id="pr-activity-trend-title" class="pr-section-title">Activity Trend</h2>
+    <h2 id="pr-activity-trend-title" class="pr-section-title">Xu hướng hoạt động</h2>
     <div v-if="hasData" class="chart-box">
       <Line :data="chartData" :options="options" />
     </div>
