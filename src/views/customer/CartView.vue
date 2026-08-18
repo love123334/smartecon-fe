@@ -8,7 +8,12 @@ import QuantityStepper from '@/components/QuantityStepper.vue'
 import CheckoutStepper from '@/components/CheckoutStepper.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
-import { validateCartVoucher, voucherUserMessage } from '@/utils/voucherCheckout'
+import {
+  peekPendingVoucherCode,
+  rememberPendingVoucherCode,
+  validateCartVoucher,
+  voucherUserMessage,
+} from '@/utils/voucherCheckout'
 
 const PENDING_PAY_KEY = 'sedsp_pending_vnpay_order'
 const PAY_RETURN_KEY = 'sedsp_pay_return'
@@ -35,6 +40,18 @@ const shippingFee = computed(() => {
 
 const discount = computed(() => (couponApplied.value ? couponDiscount.value : 0))
 const grandTotal = computed(() => Math.max(0, cart.total + shippingFee.value - discount.value))
+
+const cartSellerIds = computed(() => {
+  const ids = new Set<string>()
+  for (const line of cart.lines) {
+    const sid = line.product.sellerId?.trim()
+    if (sid) ids.add(sid)
+  }
+  return [...ids]
+})
+const singleSellerId = computed(() =>
+  cartSellerIds.value.length === 1 ? cartSellerIds.value[0] : null,
+)
 
 function applyPayStatus(pay: string, orderId: string, gateway: string) {
   const g = gateway.toUpperCase() || 'VNPAY'
@@ -137,6 +154,11 @@ onMounted(async () => {
   if (!cart.lines.length) {
     await cart.refresh({ enrichCatalog: false })
   }
+  const pending = peekPendingVoucherCode()
+  if (pending && cart.lines.length) {
+    coupon.value = pending
+    await applyCoupon()
+  }
 })
 
 async function checkout() {
@@ -164,10 +186,12 @@ async function applyCoupon() {
       code,
       lines: cart.lines,
       cartSubtotal: cart.total,
+      singleSellerId: singleSellerId.value,
     })
     if (res.valid && res.discountAmount != null) {
       couponApplied.value = true
       couponDiscount.value = res.discountAmount
+      rememberPendingVoucherCode(res.code ?? code)
       couponMessage.value = `Đã áp dụng ${res.code ?? code} — giảm ${formatVnd(res.discountAmount)}`
     } else {
       couponMessage.value = voucherUserMessage(res.message)

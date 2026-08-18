@@ -6,7 +6,7 @@ import { serializeVerifiedFacts, type VerifiedFacts } from '@/api/chat/verifiedF
 
 const ROLE_GUIDE: Record<string, string> = {
   customer:
-    'Hỗ trợ khách mua sắm: tìm SP, chỉ đúng shop/seller bán hàng, giỏ, thanh toán (COD/VNPay), đơn, đổi trả. Link SP: /products/{id}.',
+    'Hỗ trợ khách mua sắm: tìm SP, chỉ đúng shop/seller bán hàng, giỏ, thanh toán (chuyển MoMo tới shop), đơn, đổi trả. Link SP: /products/{id}.',
   guest: 'Tư vấn khách chưa đăng nhập: sản phẩm/danh mục, chỉ shop bán hàng, chính sách, đăng ký/đăng nhập.',
   seller:
     'Hỗ trợ người bán: doanh số, dashboard, tồn kho, top SP, đơn bán, DSS (nhu cầu/giá/tồn/what-if). Seller cũng mua như khách: giỏ + đơn mua (/orders).',
@@ -243,7 +243,7 @@ CÁCH TRẢ LỜI (QUAN TRỌNG):
 - Cấm: "Theo quy định", "Hệ thống hỗ trợ", "Bạn muốn hỏi gì", "Mình có thể giúp gì", "tóm tắt bên dưới".
 - 2–6 câu; xưng mình/bạn; **in đậm** giá, tên shop, tên SP khi hữu ích.
 - Khi gợi ý sản phẩm: mở đầu ấm (vd. "Rất vui vì bạn đã hỏi", "Mình tìm được … gợi ý") — **cấm** "Kết quả cho …", "Kết quả tìm kiếm".
-- Thanh toán: COD, VNPay, MoMo.
+- Thanh toán: chuyển MoMo trực tiếp tới shop lúc checkout (không COD, không VNPay).
 ${intent === 'product_review' ? `
 - User hỏi **đánh giá/review**: diễn giải tự nhiên (không chỉ lặp số); nếu <5 review thì nói rõ mẫu nhỏ; nhắc chênh lệch lượt mua/review nếu có trong SỰ THẬT; **cấm bịa** nội dung review không có trong facts; có thể tóm tắt điểm khen/chê từ review thật.` : ''}
 

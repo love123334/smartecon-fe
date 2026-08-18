@@ -23,20 +23,6 @@ const cart = useCartStore()
 const router = useRouter()
 const chatWidget = useChatWidgetStore()
 
-const flashSale = computed(() => {
-  const tagged = products.value.filter((p) => p.isFlashSale).slice(0, 6)
-  if (tagged.length) return tagged
-  // Fallback: SP đang giảm giá (originalPrice > price)
-  return products.value
-    .filter((p) => (p.originalPrice ?? 0) > p.price && p.price > 0)
-    .sort((a, b) => {
-      const da = ((a.originalPrice ?? a.price) - a.price) / (a.originalPrice ?? a.price)
-      const db = ((b.originalPrice ?? b.price) - b.price) / (b.originalPrice ?? b.price)
-      return db - da
-    })
-    .slice(0, 6)
-})
-
 const bestSellers = computed(() =>
   [...products.value].sort((a, b) => b.soldCount - a.soldCount).slice(0, 4),
 )
@@ -83,29 +69,6 @@ async function addToCart(id: string) {
     </div>
 
     <HomeCategories />
-
-    <section v-if="flashSale.length" class="home-flash" aria-labelledby="flash-title">
-      <div class="container">
-        <div class="home-section-head">
-          <div>
-            <p class="home-flash__badge">Ưu đãi</p>
-            <h2 id="flash-title" class="home-section-head__title">Giảm giá hôm nay</h2>
-          </div>
-          <RouterLink to="/search" class="home-section-head__link btn-interactive">
-            Xem cửa hàng →
-          </RouterLink>
-        </div>
-        <div class="home-flash__track">
-          <div v-for="p in flashSale" :key="p.id" class="home-flash__card reveal-up">
-            <ProductCard
-              :product="p"
-              :show-add="auth.role === 'guest' || canShopAsBuyer(auth.role)"
-              @add="addToCart"
-            />
-          </div>
-        </div>
-      </div>
-    </section>
 
     <section class="home-bestsellers" aria-labelledby="best-title">
       <div class="container">

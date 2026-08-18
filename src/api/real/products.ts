@@ -176,8 +176,6 @@ export function mapProductDetail(p: BackendProductDetail): Product {
     (repairProductImageUrl(p.primaryImageUrl, { seed: p.id, category }) ||
       repairProductImageUrl(null, { seed: p.id, category }))
   const shopName = p.sellerStoreName ?? 'Cửa hàng SEDSP'
-  const cost = p.costPrice ? num(p.costPrice) : 0
-  const price = num(p.price)
   return {
     ...mapProductSummary(p),
     description: p.description ?? '',
@@ -188,7 +186,6 @@ export function mapProductDetail(p: BackendProductDetail): Product {
     sellerPhone: p.sellerPhone,
     shopName,
     shopLocation: 'Việt Nam',
-    originalPrice: cost > 0 && cost < price ? Math.round(price * 1.08) : undefined,
     attributes: mapProductAttributes(p.attributes, shopName),
   }
 }

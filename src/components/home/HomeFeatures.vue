@@ -14,7 +14,7 @@ const features = [
   },
   {
     title: 'Thanh toán quen thuộc',
-    text: 'COD hoặc VNPay — chọn lúc checkout, không cần bước phức tạp.',
+    text: 'Chuyển MoMo trực tiếp tới shop lúc thanh toán — không cần COD hay cổng phức tạp.',
   },
 ]
 </script>

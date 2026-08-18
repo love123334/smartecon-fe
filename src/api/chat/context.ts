@@ -12,6 +12,7 @@ import {
   voucherApi,
 } from '@/api/services'
 import type { Voucher } from '@/api/real/vouchers'
+import { demoPublicVouchers } from '@/utils/voucherCheckout'
 import type {
   ChartPoint,
   DssInsight,
@@ -222,6 +223,7 @@ export async function buildChatContext(
   }
 
   ctx.publicVouchers = await safe(() => voucherApi.listPublic(), [])
+  if (!ctx.publicVouchers.length) ctx.publicVouchers = demoPublicVouchers()
 
   const roleTasks: Promise<void>[] = []
 

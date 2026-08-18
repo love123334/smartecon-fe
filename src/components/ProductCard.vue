@@ -2,7 +2,7 @@
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import type { Product } from '@/types'
-import { formatVnd, getDiscountPercent, productApi } from '@/api/services'
+import { formatVnd, productApi } from '@/api/services'
 import SellerShopTag from '@/components/SellerShopTag.vue'
 import { productToDragPayload, SEDSP_PRODUCT_DRAG_MIME } from '@/api/chat/productCards'
 import { useChatWidgetStore } from '@/stores/chatWidget'
@@ -29,7 +29,6 @@ const activeImage = ref(
   }),
 )
 
-const discount = computed(() => getDiscountPercent(props.product))
 const isNew = computed(() => {
   const created = Date.parse(props.product.createdAt)
   if (!Number.isFinite(created)) return false
@@ -214,8 +213,6 @@ onUnmounted(() => {
 
       <div class="product-card__badges">
         <span v-if="isNew" class="product-card__new">Mới</span>
-        <span v-if="product.isFlashSale || discount > 0" class="product-card__sale">Giảm giá</span>
-        <span v-if="discount > 0" class="product-card__discount">-{{ discount }}%</span>
       </div>
 
       <div class="product-card__seller">
@@ -269,12 +266,6 @@ onUnmounted(() => {
       </h3>
       <div class="price-row">
         <p class="price">{{ formatVnd(product.price) }}</p>
-        <span
-          v-if="product.originalPrice && product.originalPrice > product.price"
-          class="price-original"
-        >
-          {{ formatVnd(product.originalPrice) }}
-        </span>
       </div>
 
       <div v-if="showAdd" class="product-card__actions-row">

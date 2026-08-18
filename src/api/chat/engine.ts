@@ -500,7 +500,7 @@ function attachmentReply(
   }
   if (asksProductPrice(lower)) {
     return {
-      content: `${name}**${top.name}** đang bán **${formatVnd(top.price)}**${top.originalPrice && top.originalPrice > top.price ? ` (gốc ${formatVnd(top.originalPrice)})` : ''}.`,
+      content: `${name}**${top.name}** đang bán **${formatVnd(top.price)}**.`,
       products: cards.slice(0, 1),
     }
   }
@@ -573,7 +573,7 @@ function smartProductFallback(
 
   if (asksProductPrice(lower)) {
     return {
-      content: `${name}**${top.name}** đang bán **${formatVnd(top.price)}**${top.originalPrice && top.originalPrice > top.price ? ` (gốc ${formatVnd(top.originalPrice)})` : ''}.`,
+      content: `${name}**${top.name}** đang bán **${formatVnd(top.price)}**.`,
       products: cards,
     }
   }

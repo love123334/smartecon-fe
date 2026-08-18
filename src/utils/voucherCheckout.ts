@@ -1,7 +1,30 @@
-import type { ValidateVoucherResult } from '@/api/real/vouchers'
+import type { ValidateVoucherResult, Voucher } from '@/api/real/vouchers'
 import type { CartLine } from '@/api/services'
 import { voucherApi } from '@/api/services'
 import { localizeApiMessage } from '@/utils/apiMessage'
+
+const PENDING_VOUCHER_KEY = 'sedsp_pending_voucher'
+let pendingVoucherMemory = ''
+
+function readPendingVoucher(): string {
+  try {
+    const stored = sessionStorage.getItem(PENDING_VOUCHER_KEY)
+    if (stored) return stored
+  } catch {
+    /* private mode / tests */
+  }
+  return pendingVoucherMemory
+}
+
+function writePendingVoucher(code: string) {
+  pendingVoucherMemory = code
+  try {
+    if (code) sessionStorage.setItem(PENDING_VOUCHER_KEY, code)
+    else sessionStorage.removeItem(PENDING_VOUCHER_KEY)
+  } catch {
+    /* keep in-memory copy */
+  }
+}
 
 type DemoVoucher = {
   code: string
@@ -29,6 +52,53 @@ const DEMO_VOUCHERS: DemoVoucher[] = [
     scope: 'SHOP',
   },
 ]
+
+/** Mã demo khi API public voucher trống — khớp seed V52. */
+export function demoPublicVouchers(): Voucher[] {
+  const now = new Date()
+  const ends = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000)
+  return DEMO_VOUCHERS.map((v, i) => ({
+    id: -1 - i,
+    code: v.code,
+    name: v.code === 'SEDSP10' ? 'Giảm 10% toàn sàn' : 'Shop giảm 50K',
+    description:
+      v.code === 'SEDSP10'
+        ? 'Giảm 10%, tối đa 100.000đ — đơn từ 200.000đ'
+        : 'Giảm 50.000đ cho shop SEDSP Official — đơn từ 300.000đ',
+    discountType: v.discountType,
+    discountValue: v.discountValue,
+    scope: v.scope,
+    sellerId: null,
+    sellerName: v.scope === 'SHOP' ? 'SEDSP Official' : null,
+    appliesTo: 'ALL_PRODUCTS',
+    minimumOrderAmount: v.minimumOrderAmount,
+    maximumDiscountAmount: v.maximumDiscountAmount ?? null,
+    usageLimit: null,
+    usedCount: 0,
+    startsAt: now.toISOString(),
+    endsAt: ends.toISOString(),
+    isActive: true,
+    productIds: [],
+    requestId: null,
+    createdAt: now.toISOString(),
+  }))
+}
+
+export function rememberPendingVoucherCode(code: string) {
+  const normalized = code.trim().toUpperCase()
+  if (!normalized) return
+  writePendingVoucher(normalized)
+}
+
+export function peekPendingVoucherCode(): string {
+  return readPendingVoucher().trim()
+}
+
+export function consumePendingVoucherCode(): string {
+  const code = peekPendingVoucherCode()
+  writePendingVoucher('')
+  return code
+}
 
 export function cartProductIdsForVoucher(lines: CartLine[]): number[] {
   const ids: number[] = []

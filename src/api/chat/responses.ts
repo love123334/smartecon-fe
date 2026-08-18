@@ -449,7 +449,7 @@ function passwordReply(ctx: ChatContext): string {
 function checkoutReply(ctx: ChatContext): string {
   const name = greet(ctx.userName ?? '')
   const loginNote = ctx.role === 'guest' ? '\n\n👉 **Đăng nhập** trước khi checkout.' : ''
-  return `${name}**Cách đặt hàng:**\n1. Chọn SP → **Thêm vào giỏ**\n2. **Giỏ hàng** → kiểm tra số lượng\n3. **Thanh toán** → điền địa chỉ & phương thức (**COD** / **VNPay**)\n4. Xác nhận — theo dõi tại **Đơn hàng của tôi**${loginNote}`
+  return `${name}**Cách đặt hàng:**\n1. Chọn SP → **Thêm vào giỏ**\n2. **Giỏ hàng** → kiểm tra số lượng\n3. **Thanh toán** → điền địa chỉ & chuyển **MoMo tới shop**\n4. Xác nhận — theo dõi tại **Đơn hàng của tôi**${loginNote}`
 }
 
 export function productReviewReply(
@@ -589,7 +589,7 @@ function productInfoReply(ctx: ChatContext, raw: string): string {
       : 'Xem mô tả đầy đủ trên trang SP.'
     const meta = productMetadataLines(p)
     const img = p.imageUrl ? `\n• Ảnh: có (xem trang SP)` : ''
-    return `${name}**${p.name}**\n• Danh mục: **${p.category}**\n• Giá: **${formatVnd(p.price)}**${p.originalPrice && p.originalPrice > p.price ? ` (gốc ${formatVnd(p.originalPrice)})` : ''}\n• Tồn: **${stock <= 0 ? 'hết hàng' : stock}**\n• Shop: **${p.shopName ?? 'SEDSP Official'}**${meta.length ? `\n${meta.join('\n')}` : ''}${img}\n• ${descLine}\n\n→ Chi tiết **/products/${p.id}**`
+    return `${name}**${p.name}**\n• Danh mục: **${p.category}**\n• Giá: **${formatVnd(p.price)}**\n• Tồn: **${stock <= 0 ? 'hết hàng' : stock}**\n• Shop: **${p.shopName ?? 'SEDSP Official'}**${meta.length ? `\n${meta.join('\n')}` : ''}${img}\n• ${descLine}\n\n→ Chi tiết **/products/${p.id}**`
   }
   return `${name}Bạn muốn biết SP nào? Hỏi tên cụ thể, vd: "thong tin tai nghe bluetooth", hoặc kéo SP vào khung chat.`
 }
@@ -602,7 +602,7 @@ function buildCustomerIntent(ctx: ChatContext, intent: ChatIntent, raw: string):
     case 'shipping':
       return `${name}**Chính sách giao hàng SEDSP:**\n• Nội thành: 1–2 ngày\n• Ngoại tỉnh: 3–5 ngày\n• Miễn phí ship đơn từ **500.000₫**\n• Theo dõi tại **Đơn hàng của tôi** sau khi đặt.`
     case 'payment':
-      return `${name}**Hình thức thanh toán:**\n• **COD** — trả khi nhận hàng\n• **VNPay** — ATM / QR / thẻ\nGiá đã gồm VAT. Chọn ở bước **Thanh toán**.`
+      return `${name}**Hình thức thanh toán:**\n• **Chuyển MoMo tới shop** — quét QR / chuyển khoản số điện thoại shop lúc checkout.\nGiá niêm yết chưa trừ voucher. Nhập mã giảm giá ở bước **Thanh toán**.`
     case 'orders': {
       const detail = orderDetailReply(ctx)
       if (ctx.enrichment?.focusedOrder) return detail
@@ -639,11 +639,7 @@ function buildCustomerIntent(ctx: ChatContext, intent: ChatIntent, raw: string):
           const scope = v.sellerName ? `shop ${v.sellerName}` : 'toàn sàn'
           return `• **${v.code}** — giảm **${off}** (${scope})${v.description ? `: ${v.description}` : ''}`
         }).join('\n')
-        return `${name}**Mã voucher đang hiệu lực:**\n${lines}\n\nNhập mã ở **Thanh toán** hoặc hỏi lại «mã ${vouchers[0]?.code}».`
-      }
-      const onSale = ctx.products.filter((p) => p.originalPrice && p.originalPrice > p.price).slice(0, 4)
-      if (onSale.length) {
-        return `${name}**Đang giảm giá:**\n${productLines(onSale)}`
+        return `${name}**Mã voucher đang hiệu lực:**\n${lines}\n\nNhập mã ở **Thanh toán**, hoặc chọn mã trên **trang chủ**. Giá sản phẩm không giảm sẵn trên trang chi tiết.`
       }
       return `${name}Chưa có voucher công khai — theo dõi trang chủ hoặc hỏi manager.`
     }

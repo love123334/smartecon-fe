@@ -37,7 +37,7 @@ export function deriveSuggestedActions(
     if (intent === 'product_search' || intent === 'recommend' || intent === 'category_browse') {
       return [
         action('br-budget', 'Dưới 2 triệu', 'tai nghe dưới 2 triệu'),
-        action('br-sale', 'Đang giảm giá', 'sản phẩm đang giảm giá'),
+        action('br-sale', 'Mã voucher', 'mã giảm giá đang áp dụng'),
       ]
     }
     return []

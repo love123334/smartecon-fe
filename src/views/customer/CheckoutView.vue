@@ -1,10 +1,16 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { formatVnd, orderApi, productApi, sellerMomoApi } from '@/api/services'
 import type { SellerMomoPublic } from '@/api/real/sellerMomo'
 import type { ValidateVoucherResult } from '@/api/real/vouchers'
-import { validateCartVoucher, voucherUserMessage } from '@/utils/voucherCheckout'
+import {
+  consumePendingVoucherCode,
+  peekPendingVoucherCode,
+  rememberPendingVoucherCode,
+  validateCartVoucher,
+  voucherUserMessage,
+} from '@/utils/voucherCheckout'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
 import { trySiteFx } from '@/utils/siteFx'
@@ -17,6 +23,7 @@ type CheckoutPayment = 'momo_qr'
 const auth = useAuthStore()
 const cart = useCartStore()
 const router = useRouter()
+const route = useRoute()
 
 const firstName = ref('')
 const lastName = ref('')
@@ -119,6 +126,13 @@ onMounted(async () => {
     phone.value = auth.user.phone ?? ''
     email.value = auth.user.email ?? ''
   }
+  const pending =
+    String(route.query.voucher ?? '').trim() || peekPendingVoucherCode()
+  if (pending) {
+    coupon.value = pending
+    await applyCoupon()
+    if (couponApplied.value) consumePendingVoucherCode()
+  }
 })
 
 watch(singleSellerId, () => {
@@ -148,6 +162,7 @@ async function applyCoupon() {
     if (res.valid) {
       couponApplied.value = true
       couponInfo.value = res
+      rememberPendingVoucherCode(res.code ?? code)
       couponMessage.value =
         res.discountAmount != null
           ? `Đã áp dụng ${res.code ?? code} — giảm ${formatVnd(res.discountAmount)}`

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { orderApi, productApi, reviewApi, formatVnd, getDiscountPercent } from '@/api/services'
+import { orderApi, productApi, reviewApi, formatVnd } from '@/api/services'
 import type { Order, Product, ProductReview } from '@/types'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
@@ -17,6 +17,7 @@ import QuantityStepper from '@/components/QuantityStepper.vue'
 import ProductCard from '@/components/ProductCard.vue'
 import SellerShopTag from '@/components/SellerShopTag.vue'
 import NewsletterBanner from '@/components/NewsletterBanner.vue'
+import VoucherPromoBanner from '@/components/VoucherPromoBanner.vue'
 import StarRating from '@/components/StarRating.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import { handleProductImageError, repairProductImageUrl } from '@/utils/productImage'
@@ -62,7 +63,6 @@ function onDetailImgError(e: Event) {
   handleProductImageError(e, gallery.value)
 }
 
-const discount = computed(() => (product.value ? getDiscountPercent(product.value) : 0))
 const isNew = computed(() => (product.value ? product.value.soldCount < 40 : false))
 const shopLabel = computed(() => (product.value ? sellerDisplayName(product.value) : ''))
 
@@ -263,7 +263,6 @@ async function addRelated(id: string) {
           <div class="elegant-product__main">
             <div class="elegant-product__badges">
               <span v-if="isNew" class="elegant-badge elegant-badge--dark">Mới</span>
-              <span v-if="discount > 0" class="elegant-badge elegant-badge--sale">-{{ discount }}%</span>
             </div>
             <img :src="mainImage" :alt="product.name" @error="onDetailImgError" />
           </div>
@@ -294,12 +293,6 @@ async function addRelated(id: string) {
 
           <div class="elegant-product__price-row">
             <span class="elegant-product__price">{{ formatVnd(product.price) }}</span>
-            <span
-              v-if="product.originalPrice && product.originalPrice > product.price"
-              class="elegant-product__price-old"
-            >
-              {{ formatVnd(product.originalPrice) }}
-            </span>
           </div>
 
           <p class="elegant-product__stock" :class="{ 'elegant-product__stock--out': product.stock <= 0 }">
@@ -327,6 +320,8 @@ async function addRelated(id: string) {
             </button>
           </div>
           <p v-if="message" class="elegant-alert" :class="message.startsWith('Đã') ? 'elegant-alert--success' : 'elegant-alert--error'">{{ message }}</p>
+
+          <VoucherPromoBanner :seller-id="product.sellerId" compact />
 
           <div class="elegant-product__shop">
             <div class="elegant-product__shop-avatar">{{ shopLabel[0] ?? 'S' }}</div>
