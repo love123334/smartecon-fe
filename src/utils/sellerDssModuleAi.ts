@@ -1,8 +1,8 @@
 import type { DssInsight, Product } from '@/types'
 import { formatViNumber } from '@/utils/demandPrediction'
 
-export type SellerDssModuleKey = 'demand' | 'price' | 'inventory' | 'whatif'
-export type SellerDssAiTone = 'strong' | 'steady' | 'soft' | 'warn' | 'ok' | 'sparse'
+export type SellerDssModuleKey = 'demand' | 'advanced-price' | 'whatif'
+export type SellerDssAiTone = 'strong' | 'steady' | 'soft' | 'warn' | 'ok'
 
 export interface SellerDssModuleCard {
   key: SellerDssModuleKey
@@ -10,10 +10,9 @@ export interface SellerDssModuleCard {
   tag: string
   title: string
   blurb: string
-  aiBadge: string
-  aiTone: SellerDssAiTone
-  aiTitle: string
-  aiSummary: string
+  badge: string
+  tone: SellerDssAiTone
+  summary: string
 }
 
 export interface StructuredAiInsight {
@@ -28,146 +27,54 @@ export interface StructuredAiInsight {
 type InsightLike = Pick<DssInsight, 'title' | 'description' | 'impact' | 'category'>
 type ProductLike = Pick<Product, 'name' | 'stock' | 'soldCount' | 'price' | 'rating'>
 
-function catalogSignals(products: ProductLike[]) {
-  const list = products ?? []
-  const lowStock = list.filter((p) => (p.stock ?? 0) > 0 && (p.stock ?? 0) < 20)
-  const outOfStock = list.filter((p) => (p.stock ?? 0) <= 0)
-  const top = [...list].sort((a, b) => (b.soldCount ?? 0) - (a.soldCount ?? 0))[0] ?? null
-  const avgSold =
-    list.length > 0 ? list.reduce((s, p) => s + (p.soldCount ?? 0), 0) / list.length : 0
-  const highImpactInv = 0 // filled by caller via insights
-  return { list, lowStock, outOfStock, top, avgSold, highImpactInv }
-}
-
-/** 4 card hub DSS — nhận định AI theo số liệu seller thật (catalog + insights). */
+/** 3 card hub DSS — 3 chức năng chính theo số liệu seller thật (catalog + insights). */
 export function buildSellerDssModuleCards(input: {
   insights: InsightLike[]
   products: ProductLike[]
 }): SellerDssModuleCard[] {
-  const insights = input.insights ?? []
-  const { list, lowStock, outOfStock, top, avgSold } = catalogSignals(input.products)
-  const invInsights = insights.filter(
-    (i) => /inventory|tồn|stock|nhập/i.test(`${i.category} ${i.title} ${i.description}`),
-  )
-  const highInv = invInsights.filter((i) => i.impact === 'high').length
-  const priceHints = insights.filter((i) =>
-    /giá|price|elasticity|biên|lợi nhuận|margin/i.test(`${i.title} ${i.description}`),
-  )
-  const topName = top?.name?.trim() || 'SKU bán chạy'
-  const topSold = top?.soldCount ?? 0
-  const skuCount = list.length
+  const count = input.products?.length ?? 0
+  const totalInsights = input.insights?.length ?? 0
+  const top = [...(input.products ?? [])].sort((a, b) => (b.soldCount ?? 0) - (a.soldCount ?? 0))[0] ?? null
+  const topName = top?.name?.trim() || 'sản phẩm đang bán'
 
-  const demandTone: SellerDssAiTone =
-    topSold >= 80 || avgSold >= 40 ? 'strong' : topSold >= 20 || avgSold >= 10 ? 'steady' : 'soft'
-  const demand: SellerDssModuleCard = {
-    key: 'demand',
-    to: '/seller/dss/demand',
-    tag: 'Dự báo',
-    title: 'Dự báo nhu cầu',
-    blurb: 'Moving Average từ lịch sử bán · KPI & biểu đồ.',
-    aiBadge: demandTone === 'strong' ? 'Cầu mạnh' : demandTone === 'steady' ? 'Ổn định' : 'Cần kích cầu',
-    aiTone: demandTone,
-    aiTitle:
-      demandTone === 'strong'
-        ? `${topName} đang dẫn cầu shop`
-        : demandTone === 'steady'
-          ? 'Nhịp bán đều — nên khóa dự báo MA'
-          : skuCount
-            ? 'Cầu còn mỏng — dự báo trước khi nhập lớn'
-            : 'Chưa đủ SP để đọc tín hiệu cầu',
-    aiSummary:
-      skuCount === 0
-        ? 'Chưa có sản phẩm trong catalog seller. Thêm SP rồi chạy dự báo nhu cầu.'
-        : demandTone === 'strong'
-          ? `${topName} đã bán ~${formatViNumber(topSold)} · TB shop ~${formatViNumber(avgSold)}/SKU. Ưu tiên dự báo 30 ngày để khóa kế hoạch nhập.`
-          : demandTone === 'steady'
-            ? `Có ${skuCount} SKU · đầu bảng ${topName} (~${formatViNumber(topSold)} lượt). Chạy MA 60–90 ngày để ổn định tồn.`
-            : `${topName} mới ~${formatViNumber(topSold)} lượt bán. Dự báo MA trước, tránh nhập oversized.`,
-  }
-
-  const priceTone: SellerDssAiTone = priceHints.length
-    ? 'warn'
-    : topSold >= 40
-      ? 'steady'
-      : 'soft'
-  const price: SellerDssModuleCard = {
-    key: 'price',
-    to: '/seller/dss/price',
-    tag: 'Giá bán',
-    title: 'Gợi ý giá',
-    blurb: 'Hệ số co giãn · kịch bản · khuyến nghị tốt nhất.',
-    aiBadge: priceTone === 'warn' ? 'Cần xem giá' : priceTone === 'steady' ? 'Tối ưu biên' : 'Khám phá',
-    aiTone: priceTone,
-    aiTitle: priceHints[0]?.title || (top ? `Rà giá cho ${topName}` : 'Chưa có tín hiệu giá'),
-    aiSummary: priceHints[0]
-      ? priceHints[0].description || 'Dashboard đang cảnh báo liên quan biên/giá — mở Gợi ý giá để chạy kịch bản.'
-      : top
-        ? `${topName} giá hiện ~${formatViNumber(top.price)}đ · rating ${formatViNumber(top.rating)}. Chạy hệ số co giãn để chọn % đổi giá tối ưu lợi nhuận.`
-        : 'Thêm sản phẩm có lịch sử bán rồi tạo khuyến nghị giá.',
-  }
-
-  const needCount = Math.max(lowStock.length + outOfStock.length, highInv, invInsights.length)
-  const invTone: SellerDssAiTone =
-    outOfStock.length || highInv ? 'warn' : lowStock.length ? 'soft' : skuCount ? 'ok' : 'soft'
-  const inventory: SellerDssModuleCard = {
-    key: 'inventory',
-    to: '/seller/dss/inventory',
-    tag: 'Tồn kho',
-    title: 'Khuyến nghị tồn kho',
-    blurb: 'ROP · safety stock · SL nhập theo kỳ.',
-    aiBadge:
-      outOfStock.length || highInv
-        ? 'Ưu tiên nhập'
-        : lowStock.length
-          ? 'Sắp hết'
-          : 'Tồn ổn',
-    aiTone: invTone,
-    aiTitle:
-      outOfStock.length > 0
-        ? `${outOfStock.length} SKU hết hàng`
-        : lowStock.length > 0
-          ? `${lowStock.length} SKU dưới ngưỡng an toàn`
-          : invInsights[0]?.title || 'Tồn đang trong vùng an toàn',
-    aiSummary:
-      needCount > 0
-        ? `${outOfStock.length ? `${outOfStock.length} hết hàng · ` : ''}${lowStock.length ? `${lowStock.length} sắp hết · ` : ''}${
-            invInsights[0]?.description || 'Mở khuyến nghị tồn để tính ROP và SL nhập.'
-          }`
-        : skuCount
-          ? `Theo dõi ${skuCount} SKU — chạy khuyến nghị 14 ngày để đối chiếu ROP.`
-          : 'Chưa có SP để tính tồn. Thêm hàng tại Quản lý sản phẩm.',
-  }
-
-  const promoTone: SellerDssAiTone =
-    demandTone === 'soft' || lowStock.length === 0 && topSold < 30
-      ? 'soft'
-      : demandTone === 'strong' && lowStock.length
-        ? 'warn'
-        : 'steady'
-  const whatif: SellerDssModuleCard = {
-    key: 'whatif',
-    to: '/seller/dss/what-if',
-    tag: 'What-if',
-    title: 'Giảm giá & lợi nhuận',
-    blurb: 'Mô phỏng % giảm · hòa vốn · lợi nhuận kỳ vọng.',
-    aiBadge:
-      promoTone === 'warn' ? 'Cẩn thận KM' : promoTone === 'soft' ? 'Thử kích cầu' : 'Mô phỏng trước',
-    aiTone: promoTone,
-    aiTitle:
-      promoTone === 'warn'
-        ? 'Cầu mạnh nhưng tồn mỏng — đừng KM sâu'
-        : promoTone === 'soft'
-          ? 'Cầu yếu — What-if 5–10% trước khi giảm thật'
-          : 'Mô phỏng biên lợi nhuận trước khuyến mãi',
-    aiSummary:
-      promoTone === 'warn'
-        ? `${topName} bán tốt nhưng còn SKU tồn thấp. What-if để tránh KM khi thiếu hàng.`
-        : promoTone === 'soft'
-          ? `Nhịp bán còn thấp — mô phỏng giảm nhẹ xem lợi nhuận kỳ vọng còn dương trước khi áp dụng.`
-          : `Dùng What-if để so sánh lợi nhuận hiện tại vs sau giảm giá trên ${topName}.`,
-  }
-
-  return [demand, price, inventory, whatif]
+  return [
+    {
+      key: 'demand',
+      to: '/seller/dss/demand-lightgbm-demo',
+      tag: 'Dữ liệu bán',
+      title: 'Dự báo Nhu cầu',
+      blurb: 'Xem xu hướng bán theo lịch sử và chọn khoảng thời gian để ước lượng nhu cầu.',
+      badge: count > 0 ? 'Mở chức năng' : 'Bắt đầu từ catalog',
+      tone: count > 0 ? 'steady' : 'soft',
+      summary: count > 0
+        ? `Có ${formatViNumber(count)} sản phẩm trong catalog. Ưu tiên chạy dự báo cho ${topName} để kiểm tra nhịp bán và kế hoạch nhập hàng.`
+        : 'Thêm sản phẩm trước, sau đó chạy Dự báo Nhu cầu để xem xu hướng bán.',
+    },
+    {
+      key: 'advanced-price',
+      to: '/seller/dss/advanced-price',
+      tag: 'Giá bán',
+      title: 'Gợi ý Giá bán',
+      blurb: 'So sánh các mức giá, biên lợi nhuận và tác động tới doanh thu trước khi quyết định.',
+      badge: totalInsights > 0 ? 'Có dữ liệu phân tích' : 'Thiết lập kịch bản',
+      tone: totalInsights > 0 ? 'steady' : 'soft',
+      summary: totalInsights > 0
+        ? `Hệ thống đang có ${formatViNumber(totalInsights)} tín hiệu vận hành. Dùng Gợi ý Giá bán để đánh giá mức giá phù hợp cho từng sản phẩm.`
+        : 'Tạo kịch bản giá bán để xem thay đổi giá ảnh hưởng thế nào đến doanh thu và lợi nhuận.',
+    },
+    {
+      key: 'whatif',
+      to: '/seller/dss/order-economics',
+      tag: 'Kịch bản',
+      title: 'What-if Hiệu suất',
+      blurb: 'Mô phỏng phí, khuyến mãi và chi phí để xem hiệu suất đơn hàng thay đổi ra sao.',
+      badge: count > 0 ? 'Thử kịch bản' : 'Chuẩn bị dữ liệu',
+      tone: count > 0 ? 'ok' : 'soft',
+      summary: count > 0
+        ? `Chọn một sản phẩm đang bán để kiểm tra các kịch bản hiệu suất đơn hàng trước khi áp dụng thật.`
+        : 'Có dữ liệu đơn hàng rồi hãy chạy What-if Hiệu suất để so sánh các phương án kinh doanh.',
+    },
+  ]
 }
 
 /** Nhận định AI sau khi có kết quả Gợi ý giá. */

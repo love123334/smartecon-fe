@@ -258,6 +258,108 @@ export function evaluateCustomPriceScenario(body: CustomPriceScenarioRequest) {
   )
 }
 
+export type AdvancedPriceSessionStatus = 'ACTIVE' | 'APPLIED'
+
+export interface AdvancedPriceProductSummaryApi {
+  productId: number
+  productName: string
+  fromDate: string
+  toDate: string
+  forecastPeriod: number
+  currentPrice: number
+  costPrice: number
+  estimatedOrderCost: number
+  historicalQuantitySold: number
+}
+
+export interface AdvancedPriceScenarioApi {
+  scenarioId: number
+  priceChangePercent: number
+  costPrice: number
+  newPrice: number
+  profitPerProduct: number
+  baselineForecastDemand: number
+  demandMultiplier: number
+  forecastDemand: number
+  expectedProfit: number
+  createdAt: string
+  appliedAt: string | null
+  applied: boolean
+}
+
+export interface AdvancedPriceSessionApi {
+  sessionId: number
+  status: AdvancedPriceSessionStatus
+  productSummary: AdvancedPriceProductSummaryApi
+  averageElasticity: number
+  elasticitySource: 'SELECTED_RANGE' | 'ALL_HISTORY_FALLBACK' | string
+  baselineForecastDemand: number
+  forecastMethod: string
+  latestScenario: AdvancedPriceScenarioApi | null
+  scenarios: AdvancedPriceScenarioApi[]
+  scenarioCount: number
+  maxScenarios: number
+  appliedAt: string | null
+  createdAt: string
+}
+
+export interface CreateAdvancedPriceSessionRequest {
+  productId: number
+  fromDate: string
+  toDate: string
+  forecastPeriod: 7 | 14 | 30
+  estimatedOrderCost: number
+}
+
+export interface CreateAdvancedPriceScenarioRequest {
+  priceChangePercent: number
+}
+
+export interface ApplyAdvancedPriceScenarioApi {
+  sessionId: number
+  scenarioId: number
+  productId: number
+  oldPrice: number
+  newPrice: number
+  priceChangePercent: number
+  appliedAt: string
+}
+
+export function createAdvancedPriceSession(body: CreateAdvancedPriceSessionRequest) {
+  return http.post<AdvancedPriceSessionApi>(apiPaths.dss.advancedPriceSessions, body, {
+    timeoutMs: 30_000,
+  })
+}
+
+export function getAdvancedPriceSession(sessionId: string | number) {
+  return http.get<AdvancedPriceSessionApi>(
+    apiPaths.dss.advancedPriceSession(String(sessionId)),
+    { timeoutMs: 15_000 },
+  )
+}
+
+export function createAdvancedPriceScenario(
+  sessionId: string | number,
+  body: CreateAdvancedPriceScenarioRequest,
+) {
+  return http.post<AdvancedPriceSessionApi>(
+    apiPaths.dss.advancedPriceScenarios(String(sessionId)),
+    body,
+    { timeoutMs: 15_000 },
+  )
+}
+
+export function applyAdvancedPriceScenario(
+  sessionId: string | number,
+  scenarioId: string | number,
+) {
+  return http.post<ApplyAdvancedPriceScenarioApi>(
+    apiPaths.dss.applyAdvancedPriceScenario(String(sessionId), String(scenarioId)),
+    {},
+    { timeoutMs: 15_000 },
+  )
+}
+
 /** POST /api/v1/dss/price-predictions — kept above; seller what-if is under /api/dss */
 
 export interface SellerWhatIfApi {

@@ -169,14 +169,24 @@ const router = createRouter({
     {
       path: '/seller/dss/demand',
       name: 'seller-dss-demand',
-      component: () => import('@/views/seller/DemandPredictionView.vue'),
-      meta: { roles: ['seller'], title: 'Dự báo nhu cầu' },
+      redirect: { name: 'seller-dss-demand-lightgbm-demo' },
+    },
+    {
+      path: '/seller/dss/demand-lightgbm-demo',
+      name: 'seller-dss-demand-lightgbm-demo',
+      component: () => import('@/views/seller/LightGbmDemandDemoView.vue'),
+      meta: { roles: ['seller'], title: 'Dự báo Nhu cầu' },
     },
     {
       path: '/seller/dss/price',
       name: 'seller-dss-price',
-      component: () => import('@/views/seller/PriceRecommendationView.vue'),
-      meta: { roles: ['seller'], title: 'Gợi ý giá' },
+      redirect: { name: 'seller-dss-advanced-price' },
+    },
+    {
+      path: '/seller/dss/advanced-price',
+      name: 'seller-dss-advanced-price',
+      component: () => import('@/views/seller/AdvancedPriceRecommendationView.vue'),
+      meta: { roles: ['seller'], title: 'Gợi ý Giá bán' },
     },
     {
       path: '/seller/dss/inventory',
@@ -189,6 +199,12 @@ const router = createRouter({
       name: 'seller-dss-what-if',
       component: () => import('@/views/seller/WhatIfDiscountView.vue'),
       meta: { roles: ['seller'], title: 'What-if giảm giá' },
+    },
+    {
+      path: '/seller/dss/order-economics',
+      name: 'seller-dss-order-economics',
+      component: () => import('@/views/seller/OrderEconomicsWhatIfView.vue'),
+      meta: { roles: ['seller'], title: 'What-if Hiệu suất' },
     },
     {
       path: '/seller/chatbot',

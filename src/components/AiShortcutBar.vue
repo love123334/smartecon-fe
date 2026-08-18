@@ -8,7 +8,7 @@ defineProps<{
 </script>
 
 <template>
-  <nav v-if="links.length" class="ai-shortcuts" aria-label="Liên kết AI liên quan">
+  <nav v-if="links.length" class="ai-shortcuts" aria-label="Liên kết chức năng">
     <span v-if="title" class="ai-shortcuts__title">{{ title }}</span>
     <RouterLink
       v-for="link in links"

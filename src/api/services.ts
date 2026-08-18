@@ -1915,6 +1915,25 @@ export const dssApi = {
     return realDss.evaluateCustomPriceScenario(input)
   },
 
+  async createAdvancedPriceSession(input: realDss.CreateAdvancedPriceSessionRequest) {
+    return realDss.createAdvancedPriceSession(input)
+  },
+
+  async getAdvancedPriceSession(sessionId: number) {
+    return realDss.getAdvancedPriceSession(sessionId)
+  },
+
+  async createAdvancedPriceScenario(
+    sessionId: number,
+    input: realDss.CreateAdvancedPriceScenarioRequest,
+  ) {
+    return realDss.createAdvancedPriceScenario(sessionId, input)
+  },
+
+  async applyAdvancedPriceScenario(sessionId: number, scenarioId: number) {
+    return realDss.applyAdvancedPriceScenario(sessionId, scenarioId)
+  },
+
   async analyzeSellerWhatIf(input: {
     productId: number
     priceChangePercent: number

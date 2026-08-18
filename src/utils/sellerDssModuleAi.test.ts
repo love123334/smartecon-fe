@@ -7,7 +7,7 @@ import {
 } from '@/utils/sellerDssModuleAi'
 
 describe('buildSellerDssModuleCards', () => {
-  it('builds four module cards with AI from catalog signals', () => {
+  it('builds three module cards for the DSS hub', () => {
     const cards = buildSellerDssModuleCards({
       insights: [
         {
@@ -35,11 +35,12 @@ describe('buildSellerDssModuleCards', () => {
       ],
     })
 
-    expect(cards).toHaveLength(4)
-    expect(cards.map((c) => c.key)).toEqual(['demand', 'price', 'inventory', 'whatif'])
-    expect(cards[0].aiSummary).toMatch(/Noise Cancelling Headphones/)
-    expect(cards[2].aiTone).toBe('warn')
-    expect(cards[2].aiBadge).toMatch(/nhập|hết/i)
+    expect(cards).toHaveLength(3)
+    expect(cards.map((c) => c.key)).toEqual(['demand', 'advanced-price', 'whatif'])
+    expect(cards[0].title).toBe('Dự báo Nhu cầu')
+    expect(cards[1].title).toBe('Gợi ý Giá bán')
+    expect(cards[2].title).toBe('What-if Hiệu suất')
+    expect(cards[0].summary).toMatch(/catalog|dự báo/i)
   })
 })
 

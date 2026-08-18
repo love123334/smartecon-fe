@@ -55,6 +55,14 @@ export interface BackendProductAttribute {
   attributeValue: string
 }
 
+export interface ProductUnitEconomicsApi {
+  id: number
+  name: string
+  price: number
+  costPrice: number
+  sellerId: number
+}
+
 function num(v: number | string | undefined, fallback = 0): number {
   if (v == null) return fallback
   return typeof v === 'number' ? v : Number(v)
@@ -253,6 +261,20 @@ export async function getProductById(id: string): Promise<Product | null> {
     return mapProductDetail(data)
   } catch {
     return null
+  }
+}
+
+/** Dữ liệu thật tối thiểu cho calculator của Seller; không sinh giá/COGS dự phòng. */
+export async function getProductUnitEconomicsById(
+  id: string | number,
+): Promise<ProductUnitEconomicsApi> {
+  const product = await http.get<BackendProductDetail>(apiPaths.products.byId(String(id)))
+  return {
+    id: Number(product.id),
+    name: product.name,
+    price: num(product.price, Number.NaN),
+    costPrice: num(product.costPrice, Number.NaN),
+    sellerId: Number(product.sellerId),
   }
 }
 
