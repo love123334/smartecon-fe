@@ -117,9 +117,9 @@ async function saveForecast() {
     <header class="dss-page__header demo-header">
       <div>
         <nav class="dss-crumb" aria-label="Breadcrumb">
-          <RouterLink to="/seller/dss">DSS</RouterLink><span>/</span><span>Demo LightGBM</span>
+          <RouterLink to="/seller/dss">DSS</RouterLink><span>/</span><span>Dự báo Nhu cầu</span>
         </nav>
-        <h1>Demo dự báo nhu cầu LightGBM</h1>
+        <h1>Dự báo Nhu cầu</h1>
         <p class="dss-page__sub">Kiểm tra trực tiếp dữ liệu lịch sử, xu hướng và dự báo trả về từ backend.</p>
       </div>
       <span class="demo-badge">GBDT · ONNX Runtime</span>

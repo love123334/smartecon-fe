@@ -83,6 +83,13 @@ export const apiPaths = {
     demandPredictions: 'dss/demand-predictions',
     price: (productId: string) => `dss/price/${productId}`,
     pricePredictions: 'dss/price-predictions',
+    advancedPriceSessions: 'dss/advanced-price/sessions',
+    advancedPriceSession: (sessionId: string) =>
+      `dss/advanced-price/sessions/${sessionId}`,
+    advancedPriceScenarios: (sessionId: string) =>
+      `dss/advanced-price/sessions/${sessionId}/scenarios`,
+    applyAdvancedPriceScenario: (sessionId: string, scenarioId: string) =>
+      `dss/advanced-price/sessions/${sessionId}/scenarios/${scenarioId}/apply`,
     inventory: 'dss/inventory',
     whatIf: 'dss/what-if',
     /** Backend: POST /api/dss/what-if/seller (không có /v1) */

@@ -40,9 +40,9 @@ export function roleAccountMenuLinks(role: UserRole): NavLink[] {
       return [
         { to: '/profile', label: 'Hồ sơ & avatar' },
         { to: '/seller/dss', label: 'DSS — Kế hoạch bán hàng', highlight: true },
-        { to: '/seller/dss/demand', label: 'Dự báo nhu cầu' },
-        { to: '/seller/dss/price', label: 'Gợi ý giá' },
-        { to: '/seller/dss/what-if', label: 'What-if giảm giá', highlight: true },
+        { to: '/seller/dss/demand-lightgbm-demo', label: 'Dự báo Nhu cầu', highlight: true },
+        { to: '/seller/dss/advanced-price', label: 'Gợi ý Giá bán', highlight: true },
+        { to: '/seller/dss/order-economics', label: 'What-if Hiệu suất', highlight: true },
         { to: '/seller/sales', label: 'Bảng doanh số' },
         { to: '/seller/orders', label: 'Đơn bán' },
         { to: '/seller/products', label: 'Quản lý sản phẩm' },
@@ -71,7 +71,7 @@ export function roleChatShortcuts(role: UserRole): NavLink[] {
       ]
     case 'seller':
       return [
-        { to: '/seller/dss/what-if', label: 'What-if giảm giá' },
+        { to: '/seller/dss/order-economics', label: 'What-if Hiệu suất' },
         { to: '/seller/sales', label: 'Doanh số' },
         { to: '/orders', label: 'Đơn mua' },
       ]
@@ -107,7 +107,7 @@ export function roleCategoryAiLink(role: UserRole, isLoggedIn: boolean): NavLink
     return { to: '/search', label: 'Cửa hàng' }
   }
   if (role === 'seller') {
-    return { to: '/seller/dss', label: 'DSS & AI' }
+    return { to: '/seller/dss', label: 'DSS' }
   }
   if (role === 'manager') {
     return { to: '/manager/dashboard', label: 'Dashboard' }
