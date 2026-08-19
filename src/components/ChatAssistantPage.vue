@@ -58,7 +58,7 @@ const header = computed(() => {
   return {
     eyebrow: 'Trợ lý SEDSP',
     title: 'Trợ lý SEDSP',
-    lead: 'Tư vấn sản phẩm, đơn hàng, giao hàng — dữ liệu shop từ backend khi có.',
+    lead: 'Tư vấn sản phẩm, đơn hàng và giao hàng.',
     placeholder: 'VD: chính sách giao hàng?',
   }
 })

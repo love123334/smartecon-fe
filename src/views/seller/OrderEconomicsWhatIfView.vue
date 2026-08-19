@@ -73,28 +73,36 @@ const variableCostTotal = computed(() => {
 })
 const decisionContent = computed(() => decisionCopy(result.value?.decision))
 
+const adsHeadroom = computed(() =>
+  result.value ? result.value.breakEvenAdsPerOrder - adsPerOrder.value : 0,
+)
+const adsFillPercent = computed(() => {
+  if (!result.value) return 0
+  const cap = Math.max(result.value.breakEvenAdsPerOrder, adsPerOrder.value, 1)
+  return Math.min(100, (adsPerOrder.value / cap) * 100)
+})
+
 const composition = computed(() => {
   if (!result.value || !product.value) return []
   const price = product.value.price
+  const profit = result.value.contributionPerOrder
   const rows = [
-    { key: 'cogs', label: 'Giá vốn', value: product.value.costPrice, color: '#64b5f6' },
-    { key: 'pack', label: 'Đóng gói', value: packagingCost.value, color: '#4fc3f7' },
-    { key: 'plat', label: 'Phí sàn', value: result.value.platformFeeAmount, color: '#29b6f6' },
-    { key: 'aff', label: 'Affiliate', value: result.value.affiliateFeeAmount, color: '#0288d1' },
-    { key: 'refund', label: 'Dự phòng HT', value: result.value.refundReserveAmount, color: '#0277bd' },
-    { key: 'ads', label: 'Quảng cáo', value: adsPerOrder.value, color: '#ef9a9a' },
-    {
-      key: 'profit',
-      label: 'Lợi nhuận',
-      value: Math.max(0, result.value.contributionPerOrder),
-      color: '#66bb6a',
-    },
+    { key: 'cogs', label: 'Giá vốn', value: product.value.costPrice, color: '#1e88e5' },
+    { key: 'pack', label: 'Đóng gói', value: packagingCost.value, color: '#26c6da' },
+    { key: 'plat', label: 'Phí sàn', value: result.value.platformFeeAmount, color: '#fb8c00' },
+    { key: 'aff', label: 'Affiliate', value: result.value.affiliateFeeAmount, color: '#8e24aa' },
+    { key: 'refund', label: 'Dự phòng HT', value: result.value.refundReserveAmount, color: '#f9a825' },
+    { key: 'ads', label: 'Quảng cáo', value: adsPerOrder.value, color: '#e53935' },
+    profit >= 0
+      ? { key: 'profit', label: 'Lãi', value: profit, color: '#43a047' }
+      : { key: 'loss', label: 'Lỗ', value: Math.abs(profit), color: '#c62828' },
   ]
+  const basis = Math.max(price, rows.reduce((sum, row) => sum + Math.max(0, row.value), 0), 1)
   return rows
     .filter((row) => row.value > 0)
     .map((row) => ({
       ...row,
-      pct: price > 0 ? Math.min(100, (row.value / price) * 100) : 0,
+      pct: (row.value / basis) * 100,
     }))
 })
 
@@ -194,137 +202,89 @@ function decisionCopy(decision?: OrderEconomicsDecision) {
         <span>/</span>
         <span>What-if Hiệu suất</span>
       </nav>
-
-      <div class="economics-hero">
-        <aside class="economics-shot" aria-hidden="true">
-          <div class="economics-shot__chrome">
-            <i></i><i></i><i></i>
-            <span>What-if · hiệu suất đơn</span>
-          </div>
-          <div class="economics-shot__body">
-            <div class="economics-shot__kpis">
-              <div>
-                <em>LN / đơn</em>
-                <b>{{ result ? formatOrderEconomicsVnd(result.contributionPerOrder) : '—' }}</b>
-              </div>
-              <div>
-                <em>Biên LN</em>
-                <b>{{ result ? formatOrderEconomicsPercent(result.contributionMarginPercent) : '—' }}</b>
-              </div>
-            </div>
-            <div class="economics-shot__bar">
-              <span
-                v-for="row in composition"
-                :key="row.key"
-                :style="{ width: `${row.pct}%`, background: row.color }"
-              />
-              <span v-if="!composition.length" class="economics-shot__bar-empty" />
-            </div>
-            <div class="economics-shot__legend">
-              <span>Giá vốn</span>
-              <span>Phí</span>
-              <span>QC</span>
-              <span>LN</span>
-            </div>
-          </div>
-        </aside>
-        <div class="economics-hero__copy">
-          <span class="economics-eyebrow">Công cụ tính hiệu quả đơn hàng</span>
+      <div class="economics-title-row">
+        <div>
           <h1>What-if Hiệu suất</h1>
           <p class="dss-page__sub">
-            Xem một đơn còn lời sau giá vốn, phí sàn, affiliate, quảng cáo và dự phòng hoàn trả.
+            Xem một đơn còn lời sau giá vốn, phí sàn, affiliate, quảng cáo và hoàn trả.
           </p>
-        </div>
-      </div>
-    </header>
-
-    <section class="dss-card economics-input" aria-labelledby="economics-input-title">
-      <div class="economics-section-head">
-        <div>
-          <span class="economics-step">01 · Giả định kịch bản</span>
-          <h2 id="economics-input-title" class="dss-card__title">Chi phí trên mỗi đơn hàng</h2>
         </div>
         <button type="button" class="dss-btn dss-btn--outline" @click="restoreDefaults">
           Khôi phục mặc định
         </button>
       </div>
+    </header>
 
+    <section class="dss-card economics-input" aria-labelledby="economics-input-title">
+      <h2 id="economics-input-title" class="economics-inline-title">Giả định chi phí / đơn</h2>
       <div v-if="loadError" class="dss-alert dss-alert--warn" role="alert">{{ loadError }}</div>
 
       <div class="economics-product-grid">
         <label class="dss-field economics-product-field">
-          <span>Sản phẩm của người bán</span>
+          <span>Sản phẩm</span>
           <select
             v-model.number="productId"
             class="dss-input"
             :disabled="productsLoading || !products.length"
           >
-            <option disabled value="">— Chọn sản phẩm từ hệ thống —</option>
+            <option disabled value="">— Chọn sản phẩm —</option>
             <option v-for="item in products" :key="item.id" :value="item.id">{{ item.name }}</option>
           </select>
-          <small class="dss-hint">
-            {{ productsLoading ? 'Đang tải danh sách sản phẩm…' : 'Danh sách được lọc theo người bán đang đăng nhập.' }}
-          </small>
+          <small v-if="productsLoading" class="dss-hint">Đang tải sản phẩm…</small>
         </label>
 
         <label class="dss-field economics-readonly">
           <span>Giá bán</span>
           <div class="economics-readonly__value">
-            {{ detailLoading ? 'Đang tải…' : product ? formatOrderEconomicsVnd(product.price) : '—' }}
+            {{ detailLoading ? '…' : product ? formatOrderEconomicsVnd(product.price) : '—' }}
           </div>
           <small v-if="errors.price" class="economics-error">{{ errors.price }}</small>
-          <small v-else class="dss-hint">Đọc trực tiếp từ cơ sở dữ liệu.</small>
         </label>
 
         <label class="dss-field economics-readonly">
           <span>Giá vốn</span>
           <div class="economics-readonly__value">
-            {{ detailLoading ? 'Đang tải…' : product ? formatOrderEconomicsVnd(product.costPrice) : '—' }}
+            {{ detailLoading ? '…' : product ? formatOrderEconomicsVnd(product.costPrice) : '—' }}
           </div>
           <small v-if="errors.costPrice" class="economics-error">{{ errors.costPrice }}</small>
-          <small v-else class="dss-hint">Không thể chỉnh sửa tại công cụ này.</small>
         </label>
       </div>
 
       <div class="economics-cost-grid">
         <label class="dss-field">
-          <span>Chi phí đóng gói</span>
+          <span>Đóng gói</span>
           <div class="economics-number-input">
             <input v-model.number="packagingCost" class="dss-input" type="number" min="0" step="1000" />
             <em>₫</em>
           </div>
           <small v-if="errors.packagingCost" class="economics-error">{{ errors.packagingCost }}</small>
         </label>
-
         <label class="dss-field">
-          <span>Phí nền tảng</span>
+          <span>Phí sàn</span>
           <div class="economics-number-input">
             <input v-model.number="platformFeePercent" class="dss-input" type="number" min="0" max="100" step="0.1" />
             <em>%</em>
           </div>
           <small v-if="errors.platformFeePercent" class="economics-error">{{ errors.platformFeePercent }}</small>
         </label>
-
         <label class="dss-field">
-          <span>Phí tiếp thị liên kết</span>
+          <span>Affiliate</span>
           <div class="economics-number-input">
             <input v-model.number="affiliatePercent" class="dss-input" type="number" min="0" max="100" step="0.1" />
             <em>%</em>
           </div>
           <small v-if="errors.affiliatePercent" class="economics-error">{{ errors.affiliatePercent }}</small>
         </label>
-
         <label class="dss-field">
-          <span>Quảng cáo / đơn hàng</span>
+          <span>QC / đơn</span>
           <div class="economics-number-input">
             <input v-model.number="adsPerOrder" class="dss-input" type="number" min="0" step="1000" />
             <em>₫</em>
           </div>
           <small v-if="errors.adsPerOrder" class="economics-error">{{ errors.adsPerOrder }}</small>
         </label>
-
         <label class="dss-field">
-          <span>Dự phòng hoàn trả</span>
+          <span>Dự phòng HT</span>
           <div class="economics-number-input">
             <input v-model.number="refundReservePercent" class="dss-input" type="number" min="0" max="100" step="0.1" />
             <em>%</em>
@@ -337,43 +297,43 @@ function decisionCopy(decision?: OrderEconomicsDecision) {
     <template v-if="result && product">
       <section class="economics-kpis" aria-label="Chỉ số ra quyết định">
         <article class="economics-kpi" :class="{ 'economics-kpi--negative': result.contributionPerOrder <= 0 }">
-          <span>Lợi nhuận đóng góp / đơn</span>
+          <span>Lãi / đơn</span>
           <strong>{{ formatOrderEconomicsVnd(result.contributionPerOrder) }}</strong>
-          <small>Lợi nhuận đóng góp sau quảng cáo</small>
         </article>
         <article class="economics-kpi" :class="`economics-kpi--${decisionContent.tone}`">
-          <span>Biên lợi nhuận đóng góp</span>
+          <span>Biên lãi</span>
           <strong>{{ formatOrderEconomicsPercent(result.contributionMarginPercent) }}</strong>
-          <small>Ngưỡng mở rộng tham chiếu: 15%</small>
+          <small>Ngưỡng mở rộng 15%</small>
         </article>
         <article class="economics-kpi">
-          <span>Quảng cáo hòa vốn / đơn</span>
+          <span>QC hòa vốn</span>
           <strong>{{ formatOrderEconomicsVnd(result.breakEvenAdsPerOrder) }}</strong>
-          <small>Mức quảng cáo tối đa trước khi hòa vốn</small>
+          <div class="economics-meter" :class="{ 'economics-meter--over': adsHeadroom < 0 }">
+            <i :style="{ width: `${adsFillPercent}%` }" />
+          </div>
+          <small>
+            {{ adsHeadroom >= 0 ? `Còn ${formatOrderEconomicsVnd(adsHeadroom)}` : `Vượt ${formatOrderEconomicsVnd(Math.abs(adsHeadroom))}` }}
+          </small>
         </article>
         <article class="economics-kpi economics-kpi--decision" :class="`economics-kpi--${decisionContent.tone}`">
-          <span>Quyết định</span>
+          <span>Kết luận</span>
           <strong>{{ decisionContent.label }}</strong>
-          <small>{{ decisionContent.title }}</small>
         </article>
       </section>
 
       <div class="economics-analysis-grid">
         <section class="dss-card economics-breakdown-card" aria-labelledby="economics-breakdown-title">
           <div class="economics-section-head">
-            <div>
-              <span class="economics-step">02 · Phân rã</span>
-              <h2 id="economics-breakdown-title" class="dss-card__title">Cấu trúc một đơn hàng</h2>
-            </div>
-            <strong class="economics-price-chip">{{ formatOrderEconomicsVnd(product.price) }}</strong>
+            <h2 id="economics-breakdown-title" class="dss-card__title">Cấu trúc 1 đơn</h2>
+            <strong class="economics-price-chip">Giá {{ formatOrderEconomicsVnd(product.price) }}</strong>
           </div>
 
           <div class="economics-stack" aria-hidden="true">
             <span
               v-for="row in composition"
               :key="row.key"
-              :style="{ width: `${Math.max(row.pct, 1.5)}%`, background: row.color }"
-              :title="`${row.label} ${formatOrderEconomicsVnd(row.value)}`"
+              :style="{ width: `${Math.max(row.pct, 1.2)}%`, background: row.color }"
+              :title="`${row.label} ${formatOrderEconomicsPercent(row.pct)}`"
             />
           </div>
 
@@ -381,30 +341,30 @@ function decisionCopy(decision?: OrderEconomicsDecision) {
             <li v-for="row in composition" :key="`lg-${row.key}`">
               <i :style="{ background: row.color }" />
               <span>{{ row.label }}</span>
+              <em>{{ formatOrderEconomicsPercent(row.pct) }}</em>
               <strong>{{ formatOrderEconomicsVnd(row.value) }}</strong>
-            </li>
-            <li class="economics-legend__total">
-              <span>Lợi nhuận đóng góp / đơn</span>
-              <strong>{{ formatOrderEconomicsVnd(result.contributionPerOrder) }}</strong>
             </li>
           </ul>
         </section>
 
         <section class="dss-card economics-decision" :class="`economics-decision--${decisionContent.tone}`" aria-labelledby="economics-decision-title">
           <div class="economics-decision__head">
-            <span class="economics-step">03 · Khuyến nghị</span>
+            <h2 id="economics-decision-title">{{ decisionContent.title }}</h2>
             <span class="economics-decision__badge" :class="`economics-decision__badge--${decisionContent.tone}`">
               {{ decisionContent.label }}
             </span>
           </div>
-          <h2 id="economics-decision-title">{{ decisionContent.title }}</h2>
           <p>{{ decisionContent.detail }}</p>
           <dl>
-            <div><dt>Tổng biến phí</dt><dd>{{ formatOrderEconomicsVnd(variableCostTotal) }}</dd></div>
-            <div><dt>Tỷ trọng biến phí</dt><dd>{{ formatOrderEconomicsPercent((variableCostTotal / product.price) * 100) }}</dd></div>
-            <div><dt>Ngân sách quảng cáo còn lại</dt><dd>{{ formatOrderEconomicsVnd(result.breakEvenAdsPerOrder - adsPerOrder) }}</dd></div>
+            <div><dt>Biến phí</dt><dd>{{ formatOrderEconomicsVnd(variableCostTotal) }}</dd></div>
+            <div><dt>Tỷ trọng</dt><dd>{{ formatOrderEconomicsPercent((variableCostTotal / product.price) * 100) }}</dd></div>
+            <div>
+              <dt>Dư QC</dt>
+              <dd :class="{ 'economics-dd--warn': adsHeadroom < 0 }">
+                {{ formatOrderEconomicsVnd(adsHeadroom) }}
+              </dd>
+            </div>
           </dl>
-          <small>Kết quả đổi ngay theo giả định — không ghi vào cơ sở dữ liệu.</small>
         </section>
       </div>
     </template>
@@ -413,174 +373,156 @@ function decisionCopy(decision?: OrderEconomicsDecision) {
       <span aria-hidden="true">∑</span>
       <div>
         <h2>Chọn sản phẩm có giá bán và giá vốn hợp lệ</h2>
-        <p>Công cụ chỉ hiển thị kết quả khi hệ thống trả đủ dữ liệu sản phẩm.</p>
+        <p>Kết quả hiện khi hệ thống trả đủ giá bán và giá vốn.</p>
       </div>
     </section>
   </div>
 </template>
 
 <style scoped>
-.economics-page { max-width: 1360px; }
-.economics-header { padding-top: .35rem; }
-.economics-hero {
-  display: grid;
-  grid-template-columns: minmax(280px, 0.95fr) minmax(0, 1.2fr);
-  gap: 1.25rem;
-  align-items: center;
-}
-.economics-hero__copy h1 { margin: .25rem 0 .4rem; }
-.economics-shot {
-  border: 1px solid #d7e3f4;
-  border-radius: 16px;
-  overflow: hidden;
-  background: linear-gradient(180deg, #eef5ff 0%, #fff 55%);
-  box-shadow: 0 10px 28px rgba(13, 71, 161, .08);
-}
-.economics-shot__chrome {
+.economics-page { max-width: 1180px; }
+.economics-header { margin-bottom: .85rem; padding-top: .15rem; }
+.economics-title-row {
   display: flex;
-  align-items: center;
-  gap: .4rem;
-  padding: .55rem .8rem;
-  background: #e8eef8;
-  color: #607d8b;
-  font-size: .72rem;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: .75rem 1rem;
+  margin-top: .35rem;
+}
+.economics-title-row h1 { margin: 0 0 .2rem; }
+.economics-title-row .dss-page__sub { max-width: 64ch; font-size: .9rem; }
+.economics-title-row .dss-btn { flex: 0 0 auto; white-space: nowrap; }
+.economics-inline-title {
+  margin: 0 0 .75rem;
+  color: #1565c0;
+  font-size: .95rem;
   font-weight: 700;
-  letter-spacing: .02em;
 }
-.economics-shot__chrome i {
-  width: .52rem;
-  height: .52rem;
-  border-radius: 50%;
-  background: #cfd8dc;
-}
-.economics-shot__chrome i:nth-child(1) { background: #ef9a9a; }
-.economics-shot__chrome i:nth-child(2) { background: #ffe082; }
-.economics-shot__chrome i:nth-child(3) { background: #a5d6a7; }
-.economics-shot__chrome span { margin-left: .35rem; }
-.economics-shot__body { padding: .9rem 1rem 1rem; }
-.economics-shot__kpis {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: .6rem;
-  margin-bottom: .75rem;
-}
-.economics-shot__kpis div {
-  padding: .65rem .7rem;
-  border-radius: 10px;
-  background: #fff;
-  border: 1px solid #e3e8ef;
-}
-.economics-shot__kpis em {
-  display: block;
-  font-style: normal;
-  color: #78909c;
-  font-size: .68rem;
-  font-weight: 800;
-  letter-spacing: .06em;
-  text-transform: uppercase;
-}
-.economics-shot__kpis b {
-  display: block;
-  margin-top: .2rem;
-  color: #0d47a1;
-  font-size: .98rem;
-}
-.economics-shot__bar, .economics-stack {
+.economics-input { padding: 1rem 1.1rem 1.05rem; border-top: 2px solid #90caf9; }
+.economics-input :deep(.dss-input) { height: 40px; }
+.economics-product-grid { display: grid; grid-template-columns: 1.6fr .7fr .7fr; gap: .7rem .85rem; }
+.economics-cost-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .7rem .85rem; margin-top: .85rem; }
+.economics-product-grid .dss-field span,
+.economics-cost-grid .dss-field span { font-size: .78rem; }
+.economics-readonly__value {
+  min-height: 40px;
+  box-sizing: border-box;
   display: flex;
-  height: 14px;
+  align-items: center;
+  border: 1px solid #cfd8dc;
+  border-radius: 8px;
+  background: #f3f6fa;
+  color: #263238;
+  padding: .45rem .7rem;
+  font-weight: 800;
+}
+.economics-number-input { position: relative; width: 100%; }
+.economics-number-input .dss-input { width: 100%; box-sizing: border-box; min-height: 40px; padding-right: 2.1rem; }
+.economics-number-input em {
+  position: absolute;
+  right: .7rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #546e7a;
+  font-size: .78rem;
+  font-style: normal;
+  font-weight: 800;
+  pointer-events: none;
+}
+.economics-error { color: #c62828; }
+.economics-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; margin: 0 0 .85rem; }
+.economics-kpi {
+  padding: .8rem .9rem .75rem;
+  border: 1px solid #d8e3ef;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: var(--dss-shadow);
+}
+.economics-kpi span, .economics-kpi small { display: block; color: #546e7a; }
+.economics-kpi span { font-size: .7rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+.economics-kpi strong { display: block; margin: .35rem 0 .15rem; color: #17324d; font-size: clamp(1.05rem, 1.8vw, 1.35rem); line-height: 1.2; }
+.economics-kpi small { font-size: .72rem; }
+.economics-kpi--scale { border-color: #a5d6a7; background: #f7fcf7; }
+.economics-kpi--scale strong { color: #1b5e20; }
+.economics-kpi--test { border-color: #ffe082; background: #fffdf5; }
+.economics-kpi--test strong { color: #9a5b00; }
+.economics-kpi--fix, .economics-kpi--negative { border-color: #ef9a9a; background: #fff8f8; }
+.economics-kpi--fix strong, .economics-kpi--negative strong { color: #b71c1c; }
+.economics-kpi--decision strong { font-size: .92rem; letter-spacing: .02em; }
+.economics-meter {
+  height: 6px;
+  margin: .45rem 0 .3rem;
+  overflow: hidden;
+  border-radius: 99px;
+  background: #eceff1;
+}
+.economics-meter i { display: block; height: 100%; background: #43a047; }
+.economics-meter--over i { background: #e53935; }
+.economics-analysis-grid { display: grid; grid-template-columns: minmax(320px, 1.2fr) minmax(280px, .8fr); gap: .85rem; align-items: stretch; }
+.economics-analysis-grid > .dss-card { min-width: 0; padding: 1rem 1.1rem; color: #263238; }
+.economics-section-head { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+.economics-section-head .dss-card__title { margin: 0; }
+.economics-price-chip {
+  flex: 0 0 auto;
+  padding: .22rem .55rem;
+  border-radius: 999px;
+  background: #e3f2fd;
+  color: #0d47a1;
+  font-size: .78rem;
+  white-space: nowrap;
+}
+.economics-stack {
+  display: flex;
+  height: 16px;
+  margin: .75rem 0 .7rem;
   overflow: hidden;
   border-radius: 999px;
   background: #eceff1;
 }
-.economics-shot__bar span, .economics-stack span { display: block; height: 100%; }
-.economics-shot__bar-empty { flex: 1; background: #d7e3f4; }
-.economics-shot__legend {
+.economics-stack span { display: block; height: 100%; }
+.economics-legend {
   display: flex;
-  justify-content: space-between;
-  margin-top: .45rem;
-  color: #78909c;
-  font-size: .68rem;
-  font-weight: 700;
+  flex-direction: column;
+  gap: .1rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
-.economics-section-head { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; }
-.economics-eyebrow, .economics-step {
-  display: block;
-  color: var(--dss-blue);
-  font-size: .72rem;
-  font-weight: 800;
-  letter-spacing: .11em;
-  text-transform: uppercase;
-}
-.economics-input { border-top: 2px solid #90caf9; }
-.economics-product-grid { display:grid; grid-template-columns:2fr 1fr 1fr; gap:1rem; margin-top:1.2rem; }
-.economics-cost-grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:1rem; margin-top:1.35rem; }
-.economics-readonly__value { min-height:44px; box-sizing:border-box; display:flex; align-items:center; border:1px solid #cfd8dc; border-radius:8px; background:#f3f6fa; color:#263238; padding:.65rem .8rem; font-weight:800; }
-.economics-number-input { position:relative; width:100%; }
-.economics-number-input .dss-input { width:100%; box-sizing:border-box; padding-right:2.35rem; }
-.economics-number-input em { position:absolute; right:.8rem; top:50%; transform:translateY(-50%); color:#546e7a; font-size:.8rem; font-style:normal; font-weight:800; pointer-events:none; }
-.economics-error { color:#c62828; }
-.economics-kpis { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:1rem; margin:1rem 0; }
-.economics-kpi { min-height:148px; padding:1.15rem; border:1px solid #d8e3ef; border-radius:14px; background:#fff; box-shadow:var(--dss-shadow); }
-.economics-kpi span, .economics-kpi small { display:block; color:#546e7a; }
-.economics-kpi span { font-size:.74rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
-.economics-kpi strong { display:block; margin:.65rem 0 .35rem; color:#17324d; font-size:clamp(1.2rem,2vw,1.65rem); }
-.economics-kpi--scale { border-color:#a5d6a7; background:#f7fcf7; }
-.economics-kpi--scale strong { color:#1b5e20; }
-.economics-kpi--test { border-color:#ffe082; background:#fffdf5; }
-.economics-kpi--test strong { color:#9a5b00; }
-.economics-kpi--fix, .economics-kpi--negative { border-color:#ef9a9a; background:#fff8f8; }
-.economics-kpi--fix strong, .economics-kpi--negative strong { color:#b71c1c; }
-.economics-kpi--decision strong { font-size:1.05rem; letter-spacing:.02em; line-height:1.25; }
-.economics-analysis-grid { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(300px,.8fr); gap:1rem; align-items:stretch; }
-.economics-analysis-grid > .dss-card { color:#263238; }
-.economics-price-chip {
-  align-self: center;
-  padding: .35rem .65rem;
-  border-radius: 999px;
-  background: #e3f2fd;
-  color: #0d47a1;
-  font-size: .82rem;
-}
-.economics-stack { height: 18px; margin: 1rem 0 .85rem; }
-.economics-legend { list-style: none; margin: 0; padding: 0; }
 .economics-legend li {
-  display: grid;
-  grid-template-columns: 10px 1fr auto;
+  display: flex;
   align-items: center;
-  gap: .65rem;
-  padding: .55rem 0;
+  gap: .55rem;
+  min-width: 0;
+  padding: .38rem 0;
   border-bottom: 1px solid #eef2f6;
-  font-size: .9rem;
+  font-size: .84rem;
 }
-.economics-legend i { width: 10px; height: 10px; border-radius: 99px; }
-.economics-legend span { color: #546e7a; }
+.economics-legend i { width: 8px; height: 8px; flex: 0 0 auto; border-radius: 99px; }
+.economics-legend span { flex: 1 1 auto; min-width: 0; color: #546e7a; }
+.economics-legend em,
+.economics-legend strong {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.economics-legend em { color: #90a4ae; font-style: normal; font-size: .72rem; font-weight: 700; }
 .economics-legend strong { color: #263238; }
-.economics-legend__total {
-  grid-template-columns: 1fr auto;
-  border-bottom: 0;
-  padding-top: .8rem;
-  font-weight: 800;
-}
-.economics-legend__total span, .economics-legend__total strong { color: #0d47a1; }
 .economics-decision { display: flex; flex-direction: column; }
 .economics-decision__head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: .75rem 1rem;
-  margin-bottom: .85rem;
+  gap: .5rem .75rem;
+  margin-bottom: .45rem;
 }
 .economics-decision__badge {
   flex: 0 0 auto;
-  max-width: 100%;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  padding: .38rem .7rem;
+  padding: .28rem .55rem;
   border-radius: 999px;
   background: #e3f2fd;
   color: #0d47a1;
-  font-size: .72rem;
+  font-size: .68rem;
   font-weight: 800;
   letter-spacing: .02em;
   white-space: nowrap;
@@ -588,33 +530,33 @@ function decisionCopy(decision?: OrderEconomicsDecision) {
 .economics-decision__badge--test { background: #fff8e1; color: #e65100; }
 .economics-decision__badge--fix { background: #ffebee; color: #b71c1c; }
 .economics-decision__badge--scale { background: #e8f5e9; color: #1b5e20; }
-.economics-decision h2 { margin: 0 0 .45rem; color:#17324d; font-size:1.18rem; line-height:1.35; }
-.economics-decision p { margin: 0; color:#455a64; line-height:1.65; }
-.economics-decision dl { margin:1.1rem 0 .85rem; }
-.economics-decision dl div { display:flex; justify-content:space-between; gap:1rem; padding:.65rem 0; border-bottom:1px solid #e3e8ef; }
-.economics-decision dt { color:#546e7a; }
-.economics-decision dd { margin:0; color:#263238; font-weight:800; text-align:right; }
-.economics-decision > small { display:block; margin-top: auto; color:#607d8b; line-height:1.5; }
-.economics-decision--scale { border-color:#a5d6a7; }
-.economics-decision--test { border-color:#ffe082; }
-.economics-decision--fix { border-color:#ef9a9a; }
-.economics-empty { display:flex; align-items:center; gap:1rem; color:#607d8b; }
-.economics-empty > span { display:grid; place-items:center; width:48px; height:48px; flex:0 0 auto; border-radius:14px; background:#e3f2fd; color:#1565c0; font-size:1.4rem; }
-.economics-empty h2 { margin:0 0 .3rem; color:#263238; font-size:1rem; }
-.economics-empty p { margin:0; }
-@media (max-width:1050px) {
-  .economics-hero, .economics-analysis-grid { grid-template-columns: 1fr; }
-  .economics-cost-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
-  .economics-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.economics-decision h2 { margin: 0; color: #17324d; font-size: 1.02rem; line-height: 1.35; }
+.economics-decision p { margin: .35rem 0 0; color: #455a64; font-size: .88rem; line-height: 1.5; }
+.economics-decision dl { margin: .7rem 0 0; }
+.economics-decision dl div { display: flex; justify-content: space-between; align-items: baseline; gap: .75rem; padding: .42rem 0; border-bottom: 1px solid #e3e8ef; font-size: .86rem; }
+.economics-decision dt { min-width: 0; color: #546e7a; }
+.economics-decision dd { margin: 0; color: #263238; font-weight: 800; text-align: right; white-space: nowrap; }
+.economics-dd--warn { color: #c62828; }
+.economics-decision--scale { border-color: #a5d6a7; }
+.economics-decision--test { border-color: #ffe082; }
+.economics-decision--fix { border-color: #ef9a9a; }
+.economics-empty { display: flex; align-items: center; gap: .85rem; color: #607d8b; padding: .9rem 1.1rem; }
+.economics-empty > span { display: grid; place-items: center; width: 40px; height: 40px; flex: 0 0 auto; border-radius: 12px; background: #e3f2fd; color: #1565c0; font-size: 1.2rem; }
+.economics-empty h2 { margin: 0 0 .2rem; color: #263238; font-size: .95rem; }
+.economics-empty p { margin: 0; }
+@media (max-width: 1050px) {
+  .economics-analysis-grid { grid-template-columns: 1fr; }
+  .economics-cost-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .economics-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-@media (max-width:760px) {
-  .economics-product-grid,.economics-cost-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
-  .economics-product-field { grid-column:1/-1; }
+@media (max-width: 760px) {
+  .economics-product-grid, .economics-cost-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .economics-product-field { grid-column: 1 / -1; }
 }
-@media (max-width:620px) {
-  .economics-section-head, .economics-decision__head { align-items:flex-start; flex-direction:column; }
-  .economics-product-grid,.economics-cost-grid,.economics-kpis { grid-template-columns:1fr; }
-  .economics-product-field { grid-column:auto; }
+@media (max-width: 620px) {
+  .economics-title-row, .economics-section-head, .economics-decision__head { flex-direction: column; align-items: flex-start; }
+  .economics-product-grid, .economics-cost-grid, .economics-kpis { grid-template-columns: 1fr; }
+  .economics-product-field { grid-column: auto; }
   .economics-decision__badge { white-space: normal; }
 }
 </style>

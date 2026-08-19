@@ -224,7 +224,7 @@ async function onCustomPriceSubmit() {
       </nav>
       <h1>Khuyến nghị giá</h1>
       <p class="dss-page__sub">
-        So sánh kịch bản giá theo hệ số co giãn cầu — form, thẻ chỉ số và bảng kịch bản.
+        So sánh kịch bản giá theo hệ số co giãn cầu.
       </p>
     </header>
 

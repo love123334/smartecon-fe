@@ -37,7 +37,7 @@ onMounted(async () => {
     const meta = await productApi.listWithMeta({ size: 24 })
     if (meta.backendUnreachable) {
       catalogError.value =
-        'Không kết nối được backend — một số sản phẩm có thể chưa hiển thị.'
+        'Không kết nối được máy chủ — một số sản phẩm có thể chưa hiển thị.'
     }
     products.value = meta.products
   } finally {

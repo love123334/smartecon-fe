@@ -27,14 +27,6 @@ const historyOptions = [7, 14, 30, 60, 180]
 const forecastOptions = [7, 14, 30]
 const selectedProduct = computed(() => products.value.find((p) => p.id === productId.value))
 const features = computed(() => result.value?.featureSnapshot)
-const onnxUsed = computed(() => Boolean(features.value?.onnxModelUsed) || result.value?.method === 'lightgbm_onnx')
-const modelAvailable = computed(() => Boolean(features.value?.onnxModelAvailable) || onnxUsed.value)
-const modelState = computed(() => {
-  if (!result.value) return { label: 'Chưa chạy', tone: 'idle', detail: 'Chọn sản phẩm và chạy thử mô hình.' }
-  if (onnxUsed.value) return { label: 'Mô hình học máy', tone: 'success', detail: 'Hệ thống đã dự báo bằng mô hình LightGBM đã huấn luyện trên lịch sử bán hàng.' }
-  if (modelAvailable.value) return { label: 'Kết hợp dự phòng', tone: 'warn', detail: 'Mô hình có sẵn nhưng lần này đã dùng phương án dự phòng.' }
-  return { label: 'Dự báo xu hướng', tone: 'muted', detail: 'Kết quả đến từ mô hình xu hướng dự phòng khi chưa dùng mô hình học máy.' }
-})
 const trendLabel = computed(() => {
   const slope = Number(features.value?.trendSlope ?? 0)
   if (slope > 0.05) return 'Đang tăng'
@@ -127,22 +119,20 @@ async function saveForecast() {
           <RouterLink to="/seller/dss">DSS</RouterLink><span>/</span><span>Dự báo Nhu cầu</span>
         </nav>
         <h1>Dự báo Nhu cầu</h1>
-        <p class="dss-page__sub">Kiểm tra trực tiếp dữ liệu lịch sử, xu hướng và dự báo trả về từ backend.</p>
+        <p class="dss-page__sub">Xem nhu cầu quá khứ và dự báo số lượng bán cho từng sản phẩm.</p>
       </div>
-      <span class="demo-badge">Dự báo nhu cầu</span>
     </header>
 
     <section class="dss-card config-card">
       <div class="section-head">
         <div><h2 class="dss-card__title">Cấu hình lần chạy</h2><p>Chạy để xem trước; lưu kết quả khi bạn hài lòng với dự báo.</p></div>
-        <span :class="['model-state', `model-state--${modelState.tone}`]">{{ modelState.label }}</span>
       </div>
 
       <div class="dss-form-grid">
         <label class="dss-field">Sản phẩm
           <select v-model="productId" class="dss-input" :disabled="loadingProducts">
             <option value="" disabled>{{ loadingProducts ? 'Đang tải…' : 'Chọn sản phẩm' }}</option>
-            <option v-for="p in products" :key="p.id" :value="p.id">#{{ p.id }} · {{ p.name }}</option>
+            <option v-for="p in products" :key="p.id" :value="p.id">{{ p.name }}</option>
           </select>
         </label>
         <label class="dss-field">Dữ liệu quá khứ
@@ -166,11 +156,6 @@ async function saveForecast() {
     <div v-if="savedMessage" class="dss-alert dss-alert--success" role="status">{{ savedMessage }}</div>
 
     <template v-if="result && !running">
-      <section :class="['model-panel', `model-panel--${modelState.tone}`]">
-        <div><small>MÔ HÌNH ĐÃ CHẠY</small><strong>{{ modelState.label }}</strong><p>{{ modelState.detail }}</p></div>
-        <div class="model-flags"><span>Mô hình sẵn sàng <b>{{ modelAvailable ? 'Có' : 'Không' }}</b></span><span>Đã dùng mô hình học máy <b>{{ onnxUsed ? 'Có' : 'Không' }}</b></span></div>
-      </section>
-
       <section class="metric-grid">
         <article><span>Tổng dự báo</span><strong>{{ formatViNumber(result.predictedDemand) }}</strong><small>đơn vị / {{ result.forecastDays }} ngày</small></article>
         <article><span>TB dự báo/ngày</span><strong>{{ formatViNumber(features?.forecastAverageDailyDemand ?? result.predictedDemand / result.forecastDays) }}</strong><small>đơn vị</small></article>
@@ -207,24 +192,10 @@ async function saveForecast() {
 
 <style scoped>
 .lgbm-demo { max-width: 1180px; }
-.demo-header,.section-head,.model-panel,.model-flags { display:flex; align-items:center; justify-content:space-between; gap:1rem; }
-.demo-badge { padding:.5rem .8rem; border-radius:999px; color:#1d4ed8; background:#dbeafe; font-weight:750; font-size:.8rem; }
+.demo-header,.section-head { display:flex; align-items:center; justify-content:space-between; gap:1rem; }
 .section-head { align-items:flex-start; margin-bottom:1rem; }
 .section-head h2 { margin-bottom:.25rem; }
 .section-head p,.action-card p { margin:0; color:#64748b; font-size:.88rem; line-height:1.55; }
-.model-state { padding:.38rem .65rem; border-radius:999px; font-size:.78rem; font-weight:800; white-space:nowrap; }
-.model-state--idle,.model-state--muted { background:#f1f5f9; color:#475569; }
-.model-state--success { background:#dcfce7; color:#166534; }
-.model-state--warn { background:#ffedd5; color:#9a3412; }
-.model-panel { padding:1.1rem 1.25rem; margin-bottom:1rem; border:1px solid #cbd5e1; border-left:5px solid #64748b; border-radius:12px; background:#fff; }
-.model-panel--success { border-left-color:#16a34a; background:#f7fff9; }
-.model-panel--warn { border-left-color:#f97316; background:#fffaf5; }
-.model-panel small { display:block; color:#64748b; font-weight:700; letter-spacing:.07em; }
-.model-panel strong { display:block; margin:.2rem 0; color:#0f172a; font-size:1.2rem; }
-.model-panel p { margin:0; color:#475569; }
-.model-flags { justify-content:flex-end; flex-wrap:wrap; }
-.model-flags span { padding:.55rem .7rem; border-radius:8px; background:#fff; border:1px solid #e2e8f0; font-size:.8rem; color:#64748b; }
-.model-flags b { display:block; color:#0f172a; font-size:.95rem; margin-top:.1rem; }
 .metric-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.8rem; margin-bottom:1rem; }
 .metric-grid article { padding:1rem; border-radius:12px; border:1px solid #e2e8f0; background:#fff; box-shadow:var(--dss-shadow); }
 .metric-grid span,.metric-grid small { display:block; color:#64748b; font-size:.78rem; }
@@ -236,6 +207,6 @@ async function saveForecast() {
 .feature-list div { display:flex; justify-content:space-between; gap:1rem; padding:.65rem .75rem; background:#f8fafc; border-radius:8px; }
 .feature-list dt { color:#64748b; }.feature-list dd { margin:0; font-weight:750; color:#0f172a; }
 .action-card { display:flex; flex-direction:column; align-items:flex-start; }.action-card .dss-btn { margin-top:auto; }
-@media (max-width:800px) { .demo-header,.model-panel { align-items:flex-start; flex-direction:column; }.metric-grid { grid-template-columns:repeat(2,1fr); }.detail-grid { grid-template-columns:1fr; } }
-@media (max-width:520px) { .metric-grid,.feature-list { grid-template-columns:1fr; }.demo-badge { display:none; } }
+@media (max-width:800px) { .demo-header { align-items:flex-start; flex-direction:column; }.metric-grid { grid-template-columns:repeat(2,1fr); }.detail-grid { grid-template-columns:1fr; } }
+@media (max-width:520px) { .metric-grid,.feature-list { grid-template-columns:1fr; } }
 </style>

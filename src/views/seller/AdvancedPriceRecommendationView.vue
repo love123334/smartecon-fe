@@ -276,19 +276,10 @@ function scenarioClass(change: number): string {
         <span>/</span>
         <span>Gợi ý Giá bán</span>
       </nav>
-      <div class="advanced-header__content">
-        <div>
-          <span class="advanced-eyebrow">LightGBM × Hệ số co giãn E</span>
-          <h1>Gợi ý Giá bán</h1>
-          <p class="dss-page__sub">
-            Mô phỏng thay đổi giá, nhu cầu và lợi nhuận trên cùng một bộ dữ liệu lịch sử.
-          </p>
-        </div>
-        <div class="advanced-source-chip" title="Trang này không sử dụng mock hoặc dữ liệu sản phẩm cứng">
-          <span class="advanced-source-chip__dot" aria-hidden="true"></span>
-          Dữ liệu trực tiếp từ hệ thống
-        </div>
-      </div>
+      <h1>Gợi ý Giá bán</h1>
+      <p class="dss-page__sub">
+        Mô phỏng thay đổi giá, nhu cầu và lợi nhuận trên cùng một bộ dữ liệu lịch sử.
+      </p>
     </header>
 
     <DssThinkingLoader
@@ -683,7 +674,6 @@ function scenarioClass(change: number): string {
   padding: 0.35rem 0 0.4rem;
 }
 
-.advanced-header__content,
 .advanced-section-head,
 .advanced-actions,
 .advanced-slider-head {
@@ -693,7 +683,6 @@ function scenarioClass(change: number): string {
   gap: 1rem;
 }
 
-.advanced-eyebrow,
 .advanced-step,
 .advanced-dialog__eyebrow {
   display: inline-block;
@@ -704,7 +693,6 @@ function scenarioClass(change: number): string {
   text-transform: uppercase;
 }
 
-.advanced-source-chip,
 .advanced-lock-badge,
 .advanced-session-id,
 .advanced-counter {
@@ -719,14 +707,6 @@ function scenarioClass(change: number): string {
   font-size: 0.76rem;
   font-weight: 750;
   white-space: nowrap;
-}
-
-.advanced-source-chip__dot {
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: 50%;
-  background: #10b981;
-  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.12);
 }
 
 .advanced-config {
@@ -1185,7 +1165,6 @@ function scenarioClass(change: number): string {
 }
 
 @media (max-width: 680px) {
-  .advanced-header__content,
   .advanced-section-head,
   .advanced-slider-head,
   .advanced-actions {

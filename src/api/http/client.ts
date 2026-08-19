@@ -33,7 +33,7 @@ function authHeaders(withJsonContentType = false): HeadersInit {
 const DEFAULT_TIMEOUT_MS = 8_000
 
 const CONNECTIVITY_ERROR =
-  'Không kết nối được backend. Kiểm tra VITE_API_BASE_URL / VITE_BACKEND_ORIGIN.'
+  'Không kết nối được máy chủ. Kiểm tra mạng và thử lại.'
 
 /** `/api/v1` → `/api` (một số DSS endpoint không nằm dưới v1). */
 export function apiRootWithoutVersion(): string {

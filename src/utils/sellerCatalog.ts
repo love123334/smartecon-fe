@@ -41,8 +41,8 @@ export async function loadSellerCatalogForDss(opts: {
       products: [],
       catalogSource: 'mock',
       error: meta.backendUnreachable
-        ? 'Không kết nối được backend. Kiểm tra VITE_API_BASE_URL / VITE_BACKEND_ORIGIN rồi thử lại.'
-        : 'Không tải được sản phẩm từ backend. Đăng nhập lại seller (JWT) rồi tải lại trang.',
+        ? 'Không kết nối được máy chủ. Thử lại sau vài phút.'
+        : 'Không tải được sản phẩm. Đăng nhập lại rồi tải lại trang.',
     }
   }
 

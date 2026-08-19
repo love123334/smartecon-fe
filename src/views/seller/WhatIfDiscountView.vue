@@ -486,7 +486,7 @@ function retrySubmit() {
         <p>
           {{
             resultStale
-              ? 'Form không còn khớp kết quả trước đó. Submit lại để lấy số liệu mới từ backend.'
+              ? 'Thông số đã đổi. Chạy lại phân tích để cập nhật kết quả.'
               : 'Chọn sản phẩm, mức giảm và kỳ mô phỏng rồi bấm “Phân tích kịch bản”.'
           }}
         </p>

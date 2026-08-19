@@ -83,7 +83,7 @@ async function search(opts?: { recordHistory?: boolean }) {
     })
     if (meta.backendUnreachable) {
       catalogError.value =
-        'Không kết nối được backend — danh sách sản phẩm tạm trống. Thử reload sau vài phút.'
+        'Không kết nối được máy chủ — danh sách sản phẩm tạm trống. Thử tải lại sau vài phút.'
     }
     results.value = meta.products
     totalPages.value = Math.max(1, meta.totalPages ?? 1)

@@ -181,7 +181,7 @@ async function applyStatus(order: Order) {
                 <span class="seller-order__item-qty">× {{ item.quantity }}</span>
               </li>
             </ul>
-            <p v-else class="seller-order__items-empty">Chi tiết dòng hàng chưa đầy đủ từ API.</p>
+            <p v-else class="seller-order__items-empty">Chưa có chi tiết dòng hàng.</p>
           </section>
 
           <footer v-if="canUpdateStatus(o)" class="seller-order__actions">
