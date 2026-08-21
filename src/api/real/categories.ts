@@ -14,18 +14,48 @@ interface BackendCategory {
   slug: string
 }
 
+interface BackendCategoryTree extends BackendCategory {
+  children?: BackendCategoryTree[]
+}
+
 let cache: Category[] | null = null
 
 function mapCategory(c: BackendCategory): Category {
   return { id: String(c.id), name: c.name, slug: c.slug }
 }
 
+function flattenTree(nodes: BackendCategoryTree[]): Category[] {
+  const out: Category[] = []
+  const walk = (list: BackendCategoryTree[]) => {
+    for (const node of list) {
+      if (node?.name?.trim()) out.push(mapCategory(node))
+      if (node.children?.length) walk(node.children)
+    }
+  }
+  walk(nodes)
+  return out
+}
+
+async function listFromTree(): Promise<Category[]> {
+  const tree = await http.get<BackendCategoryTree[]>(apiPaths.categories.tree)
+  return flattenTree(Array.isArray(tree) ? tree : [])
+}
+
 export async function listCategories(force = false): Promise<Category[]> {
   if (cache && !force) return cache
-  const page = await http.get<SpringPage<BackendCategory>>(
-    `${apiPaths.categories.list}?page=0&size=100`,
-  )
-  cache = page.content.map(mapCategory)
+  try {
+    const page = await http.get<SpringPage<BackendCategory>>(
+      `${apiPaths.categories.list}?page=0&size=100`,
+    )
+    const mapped = (page.content ?? []).map(mapCategory).filter((c) => c.name?.trim())
+    if (mapped.length) {
+      cache = mapped
+      return cache
+    }
+  } catch {
+    /* paginated list broken on some deploys — tree still works */
+  }
+  cache = await listFromTree()
   return cache
 }
 
