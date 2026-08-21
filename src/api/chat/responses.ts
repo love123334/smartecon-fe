@@ -283,11 +283,14 @@ function categoryBrowseReply(ctx: ChatContext, raw: string): string {
   const cat = matched
     ? ctx.categories.find((c) => c.name === matched.name)
     : undefined
-  const products = fromApi?.length
+  let products = fromApi?.length
     ? fromApi
     : cat
       ? ctx.products.filter((p) => p.category === cat.name)
-      : findProductsByQuery(ctx.products, raw)
+      : []
+  if (!products.length) {
+    products = findProductsByQuery(mergeCatalog(ctx), raw)
+  }
   if (!products.length) {
     return `${name}Chưa tìm thấy SP theo danh mục — thử **Cửa hàng** hoặc hỏi "web bán gì" / "danh mục".`
   }
@@ -298,17 +301,22 @@ function categoryBrowseReply(ctx: ChatContext, raw: string): string {
 function productSearchReply(ctx: ChatContext, raw: string): string {
   const name = greet(ctx.userName ?? '')
   const terms = extractProductSearchTerms(raw)
-  const localHits = findProductsByQuery(ctx.products, terms || raw)
-  const apiHits = ctx.enrichment?.searchResults ?? []
+  const catalog = mergeCatalog(ctx)
+  const localHits = findProductsByQuery(catalog, terms || raw)
+  const apiHits = [
+    ...(ctx.enrichment?.searchResults ?? []),
+    ...(ctx.enrichment?.categoryProducts ?? []),
+  ]
   const merged = [...apiHits]
   for (const p of localHits) {
     if (!merged.some((x) => String(x.id) === String(p.id))) merged.push(p)
   }
-  const hits = merged.length ? merged : localHits
-  if (!hits.length) {
-    return `${name}Chưa thấy **${terms || 'sản phẩm đó'}** trên shop. Thử tên ngắn hơn (vd: "kính", "tai nghe") hoặc mở **Tìm kiếm** trên header.`
+  const hits = merged.length ? findProductsByQuery(merged, terms || raw) : localHits
+  const finalHits = hits.length ? hits : merged
+  if (!finalHits.length) {
+    return `${name}Chưa thấy **${terms || 'sản phẩm đó'}** trên shop. Thử tên ngắn hơn (vd: "điện thoại", "tai nghe") hoặc mở **Tìm kiếm** trên header.`
   }
-  return `${name}Mình tìm được vài phần liên quan đến yêu cầu của bạn:\n${productLines(hits.slice(0, 6), 6)}\n\nMời xem thử bên dưới, hoặc nói rõ hơn nếu cần lọc thêm nhé.`
+  return `${name}Mình tìm được vài phần liên quan đến yêu cầu của bạn:\n${productLines(finalHits.slice(0, 6), 6)}\n\nMời xem thử bên dưới, hoặc nói rõ hơn nếu cần lọc thêm nhé.`
 }
 
 function cheapestReply(ctx: ChatContext): string {

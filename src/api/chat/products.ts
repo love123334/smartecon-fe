@@ -15,6 +15,8 @@ const STOP_WORDS = new Set([
   'tu', 'den', 'toi', 'da', 'max', 'min', 'budget', 'ngan', 'sach', 'under',
   'around', 'about', 'gan', 'tam', 'gia', 'ca',
   'trung', 'binh', 'average', 'avg', 'tb', 'khoang',
+  // slang browse: "gì xịn / ngon / hot"
+  'xin', 'ngon', 'tot', 'dinh', 'hot', 'dep',
   // tránh search lẫn khi hỏi đơn / tài khoản
   'don', 'order', 'orders', 'status', 'trang', 'thai', 'lich', 'su', 'theo', 'doi',
 ])
@@ -57,9 +59,9 @@ const SEARCH_CATEGORY_INTENTS: SearchCategoryIntent[] = [
     blockedCategories: ['dien thoai', 'dien tu', 'laptop', 'may tinh', 'tablet', 'nha bep', 'am thuc', 'sach'],
   },
   {
-    triggers: ['dien thoai', 'smartphone', 'iphone', 'mobile phone'],
-    allowedCategories: ['dien thoai', 'phu kien'],
-    blockedCategories: ['thoi trang', 'nha bep', 'sach', 'noi that'],
+    triggers: ['dien thoai', 'smartphone', 'iphone', 'mobile phone', 'galaxy', 'xiaomi'],
+    allowedCategories: ['dien thoai', 'dien tu', 'phu kien', 'electronics'],
+    blockedCategories: ['thoi trang', 'nha bep', 'sach', 'noi that', 'gia dung'],
   },
   {
     triggers: ['laptop', 'macbook', 'may tinh xach tay', 'notebook'],

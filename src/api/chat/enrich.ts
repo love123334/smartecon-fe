@@ -34,6 +34,7 @@ const SEARCH_INTENTS = new Set<ChatIntent>([
   'category_browse',
   'where_to_buy',
   'recommend',
+  'product_search',
 ])
 
 function extractOrderId(raw: string): string | null {
@@ -210,16 +211,44 @@ export async function enrichChatContext(
     matchedCat &&
     (intent === 'categories' ||
       intent === 'category_browse' ||
+      intent === 'product_search' ||
       intent === 'where_to_buy' ||
       intent === 'recommend' ||
       (intent && SEARCH_INTENTS.has(intent)))
   ) {
     tasks.push(
       (async () => {
-        enrichment.categoryProducts = await productApi.list({
+        const byCat = await productApi.list({
           category: matchedCat.name,
           withStock: false,
+          size: 48,
         })
+        // Điện thoại thường nằm cả ở "Điện tử" — gom thêm nếu danh mục khớp mỏng.
+        const needElectronics =
+          /dien thoai|smartphone|iphone/i.test(normalizeText(raw)) &&
+          !/dien tu/i.test(normalizeText(matchedCat.name))
+        if (needElectronics) {
+          const elec = await productApi.list({
+            category: 'Điện tử',
+            withStock: false,
+            size: 48,
+          })
+          const map = new Map<string, (typeof byCat)[0]>()
+          for (const p of [...byCat, ...elec]) map.set(String(p.id), p)
+          // Ưu tiên SP tên/mô tả có "điện thoại" / phone / iphone
+          const ranked = [...map.values()].sort((a, b) => {
+            const score = (p: (typeof byCat)[0]) => {
+              const hay = `${p.name} ${p.category} ${p.description ?? ''}`.toLowerCase()
+              if (/iphone|galaxy|điện thoại|dien thoai|smartphone/.test(hay)) return 2
+              if (/điện tử|dien tu/.test(hay)) return 1
+              return 0
+            }
+            return score(b) - score(a)
+          })
+          enrichment.categoryProducts = ranked
+          return
+        }
+        enrichment.categoryProducts = byCat
       })(),
     )
   }
