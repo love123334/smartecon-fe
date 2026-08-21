@@ -66,6 +66,8 @@ describe('phone browse bug', () => {
       systemMetrics: [],
       recommendations: [],
       publicVouchers: [],
+      dataSource: 'api',
+      backendOnline: true,
       catalogSource: 'backend',
     } as ChatContext
     const reply = await resolveChatReply(q, [], ctx)
