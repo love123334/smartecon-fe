@@ -163,7 +163,7 @@ function onLookerLoad() {
 .dss-looker {
   margin: 0 0 1.25rem;
   padding: 1rem 1.1rem 1.15rem;
-  overflow: hidden;
+  overflow: visible;
 }
 .dss-looker__head {
   display: flex;
@@ -186,10 +186,11 @@ function onLookerLoad() {
 .dss-looker__frame-wrap {
   position: relative;
   width: 100%;
-  min-height: 640px;
+  height: auto;
+  min-height: 1200px;
   border: 1px solid var(--line, #e4e9f2);
   border-radius: 12px;
-  overflow: hidden;
+  overflow: visible;
   background: #f8fafc;
 }
 .dss-looker__loading,
@@ -211,15 +212,16 @@ function onLookerLoad() {
 .dss-looker__frame {
   display: block;
   width: 100%;
-  height: 640px;
-  border: 0;
+  height: 850px;
+  border: none;
   background: #fff;
 }
 @media (max-width: 768px) {
-  .dss-looker__frame-wrap,
+  .dss-looker__frame-wrap {
+    min-height: 720px;
+  }
   .dss-looker__frame {
-    min-height: 520px;
-    height: 520px;
+    height: 640px;
   }
 }
 .dss-brain {

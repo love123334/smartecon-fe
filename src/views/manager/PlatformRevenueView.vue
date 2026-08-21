@@ -236,7 +236,7 @@ function retry() {
 .pr-looker {
   margin: 0 0 1.25rem;
   padding: 1rem 1.1rem 1.15rem;
-  overflow: hidden;
+  overflow: visible;
 }
 .pr-looker__head {
   display: flex;
@@ -259,10 +259,11 @@ function retry() {
 .pr-looker__frame-wrap {
   position: relative;
   width: 100%;
-  min-height: 720px;
+  height: auto;
+  min-height: 1200px;
   border: 1px solid var(--line, #e4e9f2);
   border-radius: 12px;
-  overflow: hidden;
+  overflow: visible;
   background: #f8fafc;
 }
 .pr-looker__loading {
@@ -294,15 +295,16 @@ function retry() {
 .pr-looker__frame {
   display: block;
   width: 100%;
-  height: 720px;
-  border: 0;
+  height: 850px;
+  border: none;
   background: #fff;
 }
 @media (max-width: 768px) {
-  .pr-looker__frame-wrap,
+  .pr-looker__frame-wrap {
+    min-height: 720px;
+  }
   .pr-looker__frame {
-    min-height: 560px;
-    height: 560px;
+    height: 640px;
   }
 }
 .pr-error-card {
