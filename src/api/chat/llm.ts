@@ -29,24 +29,20 @@ function isDirectLlmConfigured(): boolean {
 }
 
 export async function refreshBeAiStatus(): Promise<boolean> {
-  if (!hasBackendToken()) {
-    beAiConfigured = false
-    return false
-  }
   try {
     const status = await realAi.getAiStatus()
     beAiConfigured = Boolean(status.configured)
   } catch {
     beAiConfigured = false
   }
-  return beAiConfigured
+  return beAiConfigured === true
 }
 
-/** true if BE HF proxy ready, or optional browser Groq key */
+/** true if BE Gemini proxy ready, or optional browser Groq key */
 export function isLlmConfigured(): boolean {
   if (beAiConfigured === true) return true
   if (isDirectLlmConfigured()) return true
-  // Optimistic: authenticated users may use BE proxy — callChatLlm will verify
+  // Optimistic while status loads: logged-in users may use BE proxy
   return hasBackendToken() && beAiConfigured !== false
 }
 

@@ -84,7 +84,7 @@ watch(drawerOpen, (open) => {
                   variant="pill"
                   :model-value="line.quantity"
                   :min="1"
-                  :max="line.product.stock"
+                  :max="line.product.stock > 0 ? line.product.stock : undefined"
                   @update:model-value="cart.setQuantity(line.product.id, $event)"
                 />
               </div>

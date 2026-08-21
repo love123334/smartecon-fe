@@ -206,15 +206,33 @@ export async function validateCartVoucher(options: {
     return { valid: false, message: 'Vui lòng nhập mã giảm giá.' }
   }
 
-  const productIds = cartProductIdsForVoucher(options.lines)
-  if (!productIds.length) {
+  if (!options.lines.length) {
     return { valid: false, message: 'Thêm sản phẩm vào giỏ trước khi dùng mã giảm giá.' }
   }
 
+  const productIds = cartProductIdsForVoucher(options.lines)
+
   try {
-    const res = await voucherApi.validate(code, productIds)
+    // Ưu tiên để BE đọc giỏ đã sync — tránh lệch qty/SP phía FE.
+    let res = await voucherApi.validate(code)
+    if (!res.valid && productIds.length) {
+      res = await voucherApi.validate(code, productIds)
+    }
     if (res.valid) {
       return { ...res, message: res.message || 'Áp dụng mã giảm giá thành công.' }
+    }
+    // API trả invalid rõ ràng — chỉ fallback demo khi lỗi kỹ thuật / voucher seed thiếu
+    const tech =
+      /chưa áp dụng được|thử lại sau|sql|schema|backend|timeout|railway/i.test(
+        res.message || '',
+      )
+    if (tech) {
+      const fallback = demoVoucherFallback(
+        code,
+        options.cartSubtotal,
+        options.singleSellerId ?? null,
+      )
+      if (fallback?.valid) return fallback
     }
     return { ...res, message: voucherUserMessage(res.message) }
   } catch (e) {

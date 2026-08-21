@@ -947,10 +947,11 @@ export const cartApi = {
     userId: string,
     productId: string,
     quantity: number,
+    cartItemId?: string,
   ): Promise<CartItem[]> {
     if (apiConfig.useRealCart && hasBackendToken()) {
-      if (quantity <= 0) return cartApi.removeItem(userId, productId)
-      const itemId = await findRealCartItemId(productId)
+      if (quantity <= 0) return cartApi.removeItem(userId, productId, cartItemId)
+      const itemId = cartItemId || (await findRealCartItemId(productId))
       if (!itemId) throw new Error('Sản phẩm không có trong giỏ')
       await realCart.updateCartItem(itemId, quantity)
       return cartApi.getCart(userId)
@@ -958,9 +959,9 @@ export const cartApi = {
     return mockCartApi.updateQuantity(userId, productId, quantity)
   },
 
-  async removeItem(userId: string, productId: string): Promise<CartItem[]> {
+  async removeItem(userId: string, productId: string, cartItemId?: string): Promise<CartItem[]> {
     if (apiConfig.useRealCart && hasBackendToken()) {
-      const itemId = await findRealCartItemId(productId)
+      const itemId = cartItemId || (await findRealCartItemId(productId))
       if (itemId) await realCart.removeCartItem(itemId)
       return cartApi.getCart(userId)
     }
@@ -1020,7 +1021,10 @@ export async function resolveCartLines(
           name: item.productName || fromCatalog?.name || 'Sản phẩm',
           description: fromCatalog?.description ?? '',
           price,
-          stock: fromCatalog?.stock ?? 0,
+          stock:
+            fromCatalog?.stock != null && fromCatalog.stock > 0
+              ? fromCatalog.stock
+              : 99,
           category: fromCatalog?.category ?? '',
           imageUrl,
           imageUrls: fromCatalog?.imageUrls?.length ? fromCatalog.imageUrls : [imageUrl],

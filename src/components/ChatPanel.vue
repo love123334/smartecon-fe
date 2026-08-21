@@ -102,7 +102,7 @@ defineExpose({ scrollToEnd: scrollEnd })
     <div v-if="visibleQuickPrompts.length" class="chat-quick">
       <button
         v-for="p in visibleQuickPrompts"
-        :key="p.label"
+        :key="`${p.label}|${p.text}`"
         type="button"
         class="chat-quick__chip btn-interactive"
         :disabled="loading"

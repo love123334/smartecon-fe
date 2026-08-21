@@ -324,11 +324,20 @@ function cheapestReply(ctx: ChatContext): string {
   return `${name}Giá thấp nhất hiện tại là **${floor}**. Dưới đây là **${Math.min(list.length, 6)}** lựa chọn tiết kiệm:\n${productLines(list, 6)}`
 }
 
+function mergeCatalog(ctx: ChatContext): Product[] {
+  const map = new Map<string, Product>()
+  for (const p of ctx.products) map.set(String(p.id), p)
+  for (const p of ctx.enrichment?.searchResults ?? []) map.set(String(p.id), p)
+  for (const p of ctx.enrichment?.categoryProducts ?? []) map.set(String(p.id), p)
+  return [...map.values()]
+}
+
 function budgetReply(ctx: ChatContext, raw: string): string {
   const name = greet(ctx.userName ?? '')
+  const catalog = mergeCatalog(ctx)
   const range = extractPriceRange(raw)
   if (range?.min != null && range?.max != null) {
-    const hits = filterProductsForQuery(ctx.products, raw, ctx.categories, 6).products
+    const hits = filterProductsForQuery(catalog, raw, ctx.categories, 6).products
     if (!hits.length) {
       return `${name}Chưa có sản phẩm trong khoảng **${formatVnd(range.min)} – ${formatVnd(range.max)}**. Thử mở rộng ngân sách nhé.`
     }
@@ -338,7 +347,7 @@ function budgetReply(ctx: ChatContext, raw: string): string {
   if (!budget) {
     if (isAffordableProductQuery(raw)) {
       const label = extractProductFocusLabel(raw)
-      const hits = affordableProductsForQuery(ctx.products, raw, 6)
+      const hits = affordableProductsForQuery(catalog, raw, 6)
       if (hits.length) {
         return `${name}**${label}** giá tốt trên SEDSP:\n${productLines(hits, 6)}\n\n→ Bấm card bên dưới hoặc mở **Cửa hàng**.`
       }
@@ -346,7 +355,7 @@ function budgetReply(ctx: ChatContext, raw: string): string {
     }
     return `${name}Cho mình biết ngân sách, ví dụ: **"dưới 2 triệu"**, **"tầm 2tr"** hoặc **"dưới 500k"**.`
   }
-  const hits = productsUnderBudget(ctx.products, budget, 6)
+  const hits = productsUnderBudget(catalog, budget, 6)
   if (!hits.length) {
     return `${name}Hiện chưa có sản phẩm nào trong tầm **${formatVnd(budget)}**. Bạn thử mức cao hơn hoặc hỏi **"sản phẩm rẻ nhất"** nhé.`
   }

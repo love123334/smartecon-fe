@@ -219,12 +219,21 @@ function warmProductIntro(
   }
 }
 
+function mergeShoppingCatalog(ctx: ChatContext, base: Product[]): Product[] {
+  const map = new Map<string, Product>()
+  for (const p of base) map.set(String(p.id), p)
+  for (const p of ctx.enrichment?.searchResults ?? []) map.set(String(p.id), p)
+  for (const p of ctx.enrichment?.categoryProducts ?? []) map.set(String(p.id), p)
+  return [...map.values()]
+}
+
 function shoppingStructuredReply(
   ctx: ChatContext,
   raw: string,
   intent: ChatIntent | null,
 ): AssistantReplyPayload | null {
-  const catalog = pickProductCatalog(ctx.products, ctx.sellerProducts, ctx.role)
+  const baseCatalog = pickProductCatalog(ctx.products, ctx.sellerProducts, ctx.role)
+  const catalog = mergeShoppingCatalog(ctx, baseCatalog)
   if (!catalog.length) return null
 
   // Không bao giờ biến câu đơn hàng / tài khoản thành tìm SP

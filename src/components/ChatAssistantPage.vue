@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { chatApi } from '@/api/services'
-import { quickPromptsForRole, welcomeMessage } from '@/api/chat/prompts'
+import { pickQuickPrompts, welcomeMessage } from '@/api/chat/prompts'
 import type { ChatLoginSession } from '@/api/chat/chatPersistence'
 import type { ChatMessage, UserRole } from '@/types'
 import { useAuthStore } from '@/stores/auth'
@@ -30,11 +30,18 @@ const showHistory = ref(false)
 const loading = ref(false)
 const chatError = ref('')
 const lastFailedText = ref('')
+const promptSeed = ref(Date.now())
 
 const effectiveRole = computed<UserRole>(() => props.role ?? auth.role ?? 'guest')
 const chatUserId = computed(() => props.storageKey ?? auth.user?.id ?? 'guest')
-const quickPrompts = computed(() => quickPromptsForRole(effectiveRole.value))
+const quickPrompts = computed(() => pickQuickPrompts(effectiveRole.value, promptSeed.value))
 const shortcuts = computed(() => roleChatShortcuts(effectiveRole.value))
+
+function reshufflePrompts() {
+  promptSeed.value = Date.now() ^ ((Math.random() * 1e9) | 0)
+}
+
+watch(effectiveRole, reshufflePrompts)
 
 const header = computed(() => {
   if (props.pageCopy) return props.pageCopy
@@ -70,6 +77,7 @@ onMounted(async () => {
 })
 
 async function onNewChat() {
+  reshufflePrompts()
   messages.value = chatApi.startNewSession(chatUserId.value, effectiveRole.value)
   savedSessions.value = chatApi.listSessions(chatUserId.value)
   showHistory.value = false

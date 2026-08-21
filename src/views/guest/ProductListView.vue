@@ -44,7 +44,7 @@ const sectionTitle = computed(() => category.value || 'Tất cả sản phẩm')
 onMounted(async () => {
   try {
     const [list, cats] = await Promise.all([
-      productApi.list({ size: 48 }),
+      productApi.list({ size: 200 }),
       productApi.categories(),
     ])
     products.value = list

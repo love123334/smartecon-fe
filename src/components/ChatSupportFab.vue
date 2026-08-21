@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { chatApi } from '@/api/services'
-import { quickPromptsForRole, welcomeMessage } from '@/api/chat/prompts'
+import { pickQuickPrompts, welcomeMessage } from '@/api/chat/prompts'
 import type { ChatMessage, ChatProductRef, UserRole } from '@/types'
 import { useAuthStore } from '@/stores/auth'
 import { useChatSessionStore } from '@/stores/chatSession'
@@ -28,6 +28,7 @@ const loading = ref(false)
 const chatError = ref('')
 const lastFailedText = ref('')
 const ready = ref(false)
+const promptSeed = ref(Date.now())
 let notifyTimer: ReturnType<typeof setInterval> | undefined
 let sendSeq = 0
 
@@ -48,6 +49,10 @@ const chatUserId = computed(() => {
   return auth.user.id
 })
 
+function reshufflePrompts() {
+  promptSeed.value = Date.now() ^ ((Math.random() * 1e9) | 0)
+}
+
 function prewarmChat() {
   chatApi.prewarm(effectiveRole.value, {
     userName: auth.user?.fullName,
@@ -56,7 +61,7 @@ function prewarmChat() {
   })
 }
 
-const quickPrompts = computed(() => quickPromptsForRole(effectiveRole.value))
+const quickPrompts = computed(() => pickQuickPrompts(effectiveRole.value, promptSeed.value))
 
 const title = computed(() => {
   if (effectiveRole.value === 'seller') return 'Trợ lý bán hàng'
@@ -99,6 +104,7 @@ async function loadHistory() {
 }
 
 async function onNewChat() {
+  reshufflePrompts()
   messages.value = chatApi.startNewSession(chatUserId.value, effectiveRole.value)
   savedSessions.value = chatApi.listSessions(chatUserId.value)
   widget.clearAttachments()
@@ -151,8 +157,10 @@ function stopNotificationPolling() {
 watch(
   () => widget.open,
   async (isOpen) => {
-    if (isOpen) await loadHistory()
-    else if (shouldPollNotifications.value) void pullProactiveNotifications(true)
+    if (isOpen) {
+      reshufflePrompts()
+      await loadHistory()
+    } else if (shouldPollNotifications.value) void pullProactiveNotifications(true)
   },
 )
 

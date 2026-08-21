@@ -84,7 +84,7 @@ export const useCartStore = defineStore('cart', () => {
 
     for (const item of serverItems) {
       if (!localIds.has(item.productId)) {
-        await cartApi.removeItem(userId, item.productId)
+        await cartApi.removeItem(userId, item.productId, item.cartItemId)
       }
     }
 
@@ -93,7 +93,12 @@ export const useCartStore = defineStore('cart', () => {
       if (!serverItem) {
         await cartApi.addItem(userId, line.product.id, line.quantity)
       } else if (serverItem.quantity !== line.quantity) {
-        await cartApi.updateQuantity(userId, line.product.id, line.quantity)
+        await cartApi.updateQuantity(
+          userId,
+          line.product.id,
+          line.quantity,
+          line.cartItemId ?? serverItem.cartItemId,
+        )
       }
     }
 
@@ -159,17 +164,45 @@ export const useCartStore = defineStore('cart', () => {
   }
 
   function setQuantity(productId: string, quantity: number) {
+    const line = lines.value.find((l) => l.product.id === productId)
+    const itemId = line?.cartItemId
     patchLineLocally(productId, quantity)
-    void syncToServer().catch(() => {
-      /* keep local qty; next checkout sync retries */
-    })
+    void (async () => {
+      const auth = useAuthStore()
+      if (!auth.user || !canShopAsBuyer(auth.role)) return
+      try {
+        if (quantity <= 0) {
+          await cartApi.removeItem(auth.user.id, productId, itemId)
+        } else {
+          await cartApi.updateQuantity(auth.user.id, productId, quantity, itemId)
+        }
+        dirty.value = false
+      } catch {
+        dirty.value = true
+        void syncToServer().catch(() => {
+          /* keep local qty */
+        })
+      }
+    })()
   }
 
   function remove(productId: string) {
+    const line = lines.value.find((l) => l.product.id === productId)
+    const itemId = line?.cartItemId
     patchLineLocally(productId, 0)
-    void syncToServer().catch(() => {
-      /* keep local remove */
-    })
+    void (async () => {
+      const auth = useAuthStore()
+      if (!auth.user || !canShopAsBuyer(auth.role)) return
+      try {
+        await cartApi.removeItem(auth.user.id, productId, itemId)
+        dirty.value = false
+      } catch {
+        dirty.value = true
+        void syncToServer().catch(() => {
+          /* keep local remove */
+        })
+      }
+    })()
   }
 
   function openDrawer() {

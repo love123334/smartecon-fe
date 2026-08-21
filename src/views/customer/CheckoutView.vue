@@ -153,9 +153,8 @@ async function applyCoupon() {
   couponApplied.value = false
   couponInfo.value = null
   try {
-    if (cart.dirty) {
-      await cart.prepareForCheckout()
-    }
+    // Luôn sync giỏ trước khi validate — BE đọc cart server
+    await cart.prepareForCheckout()
     const res = await validateCartVoucher({
       code,
       lines: cart.lines,
@@ -358,7 +357,7 @@ async function placeOrder() {
                   variant="pill"
                   :model-value="line.quantity"
                   :min="1"
-                  :max="line.product.stock"
+                  :max="line.product.stock > 0 ? line.product.stock : undefined"
                   @update:model-value="cart.setQuantity(line.product.id, $event)"
                 />
               </div>

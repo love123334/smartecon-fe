@@ -377,7 +377,7 @@ function scenarioClass(change: number): string {
           </label>
 
           <label class="dss-field advanced-field--cost">
-            <span>Chi phí trên 1 đơn hàng</span>
+            <span>Chi phí ước tính</span>
             <div class="advanced-money-input">
               <input
                 v-model.number="estimatedOrderCost"

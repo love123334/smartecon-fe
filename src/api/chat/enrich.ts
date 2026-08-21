@@ -169,16 +169,38 @@ export async function enrichChatContext(
   }
 
   const searchQ = extractSearchQuery(raw)
+  const isBudgetIntent = intent === 'product_budget'
   if (
     searchQ ||
     intent === 'product_search' ||
+    isBudgetIntent ||
     intent === 'where_to_buy' ||
     intent === 'recommend'
   ) {
     tasks.push(
       (async () => {
+        // Chip/câu ngân sách ("dưới 2tr") — lấy catalog theo giá, tránh search text nhiễu.
+        if (isBudgetIntent && !searchQ) {
+          enrichment.searchResults = await productApi.list({
+            withStock: false,
+            size: 100,
+            sort: 'price-asc',
+          })
+          return
+        }
+        if (isBudgetIntent) {
+          const [byPrice, byText] = await Promise.all([
+            productApi.list({ withStock: false, size: 100, sort: 'price-asc' }),
+            productApi.list({ q: searchQ!, withStock: false, size: 48 }),
+          ])
+          const map = new Map<string, (typeof byPrice)[0]>()
+          for (const p of byPrice) map.set(String(p.id), p)
+          for (const p of byText) map.set(String(p.id), p)
+          enrichment.searchResults = [...map.values()]
+          return
+        }
         const q = searchQ ?? raw
-        enrichment.searchResults = await productApi.list({ q, withStock: false })
+        enrichment.searchResults = await productApi.list({ q, withStock: false, size: 48 })
       })(),
     )
   }

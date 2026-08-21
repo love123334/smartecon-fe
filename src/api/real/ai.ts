@@ -18,6 +18,6 @@ export function getAiStatus() {
 }
 
 export function chat(messages: { role: string; content: string }[]) {
-  // Chat AI: cap 2s — hết giờ thì FE fallback rule-based, không treo
-  return http.post<AiChatResult>(apiPaths.ai.chat, { messages }, { timeoutMs: 8_000 })
+  // Gemini + tools có thể >8s — cho đủ thời gian trước khi FE fallback local
+  return http.post<AiChatResult>(apiPaths.ai.chat, { messages }, { timeoutMs: 45_000 })
 }

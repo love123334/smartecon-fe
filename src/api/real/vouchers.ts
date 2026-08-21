@@ -106,10 +106,12 @@ export function listPublicVouchers(sellerId?: number) {
 }
 
 export function validateVoucher(code: string, productIds?: number[]) {
-  return http.post<ValidateVoucherResult>(apiPaths.vouchers.validate, {
-    code,
-    productIds: productIds ?? [],
-  })
+  const body: { code: string; productIds?: number[] } = { code }
+  // Omit productIds → BE đọc giỏ server (ổn định hơn sau sync).
+  if (productIds != null && productIds.length > 0) {
+    body.productIds = productIds
+  }
+  return http.post<ValidateVoucherResult>(apiPaths.vouchers.validate, body, { timeoutMs: 15_000 })
 }
 
 export function listManagerVouchers() {

@@ -12,7 +12,9 @@ const emit = defineEmits<{
 
 function clamp(n: number) {
   const lo = props.min ?? 1
-  const hi = props.max ?? 999
+  let hi = props.max ?? 999
+  // stock chưa hydrate (=0) hoặc max < min → không khóa nút +/-
+  if (!Number.isFinite(hi) || hi < lo) hi = 999
   return Math.min(hi, Math.max(lo, n))
 }
 
@@ -22,6 +24,13 @@ function decrement() {
 
 function increment() {
   emit('update:modelValue', clamp(props.modelValue + 1))
+}
+
+const plusDisabled = () => {
+  const lo = props.min ?? 1
+  const hi = props.max
+  if (hi == null || !Number.isFinite(hi) || hi < lo) return false
+  return props.modelValue >= hi
 }
 </script>
 
@@ -45,7 +54,7 @@ function increment() {
     <button
       type="button"
       class="qty-stepper__btn"
-      :disabled="max !== undefined && modelValue >= max"
+      :disabled="plusDisabled()"
       aria-label="Tăng số lượng"
       @click="increment"
     >

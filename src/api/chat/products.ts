@@ -553,10 +553,19 @@ export function cheapestProducts(products: Product[], limit = 5): Product[] {
 }
 
 export function productsUnderBudget(products: Product[], budget: number, limit = 6): Product[] {
-  return applyPriceRange(products, { min: null, max: budget })
-    .filter((p) => p.stock > 0)
+  return applyPriceRange(preferAvailableProducts(products), { min: null, max: budget })
     .sort((a, b) => a.price - b.price)
     .slice(0, limit)
+}
+
+/**
+ * Catalog chat thường load withStock=false → stock mặc định 0.
+ * Chỉ loại SP chắc chắn hết hàng khi vẫn còn đủ lựa chọn khác.
+ */
+export function preferAvailableProducts(products: Product[]): Product[] {
+  const inStock = products.filter((p) => (p.stock ?? 0) > 0)
+  if (inStock.length >= Math.min(3, products.length)) return inStock
+  return products
 }
 
 export interface SmartProductFilterResult {
@@ -579,7 +588,8 @@ export function filterProductsForQuery(
   const range = extractPriceRange(raw)
   const queryText = extractProductSearchTerms(raw)
 
-  let pool = products.filter((p) => (p.stock ?? 0) > 0)
+  // Budget-only queries: đừng loại SP vì stock=0 (catalog chưa hydrate tồn kho).
+  let pool = range ? [...products] : preferAvailableProducts(products)
   pool = applyPriceRange(pool, range)
 
   const sellerQ = extractSellerNameQuery(raw)

@@ -19,6 +19,8 @@ import NewsletterBanner from '@/components/NewsletterBanner.vue'
 import { addSearchHistory } from '@/utils/searchHistory'
 
 const PAGE_SIZE = 12
+/** Khi lọc giá: tải batch lớn rồi paginate client — API chưa có min/max price. */
+const PRICE_FILTER_FETCH_SIZE = 200
 
 const route = useRoute()
 const router = useRouter()
@@ -36,15 +38,32 @@ const results = ref<Product[]>([])
 const loading = ref(false)
 const catalogError = ref('')
 const page = ref(Number(route.query.page ?? 0) || 0)
-const totalPages = ref(1)
-const totalElements = ref(0)
+const serverTotalPages = ref(1)
+const serverTotalElements = ref(0)
 let syncingFromRoute = false
 
 const categories = computed(() => cats.names)
+const priceFilterActive = computed(() => Boolean(priceRange.value))
 
-const filtered = computed(() =>
+const priceMatched = computed(() =>
   results.value.filter((p) => matchesPriceRange(p.price, priceRange.value)),
 )
+
+const filtered = computed(() => {
+  if (!priceFilterActive.value) return results.value
+  const start = page.value * PAGE_SIZE
+  return priceMatched.value.slice(start, start + PAGE_SIZE)
+})
+
+const totalPages = computed(() => {
+  if (!priceFilterActive.value) return serverTotalPages.value
+  return Math.max(1, Math.ceil(priceMatched.value.length / PAGE_SIZE))
+})
+
+const totalElements = computed(() => {
+  if (!priceFilterActive.value) return serverTotalElements.value
+  return priceMatched.value.length
+})
 
 const sectionTitle = computed(() => category.value || (q.value ? `Kết quả «${q.value}»` : 'Tất cả sản phẩm'))
 
@@ -74,20 +93,21 @@ async function search(opts?: { recordHistory?: boolean }) {
   loading.value = true
   catalogError.value = ''
   try {
+    const useClientPrice = priceFilterActive.value
     const meta = await productApi.listWithMeta({
       q: q.value || undefined,
       category: category.value || undefined,
-      size: PAGE_SIZE,
-      page: page.value,
-      sort: sort.value,
+      size: useClientPrice ? PRICE_FILTER_FETCH_SIZE : PAGE_SIZE,
+      page: useClientPrice ? 0 : page.value,
+      sort: useClientPrice && sort.value === 'popular' ? 'price-asc' : sort.value,
     })
     if (meta.backendUnreachable) {
       catalogError.value =
         'Không kết nối được máy chủ — danh sách sản phẩm tạm trống. Thử tải lại sau vài phút.'
     }
     results.value = meta.products
-    totalPages.value = Math.max(1, meta.totalPages ?? 1)
-    totalElements.value = meta.totalElements ?? meta.products.length
+    serverTotalPages.value = Math.max(1, meta.totalPages ?? 1)
+    serverTotalElements.value = meta.totalElements ?? meta.products.length
     if (opts?.recordHistory && q.value.trim()) {
       addSearchHistory(q.value.trim())
     }
@@ -123,6 +143,12 @@ watch(sort, async (next, prev) => {
   await search()
 })
 
+watch(priceRange, async (next, prev) => {
+  if (syncingFromRoute || next === prev) return
+  page.value = 0
+  await search()
+})
+
 void cats.load()
 
 async function submitInlineSearch() {
@@ -144,7 +170,11 @@ async function addToCart(id: string) {
 
 async function onPageChange(next: number) {
   page.value = next
-  await search()
+  if (!priceFilterActive.value) {
+    await search()
+  } else if (!syncingFromRoute) {
+    syncUrl()
+  }
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 </script>
@@ -199,7 +229,13 @@ async function onPageChange(next: number) {
         <EmptyState
           v-else-if="!filtered.length"
           title="Không có kết quả"
-          :description="q ? `Không tìm thấy «${q}»` : 'Thử đổi bộ lọc khác'"
+          :description="
+            priceRange
+              ? 'Không có sản phẩm trong khoảng giá này — thử mức khác hoặc bỏ lọc giá'
+              : q
+                ? `Không tìm thấy «${q}»`
+                : 'Thử đổi bộ lọc khác'
+          "
         />
         <template v-else>
           <p class="shop-result-count">{{ totalElements || filtered.length }} sản phẩm</p>
