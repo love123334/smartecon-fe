@@ -11,7 +11,6 @@ import { isShopBrowsePath, roleContactPath, roleOpsHome, roleOpsHomeLabel, canSh
 const auth = useAuthStore()
 const cart = useCartStore()
 const route = useRoute()
-const promoDismissed = ref(false)
 const mobileNavOpen = ref(false)
 
 const isShopMode = computed(() => {
@@ -86,23 +85,6 @@ watch(
     <!-- Shop header (guest, customer, hoặc ops role đang duyệt cửa hàng) -->
     <template v-if="isShopMode">
       <header class="shop-chrome site-chrome__bar">
-        <div v-if="!promoDismissed" class="shop-promo-bar">
-          <div class="container shop-promo-bar__inner">
-            <p>
-              <b>Giảm 30% toàn shop</b> — có hạn
-              <RouterLink to="/search" class="shop-promo-bar__link">Mua ngay</RouterLink>
-            </p>
-            <button
-              type="button"
-              class="shop-promo-bar__close"
-              aria-label="Đóng thông báo"
-              @click="promoDismissed = true"
-            >
-              ×
-            </button>
-          </div>
-        </div>
-
         <div class="shop-header">
           <div class="container shop-header__inner">
             <RouterLink to="/" class="shop-brand" aria-label="SEDSP — Trang chủ">

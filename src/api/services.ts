@@ -1009,6 +1009,10 @@ export async function resolveCartLines(
       const imageUrl =
         fromCatalog?.imageUrl ||
         repairProductImageUrl(item.productImageUrl, { seed: pid, category: fromCatalog?.category })
+      const sellerId =
+        item.sellerId != null && Number(item.sellerId) > 0
+          ? String(item.sellerId)
+          : fromCatalog?.sellerId ?? ''
       return {
         cartItemId: String(item.id),
         product: {
@@ -1020,8 +1024,8 @@ export async function resolveCartLines(
           category: fromCatalog?.category ?? '',
           imageUrl,
           imageUrls: fromCatalog?.imageUrls?.length ? fromCatalog.imageUrls : [imageUrl],
-          sellerId: fromCatalog?.sellerId ?? '',
-          shopName: fromCatalog?.shopName ?? 'SEDSP Official',
+          sellerId,
+          shopName: item.storeName || fromCatalog?.shopName || 'SEDSP Official',
           shopLocation: fromCatalog?.shopLocation ?? 'TP.HCM',
           rating: fromCatalog?.rating ?? 4.5,
           soldCount: fromCatalog?.soldCount ?? 0,

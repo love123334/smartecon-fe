@@ -153,6 +153,9 @@ async function applyCoupon() {
   couponApplied.value = false
   couponInfo.value = null
   try {
+    if (cart.dirty) {
+      await cart.prepareForCheckout()
+    }
     const res = await validateCartVoucher({
       code,
       lines: cart.lines,
@@ -186,24 +189,61 @@ async function placeOrder() {
     error.value = 'Vui lòng nhập địa chỉ giao hàng'
     return
   }
-  if (!canUseMomoQr.value) {
-    error.value = checkoutBlockedReason.value || 'Không thể thanh toán MoMo shop lúc này.'
-    return
-  }
   loading.value = true
   error.value = ''
   try {
+    await cart.prepareForCheckout()
+    await loadSellerMomoPreview()
+    if (!canUseMomoQr.value) {
+      error.value = checkoutBlockedReason.value || 'Không thể thanh toán MoMo shop lúc này.'
+      return
+    }
+
+    let voucherCode: string | undefined
+    if (couponApplied.value && coupon.value.trim()) {
+      const res = await validateCartVoucher({
+        code: coupon.value.trim(),
+        lines: cart.lines,
+        cartSubtotal: cart.total,
+        singleSellerId: singleSellerId.value,
+      })
+      if (!res.valid) {
+        couponApplied.value = false
+        couponInfo.value = null
+        couponIsError.value = true
+        couponMessage.value = voucherUserMessage(res.message)
+        error.value = couponMessage.value || 'Mã giảm giá không còn hợp lệ. Xóa mã rồi thử lại.'
+        return
+      }
+      voucherCode = res.code ?? coupon.value.trim()
+    }
+
     const fullAddress = [address.value, city.value, state.value, zip.value].filter(Boolean).join(', ')
     const order = await orderApi.placeOrder(
       auth.user.id,
       fullAddress || address.value,
       payment.value,
-      couponApplied.value ? coupon.value.trim() : undefined,
+      voucherCode,
     )
+    consumePendingVoucherCode()
     await cart.refresh()
     await router.push({ path: `/orders/${order.id}/pay-momo`, query: { placed: '1' } })
   } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Đặt hàng thất bại'
+    const raw = e instanceof Error ? e.message : 'Đặt hàng thất bại'
+    const lower = raw.toLowerCase()
+    if (/voucher|mã giảm|discount/i.test(lower)) {
+      couponApplied.value = false
+      couponInfo.value = null
+      couponIsError.value = true
+      couponMessage.value = voucherUserMessage(raw)
+      error.value = couponMessage.value
+    } else if (/momo|shop chưa|cấu hình/i.test(lower)) {
+      error.value = 'Shop chưa sẵn sàng nhận MoMo. Thử shop khác hoặc liên hệ người bán.'
+    } else if (/tồn kho|stock|inventory/i.test(lower)) {
+      error.value = 'Một sản phẩm trong giỏ không đủ tồn kho. Giảm số lượng rồi thử lại.'
+    } else {
+      error.value = voucherUserMessage(raw) || raw
+    }
   } finally {
     loading.value = false
   }

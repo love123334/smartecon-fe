@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
 import { apiConfig } from '@/api/config'
 import AuthHeroIllustration from '@/components/auth/AuthHeroIllustration.vue'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import {
   DEMO_ACCOUNTS,
   DEMO_PASSWORD,
@@ -22,6 +23,7 @@ const localError = ref('')
 const backendOnline = ref(true)
 const backendChecked = ref(false)
 const showDemoAccounts = ref(false)
+const postLoginLoading = ref(false)
 
 const demoPassword = computed(() =>
   apiConfig.useRealAuth ? DEMO_PASSWORD_BACKEND : DEMO_PASSWORD,
@@ -72,11 +74,19 @@ async function submit() {
   localError.value = ''
   try {
     await auth.login(email.value.trim(), password.value)
-    if (auth.user?.role === 'customer' || auth.user?.role === 'seller') await cart.refresh()
-    const redirect = (route.query.redirect as string) || undefined
-    await router.push(resolvePostLoginPath(auth.user?.role ?? 'guest', redirect))
+    postLoginLoading.value = true
+    try {
+      if (auth.user?.role === 'customer' || auth.user?.role === 'seller') {
+        await cart.refresh({ enrichCatalog: true })
+      }
+      const redirect = (route.query.redirect as string) || undefined
+      await router.push(resolvePostLoginPath(auth.user?.role ?? 'guest', redirect))
+    } finally {
+      postLoginLoading.value = false
+    }
   } catch {
     localError.value = auth.error ?? 'Đăng nhập thất bại'
+    postLoginLoading.value = false
   }
 }
 
@@ -90,6 +100,18 @@ function onLoginButtonClick(e: MouseEvent) {
 
 <template>
   <div class="auth-layout">
+    <Teleport to="body">
+      <div
+        v-if="postLoginLoading"
+        class="login-boot-overlay"
+        role="status"
+        aria-live="polite"
+        aria-busy="true"
+      >
+        <LoadingSpinner page label="Đang vào hệ thống…" size="lg" />
+      </div>
+    </Teleport>
+
     <aside class="auth-panel-brand">
       <p class="brand-tag">Nền tảng SEDSP</p>
       <h1>Đăng nhập để tiếp tục</h1>
@@ -135,10 +157,10 @@ function onLoginButtonClick(e: MouseEvent) {
           <button
             type="submit"
             class="btn btn-primary btn-block btn-glow"
-            :disabled="auth.loading"
+            :disabled="auth.loading || postLoginLoading"
             @click="onLoginButtonClick"
           >
-            {{ auth.loading ? 'Đang xử lý...' : 'Đăng nhập' }}
+            {{ auth.loading || postLoginLoading ? 'Đang xử lý...' : 'Đăng nhập' }}
           </button>
           <p class="muted" style="margin: 1rem 0 0; text-align: center">
             Chưa có tài khoản?
@@ -177,6 +199,17 @@ function onLoginButtonClick(e: MouseEvent) {
 </template>
 
 <style scoped>
+.login-boot-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(248, 250, 252, 0.92);
+  backdrop-filter: blur(4px);
+}
+
 .brand-tag {
   font-size: 0.75rem;
   font-weight: 700;

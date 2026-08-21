@@ -160,10 +160,16 @@ export const useCartStore = defineStore('cart', () => {
 
   function setQuantity(productId: string, quantity: number) {
     patchLineLocally(productId, quantity)
+    void syncToServer().catch(() => {
+      /* keep local qty; next checkout sync retries */
+    })
   }
 
   function remove(productId: string) {
     patchLineLocally(productId, 0)
+    void syncToServer().catch(() => {
+      /* keep local remove */
+    })
   }
 
   function openDrawer() {
