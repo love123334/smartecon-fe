@@ -217,11 +217,9 @@ export async function validateCartVoucher(options: {
   const productIds = cartProductIdsForVoucher(options.lines)
 
   try {
-    // Ưu tiên để BE đọc giỏ đã sync — tránh lệch qty/SP phía FE.
-    let res = await voucherApi.validate(code)
-    if (!res.valid && productIds.length) {
-      res = await voucherApi.validate(code, productIds)
-    }
+    const res = productIds.length
+      ? await voucherApi.validate(code, productIds)
+      : await voucherApi.validate(code)
     if (res.valid) {
       return { ...res, message: res.message || 'Áp dụng mã giảm giá thành công.' }
     }
