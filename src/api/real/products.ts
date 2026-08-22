@@ -160,6 +160,10 @@ export function mapProductSummary(p: BackendProductResponse): Product {
     reviewCount: p.reviewCount != null ? Number(p.reviewCount) : 0,
     soldCount: p.soldCount != null ? Number(p.soldCount) : 0,
     createdAt: p.createdAt ?? new Date().toISOString(),
+    costPrice:
+      'costPrice' in p && p.costPrice != null && p.costPrice !== ''
+        ? num(p.costPrice as number | string, Number.NaN)
+        : undefined,
   }
 }
 
@@ -285,6 +289,7 @@ export interface ProductWriteInput {
   name: string
   description: string
   price: number
+  costPrice?: number
   categoryId?: number
   /** @deprecated prefer images[] */
   imageUrl?: string
@@ -328,6 +333,9 @@ export async function createProduct(input: ProductWriteInput): Promise<Product> 
     price: input.price,
     status: 'ACTIVE',
   }
+  if (input.costPrice != null && Number.isFinite(input.costPrice)) {
+    body.costPrice = input.costPrice
+  }
   if (input.categoryId) body.categoryId = input.categoryId
   const images = buildImagePayload(input, input.name || Date.now())
   if (!images.length) {
@@ -350,6 +358,9 @@ export async function updateProduct(
   if (input.name != null) body.name = input.name
   if (input.description != null) body.description = input.description
   if (input.price != null) body.price = input.price
+  if (input.costPrice != null && Number.isFinite(input.costPrice)) {
+    body.costPrice = input.costPrice
+  }
   if (input.categoryId != null) body.categoryId = input.categoryId
 
   const hasImages =

@@ -22,6 +22,8 @@ export interface Product {
   name: string
   description: string
   price: number
+  /** Giá vốn / giá nhập — seller nhập để DSS tính lợi nhuận (không hiện catalog công khai) */
+  costPrice?: number
   /** Giá gốc trước giảm — hiển thị gạch ngang trên marketplace */
   originalPrice?: number
   stock: number

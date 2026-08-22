@@ -34,6 +34,7 @@ const form = ref({
   name: '',
   description: '',
   price: 0,
+  costPrice: 0,
   stock: 0,
   categoryId: '',
   images: [] as FormImage[],
@@ -109,6 +110,7 @@ function startCreate() {
     name: '',
     description: '',
     price: 0,
+    costPrice: 0,
     stock: 0,
     categoryId: categories.value[0]?.id ?? '',
     images: [],
@@ -139,6 +141,8 @@ async function hydrateEditForm(p: Product) {
     name: src.name,
     description: src.description ?? '',
     price: src.price,
+    costPrice:
+      src.costPrice != null && Number.isFinite(src.costPrice) ? src.costPrice : 0,
     stock: src.stock,
     categoryId: cat?.id ?? categories.value[0]?.id ?? '',
     images: urls.map((url, i) => ({ url, publicId: `existing-${p.id}-${i}` })),
@@ -199,6 +203,14 @@ async function save() {
     error.value = 'Giá sản phẩm phải lớn hơn 0'
     return
   }
+  if (!Number.isFinite(form.value.costPrice) || form.value.costPrice < 0) {
+    error.value = 'Giá vốn phải là số lớn hơn hoặc bằng 0'
+    return
+  }
+  if (form.value.costPrice > form.value.price) {
+    error.value = 'Giá vốn không được lớn hơn giá bán'
+    return
+  }
   if (!form.value.categoryId) {
     error.value = 'Vui lòng chọn danh mục'
     return
@@ -227,6 +239,7 @@ async function save() {
         name: form.value.name,
         description: form.value.description,
         price: form.value.price,
+        costPrice: form.value.costPrice,
         category: cat?.name ?? editing.value.category,
         categoryId: Number(form.value.categoryId),
         images: images.length ? images : undefined,
@@ -242,6 +255,7 @@ async function save() {
         name: form.value.name,
         description: form.value.description,
         price: form.value.price,
+        costPrice: form.value.costPrice,
         stock: form.value.stock,
         category: cat?.name ?? 'Khác',
         categoryId: Number(form.value.categoryId),
@@ -307,8 +321,19 @@ async function remove(id: string) {
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label>Giá (VND)</label>
+            <label>Giá bán (VND)</label>
             <input v-model.number="form.price" type="number" min="1" required />
+          </div>
+          <div class="form-group">
+            <label>Giá vốn (VND)</label>
+            <input
+              v-model.number="form.costPrice"
+              type="number"
+              min="0"
+              required
+              placeholder="Giá nhập hàng"
+            />
+            <p class="hint">Dùng cho DSS (lợi nhuận, giảm giá, phân tích giá).</p>
           </div>
           <div class="form-group">
             <label>Tồn kho</label>
