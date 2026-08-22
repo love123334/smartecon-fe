@@ -28,12 +28,13 @@ const forecastOptions = [7, 14, 30]
 const selectedProduct = computed(() => products.value.find((p) => p.id === productId.value))
 const features = computed(() => result.value?.featureSnapshot)
 /** Tester diagnostic — keep until they confirm ML vs fallback behavior. */
+const ML_METHODS = new Set(['lightgbm_onnx', 'lightgbm_onnx_with_baseline_fallback'])
 const onnxUsed = computed(
-  () => Boolean(features.value?.onnxModelUsed) || result.value?.method === 'lightgbm_onnx',
+  () =>
+    Boolean(features.value?.onnxModelUsed) ||
+    (result.value?.method != null && ML_METHODS.has(result.value.method)),
 )
-const modelAvailable = computed(
-  () => Boolean(features.value?.onnxModelAvailable) || onnxUsed.value,
-)
+const modelAvailable = computed(() => Boolean(features.value?.onnxModelAvailable))
 const modelState = computed(() => {
   if (!result.value) {
     return {
@@ -42,24 +43,31 @@ const modelState = computed(() => {
       detail: 'Chọn sản phẩm và chạy thử mô hình.',
     }
   }
-  if (onnxUsed.value) {
+  if (result.value.method === 'lightgbm_onnx' || (onnxUsed.value && result.value.method !== 'lightgbm_onnx_with_baseline_fallback')) {
     return {
       label: 'Mô hình học máy',
       tone: 'success',
-      detail: 'Dự báo dựa trên lịch sử bán hàng của sản phẩm.',
+      detail: 'Dự báo từ LightGBM ONNX trên lịch sử bán của sản phẩm.',
+    }
+  }
+  if (result.value.method === 'lightgbm_onnx_with_baseline_fallback') {
+    return {
+      label: 'Kết hợp dự phòng',
+      tone: 'warn',
+      detail: 'Một phần kỳ dự báo dùng mô hình, phần còn lại dùng xu hướng thống kê.',
     }
   }
   if (modelAvailable.value) {
     return {
-      label: 'Kết hợp dự phòng',
-      tone: 'warn',
-      detail: 'Mô hình có sẵn nhưng lần này đã dùng phương án dự phòng.',
+      label: 'Mô hình sẵn sàng',
+      tone: 'success',
+      detail: 'LightGBM ONNX đã nạp — chạy dự báo để áp dụng.',
     }
   }
   return {
     label: 'Dự báo xu hướng',
     tone: 'muted',
-    detail: 'Kết quả dựa trên xu hướng bán hàng gần đây.',
+    detail: 'Chưa có ONNX runtime hoặc file model — dùng xu hướng bán hàng gần đây.',
   }
 })
 const trendLabel = computed(() => {
