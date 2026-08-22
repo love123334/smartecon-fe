@@ -34,7 +34,13 @@ const onnxUsed = computed(
     Boolean(features.value?.onnxModelUsed) ||
     (result.value?.method != null && ML_METHODS.has(result.value.method)),
 )
-const modelAvailable = computed(() => Boolean(features.value?.onnxModelAvailable))
+const modelAvailable = computed(() => {
+  if (onnxUsed.value) return true
+  // Railway cũ (excludeOnnx): BE có thể báo avail=true dù không chạy ML
+  if (result.value?.method === 'trend_blended_feature_forecast') return false
+  return Boolean(features.value?.onnxModelAvailable)
+})
+const panelTitle = computed(() => (onnxUsed.value ? 'MÔ HÌNH ĐÃ CHẠY' : 'PHÂN TÍCH ĐÃ CHẠY'))
 const modelState = computed(() => {
   if (!result.value) {
     return {
@@ -59,10 +65,9 @@ const modelState = computed(() => {
   }
   return {
     label: 'Dự báo xu hướng',
-    tone: modelAvailable.value ? 'warn' : 'muted',
-    detail: modelAvailable.value
-      ? 'Lần chạy này chưa dùng LightGBM ONNX — server có thể thiếu runtime hoặc đang khởi động lại.'
-      : 'Chưa có ONNX runtime trên server — kết quả từ xu hướng bán hàng gần đây.',
+    tone: 'muted',
+    detail:
+      'Phân tích theo xu hướng bán gần đây (môi trường production hiện dùng phương án thống kê ổn định).',
   }
 })
 const trendLabel = computed(() => {
@@ -197,7 +202,7 @@ async function saveForecast() {
     <template v-if="result && !running">
       <section :class="['model-panel', `model-panel--${modelState.tone}`]">
         <div>
-          <small>MÔ HÌNH ĐÃ CHẠY</small>
+          <small>{{ panelTitle }}</small>
           <strong>{{ modelState.label }}</strong>
           <p>{{ modelState.detail }}</p>
         </div>
