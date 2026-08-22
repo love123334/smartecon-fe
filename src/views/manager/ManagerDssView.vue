@@ -6,7 +6,7 @@ import type { DssInsight } from '@/types'
 import PageHeader from '@/components/PageHeader.vue'
 import AiShortcutBar from '@/components/AiShortcutBar.vue'
 import DssThinkingLoader from '@/components/dss/DssThinkingLoader.vue'
-import { LOOKER_STUDIO_PLATFORM_REVENUE_URL } from '@/constants/lookerStudio'
+import { LOOKER_STUDIO_PLATFORM_REVENUE_URL, LOOKER_EMBED_HEIGHT_PX } from '@/constants/lookerStudio'
 import { buildManagerDssCommentary } from '@/utils/dssCommentary'
 
 const insights = ref<DssInsight[]>([])
@@ -81,7 +81,10 @@ function onLookerLoad() {
           Mở báo cáo đầy đủ
         </a>
       </div>
-      <div class="dss-looker__frame-wrap">
+      <div
+        class="dss-looker__frame-wrap"
+        :style="{ '--looker-h': `${LOOKER_EMBED_HEIGHT_PX}px` }"
+      >
         <p v-if="!lookerLoaded && !lookerFailed" class="dss-looker__loading muted" role="status">
           Đang tải Looker Studio…
         </p>
@@ -101,6 +104,7 @@ function onLookerLoad() {
           title="Doanh thu sàn — Looker Studio"
           :src="LOOKER_STUDIO_PLATFORM_REVENUE_URL"
           loading="lazy"
+          scrolling="no"
           referrerpolicy="no-referrer-when-downgrade"
           allowfullscreen
           @load="onLookerLoad"
@@ -186,12 +190,11 @@ function onLookerLoad() {
 .dss-looker__frame-wrap {
   position: relative;
   width: 100%;
-  height: auto;
-  min-height: 1200px;
+  height: var(--looker-h, 480px);
   border: 1px solid var(--line, #e4e9f2);
   border-radius: 12px;
-  overflow: visible;
-  background: #f8fafc;
+  overflow: hidden;
+  background: #fff;
 }
 .dss-looker__loading,
 .dss-looker__fallback {
@@ -212,16 +215,13 @@ function onLookerLoad() {
 .dss-looker__frame {
   display: block;
   width: 100%;
-  height: 850px;
+  height: var(--looker-h, 480px);
   border: none;
   background: #fff;
 }
 @media (max-width: 768px) {
   .dss-looker__frame-wrap {
-    min-height: 720px;
-  }
-  .dss-looker__frame {
-    height: 640px;
+    --looker-h: 400px;
   }
 }
 .dss-brain {

@@ -228,11 +228,15 @@ const router = createRouter({
     },
     {
       path: '/manager/dss',
-      redirect: { name: 'manager-dashboard' },
+      name: 'manager-dss',
+      component: () => import('@/views/manager/ManagerDssView.vue'),
+      meta: { roles: ['manager'], title: 'DSS Quản trị' },
     },
     {
       path: '/manager/dss/what-if',
-      redirect: { name: 'manager-dashboard' },
+      name: 'manager-dss-what-if',
+      component: () => import('@/views/manager/WhatIfPromotionView.vue'),
+      meta: { roles: ['manager'], title: 'What-if khuyến mãi' },
     },
     {
       path: '/manager/vouchers',

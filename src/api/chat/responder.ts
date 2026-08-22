@@ -153,14 +153,33 @@ function resolveFocusProduct(enriched: ChatContext, prior: ChatProductRef): Prod
   }
 }
 
+const BACKEND_CATALOG_INTENTS = new Set<ChatIntent>([
+  'product_search',
+  'product_budget',
+  'recommend',
+  'category_browse',
+  'where_to_buy',
+  'promo',
+  'shop_overview',
+  'categories',
+])
+
 function shouldForceLocal(
   normalized: string,
   intent: ChatIntent | null,
   followUp: boolean,
   hasPriceFilter: boolean,
   priceStats: boolean,
+  backendAiReady: boolean,
 ): boolean {
-  if (priceStats || hasPriceFilter) return true
+  if (priceStats) return true
+  if (hasPriceFilter) {
+    const catalogBrowse =
+      backendAiReady &&
+      intent != null &&
+      (BACKEND_CATALOG_INTENTS.has(intent) || intent === 'product_info')
+    if (!catalogBrowse) return true
+  }
   if (intent != null && STRICT_LOCAL_INTENTS.has(intent)) return true
   if (
     followUp &&
@@ -176,15 +195,27 @@ function shouldForceLocal(
   return false
 }
 
+function backendReplyLooksGrounded(content: string): boolean {
+  const c = content.toLowerCase()
+  return (
+    /\d[\d.,]*\s*(?:đ|vnd|vnđ|triệu|tr)/i.test(content) ||
+    /(?:còn|tồn|kho|giá bán|shop| cửa hàng)/i.test(c) ||
+    /(?:sản phẩm|tai nghe|laptop|iphone|macbook)/i.test(c)
+  )
+}
+
 function preferLocalOverLlm(
   normalized: string,
   llmContent: string,
   localContent: string,
   facts: ReturnType<typeof buildVerifiedFacts>,
+  backendGrounded = false,
 ): ChatFallbackReason | null {
   if (looksLikeOffTopicPlatformReply(normalized, llmContent)) return 'off_topic'
-  if (looksLikeLowQualityReply(normalized, llmContent)) return 'low_quality'
-  if (llmMissingCriticalFacts(normalized, llmContent, facts)) return 'missing_facts'
+  if (!backendGrounded && looksLikeLowQualityReply(normalized, llmContent)) return 'low_quality'
+  if (!backendGrounded && llmMissingCriticalFacts(normalized, llmContent, facts)) {
+    return 'missing_facts'
+  }
   if (llmContradictsFacts(llmContent, facts)) return 'contradicts_facts'
 
   const llmN = normalizeText(llmContent)
@@ -296,7 +327,15 @@ export async function resolveChatReply(
   const intentScore = detected?.score ?? 0
   const hasPriceFilter = Boolean(extractPriceRange(userMessage))
   const priceStats = isPriceStatsQuery(userMessage)
-  const forceLocal = shouldForceLocal(normalized, intent, followUp, hasPriceFilter, priceStats)
+  const backendAiReady = isLlmConfigured()
+  const forceLocal = shouldForceLocal(
+    normalized,
+    intent,
+    followUp,
+    hasPriceFilter,
+    priceStats,
+    backendAiReady,
+  )
 
   const localStarted = performance.now()
   const local = await generateAssistantReply(userMessage, ctxForReply, effectiveAttachments)
@@ -401,7 +440,14 @@ export async function resolveChatReply(
       llmLatencyMs = Math.round(performance.now() - llmStarted)
       const content = sanitizeChatReply(llmRaw)
 
-      const fallbackReason = preferLocalOverLlm(normalized, content, localContent, facts)
+      const backendGrounded = backendReplyLooksGrounded(content)
+      const fallbackReason = preferLocalOverLlm(
+        normalized,
+        content,
+        localContent,
+        facts,
+        backendGrounded,
+      )
       if (fallbackReason === 'contradicts_facts') {
         const repaired = repairPriceFactsInReply(content, facts)
         if (repaired && !llmContradictsFacts(repaired, facts)) {

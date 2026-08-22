@@ -333,7 +333,6 @@ async function remove(id: string) {
               required
               placeholder="Giá nhập hàng"
             />
-            <p class="hint">Dùng cho DSS (lợi nhuận, giảm giá, phân tích giá).</p>
           </div>
           <div class="form-group">
             <label>Tồn kho</label>
@@ -361,9 +360,6 @@ async function remove(id: string) {
               {{ creatingCategory ? 'Đang tạo…' : '+ Thêm danh mục' }}
             </button>
           </div>
-          <p v-if="!categories.length" class="hint">
-            Chưa có danh mục trên server — tạo thủ công ở đây (seller/admin).
-          </p>
         </div>
         <div class="form-group">
           <label>
@@ -377,10 +373,6 @@ async function remove(id: string) {
             :disabled="uploading || !canAddMoreImages"
             @change="onImagesPick"
           />
-          <p class="hint">
-            Upload <strong>{{ MIN_IMAGES }}–{{ MAX_IMAGES }} ảnh</strong> (≤5MB/ảnh). Ảnh đầu là ảnh
-            chính. Có thể chọn nhiều file cùng lúc.
-          </p>
           <div v-if="form.images.length" class="img-grid">
             <div v-for="(img, i) in form.images" :key="img.publicId + '-' + i" class="img-tile">
               <img :src="resolvePublicAssetUrl(img.url)" :alt="`Ảnh ${i + 1}`" />
@@ -529,12 +521,6 @@ async function remove(id: string) {
   display: flex;
   gap: 0.5rem;
   margin-top: 0.75rem;
-}
-
-.hint {
-  margin: 0.35rem 0 0;
-  font-size: 0.8rem;
-  color: var(--slate-500, #64748b);
 }
 
 .cat-create {

@@ -14,7 +14,10 @@ import PlatformPaymentChart from '@/components/platform-revenue/PlatformPaymentC
 import PlatformOrderStatusChart from '@/components/platform-revenue/PlatformOrderStatusChart.vue'
 import PlatformActivitySection from '@/components/platform-revenue/PlatformActivitySection.vue'
 import PlatformActivityTrendChart from '@/components/platform-revenue/PlatformActivityTrendChart.vue'
-import { LOOKER_STUDIO_PLATFORM_REVENUE_URL } from '@/constants/lookerStudio'
+import {
+  LOOKER_STUDIO_PLATFORM_REVENUE_URL,
+  LOOKER_EMBED_HEIGHT_PX,
+} from '@/constants/lookerStudio'
 import {
   defaultPlatformRevenueFilter,
   formatGeneratedAt,
@@ -144,7 +147,10 @@ function retry() {
           Mở báo cáo đầy đủ
         </a>
       </div>
-      <div class="pr-looker__frame-wrap">
+      <div
+        class="pr-looker__frame-wrap"
+        :style="{ '--looker-h': `${LOOKER_EMBED_HEIGHT_PX}px` }"
+      >
         <p v-if="!lookerLoaded && !lookerFailed" class="pr-looker__loading muted" role="status">
           Đang tải báo cáo Looker Studio…
         </p>
@@ -164,6 +170,7 @@ function retry() {
           title="Doanh thu sàn — Looker Studio"
           :src="LOOKER_STUDIO_EMBED_URL"
           loading="lazy"
+          scrolling="no"
           referrerpolicy="no-referrer-when-downgrade"
           allowfullscreen
           @load="onLookerLoad"
@@ -259,12 +266,11 @@ function retry() {
 .pr-looker__frame-wrap {
   position: relative;
   width: 100%;
-  height: auto;
-  min-height: 1200px;
+  height: var(--looker-h, 480px);
   border: 1px solid var(--line, #e4e9f2);
   border-radius: 12px;
-  overflow: visible;
-  background: #f8fafc;
+  overflow: hidden;
+  background: #fff;
 }
 .pr-looker__loading {
   position: absolute;
@@ -295,16 +301,13 @@ function retry() {
 .pr-looker__frame {
   display: block;
   width: 100%;
-  height: 850px;
+  height: var(--looker-h, 480px);
   border: none;
   background: #fff;
 }
 @media (max-width: 768px) {
   .pr-looker__frame-wrap {
-    min-height: 720px;
-  }
-  .pr-looker__frame {
-    height: 640px;
+    --looker-h: 400px;
   }
 }
 .pr-error-card {

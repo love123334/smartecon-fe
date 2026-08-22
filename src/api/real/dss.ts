@@ -232,6 +232,7 @@ export function forecastDemand(
 ) {
   return http.get<DemandForecastApi>(
     `${apiPaths.dss.demand(String(productId))}?historyDays=${historyDays}&forecastDays=${forecastDays}`,
+    { timeoutMs: DSS_GENERATE_TIMEOUT_MS },
   )
 }
 
@@ -420,22 +421,23 @@ export interface SellerWhatIfRequest {
   simulationPeriod: number
 }
 
-export async function analyzeSellerWhatIf(body: SellerWhatIfRequest) {
-  // Primary: @RequestMapping("/api/dss/what-if/seller") — not under /api/v1
+/** POST what-if — legacy /api/dss first (Railway prod); fallback /api/v1 after BE alias deploy. */
+async function postSellerWhatIf<T>(path: string, body: unknown) {
+  const legacyPath = path.replace(/^\/?/, '')
   try {
-    return await http.postAt<SellerWhatIfApi>(
-      apiRootWithoutVersion(),
-      apiPaths.dss.whatIfSeller,
-      body,
-      { timeoutMs: 15_000 },
-    )
+    return await http.postAt<T>(apiRootWithoutVersion(), legacyPath, body, {
+      timeoutMs: DSS_GENERATE_TIMEOUT_MS,
+    })
   } catch (e) {
-    // Fallback: some BE branches mount the same handler under /api/v1
     if (e instanceof ApiError && (e.status === 404 || e.status === 405)) {
-      return http.post<SellerWhatIfApi>(apiPaths.dss.whatIfSeller, body, { timeoutMs: 15_000 })
+      return http.post<T>(path, body, { timeoutMs: DSS_GENERATE_TIMEOUT_MS })
     }
     throw e
   }
+}
+
+export async function analyzeSellerWhatIf(body: SellerWhatIfRequest) {
+  return postSellerWhatIf<SellerWhatIfApi>(apiPaths.dss.whatIfSeller, body)
 }
 
 export interface TargetProfitRequest {
@@ -491,41 +493,17 @@ export interface SalesQuantityTargetApi {
 }
 
 export async function analyzeTargetProfit(body: TargetProfitRequest) {
-  try {
-    return await http.postAt<TargetProfitApi>(
-      apiRootWithoutVersion(),
-      `${apiPaths.dss.whatIfSeller}/target-profit`,
-      body,
-      { timeoutMs: 15_000 },
-    )
-  } catch (e) {
-    if (e instanceof ApiError && (e.status === 404 || e.status === 405)) {
-      return http.post<TargetProfitApi>(`${apiPaths.dss.whatIfSeller}/target-profit`, body, {
-        timeoutMs: 15_000,
-      })
-    }
-    throw e
-  }
+  return postSellerWhatIf<TargetProfitApi>(
+    `${apiPaths.dss.whatIfSeller}/target-profit`,
+    body,
+  )
 }
 
 export async function analyzeSalesQuantityTarget(body: SalesQuantityTargetRequest) {
-  try {
-    return await http.postAt<SalesQuantityTargetApi>(
-      apiRootWithoutVersion(),
-      `${apiPaths.dss.whatIfSeller}/sales-quantity-target`,
-      body,
-      { timeoutMs: 15_000 },
-    )
-  } catch (e) {
-    if (e instanceof ApiError && (e.status === 404 || e.status === 405)) {
-      return http.post<SalesQuantityTargetApi>(
-        `${apiPaths.dss.whatIfSeller}/sales-quantity-target`,
-        body,
-        { timeoutMs: 15_000 },
-      )
-    }
-    throw e
-  }
+  return postSellerWhatIf<SalesQuantityTargetApi>(
+    `${apiPaths.dss.whatIfSeller}/sales-quantity-target`,
+    body,
+  )
 }
 
 export function recommendInventory(planningDays: number, productId?: string | number) {
@@ -539,6 +517,7 @@ export function recommendInventory(planningDays: number, productId?: string | nu
 }
 
 export function insightPlan() {
-  // AI commentary: fail fast → local fallback
-  return http.get<DssInsightPlanApi>(apiPaths.dss.insightsPlan, { timeoutMs: 4_000 })
+  return http.get<DssInsightPlanApi>(apiPaths.dss.insightsPlan, {
+    timeoutMs: DSS_GENERATE_TIMEOUT_MS,
+  })
 }

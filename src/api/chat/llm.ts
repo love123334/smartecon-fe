@@ -53,7 +53,32 @@ export function llmProviderLabel(): string {
   return 'trợ lý local'
 }
 
-/** Pattern: history + user message → BE HF proxy, else optional direct Groq */
+/** BE Gemini có system prompt + tools riêng — giới hạn 8000 ký tự/turn. */
+const BE_TURN_MAX_CHARS = 3_500
+
+function buildBackendDialogue(
+  history: ChatMessage[],
+  userMessage: string,
+  options?: { recentTurns?: ChatMessage[] },
+): { role: string; content: string }[] {
+  const sourceHistory = options?.recentTurns ?? history
+  const turns: { role: string; content: string }[] = []
+  for (const m of sourceHistory.slice(-6)) {
+    if (m.role !== 'user' && m.role !== 'assistant') continue
+    let content = m.content.slice(0, BE_TURN_MAX_CHARS)
+    if (m.role === 'assistant' && m.products?.length) {
+      content += `\n[SP đang bàn: ${m.products.map((p) => p.name).join(', ')}]`
+    }
+    if (m.role === 'user' && m.attachments?.length) {
+      content += `\n[SP đính kèm: ${m.attachments.map((p) => p.name).join(', ')}]`
+    }
+    turns.push({ role: m.role, content: content.slice(0, BE_TURN_MAX_CHARS) })
+  }
+  turns.push({ role: 'user', content: userMessage.slice(0, BE_TURN_MAX_CHARS) })
+  return turns
+}
+
+/** Pattern: history + user message → BE Gemini proxy, else optional direct Groq */
 export async function callChatLlm(
   systemPrompt: string,
   history: ChatMessage[],
@@ -63,9 +88,9 @@ export async function callChatLlm(
 ): Promise<string> {
   const gloss = options?.englishGloss?.trim()
   const groundedUser = facts?.localDraft?.trim()
-    ? `${userMessage}\n\n[English gloss — internal]\n${gloss ?? '—'}\n\n[Gợi ý nội dung đã kiểm tra — viết lại tự nhiên bằng tiếng Việt, giữ nguyên số liệu]\n${facts.localDraft.slice(0, 900)}`
+    ? `${userMessage}\n\n[Gợi ý nội dung đã kiểm tra — giữ nguyên số liệu]\n${facts.localDraft.slice(0, 600)}`
     : gloss
-      ? `${userMessage}\n\n[English gloss — internal reasoning only]\n${gloss}\n\nTrả lời user bằng tiếng Việt tự nhiên.`
+      ? `${userMessage}\n\n[English gloss — internal]\n${gloss}`
       : userMessage
 
   const sourceHistory = options?.recentTurns ?? history
@@ -84,9 +109,9 @@ export async function callChatLlm(
   })
 
   const messages: LlmMessage[] = [
-    { role: 'system', content: systemPrompt },
+    { role: 'system', content: systemPrompt.slice(0, BE_TURN_MAX_CHARS) },
     ...recent,
-    { role: 'user', content: groundedUser },
+    { role: 'user', content: groundedUser.slice(0, BE_TURN_MAX_CHARS) },
   ]
 
   if (hasBackendToken() && beAiConfigured !== false) {
@@ -95,7 +120,11 @@ export async function callChatLlm(
         await refreshBeAiStatus()
       }
       if (beAiConfigured) {
-        const res = await realAi.chat(messages)
+        const beMessages = buildBackendDialogue(history, groundedUser, options)
+        const res = await realAi.chat(beMessages)
+        if (res.fallback) {
+          throw new Error('BE AI chưa cấu hình (fallback)')
+        }
         if (res.content?.trim()) return res.content.trim()
       }
     } catch {
