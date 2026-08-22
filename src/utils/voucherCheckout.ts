@@ -140,6 +140,9 @@ export function voucherUserMessage(raw: string | null | undefined): string {
   if (/không áp dụng được mã|thử lại/i.test(msg)) {
     return msg
   }
+  if (/rollback-only|transaction silently rolled back|marked as rollback/i.test(lower)) {
+    return 'Chưa áp dụng được mã giảm giá. Server đang cập nhật — thử lại sau 1–2 phút.'
+  }
   if (/backend|schema|migrate|dss\/|sql|exception|timeout|railway|vercel|vite_/i.test(msg)) {
     return 'Chưa áp dụng được mã giảm giá. Thử lại sau vài giây hoặc dùng mã SEDSP10 / SHOP50K.'
   }
