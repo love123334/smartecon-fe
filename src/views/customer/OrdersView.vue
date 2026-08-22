@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { formatVnd, orderApi, reviewApi } from '@/api/services'
 import type { Order, ProductReview } from '@/types'
@@ -96,6 +96,15 @@ function onReviewSubmitted(productId: string) {
 function showItems(order: Order): boolean {
   return expandedId.value === order.id || order.status === 'delivered' || order.items.length <= 1
 }
+
+function scrollToOrderReview(order: Order) {
+  expandedId.value = order.id
+  void nextTick(() => {
+    document
+      .getElementById(`order-${order.id}-reviews`)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  })
+}
 </script>
 
 <template>
@@ -152,22 +161,23 @@ function showItems(order: Order): boolean {
           >
             {{ expandedId === o.id ? 'Ẩn danh sách SP' : 'Xem sản phẩm' }}
           </button>
-          <RouterLink
+          <button
             v-if="o.status === 'delivered'"
-            :to="{ name: 'order-detail', params: { id: o.id }, query: { view: 'detail', review: '1' }, hash: '#reviews' }"
+            type="button"
             class="btn btn-outline btn-sm"
+            @click="scrollToOrderReview(o)"
           >
             Đánh giá đơn
-          </RouterLink>
+          </button>
           <RouterLink
-            :to="{ name: 'order-detail', params: { id: o.id }, query: { view: 'detail' } }"
+            :to="{ name: 'order-detail', params: { id: o.id }, query: { view: 'detail' }, hash: '#track' }"
             class="btn btn-primary btn-sm"
           >
             Chi tiết &amp; theo dõi
           </RouterLink>
         </div>
 
-        <ul v-if="showItems(o)" class="orders-track-card__items">
+        <ul v-if="showItems(o)" :id="`order-${o.id}-reviews`" class="orders-track-card__items">
           <li v-for="item in o.items" :key="item.productId" class="orders-track-item">
             <div class="orders-track-item__head">
               <RouterLink

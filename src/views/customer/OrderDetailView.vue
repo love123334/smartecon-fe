@@ -410,7 +410,7 @@ async function onReviewSubmitted(productId: string) {
             Đang kiểm tra trạng thái thanh toán…
           </p>
 
-          <section class="order-detail__items" aria-labelledby="items-heading">
+          <section class="order-detail__items" id="reviews" aria-labelledby="items-heading">
             <h2 id="items-heading" class="order-detail__section-title">Sản phẩm</h2>
             <article
               v-for="item in order.items"
