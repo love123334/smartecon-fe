@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { platformRevenueApi } from '@/api/services'
 import type {
   PlatformRevenueDashboard,
@@ -14,9 +14,9 @@ import PlatformPaymentChart from '@/components/platform-revenue/PlatformPaymentC
 import PlatformOrderStatusChart from '@/components/platform-revenue/PlatformOrderStatusChart.vue'
 import PlatformActivitySection from '@/components/platform-revenue/PlatformActivitySection.vue'
 import PlatformActivityTrendChart from '@/components/platform-revenue/PlatformActivityTrendChart.vue'
+import LookerStudioEmbed from '@/components/LookerStudioEmbed.vue'
 import {
   LOOKER_STUDIO_PLATFORM_REVENUE_URL,
-  LOOKER_EMBED_HEIGHT_PX,
 } from '@/constants/lookerStudio'
 import {
   defaultPlatformRevenueFilter,
@@ -35,9 +35,6 @@ const initialLoading = ref(true)
 const filterLoading = ref(false)
 const error = ref('')
 const hasLoadedOnce = ref(false)
-const lookerLoaded = ref(false)
-const lookerFailed = ref(false)
-let lookerTimer: ReturnType<typeof setTimeout> | null = null
 
 let requestSeq = 0
 
@@ -54,28 +51,12 @@ const activity = computed(() => data.value?.platformActivity ?? null)
 const activityTrend = computed(() => data.value?.activityTrend ?? [])
 
 onMounted(() => {
-  lookerTimer = setTimeout(() => {
-    if (!lookerLoaded.value) lookerFailed.value = true
-  }, 12_000)
   if (SHOW_NATIVE_PLATFORM_REPORT) {
     void loadDashboard(filter.value, true)
   } else {
     initialLoading.value = false
   }
 })
-
-onUnmounted(() => {
-  if (lookerTimer) clearTimeout(lookerTimer)
-})
-
-function onLookerLoad() {
-  lookerLoaded.value = true
-  lookerFailed.value = false
-  if (lookerTimer) {
-    clearTimeout(lookerTimer)
-    lookerTimer = null
-  }
-}
 
 async function loadDashboard(query: PlatformRevenueDashboardQuery, isInitial = false) {
   const seq = ++requestSeq
@@ -147,35 +128,10 @@ function retry() {
           Mở báo cáo đầy đủ
         </a>
       </div>
-      <div
-        class="pr-looker__frame-wrap"
-        :style="{ '--looker-h': `${LOOKER_EMBED_HEIGHT_PX}px` }"
-      >
-        <p v-if="!lookerLoaded && !lookerFailed" class="pr-looker__loading muted" role="status">
-          Đang tải báo cáo Looker Studio…
-        </p>
-        <div v-if="lookerFailed && !lookerLoaded" class="pr-looker__fallback" role="status">
-          <p>Không nhúng được Looker trong trang (chặn iframe / mạng).</p>
-          <a
-            class="btn btn-outline btn-sm"
-            :href="LOOKER_STUDIO_EMBED_URL"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Mở báo cáo đầy đủ
-          </a>
-        </div>
-        <iframe
-          class="pr-looker__frame"
-          title="Doanh thu sàn — Looker Studio"
-          :src="LOOKER_STUDIO_EMBED_URL"
-          loading="lazy"
-          scrolling="no"
-          referrerpolicy="no-referrer-when-downgrade"
-          allowfullscreen
-          @load="onLookerLoad"
-        />
-      </div>
+      <LookerStudioEmbed
+        :src="LOOKER_STUDIO_PLATFORM_REVENUE_URL"
+        title="Doanh thu sàn — Looker Studio"
+      />
     </section>
 
     <template v-if="SHOW_NATIVE_PLATFORM_REPORT">

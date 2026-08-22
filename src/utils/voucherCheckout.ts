@@ -1,3 +1,4 @@
+import { apiConfig } from '@/api/config'
 import type { ValidateVoucherResult, Voucher } from '@/api/real/vouchers'
 import type { CartLine } from '@/api/services'
 import { voucherApi } from '@/api/services'
@@ -226,7 +227,7 @@ export async function validateCartVoucher(options: {
       /chưa áp dụng được|thử lại sau|sql|schema|backend|timeout|railway/i.test(
         res.message || '',
       )
-    if (tech) {
+    if (tech && !apiConfig.useRealOrders) {
       const fallback = demoVoucherFallback(
         code,
         options.cartSubtotal,
@@ -236,13 +237,13 @@ export async function validateCartVoucher(options: {
     }
     return { ...res, message: voucherUserMessage(res.message) }
   } catch (e) {
-    const fallback = demoVoucherFallback(code, options.cartSubtotal, options.singleSellerId ?? null)
-    if (fallback?.valid) return fallback
+    if (!apiConfig.useRealOrders) {
+      const fallback = demoVoucherFallback(code, options.cartSubtotal, options.singleSellerId ?? null)
+      if (fallback?.valid) return fallback
+      if (fallback && !fallback.valid) return fallback
+    }
 
     const apiMsg = e instanceof Error ? e.message : ''
-    if (fallback && !fallback.valid) {
-      return fallback
-    }
     return {
       valid: false,
       message: voucherUserMessage(apiMsg || 'Không áp dụng được mã giảm giá lúc này.'),

@@ -1,28 +1,22 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { dssApi } from '@/api/services'
 import type { DssInsight } from '@/types'
 import PageHeader from '@/components/PageHeader.vue'
 import AiShortcutBar from '@/components/AiShortcutBar.vue'
 import DssThinkingLoader from '@/components/dss/DssThinkingLoader.vue'
-import { LOOKER_STUDIO_PLATFORM_REVENUE_URL, LOOKER_EMBED_HEIGHT_PX } from '@/constants/lookerStudio'
+import LookerStudioEmbed from '@/components/LookerStudioEmbed.vue'
+import { LOOKER_STUDIO_PLATFORM_REVENUE_URL } from '@/constants/lookerStudio'
 import { buildManagerDssCommentary } from '@/utils/dssCommentary'
 
 const insights = ref<DssInsight[]>([])
 const planLoading = ref(false)
 const planError = ref('')
-const lookerLoaded = ref(false)
-const lookerFailed = ref(false)
-let lookerTimer: ReturnType<typeof setTimeout> | null = null
 
 const commentary = computed(() => buildManagerDssCommentary(insights.value))
 
 onMounted(async () => {
-  lookerTimer = setTimeout(() => {
-    if (!lookerLoaded.value) lookerFailed.value = true
-  }, 12_000)
-
   planLoading.value = true
   planError.value = ''
   try {
@@ -34,18 +28,6 @@ onMounted(async () => {
   }
 })
 
-onUnmounted(() => {
-  if (lookerTimer) clearTimeout(lookerTimer)
-})
-
-function onLookerLoad() {
-  lookerLoaded.value = true
-  lookerFailed.value = false
-  if (lookerTimer) {
-    clearTimeout(lookerTimer)
-    lookerTimer = null
-  }
-}
 </script>
 
 <template>
@@ -81,35 +63,10 @@ function onLookerLoad() {
           Mở báo cáo đầy đủ
         </a>
       </div>
-      <div
-        class="dss-looker__frame-wrap"
-        :style="{ '--looker-h': `${LOOKER_EMBED_HEIGHT_PX}px` }"
-      >
-        <p v-if="!lookerLoaded && !lookerFailed" class="dss-looker__loading muted" role="status">
-          Đang tải Looker Studio…
-        </p>
-        <div v-if="lookerFailed && !lookerLoaded" class="dss-looker__fallback" role="status">
-          <p>Không nhúng được Looker trong trang.</p>
-          <a
-            class="btn btn-outline btn-sm"
-            :href="LOOKER_STUDIO_PLATFORM_REVENUE_URL"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Mở báo cáo đầy đủ
-          </a>
-        </div>
-        <iframe
-          class="dss-looker__frame"
-          title="Doanh thu sàn — Looker Studio"
-          :src="LOOKER_STUDIO_PLATFORM_REVENUE_URL"
-          loading="lazy"
-          scrolling="no"
-          referrerpolicy="no-referrer-when-downgrade"
-          allowfullscreen
-          @load="onLookerLoad"
-        />
-      </div>
+      <LookerStudioEmbed
+        :src="LOOKER_STUDIO_PLATFORM_REVENUE_URL"
+        title="Doanh thu sàn — Looker Studio"
+      />
     </section>
 
     <section class="dss-brain">

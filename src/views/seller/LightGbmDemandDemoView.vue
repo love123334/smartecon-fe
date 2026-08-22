@@ -43,7 +43,7 @@ const modelState = computed(() => {
       detail: 'Chọn sản phẩm và chạy thử mô hình.',
     }
   }
-  if (result.value.method === 'lightgbm_onnx' || (onnxUsed.value && result.value.method !== 'lightgbm_onnx_with_baseline_fallback')) {
+  if (result.value.method === 'lightgbm_onnx') {
     return {
       label: 'Mô hình học máy',
       tone: 'success',
@@ -57,17 +57,12 @@ const modelState = computed(() => {
       detail: 'Một phần kỳ dự báo dùng mô hình, phần còn lại dùng xu hướng thống kê.',
     }
   }
-  if (modelAvailable.value) {
-    return {
-      label: 'Mô hình sẵn sàng',
-      tone: 'success',
-      detail: 'LightGBM ONNX đã nạp — chạy dự báo để áp dụng.',
-    }
-  }
   return {
     label: 'Dự báo xu hướng',
-    tone: 'muted',
-    detail: 'Chưa có ONNX runtime hoặc file model — dùng xu hướng bán hàng gần đây.',
+    tone: modelAvailable.value ? 'warn' : 'muted',
+    detail: modelAvailable.value
+      ? 'Lần chạy này chưa dùng LightGBM ONNX — server có thể thiếu runtime hoặc đang khởi động lại.'
+      : 'Chưa có ONNX runtime trên server — kết quả từ xu hướng bán hàng gần đây.',
   }
 })
 const trendLabel = computed(() => {
