@@ -6,7 +6,12 @@ import type { Voucher } from '@/api/real/vouchers'
 import { useAuthStore } from '@/stores/auth'
 import { useNoticeStore } from '@/stores/notice'
 import { canShopAsBuyer } from '@/utils/roleNav'
-import { demoPublicVouchers, rememberPendingVoucherCode } from '@/utils/voucherCheckout'
+import {
+  demoPublicVouchers,
+  formatVoucherDiscountLabel,
+  rememberPendingVoucherCode,
+} from '@/utils/voucherCheckout'
+import { useCartStore } from '@/stores/cart'
 
 const props = defineProps<{
   sellerId?: number | string | null
@@ -15,6 +20,7 @@ const props = defineProps<{
 
 const router = useRouter()
 const auth = useAuthStore()
+const cart = useCartStore()
 const notice = useNoticeStore()
 const vouchers = ref<Voucher[]>([])
 const loading = ref(true)
@@ -35,9 +41,7 @@ onMounted(async () => {
 })
 
 function label(v: Voucher) {
-  return v.discountType === 'PERCENTAGE'
-    ? `Giảm ${v.discountValue}%`
-    : `Giảm ${formatVnd(v.discountValue)}`
+  return formatVoucherDiscountLabel(v)
 }
 
 function minLabel(v: Voucher) {
@@ -64,6 +68,19 @@ async function useAtCheckout(v: Voucher) {
   await saveCode(v)
   if (!auth.isLoggedIn || !canShopAsBuyer(auth.role)) {
     await router.push({ name: 'login', query: { redirect: '/checkout' } })
+    return
+  }
+  if (!cart.lines.length) {
+    await cart.refresh({ enrichCatalog: true })
+  }
+  if (!cart.lines.length) {
+    notice.show({
+      kind: 'info',
+      title: `Đã lưu mã ${v.code}`,
+      message: 'Thêm sản phẩm vào giỏ, rồi vào Giỏ hàng hoặc Thanh toán để áp dụng mã.',
+      durationMs: 4000,
+    })
+    await router.push('/cart')
     return
   }
   await router.push('/checkout')

@@ -13,6 +13,7 @@ import {
   rememberPendingVoucherCode,
   consumePendingVoucherCode,
   validateCartVoucher,
+  publicVoucherHintText,
   voucherUserMessage,
 } from '@/utils/voucherCheckout'
 
@@ -198,6 +199,11 @@ async function applyCoupon() {
   couponApplied.value = false
   couponDiscount.value = 0
   try {
+    if (cart.dirty) {
+      await cart.prepareForCheckout({ showLoading: false })
+    } else if (!cart.lines.length) {
+      await cart.refresh({ enrichCatalog: true })
+    }
     const res = await validateCartVoucher({
       code,
       lines: cart.lines,
@@ -304,7 +310,7 @@ async function applyCoupon() {
 
           <section class="elegant-coupon">
             <h2>Bạn có mã giảm giá?</h2>
-            <p>Nhập mã tại đây hoặc ở bước thanh toán (gợi ý: SEDSP10, SHOP50K).</p>
+            <p>Nhập mã tại đây hoặc ở bước thanh toán (gợi ý: {{ publicVoucherHintText() }}).</p>
             <div class="elegant-coupon__form">
               <input v-model="coupon" type="text" placeholder="Mã giảm giá" />
               <button

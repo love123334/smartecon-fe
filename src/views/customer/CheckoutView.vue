@@ -9,6 +9,7 @@ import {
   peekPendingVoucherCode,
   rememberPendingVoucherCode,
   validateCartVoucher,
+  publicVoucherHintText,
   voucherCodeForOrder,
   voucherUserMessage,
 } from '@/utils/voucherCheckout'
@@ -391,7 +392,7 @@ async function placeOrder() {
             </button>
           </div>
           <p class="elegant-muted" style="font-size: 0.8rem; margin: 0.35rem 0 0">
-            Gợi ý: thử <strong>SEDSP10</strong> (giảm 10%) hoặc <strong>SHOP50K</strong> (giảm 50.000đ).
+            Gợi ý: {{ publicVoucherHintText() }}
           </p>
           <p
             v-if="couponMessage"

@@ -1,7 +1,7 @@
 import { apiConfig } from '@/api/config'
 import type { ValidateVoucherResult, Voucher } from '@/api/real/vouchers'
 import type { CartLine } from '@/api/services'
-import { voucherApi } from '@/api/services'
+import { formatVnd, voucherApi } from '@/api/services'
 import { localizeApiMessage } from '@/utils/apiMessage'
 
 const PENDING_VOUCHER_KEY = 'sedsp_pending_voucher'
@@ -59,6 +59,30 @@ export type CartVoucherResult = ValidateVoucherResult & {
   serverConfirmed?: boolean
 }
 
+type VoucherDiscountFields = Pick<
+  Voucher,
+  'discountType' | 'discountValue' | 'maximumDiscountAmount'
+>
+
+/** Nhãn giảm giá — PERCENTAGE có trần thì ghi rõ (vd. SEDSP10: 10%, tối đa 100.000đ). */
+export function formatVoucherDiscountLabel(v: VoucherDiscountFields): string {
+  if (v.discountType === 'PERCENTAGE') {
+    const pct = `Giảm ${v.discountValue}%`
+    if (v.maximumDiscountAmount != null && v.maximumDiscountAmount > 0) {
+      return `${pct}, tối đa ${formatVnd(v.maximumDiscountAmount)}`
+    }
+    return pct
+  }
+  return `Giảm ${formatVnd(v.discountValue)}`
+}
+
+/** Gợi ý mã trên giỏ / checkout — đồng bộ với banner ngoài cửa hàng. */
+export function publicVoucherHintText(vouchers: Voucher[] = demoPublicVouchers()): string {
+  return vouchers
+    .map((v) => `${v.code} (${formatVoucherDiscountLabel(v).replace(/^Giảm /i, 'giảm ')})`)
+    .join(' · ')
+}
+
 /** Mã demo khi API public voucher trống — khớp seed V52. */
 export function demoPublicVouchers(): Voucher[] {
   const now = new Date()
@@ -66,7 +90,7 @@ export function demoPublicVouchers(): Voucher[] {
   return DEMO_VOUCHERS.map((v, i) => ({
     id: -1 - i,
     code: v.code,
-    name: v.code === 'SEDSP10' ? 'Giảm 10% toàn sàn' : 'Shop giảm 50K',
+    name: v.code === 'SEDSP10' ? 'Giảm tối đa 100.000đ (10%)' : 'Shop giảm 50K',
     description:
       v.code === 'SEDSP10'
         ? 'Giảm 10%, tối đa 100.000đ — đơn từ 200.000đ'

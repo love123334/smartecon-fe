@@ -2,10 +2,13 @@ import { describe, expect, it } from 'vitest'
 import {
   consumePendingVoucherCode,
   demoPublicVouchers,
+  formatVoucherDiscountLabel,
   peekPendingVoucherCode,
+  publicVoucherHintText,
   rememberPendingVoucherCode,
   voucherUserMessage,
 } from '@/utils/voucherCheckout'
+import { formatVnd } from '@/api/services'
 
 describe('voucherUserMessage', () => {
   it('hides technical DB errors', () => {
@@ -35,6 +38,12 @@ describe('pending voucher code', () => {
     const codes = demoPublicVouchers().map((v) => v.code)
     expect(codes).toContain('SEDSP10')
     expect(codes).toContain('SHOP50K')
+  })
+
+  it('labels percentage vouchers with max discount cap', () => {
+    const sedsp = demoPublicVouchers().find((v) => v.code === 'SEDSP10')!
+    expect(formatVoucherDiscountLabel(sedsp)).toBe(`Giảm 10%, tối đa ${formatVnd(100_000)}`)
+    expect(publicVoucherHintText()).toContain(`SEDSP10 (giảm 10%, tối đa ${formatVnd(100_000)})`)
   })
 })
 
