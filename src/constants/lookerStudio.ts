@@ -2,9 +2,9 @@
 export const LOOKER_STUDIO_PLATFORM_REVENUE_URL =
   'https://lookerstudio.google.com/embed/reporting/88f0776f-62a9-409c-8c78-40e9cd4b9f26/page/Y0b5F'
 
-/** Canvas gốc Looker @ 1280px — postMessage có thể ghi đè. Trang này ~3 hàng chart. */
+/** Canvas gốc Looker @ 1280px — đo thực tế ~900px (trang Y0b5F, feature=embed). */
 export const LOOKER_REPORT_WIDTH_PX = 1280
-export const LOOKER_REPORT_HEIGHT_PX = 1120
+export const LOOKER_REPORT_HEIGHT_PX = 900
 
 /** Hide chrome in embed frame. */
 export function lookerEmbedSrc(baseUrl: string): string {

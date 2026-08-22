@@ -25,15 +25,12 @@ const emit = defineEmits<{
   fail: []
 }>()
 
-const viewportRef = ref<HTMLElement | null>(null)
 const frameRef = ref<HTMLIFrameElement | null>(null)
 const naturalWidth = ref(props.reportWidth)
 const naturalHeight = ref(props.reportHeight)
-const containerWidth = ref(0)
 const loaded = ref(false)
 const failed = ref(false)
 let failTimer: ReturnType<typeof setTimeout> | null = null
-let resizeObserver: ResizeObserver | null = null
 
 function parseLookerDimensions(data: unknown): { width?: number; height?: number } {
   if (typeof data === 'number' && Number.isFinite(data) && data > 0) {
@@ -97,31 +94,15 @@ function onMessage(event: MessageEvent) {
   if (dims.width && dims.width > 400) {
     naturalWidth.value = Math.round(dims.width)
   }
-  if (dims.height && dims.height > 200) {
+  if (dims.height && dims.height > 200 && dims.height < 4000) {
     naturalHeight.value = Math.round(dims.height)
   }
 }
 
-/** Full width — chiều cao khung = đúng chiều cao báo cáo sau scale (không ép min-height). */
-const scale = computed(() => {
-  const cw = containerWidth.value
-  if (!cw || !naturalWidth.value) return 1
-  return cw / naturalWidth.value
-})
-
-const scaledHeight = computed(() =>
-  Math.max(1, Math.round(naturalHeight.value * scale.value)),
-)
-
-const scalerStyle = computed(() => ({
-  width: `${naturalWidth.value}px`,
-  height: `${naturalHeight.value}px`,
-  transform: `scale(${scale.value})`,
+/** Full width; chiều cao theo tỉ lệ canvas (cắt phần trắng thừa dưới báo cáo). */
+const embedStyle = computed(() => ({
+  aspectRatio: `${naturalWidth.value} / ${naturalHeight.value}`,
 }))
-
-function measureContainer() {
-  containerWidth.value = viewportRef.value?.clientWidth ?? 0
-}
 
 function onLoad() {
   loaded.value = true
@@ -130,20 +111,11 @@ function onLoad() {
     clearTimeout(failTimer)
     failTimer = null
   }
-  measureContainer()
   emit('load')
 }
 
 onMounted(() => {
-  measureContainer()
   window.addEventListener('message', onMessage)
-  window.addEventListener('resize', measureContainer)
-
-  if (typeof ResizeObserver !== 'undefined' && viewportRef.value) {
-    resizeObserver = new ResizeObserver(() => measureContainer())
-    resizeObserver.observe(viewportRef.value)
-  }
-
   failTimer = setTimeout(() => {
     if (!loaded.value) {
       failed.value = true
@@ -154,8 +126,6 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('message', onMessage)
-  window.removeEventListener('resize', measureContainer)
-  resizeObserver?.disconnect()
   if (failTimer) clearTimeout(failTimer)
 })
 
@@ -163,11 +133,7 @@ const embedSrc = lookerEmbedSrc(props.src)
 </script>
 
 <template>
-  <div
-    ref="viewportRef"
-    class="looker-embed"
-    :style="{ height: `${scaledHeight}px` }"
-  >
+  <div class="looker-embed" :style="embedStyle">
     <p v-if="!loaded && !failed" class="looker-embed__loading muted" role="status">
       Đang tải báo cáo Looker Studio…
     </p>
@@ -178,21 +144,17 @@ const embedSrc = lookerEmbedSrc(props.src)
       </a>
     </div>
 
-    <div class="looker-embed__stage">
-      <div class="looker-embed__scaler" :style="scalerStyle">
-        <iframe
-          ref="frameRef"
-          class="looker-embed__frame"
-          :title="title"
-          :src="embedSrc"
-          loading="lazy"
-          scrolling="no"
-          referrerpolicy="no-referrer-when-downgrade"
-          allowfullscreen
-          @load="onLoad"
-        />
-      </div>
-    </div>
+    <iframe
+      ref="frameRef"
+      class="looker-embed__frame"
+      :title="title"
+      :src="embedSrc"
+      loading="lazy"
+      scrolling="no"
+      referrerpolicy="no-referrer-when-downgrade"
+      allowfullscreen
+      @load="onLoad"
+    />
   </div>
 </template>
 
@@ -219,17 +181,6 @@ const embedSrc = lookerEmbedSrc(props.src)
   padding: 1rem;
   text-align: center;
   background: rgba(248, 250, 252, 0.92);
-}
-
-.looker-embed__stage {
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-}
-
-.looker-embed__scaler {
-  transform-origin: top left;
-  will-change: transform;
 }
 
 .looker-embed__frame {
