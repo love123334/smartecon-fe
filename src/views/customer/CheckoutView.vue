@@ -13,6 +13,7 @@ import {
 } from '@/utils/voucherCheckout'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
+import { useNoticeStore } from '@/stores/notice'
 import { trySiteFx } from '@/utils/siteFx'
 import QuantityStepper from '@/components/QuantityStepper.vue'
 import CheckoutStepper from '@/components/CheckoutStepper.vue'
@@ -22,6 +23,7 @@ type CheckoutPayment = 'momo_qr'
 
 const auth = useAuthStore()
 const cart = useCartStore()
+const notice = useNoticeStore()
 const router = useRouter()
 const route = useRoute()
 
@@ -113,7 +115,7 @@ async function loadSellerMomoPreview() {
 
 onMounted(async () => {
   if (cart.dirty) {
-    await cart.prepareForCheckout()
+    await cart.prepareForCheckout({ showLoading: false })
   } else if (!cart.lines.length) {
     await cart.refresh({ enrichCatalog: true })
   }
@@ -131,7 +133,11 @@ onMounted(async () => {
   if (pending) {
     coupon.value = pending
     await applyCoupon()
-    if (couponApplied.value) consumePendingVoucherCode()
+    if (couponIsError.value) {
+      consumePendingVoucherCode()
+    } else if (couponApplied.value) {
+      consumePendingVoucherCode()
+    }
   }
 })
 
@@ -153,8 +159,11 @@ async function applyCoupon() {
   couponApplied.value = false
   couponInfo.value = null
   try {
-    // Luôn sync giỏ trước khi validate — BE đọc cart server
-    await cart.prepareForCheckout()
+    if (cart.dirty) {
+      await cart.prepareForCheckout({ showLoading: false })
+    } else if (!cart.lines.length) {
+      await cart.refresh({ enrichCatalog: true })
+    }
     const res = await validateCartVoucher({
       code,
       lines: cart.lines,
@@ -191,7 +200,7 @@ async function placeOrder() {
   loading.value = true
   error.value = ''
   try {
-    await cart.prepareForCheckout()
+    await cart.prepareForCheckout({ showLoading: false })
     await loadSellerMomoPreview()
     if (!canUseMomoQr.value) {
       error.value = checkoutBlockedReason.value || 'Không thể thanh toán MoMo shop lúc này.'
@@ -206,24 +215,50 @@ async function placeOrder() {
         cartSubtotal: cart.total,
         singleSellerId: singleSellerId.value,
       })
-      if (!res.valid) {
+      if (res.valid) {
+        voucherCode = res.code ?? coupon.value.trim()
+      } else {
         couponApplied.value = false
         couponInfo.value = null
         couponIsError.value = true
         couponMessage.value = voucherUserMessage(res.message)
-        error.value = couponMessage.value || 'Mã giảm giá không còn hợp lệ. Xóa mã rồi thử lại.'
-        return
+        consumePendingVoucherCode()
+        notice.show({
+          kind: 'info',
+          title: 'Bỏ qua mã giảm giá',
+          message:
+            'Mã không áp dụng được lúc này — đơn vẫn được tạo với giá đầy đủ. Bạn có thể thử mã lại sau.',
+          durationMs: 4500,
+        })
       }
-      voucherCode = res.code ?? coupon.value.trim()
     }
 
     const fullAddress = [address.value, city.value, state.value, zip.value].filter(Boolean).join(', ')
-    const order = await orderApi.placeOrder(
-      auth.user.id,
-      fullAddress || address.value,
-      payment.value,
-      voucherCode,
-    )
+
+    const submit = (code?: string) =>
+      orderApi.placeOrder(auth.user!.id, fullAddress || address.value, payment.value, code)
+
+    let order
+    try {
+      order = await submit(voucherCode)
+    } catch (e) {
+      const raw = e instanceof Error ? e.message : ''
+      if (voucherCode && /voucher|mã giảm|discount|rollback/i.test(raw)) {
+        couponApplied.value = false
+        couponInfo.value = null
+        consumePendingVoucherCode()
+        notice.show({
+          kind: 'info',
+          title: 'Mã giảm giá không áp dụng được',
+          message: 'Đang tạo đơn không voucher — bạn vẫn thanh toán bình thường.',
+          durationMs: 4500,
+        })
+        order = await submit(undefined)
+      } else {
+        throw e
+      }
+    }
+
     consumePendingVoucherCode()
     await cart.refresh()
     await router.push({ path: `/orders/${order.id}/pay-momo`, query: { placed: '1' } })

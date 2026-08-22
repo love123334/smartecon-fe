@@ -106,10 +106,11 @@ export const useCartStore = defineStore('cart', () => {
   }
 
   /** Push pending local edits then reload full cart (stock, seller, images). */
-  async function prepareForCheckout() {
+  async function prepareForCheckout(options?: { showLoading?: boolean }) {
     const auth = useAuthStore()
     if (!auth.user || !canShopAsBuyer(auth.role)) return
-    loading.value = true
+    const showLoading = options?.showLoading !== false
+    if (showLoading) loading.value = true
     error.value = null
     try {
       await syncToServer()
@@ -119,7 +120,7 @@ export const useCartStore = defineStore('cart', () => {
       error.value = e instanceof Error ? e.message : 'Lỗi đồng bộ giỏ hàng'
       throw e
     } finally {
-      loading.value = false
+      if (showLoading) loading.value = false
     }
   }
 

@@ -11,6 +11,7 @@ import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import {
   peekPendingVoucherCode,
   rememberPendingVoucherCode,
+  consumePendingVoucherCode,
   validateCartVoucher,
   voucherUserMessage,
 } from '@/utils/voucherCheckout'
@@ -158,16 +159,31 @@ onMounted(async () => {
   if (pending && cart.lines.length) {
     coupon.value = pending
     await applyCoupon()
+    if (couponIsError.value) {
+      consumePendingVoucherCode()
+    }
   }
 })
 
 async function checkout() {
   checkoutLoading.value = true
   try {
-    await cart.prepareForCheckout()
+    await cart.prepareForCheckout({ showLoading: false })
+    if (!cart.lines.length) {
+      notice.show({
+        kind: 'error',
+        title: 'Giỏ hàng trống',
+        message: 'Thêm sản phẩm trước khi thanh toán.',
+      })
+      return
+    }
     await router.push('/checkout')
   } catch {
-    /* error surfaced on cart store */
+    notice.show({
+      kind: 'error',
+      title: 'Không mở được thanh toán',
+      message: cart.error || 'Không đồng bộ được giỏ hàng. Tải lại trang rồi thử lại.',
+    })
   } finally {
     checkoutLoading.value = false
   }
@@ -238,7 +254,7 @@ async function applyCoupon() {
         </div>
       </div>
 
-      <LoadingSpinner v-if="cart.loading" page label="Đang tải giỏ hàng" />
+      <LoadingSpinner v-if="cart.loading && !cart.lines.length" page label="Đang tải giỏ hàng" />
       <EmptyState
         v-else-if="!cart.lines.length"
         icon="🛒"
@@ -351,10 +367,14 @@ async function applyCoupon() {
             <strong>{{ formatVnd(grandTotal) }}</strong>
           </div>
 
+          <p v-if="cart.error" class="elegant-alert elegant-alert--error" style="margin-bottom: 1rem">
+            {{ cart.error }}
+          </p>
+
           <button
             type="button"
             class="btn-elegant-primary btn-block btn-interactive"
-            :disabled="checkoutLoading"
+            :disabled="checkoutLoading || cart.lines.length === 0"
             @click="checkout"
           >
             {{ checkoutLoading ? 'Đang chuẩn bị…' : 'Thanh toán' }}

@@ -4,10 +4,12 @@ import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { formatVnd } from '@/api/services'
 import { useCartStore } from '@/stores/cart'
+import { useNoticeStore } from '@/stores/notice'
 import QuantityStepper from '@/components/QuantityStepper.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 
 const cart = useCartStore()
+const notice = useNoticeStore()
 const { drawerOpen, lines, loading } = storeToRefs(cart)
 const router = useRouter()
 
@@ -27,11 +29,23 @@ function goCart() {
 async function goCheckout() {
   checkoutLoading.value = true
   try {
-    await cart.prepareForCheckout()
+    await cart.prepareForCheckout({ showLoading: false })
+    if (!cart.lines.length) {
+      notice.show({
+        kind: 'error',
+        title: 'Giỏ hàng trống',
+        message: 'Thêm sản phẩm trước khi thanh toán.',
+      })
+      return
+    }
     close()
     await router.push('/checkout')
   } catch {
-    /* cart store error */
+    notice.show({
+      kind: 'error',
+      title: 'Không mở được thanh toán',
+      message: cart.error || 'Không đồng bộ được giỏ hàng. Tải lại trang rồi thử lại.',
+    })
   } finally {
     checkoutLoading.value = false
   }
