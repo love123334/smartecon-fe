@@ -246,7 +246,8 @@ export async function validateCartVoucher(options: {
   }
 
   try {
-    const res = await voucherApi.validate(code)
+    const productIds = cartProductIdsForVoucher(options.lines)
+    const res = await voucherApi.validate(code, productIds)
     if (res.valid) {
       return {
         ...res,
