@@ -34,10 +34,15 @@ const onnxUsed = computed(
     Boolean(features.value?.onnxModelUsed) ||
     (result.value?.method != null && ML_METHODS.has(result.value.method)),
 )
+const modelAvailable = computed(() => Boolean(features.value?.onnxModelAvailable))
 const analysisCompleted = computed(
   () => Boolean(result.value && !running.value && result.value.predictedDemand >= 0),
 )
-const panelTitle = computed(() => (onnxUsed.value ? 'MÔ HÌNH ML ĐÃ CHẠY' : 'PHÂN TÍCH DSS ĐÃ CHẠY'))
+const panelTitle = computed(() => {
+  if (onnxUsed.value) return 'MÔ HÌNH ML ĐÃ CHẠY'
+  if (!modelAvailable.value && analysisCompleted.value) return 'MÔ HÌNH ML LỖI'
+  return 'ĐANG CHẠY'
+})
 const modelState = computed(() => {
   if (!result.value) {
     return {
@@ -60,11 +65,18 @@ const modelState = computed(() => {
       detail: 'Một phần kỳ dự báo dùng LightGBM, phần còn lại dùng xu hướng thống kê.',
     }
   }
+  if (!modelAvailable.value) {
+    return {
+      label: 'Mô hình ML không chạy được',
+      tone: 'error',
+      detail:
+        'Backend chưa load LightGBM ONNX (runtime hoặc file global-demand.onnx). Cần redeploy API với ONNX bật — không dùng fallback thống kê thay cho ML trên trang này.',
+    }
+  }
   return {
-    label: 'Dự báo xu hướng — thành công',
-    tone: 'success',
-    detail:
-      'Hệ thống đã đọc lịch sử bán và dự báo số lượng. LightGBM ONNX không bật trên server production (512MB, excludeOnnx) — đây là phương án thống kê ổn định, không phải lỗi.',
+    label: 'ML sẵn sàng nhưng đang fallback',
+    tone: 'warn',
+    detail: 'Mô hình có trên server nhưng kỳ dự báo này dùng xu hướng thống kê.',
   }
 })
 const trendLabel = computed(() => {
@@ -208,8 +220,8 @@ async function saveForecast() {
           <p>{{ modelState.detail }}</p>
         </div>
         <div class="model-flags">
-          <span>Phân tích DSS <b :class="{ 'flag-ok': analysisCompleted }">{{ analysisCompleted ? 'Đã chạy' : 'Chưa' }}</b></span>
-          <span>LightGBM ONNX <b>{{ onnxUsed ? 'Đang dùng' : 'Tắt (server 512MB)' }}</b></span>
+          <span>Mô hình sẵn sàng <b :class="{ 'flag-ok': modelAvailable }">{{ modelAvailable ? 'Có' : 'Không' }}</b></span>
+          <span>Đã dùng ML <b :class="{ 'flag-ok': onnxUsed }">{{ onnxUsed ? 'Có' : 'Không' }}</b></span>
         </div>
       </section>
 
@@ -259,9 +271,10 @@ async function saveForecast() {
 .model-state--warn { background:#ffedd5; color:#9a3412; }
 .model-panel { padding:1.1rem 1.25rem; margin-bottom:1rem; border:1px solid #cbd5e1; border-left:5px solid #64748b; border-radius:12px; background:#fff; }
 .model-panel--success { border-left-color:#16a34a; background:#f7fff9; }
-.model-panel--muted { border-left-color:#64748b; background:#f8fafc; }
+.model-panel--error { border-left-color:#dc2626; background:#fef2f2; }
 .model-panel--warn { border-left-color:#f97316; background:#fffaf5; }
 .flag-ok { color:#166534 !important; }
+.model-state--error { background:#fee2e2; color:#991b1b; }
 .model-panel small { display:block; color:#64748b; font-weight:700; letter-spacing:.07em; }
 .model-panel strong { display:block; margin:.2rem 0; color:#0f172a; font-size:1.2rem; }
 .model-panel p { margin:0; color:#475569; }
