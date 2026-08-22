@@ -23,15 +23,19 @@ function uniqueById(list: Product[]): Product[] {
 /**
  * Load seller products for DSS forms.
  * In real-API mode, never return mock catalog (mock IDs break DSS POSTs).
- * Fallback: nếu filter sellerId API trống, lấy catalog rộng hơn rồi lọc theo seller.
+ * Chỉ trả SP thuộc seller hiện tại (backend user id hoặc email khớp).
  */
 export async function loadSellerCatalogForDss(opts: {
   sellerId?: string
+  sellerEmail?: string
   withStock?: boolean
 }): Promise<SellerCatalogLoadResult> {
-  const sellerId = opts.sellerId?.trim()
+  const rawSellerId = opts.sellerId?.trim() ?? ''
+  const sellerEmail = opts.sellerEmail?.trim().toLowerCase() ?? ''
+  const numericSellerId = /^\d+$/.test(rawSellerId) ? rawSellerId : ''
+
   const meta = await productApi.listWithMeta({
-    sellerId,
+    sellerId: numericSellerId || undefined,
     withStock: opts.withStock ?? false,
     size: 48,
   })
@@ -48,22 +52,32 @@ export async function loadSellerCatalogForDss(opts: {
 
   let products = uniqueById(meta.products)
 
-  // Một lần gọi phụ tối đa — tránh N lần list làm DSS >2s
-  if (!products.length && sellerId) {
+  if (!products.length && (numericSellerId || sellerEmail)) {
     const broad = await productApi.listWithMeta({
       withStock: false,
-      size: 60,
+      size: 80,
     })
     if (!(apiConfig.useRealProducts && broad.catalogSource === 'mock')) {
-      const key = sellerId.toLowerCase()
       products = uniqueById(
         broad.products.filter((p) => {
-          const sid = String(p.sellerId ?? '').toLowerCase()
-          const email = String(p.sellerEmail ?? '').toLowerCase()
-          return sid === key || email === key || email.includes(key)
+          if (numericSellerId) {
+            return String(p.sellerId ?? '') === numericSellerId
+          }
+          if (sellerEmail) {
+            return String(p.sellerEmail ?? '').toLowerCase() === sellerEmail
+          }
+          return false
         }),
       )
     }
+  }
+
+  if (numericSellerId) {
+    products = products.filter((p) => String(p.sellerId ?? '') === numericSellerId)
+  } else if (sellerEmail) {
+    products = products.filter(
+      (p) => String(p.sellerEmail ?? '').toLowerCase() === sellerEmail,
+    )
   }
 
   return {

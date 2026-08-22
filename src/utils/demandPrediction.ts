@@ -107,7 +107,10 @@ export function mapDemandPredictionError(error: unknown): string {
       return error.message || 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
     }
     if (error.status === 403) {
-      return error.message || 'Bạn không có quyền tạo dự báo cho sản phẩm này.'
+      return 'Sản phẩm này không thuộc shop của bạn. Chọn lại SP trong danh sách shop.'
+    }
+    if (/does not belong to current seller/i.test(error.message || '')) {
+      return 'Sản phẩm này không thuộc shop của bạn. Chọn lại SP trong danh sách shop.'
     }
     if (error.message?.trim()) return error.message
     return 'Không tạo được dự báo nhu cầu.'

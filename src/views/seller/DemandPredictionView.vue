@@ -115,9 +115,10 @@ async function loadSellerProducts() {
   productsLoading.value = true
   productsError.value = ''
   try {
-    const sellerKey = auth.user.backendId ?? auth.user.id
+    const sellerKey = auth.user.backendId ?? ''
     const { products: list, error } = await loadSellerCatalogForDss({
       sellerId: sellerKey,
+      sellerEmail: auth.user.email,
       withStock: false,
     })
     if (error) {

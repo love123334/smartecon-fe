@@ -99,8 +99,12 @@ async function loadProducts() {
   loadingProducts.value = true
   error.value = ''
   try {
-    const sellerId = auth.user?.backendId ?? auth.user?.id
-    const loaded = await loadSellerCatalogForDss({ sellerId, withStock: false })
+    const sellerId = auth.user?.backendId ?? ''
+    const loaded = await loadSellerCatalogForDss({
+      sellerId,
+      sellerEmail: auth.user?.email,
+      withStock: false,
+    })
     if (loaded.error && !loaded.products.length) throw new Error(loaded.error)
     products.value = loaded.products
       .map((p) => ({ id: Number(p.id), name: p.name }))

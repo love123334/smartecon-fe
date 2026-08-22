@@ -41,10 +41,14 @@ const selectedProducts = ref<string[]>([])
 onMounted(async () => {
   loading.value = true
   try {
-    const sellerKey = auth.user?.backendId ?? auth.user?.id
+    const sellerKey = auth.user?.backendId ?? ''
     const [reqs, catalog] = await Promise.all([
       voucherApi.listSellerRequests(),
-      loadSellerCatalogForDss({ sellerId: sellerKey, withStock: false }),
+      loadSellerCatalogForDss({
+        sellerId: sellerKey,
+        sellerEmail: auth.user?.email,
+        withStock: false,
+      }),
     ])
     requests.value = reqs
     products.value = catalog.products.map((p) => ({ id: p.id, name: p.name }))

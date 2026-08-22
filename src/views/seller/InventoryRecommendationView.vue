@@ -63,9 +63,10 @@ const aiInsight = computed(() => {
 onMounted(async () => {
   if (!(apiConfig.useRealSeller && auth.isLoggedIn)) return
   try {
-    const sellerKey = auth.user?.backendId ?? auth.user?.id
+    const sellerKey = auth.user?.backendId ?? ''
     const { products: list, error } = await loadSellerCatalogForDss({
       sellerId: sellerKey,
+      sellerEmail: auth.user?.email,
       withStock: false,
     })
     if (error) {

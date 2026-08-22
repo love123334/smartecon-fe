@@ -124,7 +124,7 @@ onMounted(async () => {
 .dss-looker {
   margin: 0 0 1.25rem;
   padding: 1rem 1.1rem 1.15rem;
-  overflow: visible;
+  overflow: hidden;
 }
 .dss-looker__head {
   display: flex;

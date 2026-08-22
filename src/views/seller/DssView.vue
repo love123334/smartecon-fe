@@ -16,7 +16,7 @@ const insights = ref<DssInsight[]>([])
 const products = ref<Product[]>([])
 const hubLoading = ref(true)
 
-const sellerKey = computed(() => auth.user?.backendId ?? auth.user?.id)
+const sellerKey = computed(() => auth.user?.backendId ?? '')
 
 const moduleCards = computed(() =>
   buildSellerDssModuleCards({
@@ -64,7 +64,11 @@ onMounted(async () => {
   try {
     const [ins, catalog] = await Promise.all([
       dssApi.sellerInsights(sellerKey.value),
-      loadSellerCatalogForDss({ sellerId: sellerKey.value, withStock: false }),
+      loadSellerCatalogForDss({
+        sellerId: sellerKey.value,
+        sellerEmail: auth.user?.email,
+        withStock: false,
+      }),
     ])
     insights.value = ins
     products.value = catalog.products

@@ -199,7 +199,7 @@ function retry() {
 .pr-looker {
   margin: 0 0 1.25rem;
   padding: 1rem 1.1rem 1.15rem;
-  overflow: visible;
+  overflow: hidden;
 }
 .pr-looker__head {
   display: flex;
