@@ -3,9 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import {
   LOOKER_REPORT_HEIGHT_PX,
   LOOKER_REPORT_WIDTH_PX,
-  LOOKER_VIEWPORT_HEIGHT_MOBILE_PX,
   lookerEmbedSrc,
-  lookerMaxViewportHeight,
 } from '@/constants/lookerStudio'
 
 const props = withDefaults(
@@ -14,14 +12,11 @@ const props = withDefaults(
     title?: string
     reportWidth?: number
     reportHeight?: number
-    /** Chiếm gần hết chiều cao viewport (trang Doanh thu sàn). */
-    fillViewport?: boolean
   }>(),
   {
     title: 'Looker Studio',
     reportWidth: LOOKER_REPORT_WIDTH_PX,
     reportHeight: LOOKER_REPORT_HEIGHT_PX,
-    fillViewport: false,
   },
 )
 
@@ -35,7 +30,6 @@ const frameRef = ref<HTMLIFrameElement | null>(null)
 const naturalWidth = ref(props.reportWidth)
 const naturalHeight = ref(props.reportHeight)
 const containerWidth = ref(0)
-const maxViewportHeight = ref(lookerMaxViewportHeight())
 const loaded = ref(false)
 const failed = ref(false)
 let failTimer: ReturnType<typeof setTimeout> | null = null
@@ -63,8 +57,14 @@ function parseLookerDimensions(data: unknown): { width?: number; height?: number
   const obj = data as Record<string, unknown>
   const out: { width?: number; height?: number } = {}
 
-  if (typeof obj.height === 'number' && obj.height > 0) out.height = obj.height
-  if (typeof obj.width === 'number' && obj.width > 0) out.width = obj.width
+  for (const key of ['height', 'pageHeight', 'reportHeight'] as const) {
+    const v = obj[key]
+    if (typeof v === 'number' && v > 0) out.height = v
+  }
+  for (const key of ['width', 'pageWidth', 'reportWidth'] as const) {
+    const v = obj[key]
+    if (typeof v === 'number' && v > 0) out.width = v
+  }
 
   if (Array.isArray(data)) {
     for (const item of data) {
@@ -75,8 +75,8 @@ function parseLookerDimensions(data: unknown): { width?: number; height?: number
     return out
   }
 
-  const type = String(obj.type ?? '')
-  if (type.includes('properties:changed') || type.includes('page:changed')) {
+  const type = String(obj.type ?? obj.event ?? '')
+  if (/height|page|resize|dimension/i.test(type)) {
     if (typeof obj.height === 'number' && obj.height > 0) out.height = obj.height
   }
 
@@ -102,36 +102,16 @@ function onMessage(event: MessageEvent) {
   }
 }
 
-/** Scale full width; nếu fillViewport thì ưu tiên lấp đủ chiều cao viewport. */
+/** Full width — chiều cao khung = đúng chiều cao báo cáo sau scale (không ép min-height). */
 const scale = computed(() => {
-  const cw = containerWidth.value || naturalWidth.value
-  const maxH =
-    typeof window !== 'undefined' && window.innerWidth <= 800
-      ? LOOKER_VIEWPORT_HEIGHT_MOBILE_PX
-      : maxViewportHeight.value
-  if (!cw || !maxH || !naturalWidth.value || !naturalHeight.value) return 1
-
-  const byWidth = cw / naturalWidth.value
-  const byHeight = maxH / naturalHeight.value
-
-  if (props.fillViewport) {
-    if (naturalWidth.value * byHeight <= cw + 2) return byHeight
-    return byWidth
-  }
-  return Math.min(byWidth, byHeight)
+  const cw = containerWidth.value
+  if (!cw || !naturalWidth.value) return 1
+  return cw / naturalWidth.value
 })
 
-const scaledWidth = computed(() => Math.max(1, Math.round(naturalWidth.value * scale.value)))
-const scaledHeight = computed(() => Math.max(1, Math.round(naturalHeight.value * scale.value)))
-
-const viewportStyle = computed(() => {
-  const maxH =
-    typeof window !== 'undefined' && window.innerWidth <= 800
-      ? LOOKER_VIEWPORT_HEIGHT_MOBILE_PX
-      : maxViewportHeight.value
-  const h = props.fillViewport ? Math.max(scaledHeight.value, maxH) : scaledHeight.value
-  return { height: `${h}px` }
-})
+const scaledHeight = computed(() =>
+  Math.max(1, Math.round(naturalHeight.value * scale.value)),
+)
 
 const scalerStyle = computed(() => ({
   width: `${naturalWidth.value}px`,
@@ -140,7 +120,6 @@ const scalerStyle = computed(() => ({
 }))
 
 function measureContainer() {
-  maxViewportHeight.value = lookerMaxViewportHeight()
   containerWidth.value = viewportRef.value?.clientWidth ?? 0
 }
 
@@ -187,8 +166,7 @@ const embedSrc = lookerEmbedSrc(props.src)
   <div
     ref="viewportRef"
     class="looker-embed"
-    :class="{ 'looker-embed--fill': fillViewport }"
-    :style="viewportStyle"
+    :style="{ height: `${scaledHeight}px` }"
   >
     <p v-if="!loaded && !failed" class="looker-embed__loading muted" role="status">
       Đang tải báo cáo Looker Studio…
@@ -200,10 +178,7 @@ const embedSrc = lookerEmbedSrc(props.src)
       </a>
     </div>
 
-    <div
-      class="looker-embed__stage"
-      :style="{ width: `${scaledWidth}px`, height: `${scaledHeight}px` }"
-    >
+    <div class="looker-embed__stage">
       <div class="looker-embed__scaler" :style="scalerStyle">
         <iframe
           ref="frameRef"
@@ -246,12 +221,9 @@ const embedSrc = lookerEmbedSrc(props.src)
   background: rgba(248, 250, 252, 0.92);
 }
 
-.looker-embed--fill .looker-embed__stage {
-  margin: 0 auto;
-}
-
 .looker-embed__stage {
-  margin: 0 auto;
+  width: 100%;
+  height: 100%;
   overflow: hidden;
 }
 

@@ -131,7 +131,6 @@ function retry() {
       <LookerStudioEmbed
         :src="LOOKER_STUDIO_PLATFORM_REVENUE_URL"
         title="Doanh thu sàn — Looker Studio"
-        fill-viewport
       />
     </section>
 
