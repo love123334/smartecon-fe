@@ -150,6 +150,111 @@ export function voucherUserMessage(raw: string | null | undefined): string {
   return msg.length > 120 ? 'Không áp dụng được mã giảm giá. Vui lòng kiểm tra mã và thử lại.' : msg
 }
 
+function isVoucherTechFailure(message: string | null | undefined): boolean {
+  const msg = message || ''
+  return /chưa áp dụng được|thử lại sau|sql|schema|backend|timeout|railway|rollback/i.test(msg)
+}
+
+function computeDiscountFromVoucher(
+  v: Voucher,
+  cartSubtotal: number,
+  lines: CartLine[],
+  _singleSellerId: string | null,
+): ValidateVoucherResult {
+  const now = Date.now()
+  if (!v.isActive) {
+    return { valid: false, message: 'Mã giảm giá hiện không còn hiệu lực.' }
+  }
+  if (new Date(v.startsAt).getTime() > now) {
+    return { valid: false, message: 'Mã giảm giá chưa có hiệu lực.' }
+  }
+  if (new Date(v.endsAt).getTime() < now) {
+    return { valid: false, message: 'Mã giảm giá đã hết hạn.' }
+  }
+  if (v.usageLimit != null && v.usedCount >= v.usageLimit) {
+    return { valid: false, message: 'Mã giảm giá đã hết lượt sử dụng.' }
+  }
+
+  let eligibleSubtotal = cartSubtotal
+
+  if (v.scope === 'SHOP') {
+    const sellerKey = v.sellerId != null ? String(v.sellerId) : ''
+    const shopLines = lines.filter((line) => String(line.product.sellerId ?? '') === sellerKey)
+    if (!shopLines.length) {
+      return {
+        valid: false,
+        message: 'Mã giảm giá không đúng hoặc không dùng được cho giỏ hàng này.',
+      }
+    }
+    eligibleSubtotal = shopLines.reduce(
+      (sum, line) => sum + line.product.price * line.quantity,
+      0,
+    )
+  }
+
+  if (v.appliesTo === 'SELECTED_PRODUCTS' && v.productIds.length) {
+    const allowed = new Set(v.productIds.map(String))
+    eligibleSubtotal = lines
+      .filter((line) => allowed.has(String(line.product.id)))
+      .reduce((sum, line) => sum + line.product.price * line.quantity, 0)
+    if (eligibleSubtotal <= 0) {
+      return {
+        valid: false,
+        message: 'Mã giảm giá không áp dụng cho sản phẩm trong giỏ.',
+      }
+    }
+  }
+
+  if (eligibleSubtotal < v.minimumOrderAmount) {
+    return { valid: false, message: 'Đơn hàng chưa đủ điều kiện áp dụng mã này.' }
+  }
+
+  let discount =
+    v.discountType === 'PERCENTAGE'
+      ? Math.round(eligibleSubtotal * (v.discountValue / 100))
+      : v.discountValue
+
+  if (v.maximumDiscountAmount != null) {
+    discount = Math.min(discount, v.maximumDiscountAmount)
+  }
+  discount = Math.min(discount, cartSubtotal)
+  if (discount <= 0) {
+    return { valid: false, message: 'Mã giảm giá không áp dụng được cho giỏ hàng này.' }
+  }
+
+  return {
+    valid: true,
+    voucherId: v.id,
+    code: v.code,
+    name: v.name,
+    message: 'Áp dụng mã giảm giá thành công.',
+    discountType: v.discountType,
+    discountValue: v.discountValue,
+    scope: v.scope,
+    sellerId: v.sellerId,
+    sellerName: v.sellerName,
+    discountAmount: discount,
+    eligibleSubtotal,
+  }
+}
+
+async function publicCatalogVoucherFallback(
+  code: string,
+  cartSubtotal: number,
+  lines: CartLine[],
+  singleSellerId: string | null,
+): Promise<ValidateVoucherResult | null> {
+  try {
+    const normalized = code.trim().toUpperCase()
+    const list = await voucherApi.listPublic()
+    const match = list.find((v) => v.code.trim().toUpperCase() === normalized)
+    if (!match) return null
+    return computeDiscountFromVoucher(match, cartSubtotal, lines, singleSellerId)
+  } catch {
+    return null
+  }
+}
+
 function demoVoucherFallback(
   code: string,
   cartSubtotal: number,
@@ -223,22 +328,37 @@ export async function validateCartVoucher(options: {
     if (res.valid) {
       return { ...res, message: res.message || 'Áp dụng mã giảm giá thành công.' }
     }
-    // API trả invalid rõ ràng — chỉ fallback demo khi lỗi kỹ thuật / voucher seed thiếu
-    const tech =
-      /chưa áp dụng được|thử lại sau|sql|schema|backend|timeout|railway/i.test(
-        res.message || '',
-      )
-    if (tech && !apiConfig.useRealOrders) {
-      const fallback = demoVoucherFallback(
-        code,
-        options.cartSubtotal,
-        options.singleSellerId ?? null,
-      )
-      if (fallback?.valid) return fallback
+    if (isVoucherTechFailure(res.message)) {
+      if (apiConfig.useRealOrders) {
+        const pub = await publicCatalogVoucherFallback(
+          code,
+          options.cartSubtotal,
+          options.lines,
+          options.singleSellerId ?? null,
+        )
+        if (pub?.valid) return pub
+        if (pub && !pub.valid) return { ...pub, message: voucherUserMessage(pub.message) }
+      } else {
+        const fallback = demoVoucherFallback(
+          code,
+          options.cartSubtotal,
+          options.singleSellerId ?? null,
+        )
+        if (fallback?.valid) return fallback
+      }
     }
     return { ...res, message: voucherUserMessage(res.message) }
   } catch (e) {
-    if (!apiConfig.useRealOrders) {
+    if (apiConfig.useRealOrders) {
+      const pub = await publicCatalogVoucherFallback(
+        code,
+        options.cartSubtotal,
+        options.lines,
+        options.singleSellerId ?? null,
+      )
+      if (pub?.valid) return pub
+      if (pub && !pub.valid) return pub
+    } else {
       const fallback = demoVoucherFallback(code, options.cartSubtotal, options.singleSellerId ?? null)
       if (fallback?.valid) return fallback
       if (fallback && !fallback.valid) return fallback
