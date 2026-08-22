@@ -9,11 +9,11 @@ import {
   peekPendingVoucherCode,
   rememberPendingVoucherCode,
   validateCartVoucher,
+  voucherCodeForOrder,
   voucherUserMessage,
 } from '@/utils/voucherCheckout'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
-import { useNoticeStore } from '@/stores/notice'
 import { trySiteFx } from '@/utils/siteFx'
 import QuantityStepper from '@/components/QuantityStepper.vue'
 import CheckoutStepper from '@/components/CheckoutStepper.vue'
@@ -23,7 +23,6 @@ type CheckoutPayment = 'momo_qr'
 
 const auth = useAuthStore()
 const cart = useCartStore()
-const notice = useNoticeStore()
 const router = useRouter()
 const route = useRoute()
 
@@ -170,7 +169,7 @@ async function applyCoupon() {
       cartSubtotal: cart.total,
       singleSellerId: singleSellerId.value,
     })
-    if (res.valid) {
+    if (res.valid && res.serverConfirmed !== false) {
       couponApplied.value = true
       couponInfo.value = res
       rememberPendingVoucherCode(res.code ?? code)
@@ -215,49 +214,24 @@ async function placeOrder() {
         cartSubtotal: cart.total,
         singleSellerId: singleSellerId.value,
       })
-      if (res.valid) {
-        voucherCode = res.code ?? coupon.value.trim()
-      } else {
+      voucherCode = voucherCodeForOrder(res)
+      if (!voucherCode) {
         couponApplied.value = false
         couponInfo.value = null
         couponIsError.value = true
-        couponMessage.value = voucherUserMessage(res.message)
+        couponMessage.value = res.message || voucherUserMessage('')
         consumePendingVoucherCode()
-        notice.show({
-          kind: 'info',
-          title: 'Bỏ qua mã giảm giá',
-          message:
-            'Mã không áp dụng được lúc này — đơn vẫn được tạo với giá đầy đủ. Bạn có thể thử mã lại sau.',
-          durationMs: 4500,
-        })
       }
     }
 
     const fullAddress = [address.value, city.value, state.value, zip.value].filter(Boolean).join(', ')
 
-    const submit = (code?: string) =>
-      orderApi.placeOrder(auth.user!.id, fullAddress || address.value, payment.value, code)
-
-    let order
-    try {
-      order = await submit(voucherCode)
-    } catch (e) {
-      const raw = e instanceof Error ? e.message : ''
-      if (voucherCode && /voucher|mã giảm|discount|rollback/i.test(raw)) {
-        couponApplied.value = false
-        couponInfo.value = null
-        consumePendingVoucherCode()
-        notice.show({
-          kind: 'info',
-          title: 'Mã giảm giá không áp dụng được',
-          message: 'Đang tạo đơn không voucher — bạn vẫn thanh toán bình thường.',
-          durationMs: 4500,
-        })
-        order = await submit(undefined)
-      } else {
-        throw e
-      }
-    }
+    const order = await orderApi.placeOrder(
+      auth.user!.id,
+      fullAddress || address.value,
+      payment.value,
+      voucherCode,
+    )
 
     consumePendingVoucherCode()
     await cart.refresh()

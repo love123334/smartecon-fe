@@ -204,7 +204,7 @@ async function applyCoupon() {
       cartSubtotal: cart.total,
       singleSellerId: singleSellerId.value,
     })
-    if (res.valid && res.discountAmount != null) {
+    if (res.valid && res.serverConfirmed !== false && res.discountAmount != null) {
       couponApplied.value = true
       couponDiscount.value = res.discountAmount
       rememberPendingVoucherCode(res.code ?? code)

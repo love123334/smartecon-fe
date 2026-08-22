@@ -13,7 +13,7 @@ describe('voucherUserMessage', () => {
       voucherUserMessage(
         'Không xử lý được dữ liệu DSS/đơn hàng. Kiểm tra schema DB đã migrate.',
       ),
-    ).toMatch(/thử lại/i)
+    ).toMatch(/thanh toán bình thường/i)
   })
 
   it('keeps friendly invalid voucher text', () => {
@@ -44,7 +44,7 @@ describe('voucherUserMessage', () => {
       voucherUserMessage(
         'Không xử lý được dữ liệu DSS/đơn hàng. Kiểm tra schema DB đã migrate.',
       ),
-    ).toMatch(/thử lại/i)
+    ).toMatch(/thanh toán bình thường/i)
   })
 
   it('keeps friendly invalid voucher text', () => {
