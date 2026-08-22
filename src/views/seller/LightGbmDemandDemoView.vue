@@ -34,40 +34,37 @@ const onnxUsed = computed(
     Boolean(features.value?.onnxModelUsed) ||
     (result.value?.method != null && ML_METHODS.has(result.value.method)),
 )
-const modelAvailable = computed(() => {
-  if (onnxUsed.value) return true
-  // Railway cũ (excludeOnnx): BE có thể báo avail=true dù không chạy ML
-  if (result.value?.method === 'trend_blended_feature_forecast') return false
-  return Boolean(features.value?.onnxModelAvailable)
-})
-const panelTitle = computed(() => (onnxUsed.value ? 'MÔ HÌNH ĐÃ CHẠY' : 'PHÂN TÍCH ĐÃ CHẠY'))
+const analysisCompleted = computed(
+  () => Boolean(result.value && !running.value && result.value.predictedDemand >= 0),
+)
+const panelTitle = computed(() => (onnxUsed.value ? 'MÔ HÌNH ML ĐÃ CHẠY' : 'PHÂN TÍCH DSS ĐÃ CHẠY'))
 const modelState = computed(() => {
   if (!result.value) {
     return {
       label: 'Chưa chạy',
       tone: 'idle',
-      detail: 'Chọn sản phẩm và chạy thử mô hình.',
+      detail: 'Chọn sản phẩm và bấm Chạy dự báo.',
     }
   }
   if (result.value.method === 'lightgbm_onnx') {
     return {
-      label: 'Mô hình học máy',
+      label: 'Mô hình học máy LightGBM',
       tone: 'success',
       detail: 'Dự báo từ LightGBM ONNX trên lịch sử bán của sản phẩm.',
     }
   }
   if (result.value.method === 'lightgbm_onnx_with_baseline_fallback') {
     return {
-      label: 'Kết hợp dự phòng',
+      label: 'Kết hợp ML + xu hướng',
       tone: 'warn',
-      detail: 'Một phần kỳ dự báo dùng mô hình, phần còn lại dùng xu hướng thống kê.',
+      detail: 'Một phần kỳ dự báo dùng LightGBM, phần còn lại dùng xu hướng thống kê.',
     }
   }
   return {
-    label: 'Dự báo xu hướng',
-    tone: 'muted',
+    label: 'Dự báo xu hướng — thành công',
+    tone: 'success',
     detail:
-      'Phân tích theo xu hướng bán gần đây (môi trường production hiện dùng phương án thống kê ổn định).',
+      'Hệ thống đã đọc lịch sử bán và dự báo số lượng. LightGBM ONNX không bật trên server production (512MB, excludeOnnx) — đây là phương án thống kê ổn định, không phải lỗi.',
   }
 })
 const trendLabel = computed(() => {
@@ -211,8 +208,8 @@ async function saveForecast() {
           <p>{{ modelState.detail }}</p>
         </div>
         <div class="model-flags">
-          <span>Mô hình sẵn sàng <b>{{ modelAvailable ? 'Có' : 'Không' }}</b></span>
-          <span>Đã dùng mô hình học máy <b>{{ onnxUsed ? 'Có' : 'Không' }}</b></span>
+          <span>Phân tích DSS <b :class="{ 'flag-ok': analysisCompleted }">{{ analysisCompleted ? 'Đã chạy' : 'Chưa' }}</b></span>
+          <span>LightGBM ONNX <b>{{ onnxUsed ? 'Đang dùng' : 'Tắt (server 512MB)' }}</b></span>
         </div>
       </section>
 
@@ -262,7 +259,9 @@ async function saveForecast() {
 .model-state--warn { background:#ffedd5; color:#9a3412; }
 .model-panel { padding:1.1rem 1.25rem; margin-bottom:1rem; border:1px solid #cbd5e1; border-left:5px solid #64748b; border-radius:12px; background:#fff; }
 .model-panel--success { border-left-color:#16a34a; background:#f7fff9; }
+.model-panel--muted { border-left-color:#64748b; background:#f8fafc; }
 .model-panel--warn { border-left-color:#f97316; background:#fffaf5; }
+.flag-ok { color:#166534 !important; }
 .model-panel small { display:block; color:#64748b; font-weight:700; letter-spacing:.07em; }
 .model-panel strong { display:block; margin:.2rem 0; color:#0f172a; font-size:1.2rem; }
 .model-panel p { margin:0; color:#475569; }

@@ -4,23 +4,24 @@ import {
   LOOKER_REPORT_HEIGHT_PX,
   LOOKER_REPORT_WIDTH_PX,
   LOOKER_VIEWPORT_HEIGHT_MOBILE_PX,
-  LOOKER_VIEWPORT_HEIGHT_PX,
   lookerEmbedSrc,
+  lookerMaxViewportHeight,
 } from '@/constants/lookerStudio'
 
 const props = withDefaults(
   defineProps<{
     src: string
     title?: string
-    viewportHeight?: number
     reportWidth?: number
     reportHeight?: number
+    /** Chiếm gần hết chiều cao viewport (trang Doanh thu sàn). */
+    fillViewport?: boolean
   }>(),
   {
     title: 'Looker Studio',
-    viewportHeight: LOOKER_VIEWPORT_HEIGHT_PX,
     reportWidth: LOOKER_REPORT_WIDTH_PX,
     reportHeight: LOOKER_REPORT_HEIGHT_PX,
+    fillViewport: false,
   },
 )
 
@@ -33,19 +34,12 @@ const viewportRef = ref<HTMLElement | null>(null)
 const frameRef = ref<HTMLIFrameElement | null>(null)
 const naturalWidth = ref(props.reportWidth)
 const naturalHeight = ref(props.reportHeight)
-const viewportHeightPx = ref(props.viewportHeight)
 const containerWidth = ref(0)
+const maxViewportHeight = ref(lookerMaxViewportHeight())
 const loaded = ref(false)
 const failed = ref(false)
 let failTimer: ReturnType<typeof setTimeout> | null = null
 let resizeObserver: ResizeObserver | null = null
-
-function syncViewportHeight() {
-  viewportHeightPx.value =
-    typeof window !== 'undefined' && window.innerWidth <= 800
-      ? LOOKER_VIEWPORT_HEIGHT_MOBILE_PX
-      : props.viewportHeight
-}
 
 function parseLookerDimensions(data: unknown): { width?: number; height?: number } {
   if (typeof data === 'number' && Number.isFinite(data) && data > 0) {
@@ -108,15 +102,36 @@ function onMessage(event: MessageEvent) {
   }
 }
 
+/** Scale full width; nếu fillViewport thì ưu tiên lấp đủ chiều cao viewport. */
 const scale = computed(() => {
   const cw = containerWidth.value || naturalWidth.value
-  const ch = viewportHeightPx.value
-  if (!cw || !ch || !naturalWidth.value || !naturalHeight.value) return 1
-  return Math.min(cw / naturalWidth.value, ch / naturalHeight.value)
+  const maxH =
+    typeof window !== 'undefined' && window.innerWidth <= 800
+      ? LOOKER_VIEWPORT_HEIGHT_MOBILE_PX
+      : maxViewportHeight.value
+  if (!cw || !maxH || !naturalWidth.value || !naturalHeight.value) return 1
+
+  const byWidth = cw / naturalWidth.value
+  const byHeight = maxH / naturalHeight.value
+
+  if (props.fillViewport) {
+    if (naturalWidth.value * byHeight <= cw + 2) return byHeight
+    return byWidth
+  }
+  return Math.min(byWidth, byHeight)
 })
 
-const scaledWidth = computed(() => Math.round(naturalWidth.value * scale.value))
-const scaledHeight = computed(() => Math.round(naturalHeight.value * scale.value))
+const scaledWidth = computed(() => Math.max(1, Math.round(naturalWidth.value * scale.value)))
+const scaledHeight = computed(() => Math.max(1, Math.round(naturalHeight.value * scale.value)))
+
+const viewportStyle = computed(() => {
+  const maxH =
+    typeof window !== 'undefined' && window.innerWidth <= 800
+      ? LOOKER_VIEWPORT_HEIGHT_MOBILE_PX
+      : maxViewportHeight.value
+  const h = props.fillViewport ? Math.max(scaledHeight.value, maxH) : scaledHeight.value
+  return { height: `${h}px` }
+})
 
 const scalerStyle = computed(() => ({
   width: `${naturalWidth.value}px`,
@@ -125,7 +140,7 @@ const scalerStyle = computed(() => ({
 }))
 
 function measureContainer() {
-  syncViewportHeight()
+  maxViewportHeight.value = lookerMaxViewportHeight()
   containerWidth.value = viewportRef.value?.clientWidth ?? 0
 }
 
@@ -172,7 +187,8 @@ const embedSrc = lookerEmbedSrc(props.src)
   <div
     ref="viewportRef"
     class="looker-embed"
-    :style="{ height: `${viewportHeightPx}px` }"
+    :class="{ 'looker-embed--fill': fillViewport }"
+    :style="viewportStyle"
   >
     <p v-if="!loaded && !failed" class="looker-embed__loading muted" role="status">
       Đang tải báo cáo Looker Studio…
@@ -211,11 +227,8 @@ const embedSrc = lookerEmbedSrc(props.src)
   width: 100%;
   overflow: hidden;
   border-radius: 10px;
-  background: #f8fafc;
+  background: #fff;
   border: 1px solid var(--line, #e2e8f0);
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
 }
 
 .looker-embed__loading,
@@ -233,9 +246,13 @@ const embedSrc = lookerEmbedSrc(props.src)
   background: rgba(248, 250, 252, 0.92);
 }
 
+.looker-embed--fill .looker-embed__stage {
+  margin: 0 auto;
+}
+
 .looker-embed__stage {
+  margin: 0 auto;
   overflow: hidden;
-  flex-shrink: 0;
 }
 
 .looker-embed__scaler {

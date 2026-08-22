@@ -80,7 +80,7 @@ describe('mapDemandPredictionError', () => {
       mapDemandPredictionError(
         new ApiError('You do not have permission to generate a prediction for this product.', 403),
       ),
-    ).toContain('permission')
+    ).toMatch(/không thuộc shop/i)
 
     expect(mapDemandPredictionError(new ApiError('', 401))).toMatch(/đăng nhập/i)
   })
