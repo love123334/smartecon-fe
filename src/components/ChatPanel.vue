@@ -31,13 +31,6 @@ const listEl = ref<HTMLElement | null>(null)
 const dropActive = ref(false)
 const isDev = import.meta.env.DEV
 
-const lastAssistantId = computed(() => {
-  for (let i = props.messages.length - 1; i >= 0; i--) {
-    if (props.messages[i].role === 'assistant') return props.messages[i].id
-  }
-  return null
-})
-
 const visibleQuickPrompts = computed(() =>
   (props.quickPrompts ?? []).filter((p) => p.text.trim()),
 )
