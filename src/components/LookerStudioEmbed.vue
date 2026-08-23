@@ -3,6 +3,8 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import {
   LOOKER_REPORT_HEIGHT_PX,
   LOOKER_REPORT_WIDTH_PX,
+  LOOKER_VIEWPORT_HEIGHT_MOBILE_PX,
+  LOOKER_VIEWPORT_HEIGHT_PX,
   lookerEmbedSrc,
 } from '@/constants/lookerStudio'
 
@@ -10,11 +12,13 @@ const props = withDefaults(
   defineProps<{
     src: string
     title?: string
+    viewportHeight?: number
     reportWidth?: number
     reportHeight?: number
   }>(),
   {
     title: 'Looker Studio',
+    viewportHeight: LOOKER_VIEWPORT_HEIGHT_PX,
     reportWidth: LOOKER_REPORT_WIDTH_PX,
     reportHeight: LOOKER_REPORT_HEIGHT_PX,
   },
@@ -25,12 +29,23 @@ const emit = defineEmits<{
   fail: []
 }>()
 
+const viewportRef = ref<HTMLElement | null>(null)
 const frameRef = ref<HTMLIFrameElement | null>(null)
 const naturalWidth = ref(props.reportWidth)
 const naturalHeight = ref(props.reportHeight)
+const viewportHeightPx = ref(props.viewportHeight)
+const containerWidth = ref(0)
 const loaded = ref(false)
 const failed = ref(false)
 let failTimer: ReturnType<typeof setTimeout> | null = null
+let resizeObserver: ResizeObserver | null = null
+
+function syncViewportHeight() {
+  viewportHeightPx.value =
+    typeof window !== 'undefined' && window.innerWidth <= 800
+      ? LOOKER_VIEWPORT_HEIGHT_MOBILE_PX
+      : props.viewportHeight
+}
 
 function parseLookerDimensions(data: unknown): { width?: number; height?: number } {
   if (typeof data === 'number' && Number.isFinite(data) && data > 0) {
@@ -54,14 +69,8 @@ function parseLookerDimensions(data: unknown): { width?: number; height?: number
   const obj = data as Record<string, unknown>
   const out: { width?: number; height?: number } = {}
 
-  for (const key of ['height', 'pageHeight', 'reportHeight'] as const) {
-    const v = obj[key]
-    if (typeof v === 'number' && v > 0) out.height = v
-  }
-  for (const key of ['width', 'pageWidth', 'reportWidth'] as const) {
-    const v = obj[key]
-    if (typeof v === 'number' && v > 0) out.width = v
-  }
+  if (typeof obj.height === 'number' && obj.height > 0) out.height = obj.height
+  if (typeof obj.width === 'number' && obj.width > 0) out.width = obj.width
 
   if (Array.isArray(data)) {
     for (const item of data) {
@@ -72,8 +81,8 @@ function parseLookerDimensions(data: unknown): { width?: number; height?: number
     return out
   }
 
-  const type = String(obj.type ?? obj.event ?? '')
-  if (/height|page|resize|dimension/i.test(type)) {
+  const type = String(obj.type ?? '')
+  if (type.includes('properties:changed') || type.includes('page:changed')) {
     if (typeof obj.height === 'number' && obj.height > 0) out.height = obj.height
   }
 
@@ -91,18 +100,37 @@ function onMessage(event: MessageEvent) {
   }
 
   const dims = parseLookerDimensions(event.data)
-  if (dims.width && dims.width > 400) {
+  // Giữ canvas đủ lớn — không thu height về ~900 (gây scrollbar nội bộ)
+  if (dims.width && dims.width >= 800 && dims.width <= 2400) {
     naturalWidth.value = Math.round(dims.width)
   }
-  if (dims.height && dims.height > 200 && dims.height < 4000) {
+  if (dims.height && dims.height >= 1200 && dims.height <= 4000) {
     naturalHeight.value = Math.round(dims.height)
   }
 }
 
-/** Full width; chiều cao theo tỉ lệ canvas (cắt phần trắng thừa dưới báo cáo). */
-const embedStyle = computed(() => ({
-  aspectRatio: `${naturalWidth.value} / ${naturalHeight.value}`,
+/** Scale vừa cả bề ngang + chiều cao khung → không scroll trong iframe. */
+const scale = computed(() => {
+  const cw = containerWidth.value || naturalWidth.value
+  const ch = viewportHeightPx.value
+  if (!cw || !ch || !naturalWidth.value || !naturalHeight.value) return 1
+  return Math.min(cw / naturalWidth.value, ch / naturalHeight.value)
+})
+
+const scaledWidth = computed(() => Math.round(naturalWidth.value * scale.value))
+const scaledHeight = computed(() => Math.round(naturalHeight.value * scale.value))
+
+const scalerStyle = computed(() => ({
+  width: `${naturalWidth.value}px`,
+  height: `${naturalHeight.value}px`,
+  transform: `scale(${scale.value})`,
+  transformOrigin: 'top left',
 }))
+
+function measureContainer() {
+  syncViewportHeight()
+  containerWidth.value = viewportRef.value?.clientWidth ?? 0
+}
 
 function onLoad() {
   loaded.value = true
@@ -111,11 +139,20 @@ function onLoad() {
     clearTimeout(failTimer)
     failTimer = null
   }
+  measureContainer()
   emit('load')
 }
 
 onMounted(() => {
+  measureContainer()
   window.addEventListener('message', onMessage)
+  window.addEventListener('resize', measureContainer)
+
+  if (typeof ResizeObserver !== 'undefined' && viewportRef.value) {
+    resizeObserver = new ResizeObserver(() => measureContainer())
+    resizeObserver.observe(viewportRef.value)
+  }
+
   failTimer = setTimeout(() => {
     if (!loaded.value) {
       failed.value = true
@@ -126,6 +163,8 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('message', onMessage)
+  window.removeEventListener('resize', measureContainer)
+  resizeObserver?.disconnect()
   if (failTimer) clearTimeout(failTimer)
 })
 
@@ -133,7 +172,11 @@ const embedSrc = lookerEmbedSrc(props.src)
 </script>
 
 <template>
-  <div class="looker-embed" :style="embedStyle">
+  <div
+    ref="viewportRef"
+    class="looker-embed"
+    :style="{ height: `${viewportHeightPx}px` }"
+  >
     <p v-if="!loaded && !failed" class="looker-embed__loading muted" role="status">
       Đang tải báo cáo Looker Studio…
     </p>
@@ -144,17 +187,26 @@ const embedSrc = lookerEmbedSrc(props.src)
       </a>
     </div>
 
-    <iframe
-      ref="frameRef"
-      class="looker-embed__frame"
-      :title="title"
-      :src="embedSrc"
-      loading="lazy"
-      scrolling="no"
-      referrerpolicy="no-referrer-when-downgrade"
-      allowfullscreen
-      @load="onLoad"
-    />
+    <div
+      class="looker-embed__stage"
+      :style="{ width: `${scaledWidth}px`, height: `${scaledHeight}px` }"
+    >
+      <div class="looker-embed__scaler" :style="scalerStyle">
+        <iframe
+          ref="frameRef"
+          class="looker-embed__frame"
+          :title="title"
+          :src="embedSrc"
+          :width="naturalWidth"
+          :height="naturalHeight"
+          loading="lazy"
+          scrolling="no"
+          referrerpolicy="no-referrer-when-downgrade"
+          allowfullscreen
+          @load="onLoad"
+        />
+      </div>
+    </div>
   </div>
 </template>
 
@@ -166,6 +218,19 @@ const embedSrc = lookerEmbedSrc(props.src)
   border-radius: 10px;
   background: #fff;
   border: 1px solid var(--line, #e2e8f0);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.looker-embed__stage {
+  position: relative;
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+
+.looker-embed__scaler {
+  transform-origin: top left;
 }
 
 .looker-embed__loading,
@@ -189,6 +254,12 @@ const embedSrc = lookerEmbedSrc(props.src)
   height: 100%;
   border: 0;
   overflow: hidden;
-  pointer-events: auto;
+  scrollbar-width: none;
+}
+
+.looker-embed__frame::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 </style>
