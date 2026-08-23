@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import {
+  LOOKER_MIN_TRUSTED_HEIGHT_PX,
   LOOKER_REPORT_HEIGHT_PX,
   LOOKER_REPORT_WIDTH_PX,
   lookerEmbedSrc,
@@ -83,6 +84,20 @@ function parseLookerDimensions(data: unknown): { width?: number; height?: number
   return out
 }
 
+function applyLookerDimensions(dims: { width?: number; height?: number }) {
+  if (dims.width && dims.width >= 800 && dims.width <= 2400) {
+    naturalWidth.value = Math.round(dims.width)
+  }
+  // Chỉ tin height đủ lớn — không thu canvas (gây scrollbar nội bộ iframe).
+  if (
+    dims.height &&
+    dims.height >= LOOKER_MIN_TRUSTED_HEIGHT_PX &&
+    dims.height <= 4000
+  ) {
+    naturalHeight.value = Math.max(props.reportHeight, Math.round(dims.height))
+  }
+}
+
 function onMessage(event: MessageEvent) {
   if (event.source !== frameRef.value?.contentWindow) return
   const origin = String(event.origin || '')
@@ -93,16 +108,10 @@ function onMessage(event: MessageEvent) {
     return
   }
 
-  const dims = parseLookerDimensions(event.data)
-  if (dims.width && dims.width >= 640 && dims.width <= 2400) {
-    naturalWidth.value = Math.round(dims.width)
-  }
-  if (dims.height && dims.height >= 400 && dims.height <= 4000) {
-    naturalHeight.value = Math.round(dims.height)
-  }
+  applyLookerDimensions(parseLookerDimensions(event.data))
 }
 
-/** Stretch full width; height follows aspect ratio — khung vừa khít báo cáo. */
+/** Full-width stretch; outer height follows scaled canvas — không scrollbar. */
 const scale = computed(() => {
   const cw = containerWidth.value || naturalWidth.value
   const nw = naturalWidth.value
