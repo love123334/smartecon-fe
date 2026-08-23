@@ -73,6 +73,7 @@ export interface ChatReply {
  */
 const STRICT_LOCAL_INTENTS = new Set<ChatIntent>([
   'product_cheapest',
+  'product_budget',
   'product_price',
   'product_stock',
   'orders',
@@ -153,33 +154,16 @@ function resolveFocusProduct(enriched: ChatContext, prior: ChatProductRef): Prod
   }
 }
 
-const BACKEND_CATALOG_INTENTS = new Set<ChatIntent>([
-  'product_search',
-  'product_budget',
-  'recommend',
-  'category_browse',
-  'where_to_buy',
-  'promo',
-  'shop_overview',
-  'categories',
-])
-
 function shouldForceLocal(
   normalized: string,
   intent: ChatIntent | null,
   followUp: boolean,
   hasPriceFilter: boolean,
   priceStats: boolean,
-  backendAiReady: boolean,
+  _backendAiReady: boolean,
 ): boolean {
-  if (priceStats) return true
-  if (hasPriceFilter) {
-    const catalogBrowse =
-      backendAiReady &&
-      intent != null &&
-      (BACKEND_CATALOG_INTENTS.has(intent) || intent === 'product_info')
-    if (!catalogBrowse) return true
-  }
+  // Budget / price-band queries must use local catalog filter — BE keyword search misses them.
+  if (priceStats || hasPriceFilter) return true
   if (intent != null && STRICT_LOCAL_INTENTS.has(intent)) return true
   if (
     followUp &&
@@ -204,13 +188,30 @@ function backendReplyLooksGrounded(content: string): boolean {
   )
 }
 
+function llmDeniesProductsWhileLocalHasHits(
+  llmContent: string,
+  localProducts: ChatProductRef[] | undefined,
+): boolean {
+  if (!localProducts?.length) return false
+  const n = normalizeText(llmContent)
+  return (
+    /khong co (san pham|sp|mat hang)|chua (tim|co) (duoc )?(san pham|sp)|khong tim thay|khong thay (san pham|sp)|theo thong tin hien tai/.test(
+      n,
+    ) && /khong|chua|het/.test(n)
+  )
+}
+
 function preferLocalOverLlm(
   normalized: string,
   llmContent: string,
   localContent: string,
   facts: ReturnType<typeof buildVerifiedFacts>,
   backendGrounded = false,
+  localProducts?: ChatProductRef[],
 ): ChatFallbackReason | null {
+  if (llmDeniesProductsWhileLocalHasHits(llmContent, localProducts)) {
+    return 'contradicts_facts'
+  }
   // Backend Gemini + tools already grounded — keep its wording unless clearly off-topic / price clash
   if (backendGrounded) {
     if (looksLikeOffTopicPlatformReply(normalized, llmContent)) return 'off_topic'
@@ -453,6 +454,7 @@ export async function resolveChatReply(
         localContent,
         facts,
         backendGrounded,
+        products,
       )
       if (fallbackReason === 'contradicts_facts') {
         const repaired = repairPriceFactsInReply(content, facts)
