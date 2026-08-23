@@ -27,7 +27,6 @@ import {
   groupProductsByShop,
   isAffordableProductQuery,
   isPriceStatsQuery,
-  productsUnderBudget,
   stripPriceTokens,
 } from '@/api/chat/products'
 import { matchCategoryFromText } from '@/api/chat/synonyms'
@@ -363,9 +362,17 @@ function budgetReply(ctx: ChatContext, raw: string): string {
     }
     return `${name}Cho mình biết ngân sách, ví dụ: **"dưới 2 triệu"**, **"tầm 2tr"** hoặc **"dưới 500k"**.`
   }
-  const hits = productsUnderBudget(catalog, budget, 6)
+  const filtered = filterProductsForQuery(catalog, raw, ctx.categories, 6)
+  const hits = filtered.products
+  const label = extractProductFocusLabel(raw)
   if (!hits.length) {
+    if (filtered.queryText) {
+      return `${name}Hiện chưa có **${label}** trong tầm **${formatVnd(budget)}**. Bạn thử nới ngân sách hoặc hỏi **"điện thoại"** / **"sản phẩm rẻ nhất"** nhé.`
+    }
     return `${name}Hiện chưa có sản phẩm nào trong tầm **${formatVnd(budget)}**. Bạn thử mức cao hơn hoặc hỏi **"sản phẩm rẻ nhất"** nhé.`
+  }
+  if (filtered.queryText) {
+    return `${name}Có nhé — **${hits.length}** **${label}** dưới **${formatVnd(budget)}**:\n${productLines(hits, 6)}\n\n→ Bấm card bên dưới hoặc mở **Cửa hàng** để xem chi tiết.`
   }
   return `${name}Có nhé — mình tìm được **${hits.length}** sản phẩm giá dưới **${formatVnd(budget)}**:\n${productLines(hits, 6)}\n\n→ Bấm card bên dưới hoặc mở **Cửa hàng** để xem chi tiết.`
 }

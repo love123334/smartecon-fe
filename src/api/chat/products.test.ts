@@ -334,6 +334,55 @@ describe('seller name product search', () => {
   })
 })
 
+describe('phone under budget — no kettle false match', () => {
+  const mixed: Product[] = [
+    p({
+      id: 'kettle',
+      name: 'Ấm điện 1.8L',
+      price: 499_000,
+      category: 'Nhà bếp',
+      description: 'Ấm đun nước điện',
+    }),
+    p({
+      id: 'phone-cheap',
+      name: 'Xiaomi Redmi Note 13',
+      price: 5_990_000,
+      category: 'Điện thoại',
+      description: 'Smartphone pin khỏe',
+    }),
+    p({
+      id: 'phone-dear',
+      name: 'iPhone 15',
+      price: 19_990_000,
+      category: 'Điện thoại',
+      description: 'Apple smartphone',
+    }),
+    p({
+      id: 'shirt',
+      name: 'Áo thun basic',
+      price: 299_000,
+      category: 'Thời trang',
+    }),
+  ]
+
+  it('“điện thoại dưới 10 triệu” returns phones only', () => {
+    const { products, queryText, range } = filterProductsForQuery(
+      mixed,
+      'có điện thoại nào dưới 10 triệu không',
+    )
+    expect(range?.max).toBe(10_000_000)
+    expect(queryText).toMatch(/dien thoai/)
+    expect(products.map((x) => x.id)).toEqual(['phone-cheap'])
+    expect(products.some((x) => x.id === 'kettle' || x.id === 'phone-dear')).toBe(false)
+  })
+
+  it('does not match Ấm điện on lone “điện” token', () => {
+    const hits = findProductsByQuery(mixed, 'điện thoại')
+    expect(hits.some((x) => x.id === 'kettle')).toBe(false)
+    expect(hits.some((x) => /phone|xiaomi|iphone/i.test(x.name))).toBe(true)
+  })
+})
+
 describe('tablet search — no camping table false match', () => {
   const tabletCatalog: Product[] = [
     p({

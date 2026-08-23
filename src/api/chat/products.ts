@@ -382,7 +382,8 @@ export function applyPriceRange(products: Product[], range: PriceRange | null): 
 export function extractProductSearchTerms(raw: string): string {
   const prepared = prepareCatalogSearchQuery(raw)
   if (!prepared) return ''
-  return prepared
+  // Bỏ token giá ("dưới 10 triệu") để không nhiễu keyword / khớp nhầm số
+  return stripPriceTokens(prepared).trim()
 }
 
 export function findProductsByQuery(products: Product[], query: string): Product[] {
@@ -524,11 +525,52 @@ export function findProductsByQuery(products: Product[], query: string): Product
   let picked = scored.filter((x) => x.nameHit)
   if (!picked.length) picked = scored
 
-  if (categoryIntent) {
+  // Cụm SP nhiều từ (điện thoại, tai nghe…): lọc từ toàn bộ scored (không chỉ nameHit),
+  // tránh synonym "iphone" làm mất Xiaomi khi hỏi "điện thoại".
+  const requiredFocusPhrases = FOCUS_PHRASES.filter(
+    (phrase) => phrase.includes(' ') && containsWholePhrase(normalizedQuery, phrase),
+  )
+  if (requiredFocusPhrases.length) {
+    const phoneQuery = requiredFocusPhrases.includes('dien thoai')
+    const strict = scored.filter((x) => {
+      const nameHay = normalizeText(x.p.name)
+      const catHay = normalizeText(x.p.category ?? '')
+      const descHay = normalizeText(x.p.description ?? '')
+      const nameDesc = `${nameHay} ${descHay}`
+      // Bắt buộc cụm nằm trong tên/mô tả — không lấy cả danh mục "Điện tử" (SSD, …)
+      if (
+        requiredFocusPhrases.some(
+          (ph) => containsWholePhrase(nameDesc, ph) || fieldContainsToken(nameDesc, ph),
+        )
+      ) {
+        return true
+      }
+      // Danh mục đúng tên cụm (vd. category = "Tai nghe")
+      if (
+        requiredFocusPhrases.some(
+          (ph) => containsWholePhrase(catHay, ph) || fieldContainsToken(catHay, ph),
+        )
+      ) {
+        return true
+      }
+      if (phoneQuery) {
+        if (/iphone|smartphone|galaxy|xiaomi|oppo|vivo|realme|pixel|mobile/.test(nameDesc)) {
+          return true
+        }
+        if (/dien thoai/.test(catHay)) return true
+        return false
+      }
+      return false
+    })
+    picked = strict
+  } else if (categoryIntent) {
     const intentFiltered = picked.filter((x) => {
       const catHay = normalizeText(x.p.category ?? '')
-      if (categoryBlockedByIntent(catHay, categoryIntent) && !x.nameHit) return false
-      if (x.nameHit || x.categoryHit || categoryMatchesIntent(catHay, categoryIntent)) return true
+      if (categoryBlockedByIntent(catHay, categoryIntent) && !x.phraseHit) return false
+      if (x.phraseHit || x.categoryHit || categoryMatchesIntent(catHay, categoryIntent)) {
+        return true
+      }
+      if (x.nameHit && !categoryBlockedByIntent(catHay, categoryIntent)) return true
       return x.score >= 10
     })
     if (intentFiltered.length) picked = intentFiltered

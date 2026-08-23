@@ -189,15 +189,14 @@ export async function enrichChatContext(
           })
           return
         }
+        // "điện thoại dưới 10tr" — chỉ search theo keyword; FE lọc giá.
+        // Không merge cả catalog price-asc (dễ lẫn ấm điện / đồ rẻ khác).
         if (isBudgetIntent) {
-          const [byPrice, byText] = await Promise.all([
-            productApi.list({ withStock: false, size: 100, sort: 'price-asc' }),
-            productApi.list({ q: searchQ!, withStock: false, size: 48 }),
-          ])
-          const map = new Map<string, (typeof byPrice)[0]>()
-          for (const p of byPrice) map.set(String(p.id), p)
-          for (const p of byText) map.set(String(p.id), p)
-          enrichment.searchResults = [...map.values()]
+          enrichment.searchResults = await productApi.list({
+            q: searchQ!,
+            withStock: false,
+            size: 48,
+          })
           return
         }
         const q = searchQ ?? raw

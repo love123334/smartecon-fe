@@ -365,7 +365,9 @@ function shoppingStructuredReply(
   }
 
   if (filter.products.length) {
-    const mode: IntroMode = filter.range ? 'budget' : 'search'
+    // Có keyword + giá → intro kiểu search (tránh giọng “chỉ lọc tầm giá” khi đã hỏi loại SP)
+    const mode: IntroMode =
+      filter.range && !filter.queryText ? 'budget' : filter.range ? 'search' : 'search'
     return {
       content: warmProductIntro(ctx, filter.products.length, undefined, mode),
       products: toChatProducts(filter.products, 6),
@@ -373,8 +375,13 @@ function shoppingStructuredReply(
   }
 
   if (range) {
+    const focus = filter.queryText
+      ? extractProductFocusLabel(raw)
+      : formatPriceRangeLabel(range)
     return {
-      content: `${greet(ctx.userName ?? '')}Không có sản phẩm trong khoảng **${formatPriceRangeLabel(range)}**. Thử nới ngân sách hoặc hỏi "sp rẻ nhất" nhé.`,
+      content: filter.queryText
+        ? `${greet(ctx.userName ?? '')}Không có **${focus}** trong khoảng **${formatPriceRangeLabel(range)}**. Thử nới ngân sách hoặc hỏi tên SP khác nhé.`
+        : `${greet(ctx.userName ?? '')}Không có sản phẩm trong khoảng **${formatPriceRangeLabel(range)}**. Thử nới ngân sách hoặc hỏi "sp rẻ nhất" nhé.`,
     }
   }
 
