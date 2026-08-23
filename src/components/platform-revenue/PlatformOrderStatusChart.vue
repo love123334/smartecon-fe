@@ -20,16 +20,29 @@ const props = defineProps<{
   items: OrderStatusDistributionItem[]
 }>()
 
-const COLORS = ['#0d9488', '#2563eb', '#f59e0b', '#8b5cf6', '#ef4444', '#64748b', '#14b8a6']
+const COLORS = ['#0d9488', '#2563eb', '#f59e0b', '#8b5cf6', '#ef4444', '#64748b']
 
-const hasData = computed(() => props.items.some((i) => Number(i.orderCount) > 0))
+/** Ẩn trạng thái hoàn tiền khỏi biểu đồ / bảng (theo yêu cầu báo cáo). */
+const visibleItems = computed(() => {
+  const filtered = props.items.filter(
+    (i) => String(i.status ?? '').toUpperCase() !== 'REFUNDED',
+  )
+  const total = filtered.reduce((sum, i) => sum + (Number(i.orderCount) || 0), 0)
+  if (total <= 0) return filtered
+  return filtered.map((i) => ({
+    ...i,
+    percentage: ((Number(i.orderCount) || 0) / total) * 100,
+  }))
+})
+
+const hasData = computed(() => visibleItems.value.some((i) => Number(i.orderCount) > 0))
 
 const chartData = computed(() => ({
-  labels: props.items.map((i) => orderStatusDisplayLabel(i.status)),
+  labels: visibleItems.value.map((i) => orderStatusDisplayLabel(i.status)),
   datasets: [
     {
-      data: props.items.map((i) => Number(i.orderCount) || 0),
-      backgroundColor: props.items.map((_, idx) => COLORS[idx % COLORS.length]),
+      data: visibleItems.value.map((i) => Number(i.orderCount) || 0),
+      backgroundColor: visibleItems.value.map((_, idx) => COLORS[idx % COLORS.length]),
       borderWidth: 1,
       borderColor: '#fff',
     },
@@ -62,7 +75,7 @@ const options = {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="row in items" :key="row.status">
+            <tr v-for="row in visibleItems" :key="row.status">
               <td>{{ orderStatusDisplayLabel(row.status) }}</td>
               <td>{{ formatPlatformNumber(row.orderCount) }}</td>
               <td>{{ formatPlatformPercent(row.percentage) }}</td>
