@@ -220,7 +220,8 @@ const roleLabel: Record<UserRole, string> = {
 }
 .users-table th:nth-child(5),
 .users-table td:nth-child(5) {
-  width: 22%;
+  width: 11rem;
+  min-width: 11rem;
 }
 
 .users-table__name {
@@ -263,8 +264,16 @@ const roleLabel: Record<UserRole, string> = {
 
 .users-actions {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+
+.users-actions .btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .users-actions__delete {
