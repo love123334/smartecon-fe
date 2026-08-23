@@ -98,7 +98,6 @@ function retry() {
     <PageHeader
       eyebrow="Quản lý"
       title="Doanh thu sàn"
-      lead="Báo cáo Looker Studio nhúng — tổng quan GMV và vận hành toàn nền tảng."
     >
       <template v-if="SHOW_NATIVE_PLATFORM_REPORT && data" #actions>
         <p class="pr-generated muted">
