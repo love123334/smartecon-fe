@@ -126,7 +126,8 @@ export function looksLikeLowQualityReply(userNormalized: string, reply: string):
   if (
     /toi co the giup|ban muon hoi gi|hay cho minh biet them|ban can ho tro gi|minh co the ho tro ban ve|cac chuc nang chinh cua sedsp/.test(
       r,
-    )
+    ) ||
+    /minh loc duoc.*moi xem thu ben duoi|keo sp vao chat de so sanh nhanh/.test(r)
   ) {
     return true
   }

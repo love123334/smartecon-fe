@@ -59,7 +59,7 @@ const BE_TURN_MAX_CHARS = 3_500
 function buildBackendDialogue(
   history: ChatMessage[],
   userMessage: string,
-  options?: { recentTurns?: ChatMessage[] },
+  options?: { recentTurns?: ChatMessage[]; userRole?: string },
 ): { role: string; content: string }[] {
   const sourceHistory = options?.recentTurns ?? history
   const turns: { role: string; content: string }[] = []
@@ -75,6 +75,10 @@ function buildBackendDialogue(
     turns.push({ role: m.role, content: content.slice(0, BE_TURN_MAX_CHARS) })
   }
   turns.push({ role: 'user', content: userMessage.slice(0, BE_TURN_MAX_CHARS) })
+  if (options?.userRole && options.userRole !== 'customer') {
+    const last = turns[turns.length - 1]
+    last.content = `[Vai trò SEDSP: ${options.userRole}]\n${last.content}`.slice(0, BE_TURN_MAX_CHARS)
+  }
   return turns
 }
 
@@ -84,7 +88,7 @@ export async function callChatLlm(
   history: ChatMessage[],
   userMessage: string,
   facts?: VerifiedFacts | null,
-  options?: { recentTurns?: ChatMessage[]; englishGloss?: string },
+  options?: { recentTurns?: ChatMessage[]; englishGloss?: string; userRole?: string },
 ): Promise<string> {
   const gloss = options?.englishGloss?.trim()
   const groundedUser = facts?.localDraft?.trim()
@@ -120,7 +124,10 @@ export async function callChatLlm(
         await refreshBeAiStatus()
       }
       if (beAiConfigured) {
-        const beMessages = buildBackendDialogue(history, groundedUser, options)
+        const beMessages = buildBackendDialogue(history, groundedUser, {
+          recentTurns: options?.recentTurns,
+          userRole: options?.userRole,
+        })
         const res = await realAi.chat(beMessages)
         // Soft fallback message from BE (no key) — still usable as reply text
         if (res.content?.trim()) {

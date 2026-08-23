@@ -11,6 +11,7 @@ import {
   isUnknownEscalateText,
 } from '@/api/chat/discovery'
 import { buildProcessingLocale, isShopCatalogQuestion } from '@/api/chat/chatLocale'
+import { matchCategoryFromText, stripCategoryBrowseQuery } from '@/api/chat/synonyms'
 import { catalogInsightHighlights } from '@/api/chat/insightEngine'
 import {
   cheapestProducts,
@@ -23,6 +24,7 @@ import {
   extractProductSearchTerms,
   extractSellerNameQuery,
   filterProductsForQuery,
+  filterProductsByCategory,
   findProductsByQuery,
   findProductsBySellerName,
   formatPriceRangeLabel,
@@ -215,7 +217,9 @@ function warmProductIntro(
     case 'affordable':
       return `${name}Mình gom **${count}** gợi ý giá hợp lý — xem thử bên dưới nhé.`
     default:
-      return `${name}Mình tìm được **${count}** phần liên quan đến yêu cầu của bạn — mời xem thử bên dưới nhé.`
+      return topic
+        ? `${name}**${topic}** — mình gom **${count}** sản phẩm đang bán, mời xem bên dưới nhé.`
+        : `${name}Mình tìm được **${count}** phần liên quan đến yêu cầu của bạn — mời xem thử bên dưới nhé.`
   }
 }
 
@@ -243,6 +247,31 @@ function shoppingStructuredReply(
   const lower = locale.processing
 
   if (intent === 'shop_overview' || intent === 'categories' || isShopCatalogQuestion(lower)) {
+    return null
+  }
+
+  if (intent === 'category_browse') {
+    const matched = matchCategoryFromText(raw, ctx.categories)
+    const focusLabel = matched?.name ?? stripCategoryBrowseQuery(raw)
+    let hits = ctx.enrichment?.categoryProducts?.length
+      ? ctx.enrichment.categoryProducts
+      : matched
+        ? filterProductsByCategory(catalog, matched.name, ctx.categories)
+        : []
+    if (!hits.length && focusLabel.length >= 2) {
+      hits = findProductsByQuery(catalog, focusLabel)
+    }
+    if (hits.length) {
+      return {
+        content: warmProductIntro(
+          ctx,
+          hits.length,
+          matched?.name ?? hits[0]?.category,
+          'search',
+        ),
+        products: toChatProducts(hits, 6),
+      }
+    }
     return null
   }
 
@@ -648,6 +677,7 @@ export async function generateAssistantReply(
   text: string,
   ctx: ChatContext,
   attachments?: ChatProductRef[],
+  resolvedIntent?: ChatIntent | null,
 ): Promise<AssistantReplyPayload> {
   const raw = text.trim()
   const locale = buildProcessingLocale(raw)
@@ -686,7 +716,7 @@ export async function generateAssistantReply(
   }
 
   const detected = detectIntent(raw, ctx.role)
-  let intent = detected?.intent ?? null
+  let intent = resolvedIntent !== undefined ? resolvedIntent : detected?.intent ?? null
 
   const budget = extractBudgetVnd(raw)
   const range = extractPriceRange(raw)
@@ -760,21 +790,55 @@ export async function generateAssistantReply(
           ? catalogInsightHighlights(ctx, intent)
           : []
       const enrichProducts =
-        ranked.length
-          ? ranked
-          : insightHighlights.length
-            ? insightHighlights
-            : ctx.enrichment?.searchResults?.length
-            ? ctx.enrichment.searchResults
-            : ctx.enrichment?.categoryProducts?.length
-              ? ctx.enrichment.categoryProducts
-              : filterHits.length
-                ? filterHits
-                : ctx.enrichment?.product
-                  ? [ctx.enrichment.product]
-                  : undefined
+        intent === 'category_browse' || intent === 'categories'
+          ? (() => {
+              const matched = matchCategoryFromText(raw, ctx.categories)
+              const fromCat = ctx.enrichment?.categoryProducts?.length
+                ? ctx.enrichment.categoryProducts
+                : matched
+                  ? filterProductsByCategory(catalog, matched.name, ctx.categories)
+                  : []
+              if (fromCat.length) return fromCat
+              return undefined
+            })() ??
+            (ranked.length
+              ? ranked
+              : insightHighlights.length
+                ? insightHighlights
+                : ctx.enrichment?.searchResults?.length
+                  ? ctx.enrichment.searchResults
+                  : ctx.enrichment?.categoryProducts?.length
+                    ? ctx.enrichment.categoryProducts
+                    : filterHits.length
+                      ? filterHits
+                      : ctx.enrichment?.product
+                        ? [ctx.enrichment.product]
+                        : undefined)
+          : ranked.length
+            ? ranked
+            : insightHighlights.length
+              ? insightHighlights
+              : ctx.enrichment?.searchResults?.length
+                ? ctx.enrichment.searchResults
+                : ctx.enrichment?.categoryProducts?.length
+                  ? ctx.enrichment.categoryProducts
+                  : filterHits.length
+                    ? filterHits
+                    : ctx.enrichment?.product
+                      ? [ctx.enrichment.product]
+                      : undefined
       const productPool = enrichProducts ?? []
-      const sellers = resolveReplySellers(ctx, intent, raw, catalog, productPool)
+      let sellers = resolveReplySellers(ctx, intent, raw, catalog, productPool)
+      if (
+        sellers?.length &&
+        enrichProducts?.length &&
+        intent &&
+        ['product_price', 'product_info', 'product_review', 'product_stock', 'category_browse'].includes(
+          intent,
+        )
+      ) {
+        sellers = undefined
+      }
       const products =
         intent && NON_SHOPPING_INTENTS.has(intent)
           ? undefined

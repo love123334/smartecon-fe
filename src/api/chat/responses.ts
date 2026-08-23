@@ -1,3 +1,4 @@
+import { escalateReplyForRole, roleHelpHints } from '@/api/chat/rolePolicy'
 import type { ChatContext } from '@/api/chat/context'
 import type { ChatIntent } from '@/api/chat/intents'
 import {
@@ -23,6 +24,7 @@ import {
   extractProductFocusLabel,
   extractProductSearchTerms,
   filterProductsForQuery,
+  filterProductsByCategory,
   findProductsByQuery,
   groupProductsByShop,
   isAffordableProductQuery,
@@ -215,19 +217,6 @@ function formatOrderSummary(orders: Order[], limit = 3): string {
     .join('\n')
 }
 
-export function roleHelpHints(role: ChatContext['role']): string {
-  switch (role) {
-    case 'seller':
-      return 'Gợi ý: "doanh thu", "dự báo nhu cầu", "khuyến nghị giá", "what-if giảm 10%", "đơn mua của tôi", "SKU sắp hết".'
-    case 'manager':
-      return 'Gợi ý: "KPI tháng này", "đơn chờ", "what-if khuyến mãi 10%", "danh mục tăng trưởng".'
-    case 'admin':
-      return 'Gợi ý: "trạng thái hệ thống", "bao nhiêu user", "cảnh báo vận hành", "bảo mật JWT".'
-    default:
-      return 'Gợi ý: "chỗ nào bán laptop", "sp nào ngon", "điện thoại có gì", "dưới 2 triệu", "giỏ hàng".'
-  }
-}
-
 function shopOverviewReply(ctx: ChatContext): string {
   const bundle = buildCatalogInsight(ctx)
   return formatCatalogInsightReply(ctx, bundle)
@@ -282,13 +271,17 @@ function categoryBrowseReply(ctx: ChatContext, raw: string): string {
   const cat = matched
     ? ctx.categories.find((c) => c.name === matched.name)
     : undefined
+  const catalog = mergeCatalog(ctx)
   let products = fromApi?.length
     ? fromApi
     : cat
-      ? ctx.products.filter((p) => p.category === cat.name)
+      ? filterProductsByCategory(catalog, cat.name, ctx.categories)
       : []
+  if (!products.length && matched) {
+    products = filterProductsByCategory(catalog, matched.name, ctx.categories)
+  }
   if (!products.length) {
-    products = findProductsByQuery(mergeCatalog(ctx), raw)
+    products = findProductsByQuery(catalog, raw)
   }
   if (!products.length) {
     return `${name}Chưa tìm thấy SP theo danh mục — thử **Cửa hàng** hoặc hỏi "web bán gì" / "danh mục".`
@@ -449,11 +442,7 @@ export function escalateReply(
   _raw: string,
   mode: 'unknown' | 'explicit' = 'unknown',
 ): string {
-  const name = greet(ctx.userName ?? '')
-  if (mode === 'unknown') {
-    return `${name}Mình chưa hiểu rõ câu hỏi này trong phạm vi mua sắm SEDSP.\n\nMình hỗ trợ: **tìm sản phẩm**, **giỏ hàng**, **đơn hàng**, **giao hàng / thanh toán / đổi trả**.\nBạn thử hỏi lại cụ thể hơn, hoặc gửi góp ý qua trang **Liên hệ**.`
-  }
-  return `${name}Bạn có thể liên hệ hỗ trợ qua:\n• Trang **Liên hệ** (gửi email Admin)\n• Email **customer@sedsp.vn**\n\nHoặc hỏi mình về sản phẩm / đơn hàng ngay tại đây.`
+  return escalateReplyForRole(ctx, mode)
 }
 
 function complaintReply(ctx: ChatContext): string {
@@ -910,8 +899,15 @@ export function buildIntentReply(ctx: ChatContext, intent: ChatIntent, raw: stri
       return `${name}Không có gì! Cần thêm cứ hỏi nhé.`
     case 'help':
       return `${name}**Tôi có thể giúp:**\n${roleHelpHints(ctx.role)}\n\nDùng **gợi ý nhanh** phía trên.`
-    case 'platform':
-      return `${name}**SEDSP** — Smart E-Commerce Decision Support Platform: mua sắm (catalog VI ~55 SP), bán hàng, DSS (nhu cầu / giá / tồn / what-if) & AI hỗ trợ quyết định.`
+    case 'platform': {
+      if (ctx.role === 'seller') {
+        return `${name}**SEDSP** hỗ trợ bạn **bán hàng**: doanh số, đơn bán, tồn kho, **DSS** (dự báo nhu cầu, gợi ý giá, what-if). Hỏi vd: "doanh thu tháng này", "SKU sắp hết".`
+      }
+      if (ctx.role === 'manager') {
+        return `${name}**SEDSP** — quản lý sàn: KPI đơn, doanh thu, đơn chờ duyệt, insights DSS.`
+      }
+      return `${name}**SEDSP** là sàn mua sắm với catalog đa danh mục (điện thoại, laptop, thời trang…). Mình giúp bạn **tìm SP**, **so sánh giá**, **theo dõi đơn** & **đánh giá**. Hỏi vd: "laptop có gì", "dưới 2 triệu".`
+    }
     case 'shop_overview':
       return shopOverviewReply(ctx)
     case 'categories':

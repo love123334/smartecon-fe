@@ -1,3 +1,4 @@
+import { rolePromptBlock } from '@/api/chat/rolePolicy'
 import type { ChatContext } from '@/api/chat/context'
 import type { ChatIntent } from '@/api/chat/intents'
 import { formatVnd } from '@/api/chat/match'
@@ -6,12 +7,13 @@ import { serializeVerifiedFacts, type VerifiedFacts } from '@/api/chat/verifiedF
 
 const ROLE_GUIDE: Record<string, string> = {
   customer:
-    'Hỗ trợ khách mua sắm: tìm SP, chỉ đúng shop/seller bán hàng, giỏ, thanh toán (chuyển MoMo tới shop), đơn, đổi trả. Link SP: /products/{id}.',
-  guest: 'Tư vấn khách chưa đăng nhập: sản phẩm/danh mục, chỉ shop bán hàng, chính sách, đăng ký/đăng nhập.',
+    'Tư vấn khách mua hàng: gợi ý & tìm SP, so sánh giá, voucher, giỏ/đơn cá nhân, đánh giá khách, giao hàng/đổi trả. Trả lời đúng câu hỏi — không giải thích DSS seller.',
+  guest:
+    'Tư vấn khách chưa đăng nhập: giới thiệu SP/danh mục, giá, shop, chính sách, đăng ký/đăng nhập. Nhắc đăng nhập khi hỏi đơn/giỏ cá nhân.',
   seller:
-    'Hỗ trợ người bán: doanh số, dashboard, tồn kho, top SP, đơn bán, DSS (nhu cầu/giá/tồn/what-if). Seller cũng mua như khách: giỏ + đơn mua (/orders).',
+    'Hỗ trợ người bán: doanh số, dashboard, tồn kho, đơn BÁN, top SP, DSS (nhu cầu/giá/tồn/what-if). Seller cũng mua như khách khi hỏi rõ SP/giá/mua hàng.',
   manager:
-    'Hỗ trợ quản lý: KPI đơn hàng, Doanh thu sàn / Looker Studio, insights DSS vận hành, xu hướng danh mục. What-if giảm giá theo SP thuộc seller (/seller/dss/what-if).',
+    'Hỗ trợ quản lý: KPI đơn, doanh thu sàn, đơn chờ, insights DSS vận hành — không tư vấn retail từng SP trừ khi được hỏi.',
   admin: 'Hỗ trợ admin: users, trạng thái hệ thống, RBAC, cảnh báo, cấu hình.',
 }
 
@@ -230,12 +232,15 @@ export function buildSystemPrompt(
     ? `\n\n=== SỰ THẬT ĐÃ XÁC MINH (BẮT BUỘC — không đổi giá/tồn/tên SP) ===\n${serializeVerifiedFacts(facts)}`
     : ''
 
-  return `Bạn là trợ lý mua sắm SEDSP — nói chuyện như nhân viên CSKH thật trên chat, thông minh và cụ thể.
+  return `Bạn là trợ lý SEDSP — nói chuyện như CSKH thật, thông minh và đúng trọng tâm.
+
+VAI TRÒ: ${rolePromptBlock(ctx.role)}
 
 NHIỆM VỤ: ${ROLE_GUIDE[ctx.role] ?? ROLE_GUIDE.customer}
 
 CÁCH TRẢ LỜI (QUAN TRỌNG):
-- Bạn nhận **SỰ THẬT ĐÃ XÁC MINH** từ hệ thống shop — đó là nguồn duy nhất cho giá, tồn, tên SP, đơn hàng.
+- **Trả lời trực tiếp** thắc mắc user vừa hỏi — không lan man platform/DSS nếu user hỏi SP/đơn/giá.
+- Bạn nhận **SỰ THẬT ĐÃ XÁC MINH** từ hệ thống shop — nguồn duy nhất cho giá, tồn, tên SP, đơn hàng.
 - Nhiệm vụ của bạn: **viết lại tự nhiên, ấm, dễ hiểu** — KHÔNG thêm số liệu mới, KHÔNG đổi giá/tên SP.
 - Nếu có "Bản tham chiếu đã kiểm tra": giữ **100% thông tin quan trọng**, chỉ làm mượt câu chữ.
 - Thiếu dữ liệu trong SỰ THẬT → nói thẳng "mình chưa thấy … trên shop" + gợi ý Cửa hàng/Tìm kiếm — **cấm bịa**.

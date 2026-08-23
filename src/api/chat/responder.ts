@@ -38,6 +38,12 @@ import {
 import { extractPriceRange, isPriceStatsQuery } from '@/api/chat/products'
 import { sanitizeChatReply } from '@/api/chat/responses'
 import { deriveSuggestedActions } from '@/api/chat/suggestedActions'
+import {
+  intentAllowedForRole,
+  outOfScopeReply,
+  resolveIntentForRole,
+  SELLER_OPS_INTENTS,
+} from '@/api/chat/rolePolicy'
 import { buildProcessingLocale, englishGlossForPrompt } from '@/api/chat/chatLocale'
 import { buildChatMemoryLayers } from '@/api/chat/conversationMemory'
 import { executeChatTools } from '@/api/chat/toolExecutor'
@@ -76,6 +82,8 @@ const STRICT_LOCAL_INTENTS = new Set<ChatIntent>([
   'product_budget',
   'product_price',
   'product_stock',
+  'category_browse',
+  'categories',
   'orders',
   'order_detail',
   'order_cancel',
@@ -312,6 +320,15 @@ export async function resolveChatReply(
     detected = resolveFollowUpIntent(normalized, detected)
   }
 
+  const rawIntent = detected?.intent ?? null
+  const blockedIntent =
+    rawIntent && !intentAllowedForRole(rawIntent, ctx.role) ? rawIntent : null
+  let intent = blockedIntent ? null : resolveIntentForRole(rawIntent, ctx.role, userMessage)
+  let intentScore = detected?.score ?? 0
+  if (intent !== rawIntent && intent) {
+    intentScore = Math.max(intentScore, 45)
+  }
+
   const focusRef =
     effectiveAttachments?.[0] ??
     (followUp && !attachments?.length ? priorProducts[0] : undefined)
@@ -321,7 +338,7 @@ export async function resolveChatReply(
   const enriched = await enrichChatContext(
     ctx,
     userMessage,
-    detected?.intent ?? null,
+    intent,
     focusRef?.id,
   )
 
@@ -330,22 +347,22 @@ export async function resolveChatReply(
     ctxForReply = await alignContextToFocus(enriched, focusRef, wantsReviews)
   }
 
-  const intent = detected?.intent ?? null
-  const intentScore = detected?.score ?? 0
   const hasPriceFilter = Boolean(extractPriceRange(userMessage))
   const priceStats = isPriceStatsQuery(userMessage)
   const backendAiReady = isLlmConfigured()
-  const forceLocal = shouldForceLocal(
-    normalized,
-    intent,
-    followUp,
-    hasPriceFilter,
-    priceStats,
-    backendAiReady,
-  )
+  const forceLocal =
+    shouldForceLocal(
+      normalized,
+      intent,
+      followUp,
+      hasPriceFilter,
+      priceStats,
+      backendAiReady,
+    ) ||
+    (ctx.role === 'seller' && intent != null && SELLER_OPS_INTENTS.has(intent))
 
   const localStarted = performance.now()
-  const local = await generateAssistantReply(userMessage, ctxForReply, effectiveAttachments)
+  const local = await generateAssistantReply(userMessage, ctxForReply, effectiveAttachments, intent)
   localLatencyMs = Math.round(performance.now() - localStarted)
 
   const facts = buildVerifiedFacts(ctxForReply, intent, intentScore, local)
@@ -413,6 +430,10 @@ export async function resolveChatReply(
 
   const localContent = sanitizeChatReply(local.content)
 
+  if (blockedIntent) {
+    return replyPayload('local', outOfScopeReply(ctxForReply, blockedIntent), 'force_local')
+  }
+
   if (forceLocal) {
     return replyPayload('local', localContent, 'force_local')
   }
@@ -442,6 +463,7 @@ export async function resolveChatReply(
         {
           recentTurns: memory.recentTurns,
           englishGloss: englishGlossForPrompt(locale),
+          userRole: ctx.role,
         },
       )
       llmLatencyMs = Math.round(performance.now() - llmStarted)

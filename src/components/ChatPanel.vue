@@ -159,6 +159,7 @@ defineExpose({ scrollToEnd: scrollEnd })
                 v-for="s in m.sellers"
                 :key="`seller-${m.id}-${s.sellerId}`"
                 :seller="s"
+                :compact="Boolean(m.products?.length)"
               />
             </div>
             <div v-if="m.products?.length" class="chat-bubble__products">
@@ -433,8 +434,7 @@ defineExpose({ scrollToEnd: scrollEnd })
 }
 
 @media (min-width: 420px) {
-  .chat-bubble__products,
-  .chat-bubble__sellers {
+  .chat-bubble__products {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
 }

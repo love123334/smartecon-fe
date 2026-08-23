@@ -1,6 +1,6 @@
 import { containsWholePhrase, fieldContainsToken, normalizeText, wordSimilarity } from '@/api/chat/match'
 import { stripTrailingFillers, filterHomophoneSearchTokens, isMetaShoppingQuestion, prepareCatalogSearchQuery } from '@/api/chat/chatLocale'
-import { expandQueryTerms } from '@/api/chat/synonyms'
+import { expandQueryTerms, categoryAliases } from '@/api/chat/synonyms'
 import type { Product } from '@/types'
 
 const STOP_WORDS = new Set([
@@ -796,6 +796,35 @@ export function newestProducts(products: Product[], limit = 6): Product[] {
       return (b.soldCount ?? 0) - (a.soldCount ?? 0)
     })
     .slice(0, limit)
+}
+
+/** Lọc SP theo tên danh mục — khớp mờ alias (vd. "Gia dụng" ↔ "Nhà bếp" qua synonym). */
+export function filterProductsByCategory(
+  products: Product[],
+  categoryName: string,
+  categories?: { name: string; slug: string }[],
+): Product[] {
+  const aliases = new Set<string>()
+  for (const a of categoryAliases(categoryName)) aliases.add(a)
+  if (categories) {
+    const row = categories.find((c) => c.name === categoryName)
+    if (row) {
+      for (const a of categoryAliases(row.name)) aliases.add(a)
+      aliases.add(normalizeText(row.slug.replace(/-/g, ' ')))
+    }
+  }
+  const target = normalizeText(categoryName)
+  aliases.add(target)
+
+  return products.filter((p) => {
+    const cat = normalizeText(p.category ?? '')
+    if (!cat) return false
+    for (const a of aliases) {
+      if (!a) continue
+      if (cat === a || cat.includes(a) || a.includes(cat)) return true
+    }
+    return false
+  })
 }
 
 function formatCompactVnd(amount: number): string {

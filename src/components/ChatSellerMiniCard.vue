@@ -7,6 +7,8 @@ import { useChatWidgetStore } from '@/stores/chatWidget'
 
 const props = defineProps<{
   seller: ChatSellerRef
+  /** Thu gọn khi bubble đã có card sản phẩm — tránh trùng lặp & chữ bị cắt */
+  compact?: boolean
 }>()
 
 const router = useRouter()
@@ -41,7 +43,13 @@ function openShop() {
 </script>
 
 <template>
-  <button type="button" class="chat-seller-card" :title="seller.shopName" @click="openShop">
+  <button
+    type="button"
+    class="chat-seller-card"
+    :class="{ 'chat-seller-card--compact': compact }"
+    :title="seller.shopName"
+    @click="openShop"
+  >
     <div class="chat-seller-card__avatar" :style="avatarStyle">
       {{ seller.avatarInitial ?? seller.shopName.charAt(0).toUpperCase() }}
     </div>
@@ -51,9 +59,14 @@ function openShop() {
         <span v-if="seller.tagCode" class="chat-seller-card__tag">{{ seller.tagCode }}</span>
       </div>
       <p v-if="metaLine" class="chat-seller-card__meta">{{ metaLine }}</p>
-      <p v-if="categoryLine" class="chat-seller-card__categories">Danh mục: {{ categoryLine }}</p>
-      <p v-if="sampleLine" class="chat-seller-card__samples">Tiêu biểu: {{ sampleLine }}</p>
-      <p v-if="seller.showContact && (seller.sellerEmail || seller.sellerPhone)" class="chat-seller-card__contact">
+      <template v-if="!compact">
+        <p v-if="categoryLine" class="chat-seller-card__categories">Danh mục: {{ categoryLine }}</p>
+        <p v-if="sampleLine" class="chat-seller-card__samples">Tiêu biểu: {{ sampleLine }}</p>
+      </template>
+      <p
+        v-if="seller.showContact && (seller.sellerEmail || seller.sellerPhone)"
+        class="chat-seller-card__contact"
+      >
         <span v-if="seller.sellerEmail">{{ seller.sellerEmail }}</span>
         <span v-if="seller.sellerEmail && seller.sellerPhone"> · </span>
         <span v-if="seller.sellerPhone">{{ seller.sellerPhone }}</span>
@@ -85,6 +98,11 @@ function openShop() {
     transform var(--transition-slow, 0.48s cubic-bezier(0.22, 1, 0.36, 1));
 }
 
+.chat-seller-card--compact {
+  gap: 0.5rem;
+  padding: 0.45rem 0.5rem;
+}
+
 .chat-seller-card:hover {
   border-color: hsl(var(--seller-hue, 210) 45% 55%);
   box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
@@ -103,6 +121,13 @@ function openShop() {
   border: 1px solid hsl(var(--seller-hue, 210) 35% 72%);
 }
 
+.chat-seller-card--compact .chat-seller-card__avatar {
+  flex-basis: 40px;
+  width: 40px;
+  height: 40px;
+  font-size: 0.95rem;
+}
+
 .chat-seller-card__body {
   min-width: 0;
   flex: 1 1 auto;
@@ -113,7 +138,7 @@ function openShop() {
 
 .chat-seller-card__head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.35rem;
   min-width: 0;
 }
@@ -122,10 +147,14 @@ function openShop() {
   margin: 0;
   font-size: 0.82rem;
   font-weight: 750;
-  line-height: 1.25;
+  line-height: 1.3;
+  min-width: 0;
+  flex: 1 1 auto;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  word-break: break-word;
 }
 
 .chat-seller-card__tag {
@@ -137,6 +166,7 @@ function openShop() {
   border: 1px solid hsl(var(--seller-hue, 210) 35% 72%);
   background: hsl(var(--seller-hue, 210) 42% 92%);
   color: hsl(var(--seller-hue, 210) 45% 28%);
+  margin-top: 0.05rem;
 }
 
 .chat-seller-card__meta {
@@ -144,6 +174,9 @@ function openShop() {
   font-size: 0.68rem;
   color: var(--slate-600);
   font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .chat-seller-card__categories,

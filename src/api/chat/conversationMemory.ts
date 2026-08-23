@@ -83,8 +83,16 @@ export function deriveConversationGoal(
   conversation: ConversationContext,
   history: ChatMessage[],
   intent: ChatIntent | null,
+  role: UserRole = 'customer',
 ): string {
   if (conversation.goal?.trim()) return conversation.goal.trim()
+
+  if (role === 'seller' && intent && intent.startsWith('seller_')) {
+    return `Vận hành shop: ${intent.replace(/^seller_/, '').replace(/_/g, ' ')}`
+  }
+  if (role === 'manager' && intent && intent.startsWith('manager_')) {
+    return `Quản lý sàn: ${intent.replace(/^manager_/, '').replace(/_/g, ' ')}`
+  }
 
   if (conversation.currentCategory && conversation.budget) {
     return `Tìm ${conversation.currentCategory} tầm ~${Math.round(conversation.budget / 1_000_000)} triệu`
@@ -119,7 +127,9 @@ export function deriveConversationGoal(
   }
   if (lastUser) return `Trả lời: ${lastUser.slice(0, 80)}`
 
-  return 'Hỗ trợ mua sắm / vận hành trên SEDSP'
+  if (role === 'seller') return 'Hỗ trợ doanh số, DSS và đơn bán'
+  if (role === 'manager') return 'Hỗ trợ KPI và vận hành sàn'
+  return 'Tư vấn mua sắm & theo dõi đơn trên SEDSP'
 }
 
 export function buildChatMemoryLayers(
@@ -133,7 +143,7 @@ export function buildChatMemoryLayers(
   const recentTurns = history.slice(-RECENT_TURN_LIMIT)
   const older = history.length > RECENT_TURN_LIMIT ? history.slice(0, -RECENT_TURN_LIMIT) : []
   const summary = summarizeOlderTurns(older, conversation)
-  const goal = deriveConversationGoal(conversation, history, intent)
+  const goal = deriveConversationGoal(conversation, history, intent, role)
 
   const sessionContext: SessionContextPayload = {
     user: { role, name: userName },

@@ -1,3 +1,4 @@
+import { rolePromptBlock } from '@/api/chat/rolePolicy'
 import type { ChatContext } from '@/api/chat/context'
 import type { ChatRoute } from '@/api/chat/intentRouter'
 import { routeLabel } from '@/api/chat/intentRouter'
@@ -18,7 +19,7 @@ export function buildSlimSystemPrompt(
   facts: VerifiedFacts,
 ): string {
   return `ROLE
-Bạn là trợ lý phân tích thương mại điện tử SEDSP.
+${rolePromptBlock(ctx.role)}
 
 RULES
 - Không bịa dữ liệu kinh doanh (giá, tồn, doanh thu, đơn hàng).

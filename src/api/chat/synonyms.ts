@@ -32,7 +32,7 @@ const SYNONYM_GROUPS: string[][] = [
   ['thiet bi the hinh', 'fitness gear', 'gym', 'the hinh'],
   ['do da ngoai', 'outdoor', 'camping', 'da ngoai'],
   ['the thao', 'sport', 'fitness'],
-  ['gia dung', 'nha cua'],
+  ['gia dung', 'nha cua', 'do gia dung', 'gia dung nha bep'],
   ['dien tu', 'electronics'],
   ['sach', 'book', 'books'],
   ['kinh', 'mat kinh', 'glasses', 'eyewear', 'kinh mat', 'kinh can', 'kinh mat thoi trang'],
@@ -105,32 +105,60 @@ export function categoryAliases(categoryName: string): string[] {
   return [n, ...(ALIAS_LOOKUP.get(n) ?? [])]
 }
 
+const CATEGORY_QUESTION_SUFFIX =
+  /\b(?:co\s+gi(?:\s+vay)?|co\s+nhung\s+gi|co\s+khong|ban\s+gi|co\s+mon\s+gi|co\s+sp\s+gi|co\s+san\s+pham\s+gi|dang\s+ban\s+gi)\s*$/
+
+/** Bỏ khung hỏi "có gì / bán gì" để khớp tên danh mục chuẩn hơn */
+export function stripCategoryBrowseQuery(raw: string): string {
+  return normalizeText(raw)
+    .replace(/^(?:cho\s+(?:minh|toi|em)\s+)?(?:xem|tim|goi\s+y|muon\s+xem)\s+/i, '')
+    .replace(/^(?:do|hang|mon)\s+/i, '')
+    .replace(CATEGORY_QUESTION_SUFFIX, '')
+    .replace(/\?+$/, '')
+    .trim()
+}
+
+function scoreCategoryMatch(
+  query: string,
+  c: { name: string; slug: string },
+): number {
+  if (!query) return 0
+  const cn = normalizeText(c.name)
+  const slug = normalizeText(c.slug.replace(/-/g, ' '))
+  const aliases = categoryAliases(c.name)
+  let score = 0
+  if (query === cn || query === slug) score += 14
+  if (cn.length > 2 && query.includes(cn)) score += 10
+  if (slug && query.includes(slug)) score += 8
+  for (const a of aliases) {
+    if (a.length > 2 && (query === a || query.includes(a))) score += 6
+  }
+  for (const w of cn.split(/\s+/)) {
+    if (w.length > 3 && query.includes(w)) score += 3
+  }
+  return score
+}
+
 /** Khớp tên danh mục API với câu hỏi (tên VI / slug / alias) */
 export function matchCategoryFromText(
   raw: string,
   categories: { name: string; slug: string }[],
 ): { name: string; slug: string } | null {
   const n = normalizeText(raw)
+  const stripped = stripCategoryBrowseQuery(raw)
+  const queries = [...new Set([n, stripped].filter(Boolean))]
   let best: { name: string; slug: string; score: number } | null = null
 
   for (const c of categories) {
-    const cn = normalizeText(c.name)
-    const slug = normalizeText(c.slug.replace(/-/g, ' '))
-    const aliases = categoryAliases(c.name)
-    let score = 0
-    if (n.includes(cn) || cn.length > 3 && n.includes(cn)) score += 10
-    if (slug && n.includes(slug)) score += 8
-    for (const a of aliases) {
-      if (a.length > 2 && n.includes(a)) score += 6
-    }
-    // từng từ danh mục (vd: "dien thoai", "thoi trang nam")
-    for (const w of cn.split(/\s+/)) {
-      if (w.length > 3 && n.includes(w)) score += 3
-    }
-    if (score > 0 && (!best || score > best.score)) {
-      best = { name: c.name, slug: c.slug, score }
+    for (const query of queries) {
+      const score = scoreCategoryMatch(query, c)
+      if (score > 0 && (!best || score > best.score)) {
+        best = { name: c.name, slug: c.slug, score }
+      }
     }
   }
 
-  return best && best.score >= 3 ? { name: best.name, slug: best.slug } : null
+  if (!best) return null
+  if (best.score >= 6) return { name: best.name, slug: best.slug }
+  return best.score >= 3 ? { name: best.name, slug: best.slug } : null
 }

@@ -28,15 +28,6 @@ const PRODUCT_INTENTS = new Set<ChatIntent>([
   'product_budget',
 ])
 
-const SEARCH_INTENTS = new Set<ChatIntent>([
-  'shop_overview',
-  'categories',
-  'category_browse',
-  'where_to_buy',
-  'recommend',
-  'product_search',
-])
-
 function extractOrderId(raw: string): string | null {
   const m = raw.match(/(?:don|order|#)\s*[#-]?(\d+)/i) ?? raw.match(/\b(o-\d+)\b/i)
   if (!m) return null
@@ -206,15 +197,7 @@ export async function enrichChatContext(
   }
 
   const matchedCat = matchCategoryFromText(raw, ctx.categories)
-  if (
-    matchedCat &&
-    (intent === 'categories' ||
-      intent === 'category_browse' ||
-      intent === 'product_search' ||
-      intent === 'where_to_buy' ||
-      intent === 'recommend' ||
-      (intent && SEARCH_INTENTS.has(intent)))
-  ) {
+  if (matchedCat) {
     tasks.push(
       (async () => {
         const byCat = await productApi.list({

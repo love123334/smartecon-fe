@@ -91,8 +91,10 @@ export function isDiscoveryNewestQuery(rawOrNormalized: string): boolean {
 }
 
 export function isUnknownEscalateText(content: string): boolean {
-  return /chua hieu ro cau hoi nay trong pham vi mua sam sedsp/.test(
-    normalizeText(content),
+  const n = normalizeText(content)
+  return (
+    /chua hieu ro cau hoi nay trong pham vi mua sam sedsp/.test(n) ||
+    /chua hieu ro cau hoi|chua chac ban muon hoi|chua hieu ro/.test(n)
   )
 }
 
