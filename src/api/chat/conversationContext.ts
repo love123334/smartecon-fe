@@ -1,3 +1,5 @@
+import type { OrderQuerySpec } from '@/api/chat/orderQuery'
+import { parseOrderQuery } from '@/api/chat/orderQuery'
 import type { ChatIntent } from '@/api/chat/intents'
 import { isClearTopicSwitch } from '@/api/chat/followup'
 import { refreshConversationMemoryFields } from '@/api/chat/conversationMemory'
@@ -40,6 +42,8 @@ export interface ConversationContext {
   budget?: number
   lastAnalysis?: string
   lastInsightType?: string
+  /** Spec truy vấn đơn — giữ temporal/status cho follow-up */
+  orderQuerySpec?: OrderQuerySpec
   updatedAt: string
 }
 
@@ -138,6 +142,7 @@ export function updateConversationContext(
       ...emptyConversationContext(),
       activeTask: taskForIntent(turn.intent),
       lastIntent: turn.intent ?? undefined,
+      orderQuerySpec: undefined,
       updatedAt: new Date().toISOString(),
     }
   }
@@ -166,6 +171,16 @@ export function updateConversationContext(
     turn.products,
   )
 
+  let orderQuerySpec = prev.orderQuerySpec
+  if (
+    turn.intent === 'orders' ||
+    turn.intent === 'order_detail' ||
+    turn.intent === 'order_cancel' ||
+    task === 'order'
+  ) {
+    orderQuerySpec = parseOrderQuery(turn.userMessage, prev.orderQuerySpec).spec
+  }
+
   return {
     currentProduct: focus,
     lastResults: turn.products?.length ? turn.products.slice(0, 4) : prev.lastResults,
@@ -179,6 +194,7 @@ export function updateConversationContext(
     budget: stateDelta.budget ?? prev.budget,
     lastAnalysis: stateDelta.lastAnalysis ?? prev.lastAnalysis,
     lastInsightType: stateDelta.lastAnalysis ?? prev.lastInsightType,
+    orderQuerySpec,
     updatedAt: new Date().toISOString(),
   }
 }

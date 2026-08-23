@@ -1,4 +1,5 @@
 import { containsWholePhrase, fieldContainsToken, normalizeText, wordSimilarity } from '@/api/chat/match'
+import { searchProductsWithPolicy } from '@/api/chat/productMatch'
 import { stripTrailingFillers, filterHomophoneSearchTokens, isMetaShoppingQuestion, prepareCatalogSearchQuery } from '@/api/chat/chatLocale'
 import { expandQueryTerms, categoryAliases } from '@/api/chat/synonyms'
 import type { Product } from '@/types'
@@ -650,7 +651,8 @@ export function filterProductsForQuery(
   let hits: Product[] = []
   const meaningfulTerms = queryText.split(/\s+/).filter((w) => w.length >= 3)
   if (queryText.length >= 2) {
-    hits = findProductsByQuery(pool, queryText)
+    const policy = searchProductsWithPolicy(pool, raw)
+    hits = policy.allowCards ? policy.products : []
     if (!hits.length && range && meaningfulTerms.length === 0) {
       hits = [...pool].sort((a, b) => a.price - b.price)
     }

@@ -9,8 +9,10 @@ import {
   type CatalogInsightBundle,
 } from '@/api/chat/insightEngine'
 import { formatVnd } from '@/api/chat/match'
+import { parseOrderQuery, presentOrdersFacts } from '@/api/chat/orderQuery'
 import { pickRepresentativeReviews } from '@/api/chat/productReviewSummary'
 import type { ChatProductRef, ChatSellerRef } from '@/types'
+import { orderStatusLabel } from '@/utils/orderStatus'
 
 export interface VerifiedFacts {
   intent: ChatIntent | null
@@ -110,6 +112,7 @@ export function buildVerifiedFacts(
   intent: ChatIntent | null,
   intentScore: number,
   local: AssistantReplyPayload,
+  userMessage?: string,
 ): VerifiedFacts {
   const products = collectProducts(local, ctx)
   const sellers = collectSellers(local)
@@ -218,10 +221,14 @@ export function buildVerifiedFacts(
     lines.push(`- Giỏ: ${ctx.cartItemCount} món, tổng ${formatVnd(ctx.cartTotal)}`)
   }
 
-  if (ctx.orders.length) {
+  if (ctx.orders.length && (intent === 'orders' || intent === 'order_detail') && userMessage) {
+    const purchaseOrders = ctx.purchaseOrders.length ? ctx.purchaseOrders : ctx.orders
+    const { spec } = parseOrderQuery(userMessage, ctx.enrichment?.orderQueryPrior)
+    lines.push(`- ${presentOrdersFacts(purchaseOrders, spec)}`)
+  } else if (ctx.orders.length) {
     const o = ctx.orders[0]
     lines.push(
-      `- Đơn gần nhất: #${o.id} | ${formatVnd(o.total)} | ${o.items.map((i) => i.productName).join(', ')}`,
+      `- Đơn gần nhất: #${o.id} | ${orderStatusLabel(o.status)} | ${formatVnd(o.total)}`,
     )
   }
 

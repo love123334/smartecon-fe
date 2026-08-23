@@ -25,6 +25,7 @@ import type {
   User,
   UserRole,
 } from '@/types'
+import type { OrderQuerySpec } from '@/api/chat/orderQuery'
 import type { SalesPerformance, SellerDashboard } from '@/api/real/seller'
 
 export interface ChatCartLine {
@@ -53,6 +54,8 @@ export interface ChatEnrichment {
   /** Products matched via category synonym / browse intent */
   categoryProducts?: Product[]
   focusedOrder?: Order | null
+  /** Order query spec từ lượt trước — follow-up temporal/status */
+  orderQueryPrior?: OrderQuerySpec
   /** Pre-fetched seller DSS brief (real API) for chat */
   dssBriefText?: string
 }

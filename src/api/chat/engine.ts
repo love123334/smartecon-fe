@@ -21,7 +21,6 @@ import {
   extractBudgetVnd,
   extractPriceRange,
   extractProductFocusLabel,
-  extractProductSearchTerms,
   extractSellerNameQuery,
   filterProductsForQuery,
   filterProductsByCategory,
@@ -36,6 +35,7 @@ import {
   productsUnderBudget,
   rankRecommendedProducts,
 } from '@/api/chat/products'
+import { presentProductSearchResult, searchProductsWithPolicy } from '@/api/chat/productMatch'
 import {
   buildIntentReply,
   escalateReply,
@@ -393,6 +393,12 @@ function shoppingStructuredReply(
   }
 
   if (filter.products.length) {
+    const policy = searchProductsWithPolicy(catalog, raw)
+    if (!policy.allowCards) {
+      return {
+        content: presentProductSearchResult(policy, ctx.userName),
+      }
+    }
     // Có keyword + giá → intro kiểu search (tránh giọng “chỉ lọc tầm giá” khi đã hỏi loại SP)
     const mode: IntroMode =
       filter.range && !filter.queryText ? 'budget' : filter.range ? 'search' : 'search'
@@ -401,12 +407,12 @@ function shoppingStructuredReply(
     return {
       content: warmProductIntro(
         ctx,
-        filter.products.length,
+        policy.products.length,
         rangeLabel,
         mode,
-        filter.products[0]?.name,
+        policy.products[0]?.name,
       ),
-      products: toChatProducts(filter.products, 6),
+      products: toChatProducts(policy.products, 6),
     }
   }
 
@@ -852,14 +858,17 @@ export async function generateAssistantReply(
       ) {
         sellers = undefined
       }
-      const products =
-        intent && NON_SHOPPING_INTENTS.has(intent)
-          ? undefined
-          : intent === 'contact_seller' && sellers?.length
-            ? undefined
-            : enrichProducts?.length
-              ? toChatProducts(enrichProducts, 6)
-              : undefined
+      let products: ReturnType<typeof toChatProducts> | undefined
+      if (intent && NON_SHOPPING_INTENTS.has(intent)) {
+        products = undefined
+      } else if (intent === 'contact_seller' && sellers?.length) {
+        products = undefined
+      } else if (intent === 'product_search') {
+        const policy = searchProductsWithPolicy(catalog, raw)
+        products = policy.allowCards ? toChatProducts(policy.products, 6) : undefined
+      } else if (enrichProducts?.length) {
+        products = toChatProducts(enrichProducts, 6)
+      }
       let content =
         reply +
         (intent === 'product_review' && reviewSummary ? '' : followUps(intent, ctx.role))
@@ -876,7 +885,17 @@ export async function generateAssistantReply(
   }
 
   const searchHits = ctx.enrichment?.searchResults
-  const matched = searchHits?.length ? searchHits : findProductsByQuery(catalog, extractProductSearchTerms(raw) || raw)
+  const policy = searchProductsWithPolicy(
+    searchHits?.length ? searchHits : catalog,
+    raw,
+  )
+  const matched = policy.allowCards ? policy.products : []
+
+  if (!matched.length && policy.matchTier === 'none' && policy.specificLabel) {
+    return finish({
+      content: presentProductSearchResult(policy, ctx.userName) + followUps(null, ctx.role),
+    })
+  }
 
   const smart = smartProductFallback(ctx, raw, matched)
   if (smart) {

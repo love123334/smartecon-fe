@@ -31,6 +31,15 @@ import {
   isPriceStatsQuery,
   stripPriceTokens,
 } from '@/api/chat/products'
+import {
+  filterOrdersBySpec,
+  parseOrderQuery,
+  presentOrdersReply,
+} from '@/api/chat/orderQuery'
+import {
+  presentProductSearchResult,
+  searchProductsWithPolicy,
+} from '@/api/chat/productMatch'
 import { matchCategoryFromText } from '@/api/chat/synonyms'
 import {
   buildProductReviewSummary,
@@ -213,6 +222,26 @@ function recommendReply(ctx: ChatContext, raw: string): string {
   return formatRecommendInsightReply(ctx, bundle)
 }
 
+function purchaseOrdersForUser(ctx: ChatContext): Order[] {
+  return ctx.purchaseOrders.length ? ctx.purchaseOrders : ctx.orders
+}
+
+function ordersReply(ctx: ChatContext, raw: string): string {
+  const name = greet(ctx.userName ?? '')
+  if (ctx.enrichment?.focusedOrder) {
+    const focused = ctx.enrichment.focusedOrder
+    const { spec } = parseOrderQuery(raw, ctx.enrichment?.orderQueryPrior)
+    return presentOrdersReply([focused], { ...spec, detailLevel: 'detail' }, { userName: ctx.userName })
+  }
+  if (ctx.role === 'guest') {
+    return `${name}Bạn cần **đăng nhập** để mình xem đơn hàng cá nhân. Sau đó hỏi lại "đơn hàng của tôi" nhé.`
+  }
+  const orders = purchaseOrdersForUser(ctx)
+  const { spec } = parseOrderQuery(raw, ctx.enrichment?.orderQueryPrior)
+  const filtered = filterOrdersBySpec(orders, spec)
+  return presentOrdersReply(filtered, spec, { userName: ctx.userName })
+}
+
 function formatOrderSummary(orders: Order[], limit = 3): string {
   if (!orders.length) return 'Bạn chưa có đơn hàng nào. Hãy thêm sản phẩm vào giỏ và checkout.'
   return orders
@@ -258,17 +287,23 @@ function cartSummaryReply(ctx: ChatContext): string {
   return `${name}**Giỏ hàng** (${ctx.cartItemCount} món):\n${lines}\n\n**Tổng: ${formatVnd(ctx.cartTotal)}**\n→ **Giỏ hàng** · **Thanh toán**`
 }
 
-function orderDetailReply(ctx: ChatContext): string {
+function orderDetailReply(ctx: ChatContext, raw = ''): string {
   const name = greet(ctx.userName ?? '')
   const focused = ctx.enrichment?.focusedOrder
   if (focused) {
-    const items = focused.items.map((i) => `${i.productName} ×${i.quantity}`).join(', ')
-    return `${name}**Đơn #${focused.id}**\n• Trạng thái: **${orderStatusLabel(focused.status)}**\n• Tổng: **${formatVnd(focused.total)}**\n• SP: ${items}\n• Địa chỉ: ${focused.shippingAddress}\n\nChi tiết **Đơn hàng của tôi**.`
+    const { spec } = parseOrderQuery(raw || 'chi tiet don', ctx.enrichment?.orderQueryPrior)
+    return presentOrdersReply([focused], { ...spec, detailLevel: 'detail' }, { userName: ctx.userName })
   }
-  if (ctx.orders.length) {
-    return `${name}**Đơn gần nhất:**\n${formatOrderSummary(ctx.orders, 3)}\n\nHỏi kèm mã đơn, vd: "đơn #${ctx.orders[0].id}".`
+  const orders = purchaseOrdersForUser(ctx)
+  if (!orders.length) {
+    return `${name}Chưa có đơn hàng. Đặt hàng qua **Giỏ hàng** → **Thanh toán**.`
   }
-  return `${name}Chưa có đơn hàng. Đặt hàng qua **Giỏ hàng** → **Thanh toán**.`
+  const { spec } = parseOrderQuery(raw || 'don cuoi', ctx.enrichment?.orderQueryPrior)
+  const filtered = filterOrdersBySpec(orders, { ...spec, latestOnly: true, timeRange: { type: 'recent', limit: 1 } })
+  if (filtered.length) {
+    return presentOrdersReply(filtered, { ...spec, detailLevel: 'detail', latestOnly: true }, { userName: ctx.userName })
+  }
+  return `${name}Hỏi kèm mã đơn, vd: "đơn #${orders[0].id}".`
 }
 
 function categoryBrowseReply(ctx: ChatContext, raw: string): string {
@@ -301,27 +336,9 @@ function categoryBrowseReply(ctx: ChatContext, raw: string): string {
 }
 
 function productSearchReply(ctx: ChatContext, raw: string): string {
-  const name = greet(ctx.userName ?? '')
-  const terms = extractProductSearchTerms(raw)
   const catalog = mergeCatalog(ctx)
-  const localHits = findProductsByQuery(catalog, terms || raw)
-  const apiHits = [
-    ...(ctx.enrichment?.searchResults ?? []),
-    ...(ctx.enrichment?.categoryProducts ?? []),
-  ]
-  const merged = [...apiHits]
-  for (const p of localHits) {
-    if (!merged.some((x) => String(x.id) === String(p.id))) merged.push(p)
-  }
-  const hits = merged.length ? findProductsByQuery(merged, terms || raw) : localHits
-  const finalHits = hits.length ? hits : merged
-  if (!finalHits.length) {
-    return `${name}Mình chưa thấy **${terms || 'mẫu đó'}** trên shop. Thử tên ngắn hơn (vd. "điện thoại", "tai nghe") hoặc nới điều kiện một chút?`
-  }
-  const pick = finalHits[0]?.name
-  return pick
-    ? `${name}Yep, có vài option khá ngon — mình nghiêng về **${pick}** trước.`
-    : `${name}Yep, có vài option khá ngon trong kết quả này.`
+  const policy = searchProductsWithPolicy(catalog, raw)
+  return presentProductSearchResult(policy, ctx.userName)
 }
 
 function cheapestReply(ctx: ChatContext): string {
@@ -640,21 +657,10 @@ function buildCustomerIntent(ctx: ChatContext, intent: ChatIntent, raw: string):
       return `${name}**Chính sách giao hàng SEDSP:**\n• Nội thành: 1–2 ngày\n• Ngoại tỉnh: 3–5 ngày\n• Miễn phí ship đơn từ **500.000₫**\n• Theo dõi tại **Đơn hàng của tôi** sau khi đặt.`
     case 'payment':
       return `${name}**Hình thức thanh toán:**\n• **Chuyển MoMo tới shop** — quét QR / chuyển khoản số điện thoại shop lúc checkout.\nGiá niêm yết chưa trừ voucher. Nhập mã giảm giá ở bước **Thanh toán**.`
-    case 'orders': {
-      const detail = orderDetailReply(ctx)
-      if (ctx.enrichment?.focusedOrder) return detail
-      if (ctx.role === 'guest') {
-        return `${name}Bạn cần **đăng nhập** để mình xem đơn hàng cá nhân. Sau đó hỏi lại "đơn hàng của tôi" nhé.`
-      }
-      if (!ctx.orders.length) {
-        return `${name}Hiện bạn chưa có đơn nào. Thêm sản phẩm vào giỏ rồi thanh toán — đơn sẽ hiện ở **Đơn hàng**.`
-      }
-      const pending = ctx.orders.filter((o) => o.status === 'pending').length
-      const shipping = ctx.orders.filter((o) => o.status === 'shipping').length
-      return `${name}Bạn đang có **${ctx.orders.length}** đơn:\n${formatOrderSummary(ctx.orders)}${pending ? `\n\nCó ${pending} đơn đang chờ xác nhận.` : ''}${shipping ? `\nCó ${shipping} đơn đang giao.` : ''}\n\nMở **Đơn hàng** để theo dõi chi tiết, hoặc hỏi "chi tiết đơn #…".`
-    }
+    case 'orders':
+      return ordersReply(ctx, raw)
     case 'order_detail':
-      return orderDetailReply(ctx)
+      return orderDetailReply(ctx, raw)
     case 'order_cancel': {
       const cancellable = ctx.orders.filter((o) => o.status === 'pending' || o.status === 'confirmed')
       if (!cancellable.length) {
@@ -967,7 +973,7 @@ export function buildIntentReply(ctx: ChatContext, intent: ChatIntent, raw: stri
     case 'cart_summary':
       return cartSummaryReply(ctx)
     case 'order_detail':
-      return orderDetailReply(ctx)
+      return orderDetailReply(ctx, raw)
     default:
       break
   }

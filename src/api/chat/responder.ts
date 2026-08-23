@@ -282,6 +282,13 @@ async function alignContextToFocus(
   }
 }
 
+function isOrderFollowUp(normalized: string, prior?: ConversationContext): boolean {
+  if (!prior || prior.activeTask !== 'order') return false
+  return /don|order|giao|ship|trang thai|hom nay|hom qua|gan day|cuoi cung|da giao|dang giao|chi tiet|mua gi/.test(
+    normalized,
+  )
+}
+
 /** Hybrid: local facts trước → LLM diễn đạt; fallback/sửa facts nếu LLM lệch. */
 export async function resolveChatReply(
   userMessage: string,
@@ -312,6 +319,8 @@ export async function resolveChatReply(
     detected = { intent: 'product_review', score: 50 }
   } else if (followUp) {
     detected = resolveFollowUpIntent(normalized, detected)
+  } else if (isOrderFollowUp(normalized, priorConversation)) {
+    detected = { intent: 'orders', score: 48 }
   }
 
   const rawIntent = detected?.intent ?? null
@@ -340,6 +349,15 @@ export async function resolveChatReply(
   if (focusRef) {
     ctxForReply = await alignContextToFocus(enriched, focusRef, wantsReviews)
   }
+  if (priorConversation?.orderQuerySpec) {
+    ctxForReply = {
+      ...ctxForReply,
+      enrichment: {
+        ...ctxForReply.enrichment,
+        orderQueryPrior: priorConversation.orderQuerySpec,
+      },
+    }
+  }
 
   const hasPriceFilter = Boolean(extractPriceRange(userMessage))
   const priceStats = isPriceStatsQuery(userMessage)
@@ -359,7 +377,7 @@ export async function resolveChatReply(
   const local = await generateAssistantReply(userMessage, ctxForReply, effectiveAttachments, intent)
   localLatencyMs = Math.round(performance.now() - localStarted)
 
-  const facts = buildVerifiedFacts(ctxForReply, intent, intentScore, local)
+  const facts = buildVerifiedFacts(ctxForReply, intent, intentScore, local, userMessage)
   let products = local.products?.length
     ? local.products
     : facts.products.length
