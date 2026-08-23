@@ -51,6 +51,9 @@ export type ChatIntent =
   | 'seller_dss_inventory'
   | 'seller_whatif'
   | 'seller_purchase_orders'
+  | 'seller_business_health'
+  | 'seller_profit'
+  | 'seller_dss_explain'
   | 'manager_kpi'
   | 'manager_pending'
   | 'manager_segment'
@@ -526,6 +529,36 @@ const SELLER: IntentRule[] = [
     priority: 10,
   },
   {
+    intent: 'seller_business_health',
+    keywords: [
+      'shop the nao', 'suc khoe shop', 'kinh doanh the nao', 'tinh hinh shop',
+      'shop dang', 'business health', 'phan tich shop', 'shop sao roi',
+    ],
+    phrases: ['shop the nao', 'kinh doanh the nao', 'tinh hinh shop'],
+    roles: ['seller'],
+    priority: 9,
+  },
+  {
+    intent: 'seller_profit',
+    keywords: [
+      'loi nhuan', 'profit', 'margin', 'gross profit', 'gia von', 'von bao nhieu',
+      'bo bao nhieu von', 'kiem duoc bao nhieu', 'loi bao nhieu', 'von ton kho',
+    ],
+    phrases: ['loi nhuan', 'gia von', 'profit'],
+    roles: ['seller'],
+    priority: 8,
+  },
+  {
+    intent: 'seller_dss_explain',
+    keywords: [
+      'dss la gi', 'dss giup', 'dss cua sedsp', 'he thong ho tro quyet dinh',
+      'decision support', 'dss hoat dong',
+    ],
+    phrases: ['dss la gi', 'dss giup gi'],
+    roles: ['seller'],
+    priority: 9,
+  },
+  {
     intent: 'seller_whatif',
     keywords: [
       'what if', 'whatif', 'mo phong giam gia', 'giam gia bao nhieu loi nhuan',
@@ -703,6 +736,15 @@ function refineIntent(
     }
     if (/mo phong giam|what\s*if|diem hoa von|break.?even/.test(normalized)) {
       return 'seller_whatif'
+    }
+    if (/dss la gi|dss giup|dss cua sedsp|decision support/.test(normalized)) {
+      return 'seller_dss_explain'
+    }
+    if (/loi nhuan|profit|margin|gia von|von bao nhieu|kiem duoc bao nhieu/.test(normalized)) {
+      return 'seller_profit'
+    }
+    if (/shop the nao|suc khoe shop|kinh doanh the nao|tinh hinh shop|shop sao roi/.test(normalized)) {
+      return 'seller_business_health'
     }
   }
   return detected.intent

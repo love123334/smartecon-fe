@@ -57,6 +57,9 @@ const SELLER_OPS_INTENTS = new Set<ChatIntent>([
   'seller_dss_inventory',
   'seller_whatif',
   'seller_top_products',
+  'seller_business_health',
+  'seller_profit',
+  'seller_dss_explain',
 ])
 
 const MANAGER_INTENTS = new Set<ChatIntent>([

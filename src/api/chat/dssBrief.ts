@@ -2,18 +2,19 @@
 import { formatVnd } from '@/api/chat/match'
 import type { Product } from '@/types'
 
-function pickFocusProduct(catalog: Product[]): Product | null {
+function pickFocusProduct(catalog: Product[], override?: Product | null): Product | null {
+  if (override) return override
   if (!catalog.length) return null
   return [...catalog].sort((a, b) => b.soldCount - a.soldCount)[0]
 }
 
-export function demandBrief(catalog: Product[]): string {
-  const focus = pickFocusProduct(catalog)
-  if (!focus) {
+export function demandBrief(catalog: Product[], focus?: Product | null): string {
+  const pick = pickFocusProduct(catalog, focus)
+  if (!pick) {
     return '• Chưa có sản phẩm trong catalog để dự báo. Mở **DSS → Dự báo nhu cầu** sau khi có đơn DELIVERED.'
   }
   return [
-    `• SP trọng tâm (catalog): **${focus.name}**`,
+    `• SP trọng tâm (catalog): **${pick.name}**`,
     `• Chatbot không tự bịa số dự báo — cần chạy **API DSS** trên đơn đã giao.`,
     `→ Mở **DSS → Dự báo nhu cầu** và chọn SP này.`,
   ].join('\n')
@@ -61,9 +62,9 @@ export function sellerWhatIfBrief(discountPct = 10): string {
 }
 
 /** Live DSS via backend — báo lỗi thật, không fallback số liệu bịa. */
-export async function demandBriefLive(catalog: Product[]): Promise<string> {
-  const focus = pickFocusProduct(catalog)
-  if (!focus?.id || !/^\d+$/.test(focus.id)) return demandBrief(catalog)
+export async function demandBriefLive(catalog: Product[], focusOverride?: Product | null): Promise<string> {
+  const focus = pickFocusProduct(catalog, focusOverride)
+  if (!focus?.id || !/^\d+$/.test(focus.id)) return demandBrief(catalog, focus)
   try {
     const { dssApi } = await import('@/api/services')
     const r = await dssApi.forecastDemand({
@@ -90,8 +91,8 @@ export async function demandBriefLive(catalog: Product[]): Promise<string> {
   }
 }
 
-export async function priceBriefLive(catalog: Product[]): Promise<string> {
-  const focus = pickFocusProduct(catalog)
+export async function priceBriefLive(catalog: Product[], focusOverride?: Product | null): Promise<string> {
+  const focus = pickFocusProduct(catalog, focusOverride)
   if (!focus?.id || !/^\d+$/.test(focus.id)) return priceBrief(catalog)
   try {
     const { dssApi } = await import('@/api/services')
@@ -147,8 +148,9 @@ export async function inventoryDssBriefLive(catalog: Product[]): Promise<string>
 export async function sellerWhatIfBriefLive(
   discountPct: number,
   catalog: Product[],
+  focusOverride?: Product | null,
 ): Promise<string> {
-  const focus = pickFocusProduct(catalog)
+  const focus = pickFocusProduct(catalog, focusOverride)
   if (!focus?.id || !/^\d+$/.test(focus.id)) return sellerWhatIfBrief(discountPct)
   try {
     const { dssApi } = await import('@/api/services')

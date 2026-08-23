@@ -10,6 +10,7 @@ import {
   priceBriefLive,
   sellerWhatIfBriefLive,
 } from '@/api/chat/dssBrief'
+import { findProductInCatalog } from '@/api/chat/sellerAnalytics'
 import { inventoryApi, orderApi, productApi, reviewApi } from '@/api/services'
 import type { Product } from '@/types'
 
@@ -309,14 +310,15 @@ export async function enrichChatContext(
   ) {
     tasks.push(
       (async () => {
+        const focusProduct = findProductInCatalog(catalog, raw)
         if (intent === 'seller_dss_demand') {
-          enrichment.dssBriefText = await demandBriefLive(catalog)
+          enrichment.dssBriefText = await demandBriefLive(catalog, focusProduct)
         } else if (intent === 'seller_dss_price' || intent === 'seller_pricing') {
-          enrichment.dssBriefText = await priceBriefLive(catalog)
+          enrichment.dssBriefText = await priceBriefLive(catalog, focusProduct)
         } else if (intent === 'seller_dss_inventory') {
           enrichment.dssBriefText = await inventoryDssBriefLive(catalog)
         } else if (intent === 'seller_whatif') {
-          enrichment.dssBriefText = await sellerWhatIfBriefLive(extractDiscountPct(raw, 10), catalog)
+          enrichment.dssBriefText = await sellerWhatIfBriefLive(extractDiscountPct(raw, 10), catalog, focusProduct)
         }
       })(),
     )

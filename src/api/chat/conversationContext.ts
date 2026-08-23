@@ -1,5 +1,6 @@
 import type { OrderQuerySpec } from '@/api/chat/orderQuery'
 import { parseOrderQuery } from '@/api/chat/orderQuery'
+import { parseSellerBusinessQuery, type SellerAnalyticsSpec } from '@/api/chat/sellerAnalytics'
 import type { ChatIntent } from '@/api/chat/intents'
 import { isClearTopicSwitch } from '@/api/chat/followup'
 import { refreshConversationMemoryFields } from '@/api/chat/conversationMemory'
@@ -44,6 +45,8 @@ export interface ConversationContext {
   lastInsightType?: string
   /** Spec truy vấn đơn — giữ temporal/status cho follow-up */
   orderQuerySpec?: OrderQuerySpec
+  /** Spec phân tích seller — giữ metric/period cho follow-up */
+  sellerAnalyticsSpec?: SellerAnalyticsSpec
   updatedAt: string
 }
 
@@ -143,6 +146,7 @@ export function updateConversationContext(
       activeTask: taskForIntent(turn.intent),
       lastIntent: turn.intent ?? undefined,
       orderQuerySpec: undefined,
+      sellerAnalyticsSpec: undefined,
       updatedAt: new Date().toISOString(),
     }
   }
@@ -172,6 +176,7 @@ export function updateConversationContext(
   )
 
   let orderQuerySpec = prev.orderQuerySpec
+  let sellerAnalyticsSpec = prev.sellerAnalyticsSpec
   if (
     turn.intent === 'orders' ||
     turn.intent === 'order_detail' ||
@@ -179,6 +184,16 @@ export function updateConversationContext(
     task === 'order'
   ) {
     orderQuerySpec = parseOrderQuery(turn.userMessage, prev.orderQuerySpec).spec
+  }
+  if (
+    turn.intent?.startsWith('seller_') ||
+    task === 'seller_ops'
+  ) {
+    sellerAnalyticsSpec = parseSellerBusinessQuery(
+      turn.userMessage,
+      turn.intent,
+      prev.sellerAnalyticsSpec,
+    )
   }
 
   return {
@@ -195,6 +210,7 @@ export function updateConversationContext(
     lastAnalysis: stateDelta.lastAnalysis ?? prev.lastAnalysis,
     lastInsightType: stateDelta.lastAnalysis ?? prev.lastInsightType,
     orderQuerySpec,
+    sellerAnalyticsSpec,
     updatedAt: new Date().toISOString(),
   }
 }

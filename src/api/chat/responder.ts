@@ -95,6 +95,9 @@ const STRICT_LOCAL_INTENTS = new Set<ChatIntent>([
   'seller_purchase_orders',
   'seller_inventory',
   'seller_top_products',
+  'seller_business_health',
+  'seller_profit',
+  'seller_dss_explain',
   'manager_kpi',
   'manager_pending',
   'manager_revenue',
@@ -289,6 +292,13 @@ function isOrderFollowUp(normalized: string, prior?: ConversationContext): boole
   )
 }
 
+function isSellerAnalyticsFollowUp(normalized: string, prior?: ConversationContext): boolean {
+  if (!prior || prior.activeTask !== 'seller_ops') return false
+  return /doanh thu|loi nhuan|profit|don|ton kho|nhap|dss|shop|thang nay|tai sao|tang|giam|ban chay|what if|gia/.test(
+    normalized,
+  )
+}
+
 /** Hybrid: local facts trước → LLM diễn đạt; fallback/sửa facts nếu LLM lệch. */
 export async function resolveChatReply(
   userMessage: string,
@@ -321,6 +331,19 @@ export async function resolveChatReply(
     detected = resolveFollowUpIntent(normalized, detected)
   } else if (isOrderFollowUp(normalized, priorConversation)) {
     detected = { intent: 'orders', score: 48 }
+  } else if (isSellerAnalyticsFollowUp(normalized, priorConversation)) {
+    const priorMetric = priorConversation?.sellerAnalyticsSpec?.metric
+    if (priorMetric === 'health' || /shop|kinh doanh|suc khoe/.test(normalized)) {
+      detected = { intent: 'seller_business_health', score: 48 }
+    } else if (/loi nhuan|profit|margin|von/.test(normalized)) {
+      detected = { intent: 'seller_profit', score: 48 }
+    } else if (/tai sao|vi sao|tang|giam|so voi/.test(normalized)) {
+      detected = { intent: 'seller_revenue', score: 48 }
+    } else if (/nhap|restock|ton kho/.test(normalized)) {
+      detected = { intent: 'seller_inventory', score: 48 }
+    } else {
+      detected = { intent: 'seller_revenue', score: 45 }
+    }
   }
 
   const rawIntent = detected?.intent ?? null
@@ -355,6 +378,15 @@ export async function resolveChatReply(
       enrichment: {
         ...ctxForReply.enrichment,
         orderQueryPrior: priorConversation.orderQuerySpec,
+      },
+    }
+  }
+  if (priorConversation?.sellerAnalyticsSpec) {
+    ctxForReply = {
+      ...ctxForReply,
+      enrichment: {
+        ...ctxForReply.enrichment,
+        sellerAnalyticsPrior: priorConversation.sellerAnalyticsSpec,
       },
     }
   }

@@ -40,6 +40,11 @@ import {
   presentProductSearchResult,
   searchProductsWithPolicy,
 } from '@/api/chat/productMatch'
+import {
+  buildSellerAnalyticsReply,
+  parseSellerBusinessQuery,
+  presentRevenueReply,
+} from '@/api/chat/sellerAnalytics'
 import { matchCategoryFromText } from '@/api/chat/synonyms'
 import {
   buildProductReviewSummary,
@@ -740,14 +745,22 @@ function buildCustomerIntent(ctx: ChatContext, intent: ChatIntent, raw: string):
 function buildSellerIntent(ctx: ChatContext, intent: ChatIntent, raw: string): string | null {
   const name = greet(ctx.userName ?? '')
   const catalog = ctx.sellerProducts.length ? ctx.sellerProducts : ctx.products
+  const prior = ctx.enrichment?.sellerAnalyticsPrior
+
+  const analyticsReply = buildSellerAnalyticsReply(ctx, intent, raw, prior)
+  if (analyticsReply) return analyticsReply
 
   switch (intent) {
+    case 'seller_business_health':
+      return buildSellerAnalyticsReply(ctx, intent, raw, prior) ?? `${name}Chưa đủ dữ liệu dashboard — mở **Bảng doanh số** rồi hỏi lại.`
+    case 'seller_profit':
+      return buildSellerAnalyticsReply(ctx, intent, raw, prior) ?? `${name}Chưa tính được lợi nhuận — cần giá vốn trên SP.`
+    case 'seller_dss_explain':
+      return buildSellerAnalyticsReply(ctx, intent, raw, prior)
     case 'seller_revenue': {
-      const perf = ctx.salesPerformance
-      if (perf) {
-        const chart = perf.monthlyRevenue.slice(-3).map((m) => `• ${m.label}: ${formatVnd(m.value)}`).join('\n')
-        const top = perf.topProducts.slice(0, 3).map((p) => `• ${p.productName}: ${p.quantitySold} sp · ${formatVnd(p.revenue)}`).join('\n')
-        return `${name}Doanh số gần đây trông thế này:\n• Tổng: **${formatVnd(perf.summary.totalRevenue)}**\n• Đơn HT: **${perf.summary.completedOrders}**\n• AOV: **${formatVnd(perf.summary.averageOrderValue)}**${chart ? `\n\n**3 tháng gần:**\n${chart}` : ''}${top ? `\n\n**Top SP:**\n${top}` : ''}`
+      if (ctx.salesPerformance) {
+        const spec = parseSellerBusinessQuery(raw, intent, prior)
+        return presentRevenueReply(ctx.salesPerformance, spec, ctx.userName)
       }
       const est = catalog.reduce((s, p) => s + p.soldCount * p.price, 0)
       return `${name}Ước tính từ catalog khoảng **${formatVnd(est)}**. Khi có dữ liệu đơn thật thì mình soi sâu hơn được.`

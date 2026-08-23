@@ -19,6 +19,9 @@ export const SELLER_OPS_INTENTS = new Set<ChatIntent>([
   'seller_dss_inventory',
   'seller_whatif',
   'seller_purchase_orders',
+  'seller_business_health',
+  'seller_profit',
+  'seller_dss_explain',
 ])
 
 export const MANAGER_OPS_INTENTS = new Set<ChatIntent>([
@@ -75,7 +78,7 @@ function greet(name?: string): string {
 export function roleHelpHints(role: UserRole): string {
   switch (role) {
     case 'seller':
-      return 'Gợi ý: **doanh thu tháng**, **đơn bán gần đây**, **SKU sắp hết**, **DSS dự báo nhu cầu**, **khuyến nghị giá**, **what-if giảm 10%**. (Bạn vẫn có thể hỏi mua hàng như khách.)'
+      return 'Gợi ý: **shop tôi thế nào**, **doanh thu tháng này**, **lợi nhuận**, **SKU sắp hết**, **DSS là gì**, **dự báo nhu cầu**, **what-if giảm 10%**. (Bạn vẫn có thể hỏi mua hàng như khách.)'
     case 'manager':
       return 'Gợi ý: **KPI tháng**, **đơn chờ duyệt**, **doanh thu sàn**, **xu hướng danh mục**, **what-if khuyến mãi**.'
     case 'admin':

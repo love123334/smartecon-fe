@@ -10,6 +10,7 @@ import {
 } from '@/api/chat/insightEngine'
 import { formatVnd } from '@/api/chat/match'
 import { parseOrderQuery, presentOrdersFacts } from '@/api/chat/orderQuery'
+import { parseSellerBusinessQuery, presentSellerAnalyticsFacts } from '@/api/chat/sellerAnalytics'
 import { pickRepresentativeReviews } from '@/api/chat/productReviewSummary'
 import type { ChatProductRef, ChatSellerRef } from '@/types'
 import { orderStatusLabel } from '@/utils/orderStatus'
@@ -230,6 +231,24 @@ export function buildVerifiedFacts(
     lines.push(
       `- Đơn gần nhất: #${o.id} | ${orderStatusLabel(o.status)} | ${formatVnd(o.total)}`,
     )
+  }
+
+  if (
+    intent?.startsWith('seller_') &&
+    userMessage &&
+    ctx.role === 'seller'
+  ) {
+    const spec = parseSellerBusinessQuery(userMessage, intent, ctx.enrichment?.sellerAnalyticsPrior)
+    const fact = presentSellerAnalyticsFacts(ctx, spec)
+    if (fact) lines.push(`- ${fact}`)
+    if (ctx.enrichment?.dssBriefText) {
+      lines.push(`- DSS: ${ctx.enrichment.dssBriefText.replace(/\n+/g, ' ').slice(0, 280)}`)
+    }
+    if (ctx.salesPerformance && !fact.includes('Doanh thu')) {
+      lines.push(
+        `- Doanh thu API: ${formatVnd(ctx.salesPerformance.summary.totalRevenue)} · ${ctx.salesPerformance.summary.completedOrders} đơn HT`,
+      )
+    }
   }
 
   for (const n of extractVndNumbers(local.content)) {

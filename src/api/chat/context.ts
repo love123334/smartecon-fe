@@ -26,6 +26,7 @@ import type {
   UserRole,
 } from '@/types'
 import type { OrderQuerySpec } from '@/api/chat/orderQuery'
+import type { SellerAnalyticsSpec } from '@/api/chat/sellerAnalytics'
 import type { SalesPerformance, SellerDashboard } from '@/api/real/seller'
 
 export interface ChatCartLine {
@@ -56,6 +57,8 @@ export interface ChatEnrichment {
   focusedOrder?: Order | null
   /** Order query spec từ lượt trước — follow-up temporal/status */
   orderQueryPrior?: OrderQuerySpec
+  /** Seller analytics spec từ lượt trước — follow-up doanh thu/DSS */
+  sellerAnalyticsPrior?: SellerAnalyticsSpec
   /** Pre-fetched seller DSS brief (real API) for chat */
   dssBriefText?: string
 }
