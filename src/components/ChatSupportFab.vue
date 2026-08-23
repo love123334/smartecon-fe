@@ -433,7 +433,10 @@ function onFabDrop(e: DragEvent) {
               <ChatBotIcon :size="28" />
             </span>
             <div class="chat-popup__head-text">
-              <h2 class="chat-popup__title">{{ title }}</h2>
+              <div class="chat-popup__head-title-row">
+                <h2 class="chat-popup__title">{{ title }}</h2>
+                <span class="chat-status-badge">🟢 AI</span>
+              </div>
               <p class="chat-popup__session-title" :title="chatSession.sessionTitle">
                 {{ chatSession.sessionTitle }}
               </p>
@@ -817,6 +820,26 @@ function onFabDrop(e: DragEvent) {
 
 .chat-popup__head-text {
   min-width: 0;
+  flex: 1;
+}
+
+.chat-popup__head-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.chat-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: #ecfdf5;
+  color: #065f46;
+  font-size: 0.65rem;
+  font-weight: 700;
+  border: 1px solid #a7f3d0;
+  letter-spacing: 0.02em;
 }
 
 .chat-popup__head-actions {

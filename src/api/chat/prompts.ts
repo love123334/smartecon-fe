@@ -3,38 +3,38 @@ import type { UserRole } from '@/types'
 export interface QuickPrompt {
   label: string
   text: string
+  icon?: string
 }
 
 function usablePrompts(items: QuickPrompt[]): QuickPrompt[] {
   return items.filter((p) => p.text.trim())
 }
 
-/** Pool mua sắm — xoay vòng/random mỗi lần mở chat để kích thích khám phá. */
+/** Pool mua sắm cho khách hàng — đa dạng ngành hàng, ngân sách, tính năng */
 const SHOPPER_PROMPT_POOL: QuickPrompt[] = [
-  { label: 'Web bán gì', text: 'Web bán gì vậy?' },
-  { label: 'Điện thoại', text: 'Điện thoại có gì?' },
-  { label: 'Laptop', text: 'Laptop đang bán những gì?' },
-  { label: 'Tai nghe', text: 'Tai nghe bluetooth có gì hay?' },
-  { label: 'Bàn phím', text: 'Bàn phím cơ đang có những mẫu nào?' },
-  { label: 'Rẻ nhất', text: 'Sản phẩm nào rẻ nhất?' },
-  { label: 'Dưới 2tr', text: 'Có gì dưới 2 triệu không?' },
-  { label: 'Dưới 500k', text: 'Có sản phẩm dưới 500 nghìn không?' },
-  { label: 'Tầm 1–3tr', text: 'Gợi ý sản phẩm từ 1 đến 3 triệu' },
-  { label: 'Trên 10tr', text: 'Sản phẩm trên 10 triệu có gì?' },
-  { label: 'Đang hot', text: 'Sản phẩm bán chạy nhất là gì?' },
-  { label: 'Thể thao', text: 'Đồ thể thao / giày chạy có gì?' },
-  { label: 'Gia dụng', text: 'Gia dụng nhà bếp đang bán gì?' },
-  { label: 'Quà tặng', text: 'Gợi ý quà tặng dưới 1 triệu' },
-  { label: 'Phụ kiện', text: 'Phụ kiện điện tử đang có những gì?' },
-  { label: 'Máy tính bảng', text: 'Máy tính bảng / tablet có gì?' },
-  { label: 'So sánh', text: 'So sánh giúp tai nghe và bàn phím tầm giá' },
-  { label: 'Deal hôm nay', text: 'Hôm nay nên mua gì hợp túi tiền?' },
+  { label: '🎧 Tai nghe ANC', text: 'Tư vấn tai nghe bluetooth chống ồn tầm giá tốt' },
+  { label: '⌨️ Bàn phím cơ', text: 'Có bàn phím cơ RGB nào đang bán chạy?' },
+  { label: '🍳 Nồi chiên 5L', text: 'Tư vấn nồi chiên không dầu 5L cho gia đình' },
+  { label: '👟 Giày chạy bộ', text: 'Gợi ý giày chạy bộ thể thao marathon' },
+  { label: '🎟️ Mã giảm giá', text: 'Có mã voucher giảm giá nào đang áp dụng được không?' },
+  { label: '🏷️ Dưới 2 triệu', text: 'Gợi ý các sản phẩm công nghệ dưới 2 triệu đồng' },
+  { label: '💻 Laptop', text: 'Laptop làm việc văn phòng và đồ họa có mẫu nào?' },
+  { label: '📱 Điện thoại', text: 'Điện thoại smartphone cao cấp đang có những mẫu nào?' },
+  { label: '🔥 Bán chạy nhất', text: 'Sản phẩm nào đang bán chạy nhất trên sàn?' },
+  { label: '🎁 Quà tặng', text: 'Gợi ý quà tặng công nghệ dưới 1 triệu' },
+  { label: '📦 Đơn hàng', text: 'Đơn hàng gần nhất của tôi đang ở trạng thái nào?' },
+  { label: '🛒 Giỏ hàng', text: 'Kiểm tra giỏ hàng của tôi' },
 ]
 
-const CUSTOMER_EXTRA: QuickPrompt[] = [
-  { label: 'Giỏ hàng', text: 'Giỏ hàng của tôi có gì?' },
-  { label: 'Đơn hàng', text: 'Đơn hàng của tôi thế nào?' },
-  { label: 'Theo dõi đơn', text: 'Đơn gần nhất của tôi đang ở đâu?' },
+/** Pool quản trị và kinh doanh cho người bán (Seller DSS) */
+const SELLER_PROMPT_POOL: QuickPrompt[] = [
+  { label: '📊 Sức khỏe shop', text: 'Đánh giá sức khỏe kinh doanh của shop tôi?' },
+  { label: '📦 Cần nhập gì', text: 'Tháng tới shop nên nhập thêm những sản phẩm nào?' },
+  { label: '📈 Dự báo nhu cầu', text: 'Dự báo nhu cầu bán hàng của Bàn phím cơ KeyPro K87?' },
+  { label: '📉 Phân tích giảm giá', text: 'Nếu giảm giá 10% Tai nghe Bluetooth ANC thì lợi nhuận thế nào?' },
+  { label: '💰 Doanh thu', text: 'Tổng quan doanh thu và đơn hàng tháng này?' },
+  { label: '⚠️ Cảnh báo tồn kho', text: 'Có sản phẩm nào sắp chạm điểm đặt hàng lại (ROP) không?' },
+  { label: '🏷️ Chiến lược giá', text: 'Gợi ý tối ưu giá bán cho các sản phẩm chủ lực?' },
 ]
 
 function mulberry32(seed: number): () => number {
@@ -66,27 +66,15 @@ export function pickQuickPrompts(
 ): QuickPrompt[] {
   switch (role) {
     case 'seller':
-      return shufflePick(
-        usablePrompts([
-          { label: 'Doanh số', text: 'Doanh thu tháng này thế nào?' },
-          { label: 'Đơn mua', text: 'Đơn mua của tôi thế nào?' },
-          { label: 'Mua hàng', text: 'Gợi ý sản phẩm đang bán chạy để nhập / mua?' },
-          { label: 'Tồn kho', text: 'Sản phẩm nào sắp hết hàng?' },
-          { label: 'What-if', text: 'What if giảm giá 10% thì sao?' },
-          { label: 'Giá bán', text: 'Nên giữ hay giảm giá sản phẩm bán chạy?' },
-          { label: 'Dự báo', text: 'Dự báo nhu cầu tuần tới thế nào?' },
-        ]),
-        count,
-        seed,
-      )
+      return shufflePick(usablePrompts(SELLER_PROMPT_POOL), count, seed)
     case 'manager':
       return shufflePick(
         [
-          { label: 'KPI', text: 'Tóm tắt KPI tháng này' },
-          { label: 'Đơn chờ', text: 'Có bao nhiêu đơn chờ xử lý?' },
-          { label: 'Xu hướng', text: 'Danh mục nào đang tăng trưởng?' },
-          { label: 'Doanh thu', text: 'Doanh thu GMV hiện tại?' },
-          { label: 'Voucher', text: 'Voucher nào đang chạy tốt?' },
+          { label: '📊 KPI sàn', text: 'Tóm tắt KPI và hiệu suất toàn sàn tháng này' },
+          { label: '⏳ Đơn chờ', text: 'Có bao nhiêu đơn hàng đang chờ xử lý?' },
+          { label: '📈 Xu hướng', text: 'Danh mục nào đang có tăng trưởng doanh thu cao nhất?' },
+          { label: '💰 Doanh thu GMV', text: 'Tổng doanh thu GMV và phí sàn hiện tại?' },
+          { label: '🎟️ Hiệu quả Voucher', text: 'Voucher nào đang có tỷ lệ sử dụng cao nhất?' },
         ],
         count,
         seed,
@@ -94,38 +82,29 @@ export function pickQuickPrompts(
     case 'admin':
       return shufflePick(
         [
-          { label: 'Hệ thống', text: 'Trạng thái các dịch vụ hệ thống?' },
-          { label: 'Người dùng', text: 'Có bao nhiêu tài khoản đang hoạt động?' },
-          { label: 'Cảnh báo', text: 'Có cảnh báo vận hành nào không?' },
-          { label: 'Bảo mật', text: 'Tóm tắt bảo mật JWT và RBAC' },
-          { label: 'Cấu hình', text: 'Các biến môi trường cần cấu hình?' },
+          { label: '🖥️ Hệ thống', text: 'Trạng thái các dịch vụ hệ thống và database?' },
+          { label: '👥 Người dùng', text: 'Thống kê người dùng và tài khoản mới đăng ký?' },
+          { label: '⚠️ Cảnh báo', text: 'Có cảnh báo bảo mật hoặc vận hành nào không?' },
         ],
         count,
         seed,
       )
-    case 'guest':
-      return shufflePick(SHOPPER_PROMPT_POOL, count, seed)
     default:
-      return shufflePick([...SHOPPER_PROMPT_POOL, ...CUSTOMER_EXTRA], count, seed)
+      return shufflePick(usablePrompts(SHOPPER_PROMPT_POOL), count, seed)
   }
 }
 
-/** @deprecated dùng pickQuickPrompts — giữ tương thích test/cũ */
 export function quickPromptsForRole(role: UserRole): QuickPrompt[] {
-  return pickQuickPrompts(role, Date.now(), 4)
+  return pickQuickPrompts(role, 0, 12)
 }
 
-export function welcomeMessage(role: UserRole): string {
-  switch (role) {
-    case 'seller':
-      return 'Xin chào! Hỏi **doanh thu**, **đơn bán**, **tồn kho**, **DSS** hoặc **what-if** — mình trả lời từ dữ liệu shop và có nút mở trang trực quan nếu bạn muốn.'
-    case 'manager':
-      return 'Xin chào! Hỏi KPI, đơn chờ, phân khúc hoặc xu hướng danh mục.'
-    case 'admin':
-      return 'Xin chào! Hỏi trạng thái hệ thống, số user, cảnh báo, bảo mật hoặc cấu hình.'
-    case 'guest':
-      return 'Xin chào! Thử hỏi catalog, giá, danh mục — hoặc bấm gợi ý phía trên. Đăng nhập để xem đơn & giỏ.'
-    default:
-      return 'Xin chào! Hỏi catalog, giá, tồn kho, đơn hàng — hoặc tên SP + "giá bao nhiêu".'
+export function welcomeMessage(role: UserRole, userName?: string): string {
+  const name = userName?.trim() ? ` ${userName}` : ''
+  if (role === 'seller') {
+    return `Xin chào${name}! 👋 Tôi là **Trợ lý DSS & Quản lý bán hàng** của bạn. Tôi có thể hỗ trợ dự báo nhu cầu bán hàng, cảnh báo điểm đặt hàng lại (ROP), phân tích What-If khi giảm giá và theo dõi sức khỏe kinh doanh của shop.`
   }
+  if (role === 'manager') {
+    return `Xin chào${name}! Tôi là **Trợ lý Quản trị Vận hành sàn**. Bạn cần xem báo cáo KPI, phê duyệt voucher hay phân tích doanh thu toàn nền tảng?`
+  }
+  return `Chào bạn${name}! 👋 Tôi là **Trợ lý mua sắm SEDSP**. Bạn đang tìm kiếm sản phẩm nào (tai nghe, bàn phím, nồi chiên, giày chạy bộ...), cần săn mã giảm giá hay tra cứu đơn hàng?`
 }

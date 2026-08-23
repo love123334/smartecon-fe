@@ -4,12 +4,12 @@ import { containsWholePhrase, normalizeText } from '@/api/chat/match'
  *  Tránh alias quá ngắn/chung (co, ao, bluetooth, ca…) — dễ kích hoạt nhầm khi hỏi giá. */
 const SYNONYM_GROUPS: string[][] = [
   // Sản phẩm phổ biến
-  ['tai nghe', 'headphone', 'headset', 'earphone', 'earbuds', 'tai nghe bluetooth'],
-  ['ban phim', 'keyboard', 'keypro', 'ban phim co'],
-  ['chuot', 'mouse', 'chuot khong day'],
-  ['giay', 'sneaker', 'running', 'marathon', 'airflex', 'giay dep'],
-  ['noi chien', 'air fryer', 'chien khong dau'],
-  ['dien thoai', 'phone', 'smartphone', 'mobile'],
+  ['tai nghe', 'headphone', 'headset', 'earphone', 'earbuds', 'tai nghe bluetooth', 'anc', 'chong on', 'pro anc', 'bluetooth pro anc'],
+  ['ban phim', 'keyboard', 'keypro', 'ban phim co', 'rgb', 'co rgb', 'keypro k87', 'mechanical keyboard'],
+  ['chuot', 'mouse', 'chuot khong day', 'wireless mouse', 'mx master'],
+  ['giay', 'sneaker', 'running', 'marathon', 'airflex', 'giay dep', 'giay the thao', 'chay bo', 'airflex marathon'],
+  ['noi chien', 'air fryer', 'chien khong dau', 'noi chien 5l', 'noi chien khong dau 5l'],
+  ['dien thoai', 'phone', 'smartphone', 'mobile', 'iphone', 'galaxy', 'pixel', 'oneplus', 'xiaomi'],
   // Brand riêng — không gộp macbook vào mọi laptop (tránh dump Dell/HP khi hỏi MacBook)
   ['laptop', 'may tinh xach tay', 'notebook'],
   ['macbook', 'mac book', 'mba', 'mbp', 'macbook air', 'macbook pro'],

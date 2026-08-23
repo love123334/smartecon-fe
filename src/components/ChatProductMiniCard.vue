@@ -56,39 +56,38 @@ function openProduct() {
 <style scoped>
 .chat-mini-card {
   display: flex;
-  gap: 0.55rem;
+  gap: 0.65rem;
   min-width: 0;
   max-width: 100%;
   width: 100%;
-  padding: 0.45rem;
-  border: 1px solid var(--color-border);
-  border-radius: 10px;
-  background: #fff;
+  padding: 0.55rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #ffffff;
   color: inherit;
   overflow: hidden;
   box-sizing: border-box;
   text-align: left;
   font: inherit;
   cursor: pointer;
-  transition:
-    border-color var(--transition-slow, 0.48s cubic-bezier(0.22, 1, 0.36, 1)),
-    box-shadow var(--transition-slow, 0.48s cubic-bezier(0.22, 1, 0.36, 1)),
-    transform var(--transition-slow, 0.48s cubic-bezier(0.22, 1, 0.36, 1));
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .chat-mini-card:hover {
-  border-color: var(--primary-500);
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
-  transform: translateY(-1px);
+  border-color: #3b82f6;
+  box-shadow: 0 6px 18px rgba(59, 130, 246, 0.12);
+  transform: translateY(-2px);
 }
 
 .chat-mini-card__media {
-  flex: 0 0 52px;
-  width: 52px;
-  height: 52px;
-  border-radius: 8px;
+  flex: 0 0 56px;
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
   overflow: hidden;
-  background: var(--slate-100);
+  background: #f1f5f9;
+  border: 1px solid #f8fafc;
 }
 
 .chat-mini-card__media img {
@@ -104,14 +103,16 @@ function openProduct() {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 0.1rem;
+  justify-content: center;
+  gap: 0.15rem;
 }
 
 .chat-mini-card__name {
   margin: 0;
-  font-size: 0.78rem;
+  font-size: 0.8125rem;
   font-weight: 650;
-  line-height: 1.25;
+  color: #1e293b;
+  line-height: 1.3;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -121,9 +122,9 @@ function openProduct() {
 
 .chat-mini-card__price {
   margin: 0;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   font-weight: 750;
-  color: var(--slate-900);
+  color: #2563eb;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -133,14 +134,15 @@ function openProduct() {
 .chat-mini-card__meta,
 .chat-mini-card__stock {
   margin: 0;
-  font-size: 0.65rem;
-  color: var(--slate-500);
+  font-size: 0.6875rem;
+  color: #64748b;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .chat-mini-card__stock[data-out='1'] {
-  color: #b91c1c;
+  color: #dc2626;
+  font-weight: 600;
 }
 </style>
