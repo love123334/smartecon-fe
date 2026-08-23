@@ -170,21 +170,7 @@ function resolveAttachmentFollowUpIntent(lower: string): ChatIntent | null {
   return null
 }
 function followUps(intent: ChatIntent | null, role: ChatContext['role']): string {
-  // Gợi ý ngắn, không checklist cứng
-  const tips: Partial<Record<ChatIntent, string>> = {
-    shop_overview: '\n\nMuốn mình lọc theo danh mục hoặc ngân sách không?',
-    product_price: '\n\nCần check còn hàng hoặc review không?',
-    product_review: '',
-    product_stock: '\n\nThêm vào giỏ trên trang sản phẩm nếu bạn ưng.',
-    cart_summary: '\n\nSẵn thì hỏi mình cách thanh toán nhé.',
-    orders: '\n\nHỏi chi tiết đơn #… nếu cần.',
-    where_to_buy: '\n\nHỏi "liên hệ người bán …" để lấy email/SĐT shop.',
-    contact_seller: '\n\nBấm danh thiếp shop bên dưới để xem SP tiêu biểu.',
-    recommend: '\n\nThu hẹp thêm bằng ngân sách hoặc danh mục cũng được.',
-    product_budget: '\n\nKéo SP vào chat để so sánh nhanh.',
-    product_search: '\n\nThêm "dưới X triệu" nếu muốn lọc giá.',
-  }
-  if (intent && tips[intent]) return tips[intent]
+  // Không gắn tip cứng — để Gemini/local tự nhiên như setup teammate
   if (
     role === 'guest' &&
     intent &&
@@ -205,21 +191,27 @@ function warmProductIntro(
 ): string {
   const name = greet(ctx.userName ?? '')
   if (count <= 0) {
-    return `${name}Mình chưa thấy sản phẩm phù hợp trên shop lúc này. Bạn thử cách hỏi khác hoặc mở **Cửa hàng** nhé.`
+    return `${name}Mình chưa thấy sản phẩm phù hợp lúc này. Bạn thử từ khóa khác hoặc mở **Cửa hàng** nhé.`
   }
   switch (mode) {
     case 'shop':
-      return `${name}Mình tìm được **${count}** sản phẩm từ shop **${topic}** — mời bạn xem qua nhé.`
+      return topic
+        ? `${name}Shop **${topic}** đang có **${count}** món liên quan — xem thử bên dưới nhé.`
+        : `${name}Mình gom được **${count}** món từ shop — xem thử bên dưới nhé.`
     case 'budget':
-      return `${name}Mình lọc được **${count}** lựa chọn trong tầm giá bạn hỏi — mời xem thử bên dưới nhé.`
+      return topic
+        ? `${name}Trong tầm **${topic}** mình thấy **${count}** lựa chọn khá ổn:`
+        : `${name}Theo ngân sách bạn hỏi, mình thấy **${count}** lựa chọn:`
     case 'cheapest':
-      return `${name}Đây là **${count}** lựa chọn giá mềm nhất — mời bạn tham khảo nhé.`
+      return `${name}Đây là **${count}** món giá mềm nhất đang bán:`
     case 'affordable':
-      return `${name}Mình gom **${count}** gợi ý giá hợp lý — xem thử bên dưới nhé.`
+      return topic
+        ? `${name}**${topic}** giá hợp lý mình tìm được **${count}** món:`
+        : `${name}Mình chọn **${count}** món giá dễ mua:`
     default:
       return topic
-        ? `${name}**${topic}** — mình gom **${count}** sản phẩm đang bán, mời xem bên dưới nhé.`
-        : `${name}Mình tìm được **${count}** phần liên quan đến yêu cầu của bạn — mời xem thử bên dưới nhé.`
+        ? `${name}Với **${topic}**, mình thấy **${count}** sản phẩm đang bán:`
+        : `${name}Mình tìm được **${count}** sản phẩm phù hợp:`
   }
 }
 

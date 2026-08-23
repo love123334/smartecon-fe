@@ -37,7 +37,6 @@ import {
 } from '@/api/chat/match'
 import { extractPriceRange, isPriceStatsQuery } from '@/api/chat/products'
 import { sanitizeChatReply } from '@/api/chat/responses'
-import { deriveSuggestedActions } from '@/api/chat/suggestedActions'
 import {
   intentAllowedForRole,
   outOfScopeReply,
@@ -82,8 +81,6 @@ const STRICT_LOCAL_INTENTS = new Set<ChatIntent>([
   'product_budget',
   'product_price',
   'product_stock',
-  'category_browse',
-  'categories',
   'orders',
   'order_detail',
   'order_cancel',
@@ -390,10 +387,7 @@ export async function resolveChatReply(
     },
   )
 
-  const hasProductFocus = Boolean(
-    conversationContext.currentProduct || conversationContext.lastResults.length,
-  )
-  const suggestedActions = deriveSuggestedActions(intent, hasProductFocus, ctx.role)
+  const suggestedActions: ChatSuggestedAction[] = []
 
   const replyPayload = (
     source: ChatFinalSource,

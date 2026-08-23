@@ -35,29 +35,26 @@ describe('factRepair', () => {
 })
 
 describe('suggestedActions', () => {
-  it('suggests review after price intent with product focus', () => {
-    const actions = deriveSuggestedActions('product_price', true, 'customer')
-    expect(actions.some((a) => /đánh giá|review/i.test(a.label))).toBe(true)
-  })
-
-  it('returns seller DSS follow-ups', () => {
-    const actions = deriveSuggestedActions('seller_dss_demand', false, 'seller')
-    expect(actions.length).toBeGreaterThan(0)
-    expect(actions[0].prompt.length).toBeGreaterThan(3)
+  it('returns no chips (disabled)', () => {
+    expect(deriveSuggestedActions('product_price', true, 'customer')).toEqual([])
+    expect(deriveSuggestedActions('category_browse', false, 'customer')).toEqual([])
+    expect(deriveSuggestedActions('seller_revenue', false, 'seller')).toEqual([])
   })
 })
 
 describe('chatTelemetry', () => {
-  it('fills defaults', () => {
+  it('creates telemetry payload', () => {
     const t = createChatTelemetry({
-      intent: 'product_info',
-      intentScore: 40,
+      intent: 'product_price',
+      intentScore: 50,
+      llmCalled: false,
+      localLatencyMs: 1,
+      latencyMs: 2,
       finalSource: 'local',
       followUp: false,
       hasAttachments: false,
     })
-    expect(t.llmCalled).toBe(false)
-    expect(t.localLatencyMs).toBe(0)
-    expect(t.latencyMs).toBe(0)
+    expect(t.intent).toBe('product_price')
+    expect(t.finalSource).toBe('local')
   })
 })

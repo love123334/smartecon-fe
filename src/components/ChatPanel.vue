@@ -169,21 +169,6 @@ defineExpose({ scrollToEnd: scrollEnd })
                 :product="p"
               />
             </div>
-            <div
-              v-if="m.id === lastAssistantId && m.meta?.suggestedActions?.length"
-              class="chat-suggested"
-            >
-              <button
-                v-for="a in m.meta.suggestedActions"
-                :key="`${m.id}-${a.id}`"
-                type="button"
-                class="chat-suggested__chip btn-interactive"
-                :disabled="loading"
-                @click="emit('send', a.prompt)"
-              >
-                {{ a.label }}
-              </button>
-            </div>
             <span v-if="m.meta?.kind === 'order_update'" class="chat-bubble__tag chat-bubble__tag--order">
               Cập nhật đơn
             </span>
@@ -470,28 +455,6 @@ defineExpose({ scrollToEnd: scrollEnd })
 .chat-bubble__tag--local {
   background: var(--slate-100);
   color: var(--slate-500);
-}
-
-.chat-suggested {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  margin-top: 0.45rem;
-}
-
-.chat-suggested__chip {
-  padding: 0.25rem 0.55rem;
-  font-size: 0.68rem;
-  border-radius: 999px;
-  border: 1px solid var(--slate-200);
-  background: #fff;
-  color: var(--slate-700);
-  cursor: pointer;
-}
-
-.chat-suggested__chip:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 .chat-bubble__time {

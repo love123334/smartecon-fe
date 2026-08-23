@@ -287,7 +287,7 @@ function categoryBrowseReply(ctx: ChatContext, raw: string): string {
     return `${name}Chưa tìm thấy SP theo danh mục — thử **Cửa hàng** hoặc hỏi "web bán gì" / "danh mục".`
   }
   const label = cat?.name ?? products[0]?.category ?? 'Danh mục'
-  return `${name}**${label}**:\n${productLines(products.slice(0, 6), 6)}\n\nXem thêm **Cửa hàng** · hỏi danh mục khác (Điện thoại, Laptop, Giày dép…).`
+  return `${name}**${label}** đang có vài món như thế này:\n${productLines(products.slice(0, 6), 6)}\n\nBấm card bên dưới nếu bạn muốn xem chi tiết.`
 }
 
 function productSearchReply(ctx: ChatContext, raw: string): string {
@@ -306,9 +306,9 @@ function productSearchReply(ctx: ChatContext, raw: string): string {
   const hits = merged.length ? findProductsByQuery(merged, terms || raw) : localHits
   const finalHits = hits.length ? hits : merged
   if (!finalHits.length) {
-    return `${name}Chưa thấy **${terms || 'sản phẩm đó'}** trên shop. Thử tên ngắn hơn (vd: "điện thoại", "tai nghe") hoặc mở **Tìm kiếm** trên header.`
+    return `${name}Mình chưa thấy **${terms || 'sản phẩm đó'}** trên shop. Bạn thử tên ngắn hơn (vd. "điện thoại", "tai nghe") hoặc mở **Tìm kiếm** nhé.`
   }
-  return `${name}Mình tìm được vài phần liên quan đến yêu cầu của bạn:\n${productLines(finalHits.slice(0, 6), 6)}\n\nMời xem thử bên dưới, hoặc nói rõ hơn nếu cần lọc thêm nhé.`
+  return `${name}Mình tìm được vài món liên quan:\n${productLines(finalHits.slice(0, 6), 6)}\n\nXem card bên dưới, hoặc nói rõ hơn nếu muốn lọc thêm.`
 }
 
 function cheapestReply(ctx: ChatContext): string {
