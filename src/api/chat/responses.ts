@@ -99,7 +99,7 @@ function greet(name: string): string {
   return `${first}, `
 }
 
-/** Bỏ note kỹ thuật (API/mock) khỏi mọi phản hồi hiển thị cho user */
+/** Bỏ note kỹ thuật + CTA dẫn UI card khỏi mọi phản hồi hiển thị cho user */
 export function sanitizeChatReply(text: string): string {
   return text
     .replace(/\s*\((?:dữ liệu\s+)?API(?:\s*\+\s*demo)?\)/gi, '')
@@ -111,6 +111,12 @@ export function sanitizeChatReply(text: string): string {
     .replace(/\*\*Top SP \(API\):\*\*/gi, '**Top SP:**')
     .replace(/\b(keyword|intent|extract|query term):\s*[^\n]+/gi, '')
     .replace(/\b(product_budget|product_search|product_cheapest)\b/gi, '')
+    .replace(
+      /\n*\n?(?:→\s*)?(?:Bấm|Chọn|Xem)(?:\s+chi tiết)?(?:\s+trên)?(?:\s+từng)?\s*(?:card|sản phẩm|\*\*danh thiếp shop\*\*).{0,80}(?:bên dưới|để xem).*/gi,
+      '',
+    )
+    .replace(/\n*\n?👉\s*Xem\s+\*\*danh thiếp shop\*\*.*/gi, '')
+    .replace(/\s*—?\s*xem thử bên dưới nhé\.?/gi, '')
     .replace(/\s{2,}/g, ' ')
     .replace(/\n{3,}/g, '\n\n')
     .trim()
@@ -164,7 +170,7 @@ function whereToBuyReply(ctx: ChatContext, raw: string): string {
   const directory = shopDirectoryLines(hits, 5)
   const label = matchCategoryFromText(raw, ctx.categories)?.name
   const topic = label ?? (stripPriceTokens(raw).slice(0, 40) || 'sản phẩm bạn hỏi')
-  return `${name}**Chỗ bán — ${topic}:**\n${directory}\n\n👉 Xem **danh thiếp shop** bên dưới hoặc hỏi **"liên hệ người bán …"** để lấy email/SĐT.`
+  return `${name}**Chỗ bán — ${topic}:**\n${directory}\n\nMuốn email/SĐT thì hỏi **"liên hệ người bán …"** nhé.`
 }
 
 function recommendReply(ctx: ChatContext, raw: string): string {
@@ -180,6 +186,7 @@ function recommendReply(ctx: ChatContext, raw: string): string {
       ctx.userName,
       count,
       isDiscoveryNewestQuery(lower) ? 'newest' : 'recommend',
+      pool[0]?.name,
     )
   }
   if (ctx.recommendations.length) {
@@ -284,10 +291,13 @@ function categoryBrowseReply(ctx: ChatContext, raw: string): string {
     products = findProductsByQuery(catalog, raw)
   }
   if (!products.length) {
-    return `${name}Chưa tìm thấy SP theo danh mục — thử **Cửa hàng** hoặc hỏi "web bán gì" / "danh mục".`
+    return `${name}Chưa thấy SP theo danh mục này. Bạn muốn thử danh mục khác hay lọc theo ngân sách?`
   }
   const label = cat?.name ?? products[0]?.category ?? 'Danh mục'
-  return `${name}**${label}** đang có vài món như thế này:\n${productLines(products.slice(0, 6), 6)}\n\nBấm card bên dưới nếu bạn muốn xem chi tiết.`
+  const pick = products[0]?.name
+  return pick
+    ? `${name}**${label}** đang có vài lựa chọn ổn — mình nghiêng về **${pick}** trước nếu bạn chưa chốt tiêu chí.`
+    : `${name}**${label}** đang có vài lựa chọn ổn.`
 }
 
 function productSearchReply(ctx: ChatContext, raw: string): string {
@@ -306,22 +316,25 @@ function productSearchReply(ctx: ChatContext, raw: string): string {
   const hits = merged.length ? findProductsByQuery(merged, terms || raw) : localHits
   const finalHits = hits.length ? hits : merged
   if (!finalHits.length) {
-    return `${name}Mình chưa thấy **${terms || 'sản phẩm đó'}** trên shop. Bạn thử tên ngắn hơn (vd. "điện thoại", "tai nghe") hoặc mở **Tìm kiếm** nhé.`
+    return `${name}Mình chưa thấy **${terms || 'mẫu đó'}** trên shop. Thử tên ngắn hơn (vd. "điện thoại", "tai nghe") hoặc nới điều kiện một chút?`
   }
-  return `${name}Mình tìm được vài món liên quan:\n${productLines(finalHits.slice(0, 6), 6)}\n\nXem card bên dưới, hoặc nói rõ hơn nếu muốn lọc thêm.`
+  const pick = finalHits[0]?.name
+  return pick
+    ? `${name}Yep, có vài option khá ngon — mình nghiêng về **${pick}** trước.`
+    : `${name}Yep, có vài option khá ngon trong kết quả này.`
 }
 
 function cheapestReply(ctx: ChatContext): string {
   const name = greet(ctx.userName ?? '')
   const list = cheapestProducts(ctx.products, 6)
   if (!list.length) {
-    return `${name}Hiện chưa có sản phẩm để so sánh giá. Bạn mở **Cửa hàng** để xem danh mục nhé.`
+    return `${name}Hiện chưa có sản phẩm để so sánh giá.`
   }
   const floor = formatVnd(list[0].price)
   if (list.length === 1) {
-    return `${name}Sản phẩm rẻ nhất đang có là **${list[0].name}** — **${floor}**.`
+    return `${name}Nếu ưu tiên tiết kiệm thì **${list[0].name}** đang ở mức **${floor}**.`
   }
-  return `${name}Giá thấp nhất hiện tại là **${floor}**. Dưới đây là **${Math.min(list.length, 6)}** lựa chọn tiết kiệm:\n${productLines(list, 6)}`
+  return `${name}Mức thấp nhất khoảng **${floor}** — **${list[0].name}** là lựa chọn mềm nhất trong nhóm này.`
 }
 
 function mergeCatalog(ctx: ChatContext): Product[] {
@@ -339,9 +352,12 @@ function budgetReply(ctx: ChatContext, raw: string): string {
   if (range?.min != null && range?.max != null) {
     const hits = filterProductsForQuery(catalog, raw, ctx.categories, 6).products
     if (!hits.length) {
-      return `${name}Chưa có sản phẩm trong khoảng **${formatVnd(range.min)} – ${formatVnd(range.max)}**. Thử mở rộng ngân sách nhé.`
+      return `${name}Trong khoảng **${formatVnd(range.min)} – ${formatVnd(range.max)}** mình chưa thấy mẫu khớp. Nới thêm một chút thường sẽ có nhiều lựa chọn hơn.`
     }
-    return `${name}Trong tầm **${formatVnd(range.min)} – ${formatVnd(range.max)}** có **${hits.length}** sản phẩm:\n${productLines(hits, 6)}`
+    const pick = hits[0]?.name
+    return pick
+      ? `${name}Tầm **${formatVnd(range.min)} – ${formatVnd(range.max)}** thì ổn — mình nghiêng về **${pick}** trước.`
+      : `${name}Tầm **${formatVnd(range.min)} – ${formatVnd(range.max)}** có vài lựa chọn đáng xem.`
   }
   const budget = range?.max ?? extractBudgetVnd(raw)
   if (!budget) {
@@ -349,25 +365,33 @@ function budgetReply(ctx: ChatContext, raw: string): string {
       const label = extractProductFocusLabel(raw)
       const hits = affordableProductsForQuery(catalog, raw, 6)
       if (hits.length) {
-        return `${name}**${label}** giá tốt trên SEDSP:\n${productLines(hits, 6)}\n\n→ Bấm card bên dưới hoặc mở **Cửa hàng**.`
+        const pick = hits[0]?.name
+        return pick
+          ? `${name}**${label}** giá dễ chịu thì có vài con khá ngon — mình nghiêng về **${pick}**.`
+          : `${name}**${label}** giá dễ chịu thì có vài con khá ngon.`
       }
-      return `${name}Chưa thấy **${label}** trên shop. Thử từ khóa khác hoặc mở **Cửa hàng** nhé.`
+      return `${name}Chưa thấy **${label}** khớp trên shop. Thử từ khóa khác hoặc nới điều kiện?`
     }
-    return `${name}Cho mình biết ngân sách, ví dụ: **"dưới 2 triệu"**, **"tầm 2tr"** hoặc **"dưới 500k"**.`
+    return `${name}Bạn muốn giữ budget khoảng bao nhiêu? Tầm giá sẽ giúp mình lọc chính xác hơn.`
   }
   const filtered = filterProductsForQuery(catalog, raw, ctx.categories, 6)
   const hits = filtered.products
   const label = extractProductFocusLabel(raw)
   if (!hits.length) {
     if (filtered.queryText) {
-      return `${name}Hiện chưa có **${label}** trong tầm **${formatVnd(budget)}**. Bạn thử nới ngân sách hoặc hỏi **"điện thoại"** / **"sản phẩm rẻ nhất"** nhé.`
+      return `${name}Trong tầm **${formatVnd(budget)}** mình chưa thấy **${label}** khớp. Bạn muốn nới budget thêm khoảng 300–500k hay giữ mức này?`
     }
-    return `${name}Hiện chưa có sản phẩm nào trong tầm **${formatVnd(budget)}**. Bạn thử mức cao hơn hoặc hỏi **"sản phẩm rẻ nhất"** nhé.`
+    return `${name}Trong tầm **${formatVnd(budget)}** mình chưa thấy mẫu nào. Nới thêm một chút hoặc hỏi món rẻ nhất đang có nhé.`
   }
+  const pick = hits[0]?.name
   if (filtered.queryText) {
-    return `${name}Có nhé — **${hits.length}** **${label}** dưới **${formatVnd(budget)}**:\n${productLines(hits, 6)}\n\n→ Bấm card bên dưới hoặc mở **Cửa hàng** để xem chi tiết.`
+    return pick
+      ? `${name}Budget **${formatVnd(budget)}** cho **${label}** thì ổn — mình nghiêng về **${pick}** trước.`
+      : `${name}Budget **${formatVnd(budget)}** thì có vài **${label}** đáng cân nhắc.`
   }
-  return `${name}Có nhé — mình tìm được **${hits.length}** sản phẩm giá dưới **${formatVnd(budget)}**:\n${productLines(hits, 6)}\n\n→ Bấm card bên dưới hoặc mở **Cửa hàng** để xem chi tiết.`
+  return pick
+    ? `${name}Budget này ổn áp — mình nghiêng về **${pick}** trước.`
+    : `${name}Budget này ổn áp, có vài lựa chọn đáng xem.`
 }
 
 function contactSellerReply(ctx: ChatContext, raw: string): string {
@@ -429,7 +453,7 @@ export function sellerShopSummaryReply(
     if (seller.sellerEmail) block += `• Email: **${seller.sellerEmail}**\n`
     if (seller.sellerPhone) block += `• SĐT: **${seller.sellerPhone}**\n`
   }
-  block += `\n👉 Xem **danh thiếp shop** bên dưới — không hiển thị doanh thu hay số liệu nội bộ.`
+  block += `\n(Thông tin công khai cửa hàng — không gồm doanh thu nội bộ.)`
   return block
 }
 
@@ -717,16 +741,16 @@ function buildSellerIntent(ctx: ChatContext, intent: ChatIntent, raw: string): s
       if (perf) {
         const chart = perf.monthlyRevenue.slice(-3).map((m) => `• ${m.label}: ${formatVnd(m.value)}`).join('\n')
         const top = perf.topProducts.slice(0, 3).map((p) => `• ${p.productName}: ${p.quantitySold} sp · ${formatVnd(p.revenue)}`).join('\n')
-        return `${name}**Doanh số:**\n• Tổng: **${formatVnd(perf.summary.totalRevenue)}**\n• Đơn HT: **${perf.summary.completedOrders}**\n• AOV: **${formatVnd(perf.summary.averageOrderValue)}**${chart ? `\n\n**3 tháng:**\n${chart}` : ''}${top ? `\n\n**Top SP:**\n${top}` : ''}\n\n**Bảng doanh số**.`
+        return `${name}Doanh số gần đây trông thế này:\n• Tổng: **${formatVnd(perf.summary.totalRevenue)}**\n• Đơn HT: **${perf.summary.completedOrders}**\n• AOV: **${formatVnd(perf.summary.averageOrderValue)}**${chart ? `\n\n**3 tháng gần:**\n${chart}` : ''}${top ? `\n\n**Top SP:**\n${top}` : ''}`
       }
       const est = catalog.reduce((s, p) => s + p.soldCount * p.price, 0)
-      return `${name}Doanh thu ước tính catalog: **${formatVnd(est)}**. **Bảng doanh số** khi có dữ liệu đơn.`
+      return `${name}Ước tính từ catalog khoảng **${formatVnd(est)}**. Khi có dữ liệu đơn thật thì mình soi sâu hơn được.`
     }
     case 'seller_inventory': {
       const dash = ctx.sellerDashboard
       if (dash?.lowStockProducts.length) {
         const lines = dash.lowStockProducts.slice(0, 6).map((p) => `• ${p.productName} — còn **${p.quantity}**`).join('\n')
-        return `${name}**Tồn kho thấp:**\n${lines}\n\nCập nhật số lượng trong **Quản lý SP** · hoặc hỏi **"khuyến nghị tồn kho"** (DSS).`
+        return `${name}Có vài SKU đang sát ngưỡng:\n${lines}\n\nBạn muốn mình gợi ý nhập thêm theo DSS tồn không?`
       }
       const low = catalog.filter((p) => p.stock > 0 && p.stock < 20).sort((a, b) => a.stock - b.stock)
       const out = catalog.filter((p) => p.stock <= 0)

@@ -1,7 +1,7 @@
 import type { ChatMessage, ChatProductRef } from '@/types'
 import type { VerifiedFacts } from '@/api/chat/verifiedFacts'
 import { extractVndNumbers } from '@/api/chat/verifiedFacts'
-import { asksProductReview } from '@/api/chat/match'
+import { asksProductPrice, asksProductReview } from '@/api/chat/match'
 import { isStandaloneShoppingQuery } from '@/api/chat/discovery'
 import type { ChatIntent } from '@/api/chat/intents'
 
@@ -175,6 +175,15 @@ export function llmMissingCriticalFacts(
     const hasMatch = facts.verifiedPricesVnd.some((expected) =>
       llmPrices.some((got) => Math.abs(got - expected) <= expected * 0.02 + 1000),
     )
+    const mentionsProduct = facts.allowedProductNames.some((n) => {
+      const key = n.trim().toLowerCase()
+      if (key.length < 3) return false
+      return llmContent.toLowerCase().includes(key.slice(0, Math.min(key.length, 18)))
+    })
+    // Cards show price — conversational lean on a named SP is enough for browse/budget.
+    if (mentionsProduct && facts.products.length > 0 && !asksProductPrice(userNormalized)) {
+      return false
+    }
     if (!hasMatch && !/\d[\d.,]{2,}/.test(llmContent)) return true
   }
 

@@ -74,12 +74,10 @@ export interface ChatReply {
 }
 
 /**
- * Ép local thuần cho số liệu tài chính / đơn / DSS — mô tả SP & review dùng hybrid.
+ * Ép local chỉ khi cần số liệu sổ sách / DSS cứng.
+ * Browse / budget / search / recommend → local lọc SP + LLM viết thoại tự nhiên.
  */
 const STRICT_LOCAL_INTENTS = new Set<ChatIntent>([
-  'product_cheapest',
-  'product_budget',
-  'product_price',
   'product_stock',
   'orders',
   'order_detail',
@@ -163,21 +161,20 @@ function shouldForceLocal(
   normalized: string,
   intent: ChatIntent | null,
   followUp: boolean,
-  hasPriceFilter: boolean,
+  _hasPriceFilter: boolean,
   priceStats: boolean,
   _backendAiReady: boolean,
 ): boolean {
-  // Budget / price-band queries must use local catalog filter — BE keyword search misses them.
-  if (priceStats || hasPriceFilter) return true
+  // Price-band stats (min/avg/max) stay local — numeric aggregation, not shopping chat.
+  if (priceStats) return true
   if (intent != null && STRICT_LOCAL_INTENTS.has(intent)) return true
   if (
     followUp &&
-    (intent === 'product_price' ||
-      intent === 'product_stock' ||
+    (intent === 'product_stock' ||
       asksSellerInfo(normalized) ||
       asksProductOrigin(normalized) ||
       asksProductListedDate(normalized) ||
-      /^(gia|bao nhieu|con hang|het hang|con khong|may trieu)/.test(normalized))
+      /^(con hang|het hang|con khong)/.test(normalized))
   ) {
     return true
   }

@@ -160,7 +160,7 @@ describe('product discovery', () => {
       products: [phone],
     })
     expect(reply.content).not.toMatch(/dien thoai co/i)
-    expect(reply.content).toMatch(/liên quan|yêu cầu|xem thử/i)
+    expect(reply.content).toMatch(/lựa chọn|nghiêng về|ổn|điện thoại/i)
     expect(reply.products?.length ?? 0).toBeGreaterThan(0)
   })
 

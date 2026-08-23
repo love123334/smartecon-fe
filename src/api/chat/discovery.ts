@@ -102,22 +102,24 @@ export function discoveryReplyIntro(
   userName: string | undefined,
   count: number,
   mode: 'newest' | 'recommend' | 'clarify',
+  topPick?: string,
 ): string {
   const greet =
     userName?.trim() && userName.length >= 2 && !/guest|khach hang/i.test(userName)
       ? `${userName.trim().split(/\s+/).pop()}, `
       : ''
+  const lean = topPick ? ` Mình nghiêng về **${topPick}** trước.` : ''
   if (mode === 'clarify') {
-    return `${greet}Bạn muốn xem **sản phẩm mới**, **deal đang giảm**, hay **đồ được đánh giá cao**? Nói rõ thêm một chút để tui lọc cho đúng nhé.`
+    return `${greet}Bạn đang muốn xem món mới, deal đang giảm, hay đồ được đánh giá cao? Nói thêm một tiêu chí để mình lọc đúng hơn.`
   }
   if (mode === 'newest') {
     if (count <= 0) {
-      return `${greet}Hiện chưa thấy sản phẩm mới nổi bật — thử mở **Cửa hàng** hoặc hỏi theo danh mục (laptop, thời trang…).`
+      return `${greet}Hiện chưa thấy món mới nổi bật — thử hỏi theo danh mục (laptop, thời trang…) xem sao.`
     }
-    return `${greet}Có chứ — tui tìm **${count}** món mới / đáng xem trên SEDSP cho bạn nè 👀`
+    return `${greet}Có vài món mới / đáng xem trên shop.${lean}`
   }
   if (count <= 0) {
-    return `${greet}Chưa có gợi ý phù hợp — thử **Cửa hàng** hoặc hỏi theo ngân sách / danh mục nhé.`
+    return `${greet}Chưa có gợi ý khớp — thử theo ngân sách hoặc danh mục nhé.`
   }
-  return `${greet}Tui gom **${count}** gợi ý trên shop — xem thử bên dưới nhé.`
+  return `${greet}Có vài gợi ý đáng cân nhắc.${lean}`
 }

@@ -150,12 +150,12 @@ function wrapReply(
   let content = payload.content
   if (payload.products?.length && isUnknownEscalateText(content) && ctx) {
     const lower = normalizeText(raw ?? '')
-    content =
-      discoveryReplyIntro(
-        ctx.userName,
-        payload.products.length,
-        isDiscoveryNewestQuery(lower) ? 'newest' : 'recommend',
-      ) + '\n\nChọn card bên dưới để xem chi tiết nhé.'
+    content = discoveryReplyIntro(
+      ctx.userName,
+      payload.products.length,
+      isDiscoveryNewestQuery(lower) ? 'newest' : 'recommend',
+      payload.products[0]?.name,
+    )
   }
   return { ...payload, content: sanitizeChatReply(content) }
 }
@@ -183,35 +183,40 @@ function followUps(intent: ChatIntent | null, role: ChatContext['role']): string
 
 type IntroMode = 'search' | 'shop' | 'budget' | 'cheapest' | 'affordable'
 
+/** Local fallback copy — conversational; UI cards carry the catalog. */
 function warmProductIntro(
   ctx: ChatContext,
   count: number,
   topic?: string,
   mode: IntroMode = 'search',
+  topPick?: string,
 ): string {
   const name = greet(ctx.userName ?? '')
   if (count <= 0) {
-    return `${name}Mình chưa thấy sản phẩm phù hợp lúc này. Bạn thử từ khóa khác hoặc mở **Cửa hàng** nhé.`
+    return topic
+      ? `${name}Trong tầm **${topic}** mình chưa thấy mẫu khớp hoàn toàn. Bạn muốn nới budget một chút hay giữ mức này và bỏ bớt điều kiện?`
+      : `${name}Mình chưa thấy mẫu nào khớp tiêu chí này. Bạn muốn mình nới điều kiện hay đổi hướng tìm?`
   }
+  const lean = topPick ? ` Mình nghiêng về **${topPick}** trước.` : ''
   switch (mode) {
     case 'shop':
       return topic
-        ? `${name}Shop **${topic}** đang có **${count}** món liên quan — xem thử bên dưới nhé.`
-        : `${name}Mình gom được **${count}** món từ shop — xem thử bên dưới nhé.`
+        ? `${name}Shop **${topic}** đang có vài món đáng xem.${lean}`
+        : `${name}Có vài món từ shop này khá ổn.${lean}`
     case 'budget':
       return topic
-        ? `${name}Trong tầm **${topic}** mình thấy **${count}** lựa chọn khá ổn:`
-        : `${name}Theo ngân sách bạn hỏi, mình thấy **${count}** lựa chọn:`
+        ? `${name}Budget **${topic}** thì chơi được kha khá lựa chọn rồi.${lean}`
+        : `${name}Tầm giá này có vài option đáng cân nhắc.${lean}`
     case 'cheapest':
-      return `${name}Đây là **${count}** món giá mềm nhất đang bán:`
+      return `${name}Nếu ưu tiên tiết kiệm thì đây là những lựa chọn mềm nhất đang bán.${lean}`
     case 'affordable':
       return topic
-        ? `${name}**${topic}** giá hợp lý mình tìm được **${count}** món:`
-        : `${name}Mình chọn **${count}** món giá dễ mua:`
+        ? `${name}**${topic}** giá dễ chịu thì có vài con khá ngon.${lean}`
+        : `${name}Mấy lựa chọn giá dễ mua này đáng xem.${lean}`
     default:
       return topic
-        ? `${name}Với **${topic}**, mình thấy **${count}** sản phẩm đang bán:`
-        : `${name}Mình tìm được **${count}** sản phẩm phù hợp:`
+        ? `${name}Với **${topic}** thì có vài lựa chọn ổn.${lean}`
+        : `${name}Yep, có vài option khá ngon.${lean}`
   }
 }
 
@@ -260,6 +265,7 @@ function shoppingStructuredReply(
           hits.length,
           matched?.name ?? hits[0]?.category,
           'search',
+          hits[0]?.name,
         ),
         products: toChatProducts(hits, 6),
       }
@@ -282,6 +288,7 @@ function shoppingStructuredReply(
         ctx.userName,
         hits.length,
         isDiscoveryNewestQuery(lower) ? 'newest' : 'recommend',
+        hits[0]?.name,
       ),
       products: hits.length ? toChatProducts(hits, 6) : undefined,
     }
@@ -311,12 +318,12 @@ function shoppingStructuredReply(
     const hits = affordableProductsForQuery(catalog, raw, 6)
     if (hits.length) {
       return {
-        content: warmProductIntro(ctx, hits.length, label, 'affordable'),
+        content: warmProductIntro(ctx, hits.length, label, 'affordable', hits[0]?.name),
         products: toChatProducts(hits, 6),
       }
     }
     return {
-      content: `${greet(ctx.userName ?? '')}Chưa thấy **${label}** trên shop.\n\nThử từ khóa khác (tai nghe, giày, laptop…) hoặc mở **Cửa hàng** / **Tìm kiếm**.`,
+      content: `${greet(ctx.userName ?? '')}Chưa thấy **${label}** khớp trên shop. Bạn thử từ khóa khác hoặc nới điều kiện một chút?`,
     }
   }
 
@@ -330,7 +337,7 @@ function shoppingStructuredReply(
     if (hits.length) {
       const sellers = toChatSellers(hits, 1, { showContact: true })
       return {
-        content: warmProductIntro(ctx, hits.length, label, 'shop'),
+        content: warmProductIntro(ctx, hits.length, label, 'shop', hits[0]?.name),
         products: toChatProducts(hits, 6),
         sellers,
       }
@@ -377,10 +384,10 @@ function shoppingStructuredReply(
     const sameCount = cheap.length
     return {
       content:
-        warmProductIntro(ctx, sameCount, undefined, 'cheapest') +
+        warmProductIntro(ctx, sameCount, undefined, 'cheapest', cheap[0]?.name) +
         (sameCount === 1
-          ? `\n\n**${cheap[0].name}** — **${floor}**.`
-          : `\n\nMức thấp nhất **${floor}**, có **${sameCount}** sản phẩm cùng mức này.`),
+          ? ` **${cheap[0].name}** đang ở mức **${floor}**.`
+          : ` Mức thấp nhất khoảng **${floor}**.`),
       products: toChatProducts(cheap, 4),
     }
   }
@@ -389,8 +396,16 @@ function shoppingStructuredReply(
     // Có keyword + giá → intro kiểu search (tránh giọng “chỉ lọc tầm giá” khi đã hỏi loại SP)
     const mode: IntroMode =
       filter.range && !filter.queryText ? 'budget' : filter.range ? 'search' : 'search'
+    const rangeLabel =
+      filter.range && !filter.queryText ? formatPriceRangeLabel(filter.range) : filter.queryText || undefined
     return {
-      content: warmProductIntro(ctx, filter.products.length, undefined, mode),
+      content: warmProductIntro(
+        ctx,
+        filter.products.length,
+        rangeLabel,
+        mode,
+        filter.products[0]?.name,
+      ),
       products: toChatProducts(filter.products, 6),
     }
   }
@@ -401,8 +416,8 @@ function shoppingStructuredReply(
       : formatPriceRangeLabel(range)
     return {
       content: filter.queryText
-        ? `${greet(ctx.userName ?? '')}Không có **${focus}** trong khoảng **${formatPriceRangeLabel(range)}**. Thử nới ngân sách hoặc hỏi tên SP khác nhé.`
-        : `${greet(ctx.userName ?? '')}Không có sản phẩm trong khoảng **${formatPriceRangeLabel(range)}**. Thử nới ngân sách hoặc hỏi "sp rẻ nhất" nhé.`,
+        ? `${greet(ctx.userName ?? '')}Trong khoảng **${formatPriceRangeLabel(range)}** mình chưa thấy **${focus}** khớp. Bạn muốn nới budget thêm một chút hay giữ mức này?`
+        : `${greet(ctx.userName ?? '')}Trong khoảng **${formatPriceRangeLabel(range)}** mình chưa thấy mẫu nào. Nới ngân sách thêm khoảng 300–500k thường sẽ có nhiều lựa chọn hơn.`,
     }
   }
 
@@ -660,7 +675,13 @@ function smartProductFallback(
   }
 
   return {
-    content: warmProductIntro(ctx, Math.min(matched.length, 4), undefined, 'search'),
+    content: warmProductIntro(
+      ctx,
+      Math.min(matched.length, 4),
+      undefined,
+      'search',
+      matched[0]?.name,
+    ),
     products: cards,
   }
 }
@@ -842,21 +863,6 @@ export async function generateAssistantReply(
       let content =
         reply +
         (intent === 'product_review' && reviewSummary ? '' : followUps(intent, ctx.role))
-      // Giữ directory shop cho where_to_buy / recommend — không xóa bullet
-      if (
-        products?.length &&
-        intent !== 'where_to_buy' &&
-        intent !== 'recommend' &&
-        intent !== 'contact_seller' &&
-        !content.includes('tham khảo') &&
-        !content.includes('bên dưới')
-      ) {
-        content += `\n\nXem chi tiết trên từng card bên dưới nhé.`
-      } else if (sellers?.length && !content.includes('bên dưới')) {
-        content += `\n\nXem **danh thiếp shop** bên dưới nhé.`
-      } else if (products?.length && (intent === 'where_to_buy' || intent === 'recommend')) {
-        content += `\n\nChọn card bên dưới để xem SP nhé.`
-      }
       return finish({ content, products, sellers, reviewSummary })
     }
   }
@@ -890,10 +896,10 @@ export async function generateAssistantReply(
       const floor = formatVnd(cheap[0].price)
       return finish({
         content:
-          warmProductIntro(ctx, cheap.length, undefined, 'cheapest') +
+          warmProductIntro(ctx, cheap.length, undefined, 'cheapest', cheap[0]?.name) +
           (cheap.length === 1
-            ? `\n\n**${cheap[0].name}** — **${floor}**.`
-            : `\n\nMức thấp nhất **${floor}**, có **${cheap.length}** sản phẩm cùng mức này.`),
+            ? ` **${cheap[0].name}** đang ở mức **${floor}**.`
+            : ` Mức thấp nhất khoảng **${floor}**.`),
         products: toChatProducts(cheap, 4),
       })
     }
@@ -903,12 +909,14 @@ export async function generateAssistantReply(
     const hits = productsUnderBudget(catalog, budget, 6)
     if (hits.length) {
       return finish({
-        content: warmProductIntro(ctx, hits.length, formatVnd(budget), 'budget') + sellerHintFromProducts(hits),
+        content:
+          warmProductIntro(ctx, hits.length, formatVnd(budget), 'budget', hits[0]?.name) +
+          sellerHintFromProducts(hits),
         products: toChatProducts(hits, 6),
       })
     }
     return finish({
-      content: `${greet(ctx.userName ?? '')}Không có SP trong ngân sách **${formatVnd(budget)}**. Thử mức cao hơn hoặc hỏi "sp rẻ nhất".`,
+      content: `${greet(ctx.userName ?? '')}Trong tầm **${formatVnd(budget)}** mình chưa thấy mẫu khớp. Bạn muốn nới thêm một chút hay hỏi món rẻ nhất đang có?`,
     })
   }
 

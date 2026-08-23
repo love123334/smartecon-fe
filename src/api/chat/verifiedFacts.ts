@@ -32,10 +32,31 @@ export interface VerifiedFacts {
 }
 
 const CARD_BOILERPLATE =
-  /\n\nBấm card bên dưới.*$|\n\nChọn card bên dưới.*$|\n\nMuốn mình lọc.*$|\n\nCần check còn hàng.*$|\n\nThêm vào giỏ.*$|\n\nHỏi chi tiết đơn.*$|\n\nSẵn thì hỏi.*$|\n\nThu hẹp thêm.*$|\n\nKéo SP vào chat.*$|\n\nThêm "dưới X triệu".*$|\n\nĐăng nhập để xem.*$/g
+  /\n\n(?:→\s*)?(?:Bấm|Chọn|Xem)(?:\s+chi tiết)?(?:\s+trên)?(?:\s+từng)?(?:\s+card|\s+\*\*danh thiếp shop\*\*)?(?:\s+bên dưới).*?$|\n\nMuốn mình lọc.*$|\n\nCần check còn hàng.*$|\n\nThêm vào giỏ.*$|\n\nHỏi chi tiết đơn.*$|\n\nSẵn thì hỏi.*$|\n\nThu hẹp thêm.*$|\n\nKéo SP vào chat.*$|\n\nThêm "dưới X triệu".*$|\n\nĐăng nhập để xem.*$|\n\n👉\s*Xem\s+\*\*danh thiếp shop\*\*.*$/gim
 
 function stripCardBoilerplate(text: string): string {
-  return text.replace(CARD_BOILERPLATE, '').trim()
+  return text
+    .replace(CARD_BOILERPLATE, '')
+    .replace(/\s*—\s*xem thử bên dưới nhé\.?/gi, '.')
+    .replace(/\s*xem thử bên dưới nhé\.?/gi, '')
+    .trim()
+}
+
+/** Khối grounding cho LLM — structured facts, không phải bản nháp template. */
+export function buildLlmGroundingBlock(facts: VerifiedFacts): string {
+  const lines = facts.lines.filter((l) => !l.startsWith('- Tóm tắt local:')).slice(0, 14)
+  if (!lines.length && !facts.products.length) return ''
+  const productBits = facts.products.slice(0, 6).map((p) => {
+    const rating = p.rating ? ` · ${p.rating}★` : ''
+    const stock =
+      typeof p.stock === 'number' ? (p.stock <= 0 ? ' · hết hàng' : ` · còn ${p.stock}`) : ''
+    return `- ${p.name}: ${formatVnd(p.price)}${rating}${stock}${p.shopName ? ` · ${p.shopName}` : ''}`
+  })
+  const body = [...lines, ...(productBits.length && !lines.some((l) => l.includes(facts.products[0]?.name ?? '')) ? productBits : [])]
+    .filter(Boolean)
+    .join('\n')
+  return `[CONTEXT SẢN PHẨM/SHOP — UI sẽ hiện card riêng; bạn chỉ nhận xét tự nhiên, không nhắc "bên dưới"/"card"]
+${body || '(không có SP khớp — gợi ý nới điều kiện nếu hợp lý)'}`
 }
 
 function collectProducts(
@@ -241,14 +262,9 @@ export function buildVerifiedFacts(
 }
 
 export function serializeVerifiedFacts(facts: VerifiedFacts): string {
-  if (!facts.lines.length && !facts.localDraft) {
+  const lines = facts.lines.filter((l) => !l.startsWith('- Tóm tắt local:'))
+  if (!lines.length && !facts.products.length) {
     return '(Chưa có số liệu xác minh — nếu thiếu thông tin, nói thẳng và gợi ý bước tiếp.)'
   }
-  const parts = [...facts.lines]
-  if (facts.localDraft) {
-    parts.push('')
-    parts.push('Bản tham chiếu đã kiểm tra (giữ đủ số liệu, viết lại tự nhiên):')
-    parts.push(facts.localDraft)
-  }
-  return parts.join('\n')
+  return lines.join('\n')
 }

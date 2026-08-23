@@ -240,8 +240,8 @@ export function buildCatalogInsight(ctx: ChatContext): CatalogInsightBundle {
 
   paragraphs.push(
     role === 'seller'
-      ? 'Nếu mục tiêu là **tăng doanh thu**, tui có thể soi sâu nhóm bán chạy hoặc SKU sắp hết hàng. Muốn phân tích theo **doanh thu, tồn kho hay rating**?'
-      : 'Nếu bạn muốn món **rating cao + giá hợp lý**, tui có thể lọc thêm theo ngân sách — thử nói "dưới 2 triệu" hoặc chọn danh mục bên dưới.',
+      ? 'Nếu mục tiêu là **tăng doanh thu**, mình có thể soi nhóm bán chạy hoặc SKU sắp hết. Bạn muốn đi theo doanh thu, tồn kho hay rating?'
+      : 'Nếu bạn muốn món **rating cao + giá hợp lý**, nói thêm ngân sách (vd. "dưới 2 triệu") để mình lọc sát hơn.',
   )
 
   return {
@@ -303,7 +303,7 @@ export function buildRecommendInsight(ctx: ChatContext, products: Product[]): Ca
       `Nhóm **${top[0].category}** đang nổi trong các lựa chọn này — **${top.length}** món đáng xem dựa trên rating và lượt bán.`,
     )
   } else {
-    paragraphs.push(`Mình gom **${top.length}** gợi ý đáng chú ý trên shop — xem thử bên dưới nhé.`)
+    paragraphs.push(`Có **${top.length}** gợi ý đáng chú ý — mình nghiêng về **${top[0].name}** trước.`)
   }
 
   if (valuePick) {

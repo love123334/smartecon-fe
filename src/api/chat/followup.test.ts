@@ -311,6 +311,6 @@ describe('chat follow-up context', () => {
     const reply = await resolveChatReply('shop này là ai', history, minimalCtx())
     expect(reply.sellers?.length).toBeGreaterThan(0)
     expect(reply.sellers?.[0]?.shopName).toBe('Fashion Hub')
-    expect(reply.content.toLowerCase()).toMatch(/danh thiep|shop/)
+    expect(reply.content.toLowerCase()).toMatch(/danh thi[eế]p|shop|fashion/)
   })
 })

@@ -1,6 +1,6 @@
 import { apiConfig } from '@/api/config'
 import * as realAi from '@/api/real/ai'
-import type { VerifiedFacts } from '@/api/chat/verifiedFacts'
+import { buildLlmGroundingBlock, type VerifiedFacts } from '@/api/chat/verifiedFacts'
 import type { ChatMessage } from '@/types'
 
 export interface LlmMessage {
@@ -91,11 +91,14 @@ export async function callChatLlm(
   options?: { recentTurns?: ChatMessage[]; englishGloss?: string; userRole?: string },
 ): Promise<string> {
   const gloss = options?.englishGloss?.trim()
-  const groundedUser = facts?.localDraft?.trim()
-    ? `${userMessage}\n\n[Gợi ý nội dung đã kiểm tra — giữ nguyên số liệu]\n${facts.localDraft.slice(0, 600)}`
-    : gloss
-      ? `${userMessage}\n\n[English gloss — internal]\n${gloss}`
-      : userMessage
+  const grounding = facts ? buildLlmGroundingBlock(facts).trim() : ''
+  const groundedUser = [
+    userMessage,
+    grounding,
+    gloss ? `[English gloss — internal]\n${gloss}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n\n')
 
   const sourceHistory = options?.recentTurns ?? history
   const recent = sourceHistory.slice(-6).map((m) => {
