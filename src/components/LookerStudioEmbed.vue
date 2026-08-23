@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import {
   LOOKER_REPORT_HEIGHT_PX,
   LOOKER_REPORT_WIDTH_PX,
@@ -69,8 +69,14 @@ function parseLookerDimensions(data: unknown): { width?: number; height?: number
   const obj = data as Record<string, unknown>
   const out: { width?: number; height?: number } = {}
 
-  if (typeof obj.height === 'number' && obj.height > 0) out.height = obj.height
-  if (typeof obj.width === 'number' && obj.width > 0) out.width = obj.width
+  for (const key of ['height', 'pageHeight', 'reportHeight'] as const) {
+    const v = obj[key]
+    if (typeof v === 'number' && v > 0) out.height = v
+  }
+  for (const key of ['width', 'pageWidth', 'reportWidth'] as const) {
+    const v = obj[key]
+    if (typeof v === 'number' && v > 0) out.width = v
+  }
 
   if (Array.isArray(data)) {
     for (const item of data) {
@@ -81,8 +87,8 @@ function parseLookerDimensions(data: unknown): { width?: number; height?: number
     return out
   }
 
-  const type = String(obj.type ?? '')
-  if (type.includes('properties:changed') || type.includes('page:changed')) {
+  const type = String(obj.type ?? obj.event ?? '')
+  if (/height|page|resize|dimension|properties:changed|page:changed/i.test(type)) {
     if (typeof obj.height === 'number' && obj.height > 0) out.height = obj.height
   }
 
@@ -100,25 +106,30 @@ function onMessage(event: MessageEvent) {
   }
 
   const dims = parseLookerDimensions(event.data)
-  // Giữ canvas đủ lớn — không thu height về ~900 (gây scrollbar nội bộ)
-  if (dims.width && dims.width >= 800 && dims.width <= 2400) {
+  if (dims.width && dims.width >= 640 && dims.width <= 2400) {
     naturalWidth.value = Math.round(dims.width)
   }
-  if (dims.height && dims.height >= 1200 && dims.height <= 4000) {
-    naturalHeight.value = Math.round(dims.height)
+  if (dims.height && dims.height >= 700 && dims.height <= 4000) {
+    // Keep a floor so scorecards/charts are not squeezed (internal Looker scroll).
+    naturalHeight.value = Math.round(Math.max(dims.height + 48, props.reportHeight * 0.9))
   }
 }
 
-/** Scale vừa cả bề ngang + chiều cao khung → không scroll trong iframe. */
+/**
+ * Uniform scale so the WHOLE report fits the box — never crop, never iframe scroll.
+ * Letterboxing (empty side/bottom) is OK; cutting KPI labels is not.
+ */
 const scale = computed(() => {
-  const cw = containerWidth.value || naturalWidth.value
+  const cw = containerWidth.value
   const ch = viewportHeightPx.value
-  if (!cw || !ch || !naturalWidth.value || !naturalHeight.value) return 1
-  return Math.min(cw / naturalWidth.value, ch / naturalHeight.value)
+  const nw = naturalWidth.value
+  const nh = naturalHeight.value
+  if (!cw || !ch || !nw || !nh) return 0.01
+  return Math.min(cw / nw, ch / nh)
 })
 
-const scaledWidth = computed(() => Math.round(naturalWidth.value * scale.value))
-const scaledHeight = computed(() => Math.round(naturalHeight.value * scale.value))
+const scaledWidth = computed(() => Math.max(1, Math.round(naturalWidth.value * scale.value)))
+const scaledHeight = computed(() => Math.max(1, Math.round(naturalHeight.value * scale.value)))
 
 const scalerStyle = computed(() => ({
   width: `${naturalWidth.value}px`,
@@ -129,7 +140,8 @@ const scalerStyle = computed(() => ({
 
 function measureContainer() {
   syncViewportHeight()
-  containerWidth.value = viewportRef.value?.clientWidth ?? 0
+  const w = viewportRef.value?.clientWidth ?? 0
+  if (w > 0) containerWidth.value = w
 }
 
 function onLoad() {
@@ -139,12 +151,26 @@ function onLoad() {
     clearTimeout(failTimer)
     failTimer = null
   }
-  measureContainer()
+  void nextTick(() => {
+    measureContainer()
+    requestAnimationFrame(() => measureContainer())
+  })
   emit('load')
 }
 
+watch(
+  () => [props.reportWidth, props.reportHeight, props.viewportHeight] as const,
+  ([w, h, vh]) => {
+    naturalWidth.value = w
+    naturalHeight.value = h
+    viewportHeightPx.value = vh
+    measureContainer()
+  },
+)
+
 onMounted(() => {
   measureContainer()
+  requestAnimationFrame(() => measureContainer())
   window.addEventListener('message', onMessage)
   window.addEventListener('resize', measureContainer)
 
@@ -187,6 +213,7 @@ const embedSrc = lookerEmbedSrc(props.src)
       </a>
     </div>
 
+    <!-- Stage sized exactly to scaled report — overflow hidden only after fit scale -->
     <div
       class="looker-embed__stage"
       :style="{ width: `${scaledWidth}px`, height: `${scaledHeight}px` }"
@@ -203,6 +230,7 @@ const embedSrc = lookerEmbedSrc(props.src)
           scrolling="no"
           referrerpolicy="no-referrer-when-downgrade"
           allowfullscreen
+          tabindex="-1"
           @load="onLoad"
         />
       </div>
@@ -219,7 +247,7 @@ const embedSrc = lookerEmbedSrc(props.src)
   background: #fff;
   border: 1px solid var(--line, #e2e8f0);
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
 }
 
@@ -227,10 +255,14 @@ const embedSrc = lookerEmbedSrc(props.src)
   position: relative;
   overflow: hidden;
   flex: 0 0 auto;
+  /* Exact scaled size — nothing clipped from a larger canvas */
+  max-width: 100%;
 }
 
 .looker-embed__scaler {
   transform-origin: top left;
+  /* Avoid subpixel text clipping on some GPUs */
+  backface-visibility: hidden;
 }
 
 .looker-embed__loading,
@@ -253,8 +285,9 @@ const embedSrc = lookerEmbedSrc(props.src)
   width: 100%;
   height: 100%;
   border: 0;
-  overflow: hidden;
+  overflow: hidden !important;
   scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 .looker-embed__frame::-webkit-scrollbar {
