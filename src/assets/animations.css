@@ -17,12 +17,19 @@
 
   .btn-interactive:hover:not(:disabled),
   .btn:hover:not(:disabled),
-  .mkt-cart-btn:hover,
-  .mkt-cat-link:hover,
-  .mkt-promo__card:hover,
-  .mkt-search button:hover,
-  .mkt-detail__actions .btn-buy:hover,
-  .mkt-detail__actions .btn-cart:hover {
+  .btn-elegant-primary:hover:not(:disabled),
+  .btn-elegant-outline:hover:not(:disabled),
+  .btn-elegant-wish:hover:not(:disabled),
+  .btn-show-more:hover:not(:disabled),
+  .product-card__cart-btn:hover:not(:disabled),
+  .product-card__detail-btn:hover:not(:disabled),
+  .shop-icon-btn:hover:not(:disabled),
+  .mkt-cart-btn:hover:not(:disabled),
+  .mkt-search button:hover:not(:disabled),
+  .mkt-detail__actions .btn-buy:hover:not(:disabled),
+  .mkt-detail__actions .btn-cart:hover:not(:disabled),
+  .cart-flyout__view-cart:hover:not(:disabled),
+  .elegant-tabs__btn:hover:not(:disabled) {
     transform: none;
   }
 }
@@ -288,6 +295,54 @@ img.img-fade[complete] {
   transform: none;
 }
 
+/* Chỉ nút đang hover phóng nhẹ — không kéo cả hàng (transform không đổi layout) */
+@media (hover: hover) and (pointer: fine) {
+  .btn-interactive:hover:not(:disabled),
+  .btn:hover:not(:disabled),
+  .btn-elegant-primary:hover:not(:disabled),
+  .btn-elegant-outline:hover:not(:disabled),
+  .btn-elegant-wish:hover:not(:disabled),
+  .btn-show-more:hover:not(:disabled),
+  .product-card__cart-btn:hover:not(:disabled),
+  .product-card__detail-btn:hover:not(:disabled),
+  .shop-icon-btn:hover:not(:disabled),
+  .mkt-cart-btn:hover:not(:disabled),
+  .mkt-search button:hover:not(:disabled),
+  .mkt-detail__actions .btn-buy:hover:not(:disabled),
+  .mkt-detail__actions .btn-cart:hover:not(:disabled),
+  .cart-flyout__view-cart:hover:not(:disabled),
+  .elegant-tabs__btn:hover:not(:disabled) {
+    transform: scale(1.03);
+  }
+}
+
+/* Thanh nút: tắt pulse glow (box-shadow giật cả hàng) */
+.elegant-product__actions .btn-elegant-primary,
+.product-card__actions-row .product-card__cart-btn,
+.shop-header__actions .btn-elegant-primary,
+[class*='__actions'] .btn-elegant-primary,
+[class*='__actions-row'] .btn-elegant-primary,
+.momo-pay__actions .btn-elegant-primary {
+  animation: none !important;
+}
+
+/* Nút trong hàng: nhấn bằng opacity, không scale (tránh giật hàng) */
+.elegant-product__actions .btn-interactive:active:not(:disabled),
+.elegant-product__actions .btn-elegant-primary:active:not(:disabled),
+.elegant-product__actions .btn-elegant-wish:active:not(:disabled),
+.product-card__actions-row button:active:not(:disabled),
+.shop-header__actions .btn-interactive:active:not(:disabled),
+.shop-header__actions .shop-icon-btn:active:not(:disabled),
+[class*='__actions'] .btn-interactive:active:not(:disabled),
+[class*='__actions-row'] button:active:not(:disabled),
+.momo-pay__actions .btn-interactive:active:not(:disabled),
+.qty-stepper__btn:active:not(:disabled),
+.elegant-tabs__btn:active:not(:disabled) {
+  transform: none !important;
+  opacity: 0.86;
+  filter: brightness(0.96);
+}
+
 .mkt-cat-link:hover {
   transform: none;
   color: var(--navy, #14275c);
@@ -317,8 +372,8 @@ img.img-fade[complete] {
 .home-promo__btn:active,
 .home-hero__cta:active,
 .demo-chip:active {
-  transform: scale(0.97);
-  opacity: 1;
+  transform: scale(0.98);
+  opacity: 0.94;
   transition-duration: var(--dur-press);
 }
 

@@ -138,7 +138,6 @@ watch(
                 v-if="showCart"
                 type="button"
                 class="shop-icon-btn shop-icon-btn--cart btn-interactive"
-                :class="{ 'shop-icon-btn--bounce': cart.cartBounce }"
                 title="Giỏ hàng"
                 aria-label="Giỏ hàng"
                 @click="onOpenCart"
@@ -146,7 +145,11 @@ watch(
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <path d="M6 6h15l-1.5 9h-12z" /><path d="M6 6L4.5 3H2" /><circle cx="9.5" cy="19" r="1.4" /><circle cx="17" cy="19" r="1.4" />
                 </svg>
-                <span v-if="cart.itemCount" class="shop-icon-btn__badge">{{ cart.itemCount }}</span>
+                <span
+                  v-if="cart.itemCount"
+                  class="shop-icon-btn__badge"
+                  :class="{ 'shop-icon-btn__badge--bounce': cart.cartBounce }"
+                >{{ cart.itemCount }}</span>
               </button>
 
               <AccountHoverMenu variant="shop" />
@@ -255,15 +258,14 @@ watch(
   box-shadow: 0 1px 0 rgba(15, 23, 42, 0.06);
 }
 
-.shop-icon-btn--bounce {
-  animation: cart-bounce 0.65s ease;
+.shop-icon-btn__badge--bounce {
+  animation: cart-badge-bounce 0.55s ease;
 }
 
-@keyframes cart-bounce {
+@keyframes cart-badge-bounce {
   0% { transform: scale(1); }
-  25% { transform: scale(1.22); }
-  50% { transform: scale(0.92); }
-  75% { transform: scale(1.12); }
+  35% { transform: scale(1.35); }
+  65% { transform: scale(0.92); }
   100% { transform: scale(1); }
 }
 

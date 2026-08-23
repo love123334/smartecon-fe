@@ -57,7 +57,17 @@ const gallery = computed(() => {
     .slice(0, 5)
 })
 
-const mainImage = computed(() => gallery.value[activeImage.value] ?? product.value?.imageUrl ?? '')
+function preloadGallery(urls: string[]) {
+  if (typeof window === 'undefined') return
+  for (const url of urls) {
+    if (!url) continue
+    const img = new Image()
+    img.decoding = 'async'
+    img.src = url
+  }
+}
+
+watch(gallery, (urls) => preloadGallery(urls), { immediate: true })
 
 function onDetailImgError(e: Event) {
   handleProductImageError(e, gallery.value)
@@ -264,7 +274,18 @@ async function addRelated(id: string) {
             <div class="elegant-product__badges">
               <span v-if="isNew" class="elegant-badge elegant-badge--dark">Mới</span>
             </div>
-            <img :src="mainImage" :alt="product.name" @error="onDetailImgError" />
+            <div class="elegant-product__main-frame" aria-live="polite">
+              <img
+                v-for="(url, idx) in gallery"
+                :key="`${url}-${idx}`"
+                :src="url"
+                :alt="`${product.name} — ảnh ${idx + 1}`"
+                class="elegant-product__main-img"
+                :class="{ 'elegant-product__main-img--active': idx === activeImage }"
+                decoding="async"
+                @error="onDetailImgError"
+              />
+            </div>
           </div>
           <div class="elegant-product__thumbs">
             <button
