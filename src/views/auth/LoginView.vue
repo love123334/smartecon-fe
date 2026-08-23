@@ -175,7 +175,6 @@ function onLoginButtonClick(e: MouseEvent) {
             Mật khẩu chung: <code>{{ demoPassword }}</code>
             <span v-if="apiConfig.useRealAuth" class="demo-hint">(hệ thống)</span>
             <span v-else class="demo-hint">(demo cục bộ)</span>
-            · Seller DSS: <code>password</code>
           </p>
           <div class="demo-grid">
             <button

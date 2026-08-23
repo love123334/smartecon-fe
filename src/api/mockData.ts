@@ -17,10 +17,6 @@ export interface DemoAccount {
   password?: string
 }
 
-/** DSS demo seller from teammate dataset — password is literally "password" */
-export const DSS_DEMO_SELLER_EMAIL = 'seller.dss.demo@example.com'
-export const DSS_DEMO_PASSWORD = 'password'
-
 export const DEMO_ACCOUNTS: DemoAccount[] = [
   {
     role: 'customer',
@@ -35,14 +31,6 @@ export const DEMO_ACCOUNTS: DemoAccount[] = [
     fullName: 'Trần Thị Bán',
     email: 'seller@sedsp.vn',
     description: 'SP, tồn kho, DSS kế hoạch & trợ lý AI',
-  },
-  {
-    role: 'seller',
-    label: 'Seller DSS',
-    fullName: 'DSS Demo Seller',
-    email: DSS_DEMO_SELLER_EMAIL,
-    description: 'Dataset từ team DSS (pass: password)',
-    password: DSS_DEMO_PASSWORD,
   },
   {
     role: 'manager',
