@@ -30,7 +30,7 @@ function mapUser(u: BackendUserSummary): User {
   return {
     id: String(u.id),
     email: u.email,
-    fullName: u.fullName,
+    fullName: u.fullName || u.username || u.email,
     role: ROLE_MAP[u.role] ?? 'customer',
     active: u.status === 'ACTIVE',
     phone: '',
@@ -39,11 +39,24 @@ function mapUser(u: BackendUserSummary): User {
   }
 }
 
-export async function listUsers(page = 0, size = 50): Promise<User[]> {
-  const data = await http.get<SpringPage<BackendUserSummary>>(
+function pageContent(data: SpringPage<BackendUserSummary> | null | undefined): BackendUserSummary[] {
+  if (!data || !Array.isArray(data.content)) return []
+  return data.content
+}
+
+export async function listUsers(page = 0, size = 100): Promise<User[]> {
+  const first = await http.get<SpringPage<BackendUserSummary>>(
     `${apiPaths.users.list}?page=${page}&size=${size}`,
   )
-  return data.content.map(mapUser)
+  const out = pageContent(first).map(mapUser)
+  const totalPages = first?.totalPages ?? 1
+  for (let p = page + 1; p < totalPages && p < 20; p++) {
+    const next = await http.get<SpringPage<BackendUserSummary>>(
+      `${apiPaths.users.list}?page=${p}&size=${size}`,
+    )
+    out.push(...pageContent(next).map(mapUser))
+  }
+  return out
 }
 
 export async function assignRole(userId: string, role: UserRole): Promise<void> {
