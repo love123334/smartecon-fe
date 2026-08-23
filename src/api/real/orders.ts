@@ -134,17 +134,29 @@ export function toBackendPayment(
   return 'VNPAY'
 }
 
+function mapOrderDetail(data: BackendOrderDetailResponse): Order | null {
+  if (!data?.order) return null
+  const order = mapBackendOrder(data.order, {
+    shippingAddress: data.shippingAddress,
+    paymentMethod: data.paymentMethod,
+  })
+  const transfer = mapMomoTransfer(data.momoTransfer)
+  return transfer ? { ...order, momoTransfer: transfer } : order
+}
+
 export async function createOrder(
   shippingAddress: string,
   paymentMethod: 'MOMO' | 'MOMO_QR' | 'VNPAY' | 'COD',
   voucherCode?: string,
 ): Promise<Order> {
-  const data = await http.post<BackendOrderResponse>(apiPaths.orders.list, {
+  const data = await http.post<BackendOrderDetailResponse>(apiPaths.orders.list, {
     shippingAddress,
     paymentMethod,
     voucherCode: voucherCode?.trim() || undefined,
   })
-  return mapBackendOrder(data, { shippingAddress, paymentMethod })
+  const order = mapOrderDetail(data)
+  if (!order) throw new Error('Phản hồi đặt hàng không hợp lệ')
+  return order
 }
 
 export async function listMyOrders(page = 0, size = 20): Promise<Order[]> {
@@ -156,13 +168,7 @@ export async function listMyOrders(page = 0, size = 20): Promise<Order[]> {
 
 export async function getOrderById(id: string): Promise<Order | null> {
   const data = await http.get<BackendOrderDetailResponse>(apiPaths.orders.byId(id))
-  if (!data?.order) return null
-  const order = mapBackendOrder(data.order, {
-    shippingAddress: data.shippingAddress,
-    paymentMethod: data.paymentMethod,
-  })
-  const transfer = mapMomoTransfer(data.momoTransfer)
-  return transfer ? { ...order, momoTransfer: transfer } : order
+  return mapOrderDetail(data)
 }
 
 export async function confirmMomoTransfer(id: string): Promise<Order> {

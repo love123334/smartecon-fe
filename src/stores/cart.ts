@@ -73,18 +73,22 @@ export const useCartStore = defineStore('cart', () => {
     }
   }
 
-  async function syncToServer() {
+  async function syncToServer(options?: { force?: boolean }) {
     const auth = useAuthStore()
-    if (!auth.user || !canShopAsBuyer(auth.role) || !dirty.value) return
+    if (!auth.user || !canShopAsBuyer(auth.role)) return
+    if (!dirty.value && !options?.force) return
 
     const userId = auth.user.id
     const serverItems = await cartApi.getCart(userId)
     const localIds = new Set(lines.value.map((l) => l.product.id))
     const serverByProduct = new Map(serverItems.map((i) => [i.productId, i]))
 
-    for (const item of serverItems) {
-      if (!localIds.has(item.productId)) {
-        await cartApi.removeItem(userId, item.productId, item.cartItemId)
+    // Chỉ xóa trên server khi local thật sự không còn dòng tương ứng
+    if (lines.value.length > 0 || dirty.value) {
+      for (const item of serverItems) {
+        if (!localIds.has(item.productId)) {
+          await cartApi.removeItem(userId, item.productId, item.cartItemId)
+        }
       }
     }
 
@@ -110,12 +114,22 @@ export const useCartStore = defineStore('cart', () => {
     const auth = useAuthStore()
     if (!auth.user || !canShopAsBuyer(auth.role)) return
     const showLoading = options?.showLoading !== false
+    const hadLocalLines = lines.value.length > 0
     if (showLoading) loading.value = true
     error.value = null
     try {
-      await syncToServer()
+      if (hadLocalLines) {
+        await syncToServer({ force: true })
+      } else if (dirty.value) {
+        await syncToServer()
+      }
       lines.value = await resolveCartLines(auth.user.id, { enrichCatalog: true })
       dirty.value = false
+      if (hadLocalLines && !lines.value.length) {
+        throw new Error(
+          'Không đồng bộ được giỏ hàng với máy chủ. Kiểm tra đơn hàng gần đây hoặc thêm lại sản phẩm.',
+        )
+      }
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Lỗi đồng bộ giỏ hàng'
       throw e

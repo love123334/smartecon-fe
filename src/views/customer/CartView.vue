@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { formatVnd } from '@/api/services'
+import { formatVnd, orderApi } from '@/api/services'
+import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
 import { useNoticeStore } from '@/stores/notice'
 import QuantityStepper from '@/components/QuantityStepper.vue'
@@ -21,6 +22,7 @@ const PENDING_PAY_KEY = 'sedsp_pending_vnpay_order'
 const PAY_RETURN_KEY = 'sedsp_pay_return'
 
 const cart = useCartStore()
+const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const notice = useNoticeStore()
@@ -171,6 +173,25 @@ async function checkout() {
   try {
     await cart.prepareForCheckout({ showLoading: false })
     if (!cart.lines.length) {
+      if (auth.user) {
+        try {
+          const recentOrders = await orderApi.listForCustomer(auth.user.id)
+          const pendingMomo = recentOrders.find(
+            (o) =>
+              o.status === 'pending' &&
+              (o.paymentMethod === 'momo_qr' || o.rawStatus === 'PENDING'),
+          )
+          if (pendingMomo) {
+            await router.push({
+              path: `/orders/${pendingMomo.id}/pay-momo`,
+              query: { recovered: '1' },
+            })
+            return
+          }
+        } catch {
+          /* show empty cart notice below */
+        }
+      }
       notice.show({
         kind: 'error',
         title: 'Giỏ hàng trống',

@@ -1168,7 +1168,11 @@ export const orderApi = {
     } else {
       orders = await mockOrderApi.listForCustomer(customerId)
     }
-    return applyOrderOverlays(orders).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    const merged = applyOrderOverlays(orders)
+    const ids = new Set(merged.map((o) => o.id))
+    return [...merged, ...overlayOnlyOrders(ids)].sort((a, b) =>
+      b.createdAt.localeCompare(a.createdAt),
+    )
   },
 
   async listForSeller(): Promise<Order[]> {
@@ -1270,22 +1274,27 @@ export const orderApi = {
         rawStatus: order.rawStatus || 'PENDING',
         shippingAddress: order.shippingAddress || shippingAddress,
         paymentMethod:
-          payment === 'cod'
+          order.paymentMethod ??
+          (payment === 'cod'
             ? 'cod'
             : payment === 'momo_qr'
               ? 'momo_qr'
               : payment === 'momo' || payment === 'card'
                 ? 'momo'
-                : 'vnpay',
+                : 'vnpay'),
       }
-      if (payment === 'momo_qr') {
-        const detail = await realOrders.getOrderById(String(order.id))
-        if (detail) {
-          order = {
-            ...order,
-            paymentMethod: detail.paymentMethod ?? 'momo_qr',
-            momoTransfer: detail.momoTransfer,
+      if (payment === 'momo_qr' && !order.momoTransfer) {
+        try {
+          const detail = await realOrders.getOrderById(String(order.id))
+          if (detail?.momoTransfer) {
+            order = {
+              ...order,
+              paymentMethod: detail.paymentMethod ?? 'momo_qr',
+              momoTransfer: detail.momoTransfer,
+            }
           }
+        } catch {
+          /* createOrder already succeeded — MoMo details optional here */
         }
       }
     } else {

@@ -238,6 +238,26 @@ async function placeOrder() {
     await cart.refresh()
     await router.push({ path: `/orders/${order.id}/pay-momo`, query: { placed: '1' } })
   } catch (e) {
+    await cart.refresh()
+    if (!cart.lines.length && auth.user) {
+      try {
+        const recentOrders = await orderApi.listForCustomer(auth.user.id)
+        const pendingMomo = recentOrders.find(
+          (o) =>
+            o.status === 'pending' &&
+            (o.paymentMethod === 'momo_qr' || o.rawStatus === 'PENDING'),
+        )
+        if (pendingMomo) {
+          await router.push({
+            path: `/orders/${pendingMomo.id}/pay-momo`,
+            query: { placed: '1', recovered: '1' },
+          })
+          return
+        }
+      } catch {
+        /* fall through to error message */
+      }
+    }
     const raw = e instanceof Error ? e.message : 'Đặt hàng thất bại'
     const lower = raw.toLowerCase()
     if (/voucher|mã giảm|discount/i.test(lower)) {
