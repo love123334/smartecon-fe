@@ -18,7 +18,7 @@ const customerHints: Record<Exclude<OrderStatus, 'cancelled'>, string> = {
   pending: 'Shop đang xem đơn của bạn',
   confirmed: 'Shop đã nhận đơn, chuẩn bị hàng',
   shipping: 'Đơn đang trên đường giao',
-  delivered: 'Giao thành công — có thể đánh giá trong 30 ngày',
+  delivered: 'Giao thành công',
 }
 
 const sellerHints: Record<Exclude<OrderStatus, 'cancelled'>, string> = {

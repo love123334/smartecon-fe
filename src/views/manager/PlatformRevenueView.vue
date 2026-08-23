@@ -10,10 +10,8 @@ import PlatformRevenueFilter from '@/components/platform-revenue/PlatformRevenue
 import PlatformRevenueKpis from '@/components/platform-revenue/PlatformRevenueKpis.vue'
 import PlatformRevenueTrendChart from '@/components/platform-revenue/PlatformRevenueTrendChart.vue'
 import PlatformRankingTables from '@/components/platform-revenue/PlatformRankingTables.vue'
-import PlatformPaymentChart from '@/components/platform-revenue/PlatformPaymentChart.vue'
 import PlatformOrderStatusChart from '@/components/platform-revenue/PlatformOrderStatusChart.vue'
 import PlatformActivitySection from '@/components/platform-revenue/PlatformActivitySection.vue'
-import PlatformActivityTrendChart from '@/components/platform-revenue/PlatformActivityTrendChart.vue'
 import LookerStudioEmbed from '@/components/LookerStudioEmbed.vue'
 import {
   LOOKER_STUDIO_PLATFORM_REVENUE_URL,
@@ -45,10 +43,8 @@ const revenueTrend = computed(() => data.value?.revenueTrend ?? [])
 const sellers = computed(() => data.value?.topSellers ?? [])
 const products = computed(() => data.value?.topProducts ?? [])
 const categories = computed(() => data.value?.topCategories ?? [])
-const payments = computed(() => data.value?.paymentMethodDistribution ?? [])
 const orderStatuses = computed(() => data.value?.orderStatusDistribution ?? [])
 const activity = computed(() => data.value?.platformActivity ?? null)
-const activityTrend = computed(() => data.value?.activityTrend ?? [])
 
 onMounted(() => {
   if (SHOW_NATIVE_PLATFORM_REPORT) {
@@ -163,12 +159,6 @@ function retry() {
         />
 
         <PlatformOrderStatusChart v-if="orderStatuses.length" :items="orderStatuses" />
-        <PlatformPaymentChart v-if="payments.length" :items="payments" />
-        <PlatformActivityTrendChart
-          v-if="activityTrend.length"
-          :trend="activityTrend"
-          :granularity="filter.granularity"
-        />
         <PlatformActivitySection v-if="activity" :activity="activity" />
       </template>
 

@@ -5,7 +5,8 @@ import { formatVnd, orderApi, reviewApi } from '@/api/services'
 import type { Order, ProductReview } from '@/types'
 import { useAuthStore } from '@/stores/auth'
 import { orderStatusLabel } from '@/utils/orderStatus'
-import { checkReviewEligibility } from '@/utils/reviewEligibility'
+import { canShopAsBuyer } from '@/utils/roleNav'
+import { REVIEW_WINDOW_DAYS, checkReviewEligibility } from '@/utils/reviewEligibility'
 import EmptyState from '@/components/EmptyState.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import OrderTrackStepper from '@/components/OrderTrackStepper.vue'
@@ -74,17 +75,33 @@ function onViewProduct(order: Order) {
   }
 }
 
-function canReviewItem(order: Order, productId: string): boolean {
-  if (order.status !== 'delivered') return false
-  const eligibility = checkReviewEligibility({
+function itemEligibility(order: Order, productId: string) {
+  return checkReviewEligibility({
     isLoggedIn: auth.isLoggedIn,
-    isCustomer: true,
+    isCustomer: canShopAsBuyer(auth.role),
     productId,
     orders: [order],
     existingReviews: reviewsByProduct.value[productId] ?? [],
     currentUserId: auth.user?.backendId ?? auth.user?.id,
   })
-  return eligibility.canReview
+}
+
+function canReviewItem(order: Order, productId: string): boolean {
+  if (order.status !== 'delivered') return false
+  return itemEligibility(order, productId).canReview
+}
+
+function orderCanReview(order: Order): boolean {
+  if (order.status !== 'delivered') return false
+  return order.items.some((item) => canReviewItem(order, item.productId))
+}
+
+function reviewBlockNote(order: Order, productId: string): string {
+  const result = itemEligibility(order, productId)
+  if (result.canReview) return ''
+  if (result.reason === 'already_reviewed') return 'Bạn đã đánh giá sản phẩm này.'
+  if (result.reason === 'expired') return `Đã quá hạn đánh giá (${REVIEW_WINDOW_DAYS} ngày sau giao).`
+  return result.message.replace(/\*\*/g, '')
 }
 
 function onReviewSubmitted(productId: string) {
@@ -98,6 +115,15 @@ function showItems(order: Order): boolean {
 }
 
 function scrollToOrderReview(order: Order) {
+  if (!orderCanReview(order)) {
+    void router.push({
+      name: 'order-detail',
+      params: { id: order.id },
+      query: { view: 'detail' },
+      hash: '#reviews',
+    })
+    return
+  }
   expandedId.value = order.id
   void nextTick(() => {
     document
@@ -162,7 +188,7 @@ function scrollToOrderReview(order: Order) {
             {{ expandedId === o.id ? 'Ẩn danh sách SP' : 'Xem sản phẩm' }}
           </button>
           <button
-            v-if="o.status === 'delivered'"
+            v-if="orderCanReview(o)"
             type="button"
             class="btn btn-outline btn-sm"
             @click="scrollToOrderReview(o)"
@@ -200,11 +226,10 @@ function scrollToOrderReview(order: Order) {
               @submitted="onReviewSubmitted(item.productId)"
             />
             <p
-              v-else-if="o.status === 'delivered'"
+              v-else-if="o.status === 'delivered' && reviewBlockNote(o, item.productId)"
               class="orders-track-item__note"
             >
-              Đã đánh giá hoặc hết hạn / chưa đủ điều kiện — xem
-              <RouterLink :to="`/orders/${o.id}`">chi tiết đơn</RouterLink>.
+              {{ reviewBlockNote(o, item.productId) }}
             </p>
           </li>
         </ul>

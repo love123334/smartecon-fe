@@ -37,6 +37,13 @@ export function reviewAnchorDate(order: Order): Date {
   return Number.isNaN(d.getTime()) ? new Date(order.createdAt) : d
 }
 
+function sameUserId(a?: string | null, b?: string | null): boolean {
+  if (!a || !b) return false
+  const na = a.replace(/^seller-/i, '').trim()
+  const nb = b.replace(/^seller-/i, '').trim()
+  return na === nb
+}
+
 /**
  * Khách chỉ được đánh giá khi:
  * 1) Đã mua SP trong đơn đã giao (delivered)
@@ -72,7 +79,7 @@ export function checkReviewEligibility(opts: {
 
   if (
     opts.currentUserId &&
-    opts.existingReviews.some((r) => r.userId === opts.currentUserId)
+    opts.existingReviews.some((r) => sameUserId(r.userId, opts.currentUserId))
   ) {
     return {
       canReview: false,
