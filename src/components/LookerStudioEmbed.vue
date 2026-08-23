@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import {
-  LOOKER_MIN_TRUSTED_HEIGHT_PX,
   LOOKER_REPORT_HEIGHT_PX,
   LOOKER_REPORT_WIDTH_PX,
   lookerEmbedSrc,
@@ -27,105 +26,25 @@ const emit = defineEmits<{
 }>()
 
 const viewportRef = ref<HTMLElement | null>(null)
-const frameRef = ref<HTMLIFrameElement | null>(null)
-const naturalWidth = ref(props.reportWidth)
-const naturalHeight = ref(props.reportHeight)
 const containerWidth = ref(0)
 const loaded = ref(false)
 const failed = ref(false)
 let failTimer: ReturnType<typeof setTimeout> | null = null
 let resizeObserver: ResizeObserver | null = null
 
-function parseLookerDimensions(data: unknown): { width?: number; height?: number } {
-  if (typeof data === 'number' && Number.isFinite(data) && data > 0) {
-    return { height: data }
-  }
-
-  if (typeof data === 'string') {
-    const trimmed = data.trim()
-    if (!trimmed) return {}
-    try {
-      return parseLookerDimensions(JSON.parse(trimmed))
-    } catch {
-      const asNum = Number(trimmed)
-      if (Number.isFinite(asNum) && asNum > 0) return { height: asNum }
-      return {}
-    }
-  }
-
-  if (!data || typeof data !== 'object') return {}
-
-  const obj = data as Record<string, unknown>
-  const out: { width?: number; height?: number } = {}
-
-  for (const key of ['height', 'pageHeight', 'reportHeight'] as const) {
-    const v = obj[key]
-    if (typeof v === 'number' && v > 0) out.height = v
-  }
-  for (const key of ['width', 'pageWidth', 'reportWidth'] as const) {
-    const v = obj[key]
-    if (typeof v === 'number' && v > 0) out.width = v
-  }
-
-  if (Array.isArray(data)) {
-    for (const item of data) {
-      const nested = parseLookerDimensions(item)
-      if (nested.height) out.height = nested.height
-      if (nested.width) out.width = nested.width
-    }
-    return out
-  }
-
-  const type = String(obj.type ?? obj.event ?? '')
-  if (/height|page|resize|dimension|properties:changed|page:changed/i.test(type)) {
-    if (typeof obj.height === 'number' && obj.height > 0) out.height = obj.height
-  }
-
-  return out
-}
-
-function applyLookerDimensions(dims: { width?: number; height?: number }) {
-  if (dims.width && dims.width >= 800 && dims.width <= 2400) {
-    naturalWidth.value = Math.round(dims.width)
-  }
-  // Chỉ tin height đủ lớn — không thu canvas (gây scrollbar nội bộ iframe).
-  if (
-    dims.height &&
-    dims.height >= LOOKER_MIN_TRUSTED_HEIGHT_PX &&
-    dims.height <= 4000
-  ) {
-    naturalHeight.value = Math.max(props.reportHeight, Math.round(dims.height))
-  }
-}
-
-function onMessage(event: MessageEvent) {
-  if (event.source !== frameRef.value?.contentWindow) return
-  const origin = String(event.origin || '')
-  if (
-    !origin.includes('lookerstudio.google.com') &&
-    !origin.includes('datastudio.google.com')
-  ) {
-    return
-  }
-
-  applyLookerDimensions(parseLookerDimensions(event.data))
-}
-
-/** Full-width stretch; outer height follows scaled canvas — không scrollbar. */
+/** Stretch full width; height = report aspect ratio — vừa khít, không scrollbar, không dư canvas. */
 const scale = computed(() => {
-  const cw = containerWidth.value || naturalWidth.value
-  const nw = naturalWidth.value
-  if (!cw || !nw) return 1
-  return cw / nw
+  const cw = containerWidth.value || props.reportWidth
+  return cw / props.reportWidth
 })
 
 const fitHeight = computed(() =>
-  Math.max(1, Math.round(naturalHeight.value * scale.value)),
+  Math.max(1, Math.round(props.reportHeight * scale.value)),
 )
 
 const scalerStyle = computed(() => ({
-  width: `${naturalWidth.value}px`,
-  height: `${naturalHeight.value}px`,
+  width: `${props.reportWidth}px`,
+  height: `${props.reportHeight}px`,
   transform: `scale(${scale.value})`,
   transformOrigin: 'top left',
 }))
@@ -151,17 +70,12 @@ function onLoad() {
 
 watch(
   () => [props.reportWidth, props.reportHeight] as const,
-  ([w, h]) => {
-    naturalWidth.value = w
-    naturalHeight.value = h
-    measureContainer()
-  },
+  () => measureContainer(),
 )
 
 onMounted(() => {
   measureContainer()
   requestAnimationFrame(() => measureContainer())
-  window.addEventListener('message', onMessage)
   window.addEventListener('resize', measureContainer)
 
   if (typeof ResizeObserver !== 'undefined' && viewportRef.value) {
@@ -178,7 +92,6 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  window.removeEventListener('message', onMessage)
   window.removeEventListener('resize', measureContainer)
   resizeObserver?.disconnect()
   if (failTimer) clearTimeout(failTimer)
@@ -206,12 +119,11 @@ const embedSrc = lookerEmbedSrc(props.src)
     <div class="looker-embed__stage">
       <div class="looker-embed__scaler" :style="scalerStyle">
         <iframe
-          ref="frameRef"
           class="looker-embed__frame"
           :title="title"
           :src="embedSrc"
-          :width="naturalWidth"
-          :height="naturalHeight"
+          :width="reportWidth"
+          :height="reportHeight"
           loading="lazy"
           scrolling="no"
           referrerpolicy="no-referrer-when-downgrade"
