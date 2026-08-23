@@ -224,34 +224,34 @@ onUnmounted(() => {
           <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
         </svg>
       </button>
-    </div>
 
-    <div
-      v-if="!compact"
-      class="product-card__mini"
-      :class="{ 'product-card__mini--open': previewOpen }"
-      @mouseenter="onEnter"
-    >
-      <div class="product-card__mini-thumbs">
-        <button
-          v-for="(url, i) in gallery"
-          :key="`${url}-${i}`"
-          type="button"
-          class="product-card__mini-thumb"
-          :class="{ 'product-card__mini-thumb--active': activeImage === url }"
-          :aria-label="`Ảnh ${i + 1}`"
-          @click="pickImage(url, $event)"
-        >
-          <img :src="url" alt="" loading="lazy" decoding="async" @error="onImgError" />
-        </button>
-      </div>
-      <p class="product-card__mini-blurb">
-        <span v-if="detailLoading" class="product-card__mini-loading">Đang tải chi tiết…</span>
-        <template v-else>{{ blurb }}</template>
-      </p>
-      <div class="product-card__mini-meta">
-        <span>{{ display.category }}</span>
-        <span>{{ stockLabel }}</span>
+      <div
+        v-if="!compact"
+        class="product-card__mini"
+        :class="{ 'product-card__mini--open': previewOpen }"
+        @mouseenter="onEnter"
+      >
+        <div class="product-card__mini-thumbs">
+          <button
+            v-for="(url, i) in gallery"
+            :key="`${url}-${i}`"
+            type="button"
+            class="product-card__mini-thumb"
+            :class="{ 'product-card__mini-thumb--active': activeImage === url }"
+            :aria-label="`Ảnh ${i + 1}`"
+            @click="pickImage(url, $event)"
+          >
+            <img :src="url" alt="" loading="lazy" decoding="async" @error="onImgError" />
+          </button>
+        </div>
+        <p class="product-card__mini-blurb">
+          <span v-if="detailLoading" class="product-card__mini-loading">Đang tải chi tiết…</span>
+          <template v-else>{{ blurb }}</template>
+        </p>
+        <div class="product-card__mini-meta">
+          <span>{{ display.category }}</span>
+          <span>{{ stockLabel }}</span>
+        </div>
       </div>
     </div>
 
