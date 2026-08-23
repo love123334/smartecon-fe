@@ -126,6 +126,10 @@ export function sanitizeChatReply(text: string): string {
     .replace(/\b(keyword|intent|extract|query term):\s*[^\n]+/gi, '')
     .replace(/\b(product_budget|product_search|product_cheapest)\b/gi, '')
     .replace(
+      /(?:^|\n)\s*(?:User Safety|Response Safety|Phản hồi\s*[Aa]n toàn|Khống chế người dùng|Khoản người dùng)\s*:\s*[^\n]*/gi,
+      '',
+    )
+    .replace(
       /\n*\n?(?:→\s*)?(?:Bấm|Chọn|Xem)(?:\s+chi tiết)?(?:\s+trên)?(?:\s+từng)?\s*(?:card|sản phẩm|\*\*danh thiếp shop\*\*).{0,80}(?:bên dưới|để xem).*/gi,
       '',
     )

@@ -23,6 +23,7 @@ import {
   llmMissingCriticalFacts,
   looksLikeLowQualityReply,
   looksLikeOffTopicPlatformReply,
+  looksLikeSafetyMetadataLeak,
 } from '@/api/chat/followup'
 import { isStandaloneShoppingQuery } from '@/api/chat/discovery'
 import { detectIntent, type ChatIntent } from '@/api/chat/intents'
@@ -215,6 +216,9 @@ function preferLocalOverLlm(
   backendGrounded = false,
   localProducts?: ChatProductRef[],
 ): ChatFallbackReason | null {
+  if (looksLikeSafetyMetadataLeak(llmContent)) {
+    return 'low_quality'
+  }
   if (llmDeniesProductsWhileLocalHasHits(llmContent, localProducts)) {
     return 'contradicts_facts'
   }
@@ -295,7 +299,7 @@ function isOrderFollowUp(normalized: string, prior?: ConversationContext): boole
 
 function isSellerAnalyticsFollowUp(normalized: string, prior?: ConversationContext): boolean {
   if (!prior || prior.activeTask !== 'seller_ops') return false
-  return /doanh thu|loi nhuan|profit|don|ton kho|nhap|dss|shop|thang nay|tai sao|tang|giam|ban chay|what if|gia/.test(
+  return /doanh thu|loi nhuan|profit|don|ton kho|nhap|dss|shop|thang nay|tai sao|tang|giam|ban chay|what if|gia|nhu cau|demand|du bao|tuong lai|forecast/.test(
     normalized,
   )
 }
@@ -336,6 +340,8 @@ export async function resolveChatReply(
     const priorMetric = priorConversation?.sellerAnalyticsSpec?.metric
     if (priorMetric === 'health' || /shop|kinh doanh|suc khoe/.test(normalized)) {
       detected = { intent: 'seller_business_health', score: 48 }
+    } else if (/nhu cau|demand|du bao|forecast|tuong lai/.test(normalized)) {
+      detected = { intent: 'seller_dss_demand', score: 48 }
     } else if (/loi nhuan|profit|margin|von/.test(normalized)) {
       detected = { intent: 'seller_profit', score: 48 }
     } else if (/tai sao|vi sao|tang|giam|so voi/.test(normalized)) {

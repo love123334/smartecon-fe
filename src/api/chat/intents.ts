@@ -499,9 +499,13 @@ const SELLER: IntentRule[] = [
     intent: 'seller_dss_demand',
     keywords: [
       'du bao nhu cau', 'demand forecast', 'du bao ban', 'moving average',
-      'nhu cau 30 ngay', 'du bao 7 ngay',
+      'nhu cau 30 ngay', 'du bao 7 ngay', 'nhu cau khach hang', 'nhu cau tuong lai',
+      'nhu cau trong tuong lai', 'du bao demand', 'forecast demand',
     ],
-    phrases: ['du bao nhu cau', 'demand forecast', 'du bao ban'],
+    phrases: [
+      'du bao nhu cau', 'demand forecast', 'du bao ban',
+      'nhu cau khach hang', 'nhu cau tuong lai', 'nhu cau trong tuong lai',
+    ],
     roles: ['seller'],
     minScore: 4,
     priority: 10,
@@ -725,7 +729,11 @@ function refineIntent(
     if (/don mua|mua nhu khach|lich su mua cua toi/.test(normalized)) {
       return 'seller_purchase_orders'
     }
-    if (/du bao nhu cau|demand forecast/.test(normalized)) {
+    if (
+      /du bao nhu cau|demand forecast|nhu cau khach|nhu cau tuong lai|nhu cau trong tuong lai|du bao demand/.test(
+        normalized,
+      )
+    ) {
       return 'seller_dss_demand'
     }
     if (/khuyen nghi ton|bo sung hang|reorder/.test(normalized)) {

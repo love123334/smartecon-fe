@@ -115,6 +115,22 @@ export function looksLikeOffTopicPlatformReply(
   )
 }
 
+/** Gemini / LLM đôi khi lộ metadata safety thay vì câu trả lời thật */
+export function looksLikeSafetyMetadataLeak(reply: string): boolean {
+  const r = reply.trim()
+  if (!r) return true
+  const n = r
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+  const safetyHits =
+    (n.match(/user safety|response safety|phan hoi an toan|khoan nguoi dung|khong che nguoi dung/g) ?? [])
+      .length
+  if (safetyHits >= 2) return true
+  if (safetyHits >= 1 && r.length < 120) return true
+  return /^user safety:\s*safe\s*$/im.test(r) || /^response safety:\s*safe\s*$/im.test(r)
+}
+
 /** Câu trả lời cứng/ngớ (template CSKH, không đáp đúng câu hỏi) */
 export function looksLikeLowQualityReply(userNormalized: string, reply: string): boolean {
   const r = reply

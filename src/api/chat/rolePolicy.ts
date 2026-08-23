@@ -134,7 +134,11 @@ export function resolveIntentForRole(
     if (/what.?if|giam gia\s*\d|mo phong giam|tang gia\s*\d/.test(n)) {
       return 'seller_whatif'
     }
-    if (/du bao nhu cau|demand forecast|nhu cau tuan/.test(n)) {
+    if (
+      /du bao nhu cau|demand forecast|nhu cau tuan|nhu cau khach|nhu cau tuong lai|nhu cau trong tuong lai|du bao demand/.test(
+        n,
+      )
+    ) {
       return 'seller_dss_demand'
     }
     if (/khuyen nghi gia|nen tang gia|nen giam gia|goi y gia ban/.test(n)) {

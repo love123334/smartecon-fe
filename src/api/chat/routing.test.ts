@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { repairPriceFactsInReply } from '@/api/chat/factRepair'
 import { deriveSuggestedActions } from '@/api/chat/suggestedActions'
 import { createChatTelemetry } from '@/api/chat/chatTelemetry'
+import { detectIntent } from '@/api/chat/intents'
+import { resolveIntentForRole } from '@/api/chat/rolePolicy'
+import { sanitizeChatReply } from '@/api/chat/responses'
+import { looksLikeSafetyMetadataLeak } from '@/api/chat/followup'
 
 describe('factRepair', () => {
   it('appends verified price when LLM contradicts', () => {
@@ -64,5 +68,23 @@ describe('chatTelemetry', () => {
     })
     expect(t.intent).toBe('product_price')
     expect(t.finalSource).toBe('local')
+  })
+})
+
+describe('seller demand intent', () => {
+  it('routes future customer demand to seller_dss_demand', () => {
+    const q = 'Nhu cầu khách hàng trong tương lai'
+    const hit = detectIntent(q, 'seller')
+    expect(hit?.intent).toBe('seller_dss_demand')
+    expect(resolveIntentForRole(hit?.intent ?? null, 'seller', q)).toBe('seller_dss_demand')
+  })
+})
+
+describe('sanitizeChatReply', () => {
+  it('strips leaked Gemini safety metadata', () => {
+    const raw =
+      'User Safety: safe\nResponse Safety: safe\nPhản hồi An toàn: an toàn'
+    expect(sanitizeChatReply(raw)).toBe('')
+    expect(looksLikeSafetyMetadataLeak(raw)).toBe(true)
   })
 })
