@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { chatApi } from '@/api/services'
 import { pickQuickPrompts, welcomeMessage } from '@/api/chat/prompts'
 import type { ChatLoginSession } from '@/api/chat/chatPersistence'
@@ -24,6 +25,7 @@ const props = defineProps<{
 
 const auth = useAuthStore()
 const chatSession = useChatSessionStore()
+const router = useRouter()
 const messages = ref<ChatMessage[]>([])
 const savedSessions = ref<ChatLoginSession[]>([])
 const showHistory = ref(false)
@@ -118,6 +120,11 @@ async function onClear() {
   chatError.value = ''
   lastFailedText.value = ''
 }
+
+function onNavigate(path: string) {
+  if (!path?.startsWith('/')) return
+  void router.push(path)
+}
 </script>
 
 <template>
@@ -175,6 +182,7 @@ async function onClear() {
       :empty-text="welcomeMessage(effectiveRole)"
       @send="onSend"
       @clear="onClear"
+      @navigate="onNavigate"
     />
   </div>
 </template>

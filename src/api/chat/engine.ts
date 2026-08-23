@@ -964,7 +964,7 @@ export function formatChatHtml(content: string): string {
     .replace(/>/g, '&gt;')
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(
-      /(\/(?:products|orders|seller\/orders|seller\/dss\/[\w-]+|manager\/dss\/[\w-]+)(?:\/[\w-]+)?)/g,
-      '<a href="$1">$1</a>',
+      /(\/(?:products|orders|cart|seller\/(?:orders|sales|products|dss(?:\/[\w-]+)?)|manager\/(?:dashboard|dss(?:\/[\w-]+)?))(?:\/[\w-]+)?)/g,
+      '<a class="chat-inline-link" href="$1">$1</a>',
     )
 }

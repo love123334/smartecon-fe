@@ -777,7 +777,7 @@ function buildSellerIntent(ctx: ChatContext, intent: ChatIntent, raw: string): s
         let msg = `${name}**Cảnh báo tồn kho:**\n`
         if (low.length) msg += `Sắp hết:\n${productLines(low.slice(0, 4))}\n`
         if (out.length) msg += `\nHết hàng:\n${productLines(out.slice(0, 3))}\n`
-        return msg + `\n**Quản lý SP** / **DSS → Khuyến nghị tồn kho**.`
+        return msg + `\nBạn có thể mở **Quản lý SP** hoặc hỏi **"khuyến nghị tồn kho"**.`
       }
       if (ctx.sellerInsights.length) {
         const inv = ctx.sellerInsights.filter((i) => i.category === 'inventory').slice(0, 3)
@@ -785,12 +785,12 @@ function buildSellerIntent(ctx: ChatContext, intent: ChatIntent, raw: string): s
           return `${name}**DSS tồn kho:**\n${inv.map((i) => `• ${i.title}: ${i.description}`).join('\n')}`
         }
       }
-      return `${name}Tồn kho **ổn định**. Theo dõi **Quản lý SP** hoặc hỏi **"khuyến nghị tồn kho"**.`
+      return `${name}Tồn kho **ổn định**. Hỏi **"khuyến nghị tồn kho"** nếu muốn DSS tính ROP.`
     }
     case 'seller_pricing':
       return `${name}**Khuyến nghị giá (DSS)**:\n${ctx.enrichment?.dssBriefText ?? priceBrief(catalog)}`
     case 'seller_dss_demand':
-      return `${name}**Dự báo nhu cầu (Moving Average)**:\n${ctx.enrichment?.dssBriefText ?? demandBrief(catalog)}`
+      return `${name}**Dự báo nhu cầu (LightGBM)**:\n${ctx.enrichment?.dssBriefText ?? demandBrief(catalog)}`
     case 'seller_dss_price':
       return `${name}**Khuyến nghị giá**:\n${ctx.enrichment?.dssBriefText ?? priceBrief(catalog)}`
     case 'seller_dss_inventory':
@@ -802,22 +802,22 @@ function buildSellerIntent(ctx: ChatContext, intent: ChatIntent, raw: string): s
     case 'seller_purchase_orders': {
       const buys = ctx.purchaseOrders
       if (!buys.length) {
-        return `${name}Bạn chưa có **đơn mua** (mua như khách). Thêm SP từ **Cửa hàng** → **Giỏ hàng** → **Thanh toán**. Đơn bán xem bằng "đơn cần xử lý".`
+        return `${name}Bạn chưa có **đơn mua** (mua như khách). Thêm SP từ **Cửa hàng** → **Giỏ hàng** → **Thanh toán**. Đơn bán: hỏi **"đơn cần xử lý"**.`
       }
-      return `${name}**Đơn mua của bạn** (${buys.length} đơn):\n${formatOrderSummary(buys, 5)}\n\n→ **/orders** (đơn mua) · **/seller/orders** (đơn bán).`
+      return `${name}**Đơn mua của bạn** (${buys.length} đơn):\n${formatOrderSummary(buys, 5)}`
     }
     case 'seller_promo': {
       const highStock = catalog.filter((p) => p.stock > 25).slice(0, 2)
       const top = [...catalog].sort((a, b) => b.soldCount - a.soldCount)[0]
-      return `${name}**Kế hoạch tuần:**\n• Flash sale SKU tồn cao${highStock.length ? `: ${highStock.map((p) => p.name).join(', ')}` : ''}\n• Bundle + ${top?.name ?? 'SP chủ lực'}\n• Mô phỏng giảm giá: hỏi **"what-if giảm 10%"**\n• Trả review <24h\n\n**DSS** + **Bảng doanh số**.`
+      return `${name}**Kế hoạch tuần:**\n• Flash sale SKU tồn cao${highStock.length ? `: ${highStock.map((p) => p.name).join(', ')}` : ''}\n• Bundle + ${top?.name ?? 'SP chủ lực'}\n• Mô phỏng: hỏi **"what-if giảm 10%"**\n• Trả review <24h`
     }
     case 'seller_add_product':
       return `${name}**Thêm SP:**\n1. **Quản lý SP** → **+ Thêm SP**\n2. Chọn danh mục VI (Điện thoại, Laptop, Nhà bếp…)\n3. Giá, tồn · upload **3 ảnh** (gallery)\n4. Lưu — hiện cửa hàng ngay.`
     case 'seller_orders': {
       if (ctx.orders.length) {
-        return `${name}**${ctx.orders.length} đơn bán cần xử lý:**\n${formatOrderSummary(ctx.orders, 5)}\n\n👉 **Quản lý đơn hàng** (/seller/orders). Đơn mua: hỏi **"đơn mua của tôi"**.`
+        return `${name}**${ctx.orders.length} đơn bán cần xử lý:**\n${formatOrderSummary(ctx.orders, 5)}\n\nĐơn mua của bạn: hỏi **"đơn mua của tôi"**.`
       }
-      return `${name}Chưa có đơn bán. Xem **Quản lý đơn hàng** khi có khách đặt.`
+      return `${name}Chưa có đơn bán. Khi có khách đặt, danh sách sẽ hiện tại **Quản lý đơn hàng**.`
     }
     case 'seller_recent_orders': {
       const recent = ctx.sellerDashboard?.recentOrders ?? []
@@ -825,7 +825,10 @@ function buildSellerIntent(ctx: ChatContext, intent: ChatIntent, raw: string): s
         const lines = recent.slice(0, 5).map((o) => `• #${o.orderId} — ${o.customer} — ${formatVnd(o.total)} — ${o.status}`).join('\n')
         return `${name}**Đơn gần đây:**\n${lines}`
       }
-      return `${name}Chưa có đơn gần đây trên dashboard. Xem **Bảng doanh số**.`
+      if (ctx.orders.length) {
+        return `${name}**Đơn bán gần đây:**\n${formatOrderSummary(ctx.orders, 5)}`
+      }
+      return `${name}Chưa có đơn gần đây. Khi có đơn mới sẽ hiện ở đây và trang **Đơn bán**.`
     }
     case 'seller_top_products': {
       const bundle = buildSellerTopInsight(ctx, catalog)

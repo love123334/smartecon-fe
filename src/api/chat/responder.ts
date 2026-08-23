@@ -37,6 +37,7 @@ import {
 } from '@/api/chat/match'
 import { extractPriceRange, isPriceStatsQuery } from '@/api/chat/products'
 import { sanitizeChatReply } from '@/api/chat/responses'
+import { deriveSuggestedActions } from '@/api/chat/suggestedActions'
 import {
   intentAllowedForRole,
   outOfScopeReply,
@@ -434,7 +435,11 @@ export async function resolveChatReply(
     },
   )
 
-  const suggestedActions: ChatSuggestedAction[] = []
+  const suggestedActions: ChatSuggestedAction[] = deriveSuggestedActions(
+    intent,
+    Boolean(products?.length || focusRef),
+    ctxForReply.role,
+  )
 
   const replyPayload = (
     source: ChatFinalSource,

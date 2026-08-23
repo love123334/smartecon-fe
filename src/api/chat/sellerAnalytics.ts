@@ -521,7 +521,9 @@ export function buildSellerAnalyticsReply(
 
   if (
     (intent === 'seller_orders' || intent === 'seller_recent_orders' || spec.metric === 'orders') &&
-    /hom nay|hom qua|thang nay|gan day|dang giao|bao nhieu don/.test(normalizeText(raw))
+    /hom nay|hom qua|thang nay|tuan nay|gan day|dang giao|bao nhieu don|don ban|don can xu ly|don cho|don moi/.test(
+      normalizeText(raw),
+    )
   ) {
     const orders = ctx.orders.length ? ctx.orders : ctx.sellerDashboard?.recentOrders?.map(sellerOrderToOrder) ?? []
     if (orders.length) {

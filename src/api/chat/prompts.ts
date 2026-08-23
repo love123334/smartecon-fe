@@ -118,7 +118,7 @@ export function quickPromptsForRole(role: UserRole): QuickPrompt[] {
 export function welcomeMessage(role: UserRole): string {
   switch (role) {
     case 'seller':
-      return 'Xin chào! Hỏi **doanh số**, **đơn mua**, **tồn kho** hoặc **what-if giảm giá** — dữ liệu lấy từ shop của bạn.'
+      return 'Xin chào! Hỏi **doanh thu**, **đơn bán**, **tồn kho**, **DSS** hoặc **what-if** — mình trả lời từ dữ liệu shop và có nút mở trang trực quan nếu bạn muốn.'
     case 'manager':
       return 'Xin chào! Hỏi KPI, đơn chờ, phân khúc hoặc xu hướng danh mục.'
     case 'admin':

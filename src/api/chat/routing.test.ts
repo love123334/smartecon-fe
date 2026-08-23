@@ -35,10 +35,18 @@ describe('factRepair', () => {
 })
 
 describe('suggestedActions', () => {
-  it('returns no chips (disabled)', () => {
+  it('returns seller nav chips for revenue / orders', () => {
+    const revenue = deriveSuggestedActions('seller_revenue', false, 'seller')
+    expect(revenue.some((a) => a.to === '/seller/sales')).toBe(true)
+    expect(revenue.some((a) => a.to === '/seller/orders')).toBe(true)
+
+    const orders = deriveSuggestedActions('seller_orders', false, 'seller')
+    expect(orders[0]?.to).toBe('/seller/orders')
+  })
+
+  it('returns empty for customer shop intents', () => {
     expect(deriveSuggestedActions('product_price', true, 'customer')).toEqual([])
     expect(deriveSuggestedActions('category_browse', false, 'customer')).toEqual([])
-    expect(deriveSuggestedActions('seller_revenue', false, 'seller')).toEqual([])
   })
 })
 

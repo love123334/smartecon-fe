@@ -292,6 +292,12 @@ function onRemoveAttachment(id: string) {
   widget.removeAttachment(id)
 }
 
+function onNavigate(path: string) {
+  if (!path?.startsWith('/')) return
+  widget.hide()
+  void router.push(path)
+}
+
 function onFabDragOver(e: DragEvent) {
   // Chrome often hides custom MIME in types until drop — always allow when dragging
   e.preventDefault()
@@ -488,6 +494,7 @@ function onFabDrop(e: DragEvent) {
           @clear="onClear"
           @attach-product="onAttach"
           @remove-attachment="onRemoveAttachment"
+          @navigate="onNavigate"
         />
         <HammerSickleLoader
           v-else

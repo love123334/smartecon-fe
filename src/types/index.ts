@@ -157,11 +157,14 @@ export interface ChatReviewSummary {
   highlights: ChatReviewHighlight[]
 }
 
-/** Nút gợi ý câu hỏi tiếp theo trong chat */
+/** Nút gợi ý dưới bubble — prompt = gửi tin; to = chuyển trang (seller/manager) */
 export interface ChatSuggestedAction {
   id: string
   label: string
+  /** Câu hỏi follow-up (trống nếu chỉ điều hướng) */
   prompt: string
+  /** Deep-link nội bộ, vd. /seller/orders */
+  to?: string
 }
 
 export interface ChatMessage {

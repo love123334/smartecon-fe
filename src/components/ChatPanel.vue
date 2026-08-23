@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { nextTick, ref, watch, computed } from 'vue'
-import type { ChatMessage, ChatProductRef } from '@/types'
+import type { ChatMessage, ChatProductRef, ChatSuggestedAction } from '@/types'
 import type { QuickPrompt } from '@/api/chat/prompts'
 import { formatChatHtml } from '@/api/chat/engine'
 import { parseDraggedProduct } from '@/api/chat/productCards'
@@ -24,6 +24,7 @@ const emit = defineEmits<{
   clear: []
   'attach-product': [product: ChatProductRef]
   'remove-attachment': [id: string]
+  navigate: [path: string]
 }>()
 
 const input = ref('')
@@ -34,6 +35,29 @@ const isDev = import.meta.env.DEV
 const visibleQuickPrompts = computed(() =>
   (props.quickPrompts ?? []).filter((p) => p.text.trim()),
 )
+
+/** Chỉ hiện deep-link / chip trên bubble assistant mới nhất */
+const latestAssistantId = computed(() => {
+  for (let i = props.messages.length - 1; i >= 0; i--) {
+    const m = props.messages[i]
+    if (m.role === 'assistant' && !m.pending) return m.id
+  }
+  return null
+})
+
+function actionsFor(m: ChatMessage): ChatSuggestedAction[] {
+  if (m.role !== 'assistant' || m.id !== latestAssistantId.value) return []
+  return m.meta?.suggestedActions?.filter((a) => a.label?.trim()) ?? []
+}
+
+function onAction(a: ChatSuggestedAction) {
+  if (a.to?.startsWith('/')) {
+    emit('navigate', a.to)
+    return
+  }
+  const prompt = a.prompt?.trim()
+  if (prompt && !props.loading) emit('send', prompt)
+}
 
 async function scrollEnd() {
   await nextTick()
@@ -143,6 +167,19 @@ defineExpose({ scrollToEnd: scrollEnd })
               />
             </div>
             <p class="chat-bubble__text" v-html="formatChatHtml(m.content)" />
+            <div v-if="actionsFor(m).length" class="chat-bubble__nav" role="group" aria-label="Mở trang liên quan">
+              <button
+                v-for="a in actionsFor(m)"
+                :key="`${m.id}-${a.id}`"
+                type="button"
+                class="chat-nav-chip"
+                :title="a.to || a.prompt"
+                @click="onAction(a)"
+              >
+                {{ a.label }}
+                <span aria-hidden="true">→</span>
+              </button>
+            </div>
             <ChatReviewSummaryCard
               v-if="m.reviewSummary?.productId"
               :summary="m.reviewSummary"
@@ -393,6 +430,56 @@ defineExpose({ scrollToEnd: scrollEnd })
 .chat-bubble__text :deep(strong) {
   font-weight: 700;
   color: inherit;
+}
+
+.chat-bubble__text :deep(a.chat-inline-link) {
+  color: var(--primary-700, #1d4ed8);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.8125rem;
+}
+
+.chat-bubble__text :deep(a.chat-inline-link:hover) {
+  text-decoration: underline;
+}
+
+.chat-bubble__nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.55rem;
+}
+
+.chat-nav-chip {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.22rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--line, #e2e8f0);
+  background: #f8fafc;
+  color: var(--slate-600, #475569);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.3;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease;
+}
+
+.chat-nav-chip:hover {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: var(--primary-700, #1d4ed8);
+}
+
+.chat-nav-chip span {
+  opacity: 0.65;
+  font-size: 0.65rem;
 }
 
 .chat-bubble.assistant .chat-bubble__text :deep(strong) {
