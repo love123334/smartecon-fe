@@ -3,8 +3,6 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import {
   LOOKER_REPORT_HEIGHT_PX,
   LOOKER_REPORT_WIDTH_PX,
-  LOOKER_VIEWPORT_HEIGHT_MOBILE_PX,
-  LOOKER_VIEWPORT_HEIGHT_PX,
   lookerEmbedSrc,
 } from '@/constants/lookerStudio'
 
@@ -12,13 +10,11 @@ const props = withDefaults(
   defineProps<{
     src: string
     title?: string
-    viewportHeight?: number
     reportWidth?: number
     reportHeight?: number
   }>(),
   {
     title: 'Looker Studio',
-    viewportHeight: LOOKER_VIEWPORT_HEIGHT_PX,
     reportWidth: LOOKER_REPORT_WIDTH_PX,
     reportHeight: LOOKER_REPORT_HEIGHT_PX,
   },
@@ -33,19 +29,11 @@ const viewportRef = ref<HTMLElement | null>(null)
 const frameRef = ref<HTMLIFrameElement | null>(null)
 const naturalWidth = ref(props.reportWidth)
 const naturalHeight = ref(props.reportHeight)
-const viewportHeightPx = ref(props.viewportHeight)
 const containerWidth = ref(0)
 const loaded = ref(false)
 const failed = ref(false)
 let failTimer: ReturnType<typeof setTimeout> | null = null
 let resizeObserver: ResizeObserver | null = null
-
-function syncViewportHeight() {
-  viewportHeightPx.value =
-    typeof window !== 'undefined' && window.innerWidth <= 800
-      ? LOOKER_VIEWPORT_HEIGHT_MOBILE_PX
-      : props.viewportHeight
-}
 
 function parseLookerDimensions(data: unknown): { width?: number; height?: number } {
   if (typeof data === 'number' && Number.isFinite(data) && data > 0) {
@@ -109,27 +97,22 @@ function onMessage(event: MessageEvent) {
   if (dims.width && dims.width >= 640 && dims.width <= 2400) {
     naturalWidth.value = Math.round(dims.width)
   }
-  if (dims.height && dims.height >= 700 && dims.height <= 4000) {
-    // Keep a floor so scorecards/charts are not squeezed (internal Looker scroll).
-    naturalHeight.value = Math.round(Math.max(dims.height + 48, props.reportHeight * 0.9))
+  if (dims.height && dims.height >= 400 && dims.height <= 4000) {
+    naturalHeight.value = Math.round(dims.height)
   }
 }
 
-/**
- * Uniform scale so the WHOLE report fits the box — never crop, never iframe scroll.
- * Letterboxing (empty side/bottom) is OK; cutting KPI labels is not.
- */
+/** Stretch full width; height follows aspect ratio — khung vừa khít báo cáo. */
 const scale = computed(() => {
-  const cw = containerWidth.value
-  const ch = viewportHeightPx.value
+  const cw = containerWidth.value || naturalWidth.value
   const nw = naturalWidth.value
-  const nh = naturalHeight.value
-  if (!cw || !ch || !nw || !nh) return 0.01
-  return Math.min(cw / nw, ch / nh)
+  if (!cw || !nw) return 1
+  return cw / nw
 })
 
-const scaledWidth = computed(() => Math.max(1, Math.round(naturalWidth.value * scale.value)))
-const scaledHeight = computed(() => Math.max(1, Math.round(naturalHeight.value * scale.value)))
+const fitHeight = computed(() =>
+  Math.max(1, Math.round(naturalHeight.value * scale.value)),
+)
 
 const scalerStyle = computed(() => ({
   width: `${naturalWidth.value}px`,
@@ -139,7 +122,6 @@ const scalerStyle = computed(() => ({
 }))
 
 function measureContainer() {
-  syncViewportHeight()
   const w = viewportRef.value?.clientWidth ?? 0
   if (w > 0) containerWidth.value = w
 }
@@ -159,11 +141,10 @@ function onLoad() {
 }
 
 watch(
-  () => [props.reportWidth, props.reportHeight, props.viewportHeight] as const,
-  ([w, h, vh]) => {
+  () => [props.reportWidth, props.reportHeight] as const,
+  ([w, h]) => {
     naturalWidth.value = w
     naturalHeight.value = h
-    viewportHeightPx.value = vh
     measureContainer()
   },
 )
@@ -201,7 +182,7 @@ const embedSrc = lookerEmbedSrc(props.src)
   <div
     ref="viewportRef"
     class="looker-embed"
-    :style="{ height: `${viewportHeightPx}px` }"
+    :style="{ height: `${fitHeight}px` }"
   >
     <p v-if="!loaded && !failed" class="looker-embed__loading muted" role="status">
       Đang tải báo cáo Looker Studio…
@@ -213,11 +194,7 @@ const embedSrc = lookerEmbedSrc(props.src)
       </a>
     </div>
 
-    <!-- Stage sized exactly to scaled report — overflow hidden only after fit scale -->
-    <div
-      class="looker-embed__stage"
-      :style="{ width: `${scaledWidth}px`, height: `${scaledHeight}px` }"
-    >
+    <div class="looker-embed__stage">
       <div class="looker-embed__scaler" :style="scalerStyle">
         <iframe
           ref="frameRef"
@@ -246,23 +223,17 @@ const embedSrc = lookerEmbedSrc(props.src)
   border-radius: 10px;
   background: #fff;
   border: 1px solid var(--line, #e2e8f0);
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .looker-embed__stage {
-  position: relative;
+  position: absolute;
+  inset: 0;
   overflow: hidden;
-  flex: 0 0 auto;
-  /* Exact scaled size — nothing clipped from a larger canvas */
-  max-width: 100%;
 }
 
 .looker-embed__scaler {
   transform-origin: top left;
-  /* Avoid subpixel text clipping on some GPUs */
-  backface-visibility: hidden;
+  will-change: transform;
 }
 
 .looker-embed__loading,
