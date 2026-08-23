@@ -122,13 +122,22 @@ export async function callChatLlm(
       if (beAiConfigured) {
         const beMessages = buildBackendDialogue(history, groundedUser, options)
         const res = await realAi.chat(beMessages)
+        // Soft fallback message from BE (no key) — still usable as reply text
+        if (res.content?.trim()) {
+          if (res.fallback) {
+            console.warn('[chat] BE AI fallback flag; using returned content')
+          }
+          return res.content.trim()
+        }
         if (res.fallback) {
           throw new Error('BE AI chưa cấu hình (fallback)')
         }
-        if (res.content?.trim()) return res.content.trim()
       }
-    } catch {
-      /* fall through to direct LLM or throw */
+    } catch (e) {
+      // Prefer surfacing BE Gemini errors over silent local-only replies
+      if (!isDirectLlmConfigured()) {
+        throw e instanceof Error ? e : new Error('BE AI chat failed')
+      }
     }
   }
 
