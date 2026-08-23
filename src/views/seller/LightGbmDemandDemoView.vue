@@ -80,8 +80,8 @@ const modelState = computed(() => {
 })
 const trendLabel = computed(() => {
   const slope = Number(features.value?.trendSlope ?? 0)
-  if (slope > 0.05) return 'Đang tăng'
-  if (slope < -0.05) return 'Đang giảm'
+  if (slope >= 0.02) return 'Đang tăng'
+  if (slope <= -0.02) return 'Đang giảm'
   return 'Tương đối ổn định'
 })
 const historicalSeries = computed(() =>
