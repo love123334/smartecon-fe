@@ -376,7 +376,7 @@ export function presentRevenueReply(
 
   if (spec.detailLevel === 'summary') {
     const slice = cmp?.current
-    return `${name}Doanh thu **${slice?.label ?? 'tích lũy'}** khoảng **${formatVnd(slice?.revenue ?? perf.summary.totalRevenue)}** · **${perf.summary.completedOrders}** đơn HT · AOV **${formatVnd(perf.summary.averageOrderValue)}**.`
+    return `${name}Doanh thu shop **${slice?.label ?? 'tháng này'}** đạt khoảng **${formatVnd(slice?.revenue ?? perf.summary.totalRevenue)}** với **${perf.summary.completedOrders}** đơn hàng hoàn tất (giá trị đơn trung bình AOV khoảng **${formatVnd(perf.summary.averageOrderValue)}**).`
   }
 
   const chart = perf.monthlyRevenue
@@ -482,8 +482,23 @@ export function presentSellerAnalyticsFacts(
 
 function sellerGreet(userName?: string): string {
   const n = userName?.trim()
-  if (!n || n.length < 2 || /guest|khach/i.test(n)) return ''
-  return `${n.split(/\s+/).pop()}, `
+  if (!n || n.length < 2 || /guest|khach|nguoi ban|seller|chu shop|admin|ban/i.test(n)) return ''
+  const firstName = n.split(/\s+/).pop()
+  if (!firstName || /ban|shop|seller/i.test(firstName)) return ''
+  return `${firstName}, `
+}
+
+export function presentSellerCatalogReply(catalog: Product[], userName?: string): string {
+  const name = sellerGreet(userName)
+  if (!catalog.length) {
+    return `${name}Hiện tại shop chưa có sản phẩm nào đang hoạt động. Bạn có thể đăng sản phẩm mới trong mục **Quản lý sản phẩm**.`
+  }
+  const lines = catalog.slice(0, 8).map((p) => {
+    const stockLabel = p.stock > 0 ? `còn **${p.stock}** chiếc` : `⚠️ **Hết hàng**`
+    const soldLabel = p.soldCount > 0 ? `· đã bán **${p.soldCount}**` : ''
+    return `• **${p.name}**: ${formatVnd(p.price)} (${stockLabel} ${soldLabel})`
+  })
+  return `${name}Danh sách **${catalog.length}** sản phẩm hiện có trong shop của bạn:\n\n${lines.join('\n')}\n\nBạn có thể hỏi thêm về dự báo nhu cầu bán hoặc kiểm tra tồn kho chi tiết cho từng sản phẩm nhé!`
 }
 
 /** Route seller intent → analytics presentation when applicable. */
@@ -495,6 +510,15 @@ export function buildSellerAnalyticsReply(
 ): string | null {
   const catalog = ctx.sellerProducts.length ? ctx.sellerProducts : ctx.products
   const spec = parseSellerBusinessQuery(raw, intent, prior)
+
+  if (
+    intent === 'seller_top_products' ||
+    /cac san pham|san pham hien co|san pham trong shop|shop co nhung san pham nao|danh sach san pham|shop dang ban gi|shop toi ban gi|catalog cua shop|cac mat hang/.test(
+      normalizeText(raw),
+    )
+  ) {
+    return presentSellerCatalogReply(catalog, ctx.userName)
+  }
 
   if (intent === 'seller_dss_explain' || spec.metric === 'dss_explain') {
     return presentDssExplain()

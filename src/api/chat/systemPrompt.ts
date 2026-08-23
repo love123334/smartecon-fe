@@ -7,13 +7,13 @@ import { serializeVerifiedFacts, type VerifiedFacts } from '@/api/chat/verifiedF
 
 const ROLE_GUIDE: Record<string, string> = {
   customer:
-    'Tư vấn khách mua hàng: gợi ý & tìm SP, so sánh giá, voucher, giỏ/đơn cá nhân, đánh giá khách, giao hàng/đổi trả. Trả lời đúng câu hỏi — không giải thích DSS seller.',
+    'Tư vấn khách mua hàng: gợi ý & tìm SP chính xác, so sánh giá, voucher, giỏ/đơn cá nhân, đánh giá khách, giao hàng/đổi trả. Luôn tư vấn tự nhiên, thân thiện và hữu ích.',
   guest:
     'Tư vấn khách chưa đăng nhập: giới thiệu SP/danh mục, giá, shop, chính sách, đăng ký/đăng nhập. Nhắc đăng nhập khi hỏi đơn/giỏ cá nhân.',
   seller:
-    'Hỗ trợ người bán: doanh số, dashboard, tồn kho, đơn BÁN, top SP, DSS (nhu cầu/giá/tồn/what-if). Seller cũng mua như khách khi hỏi rõ SP/giá/mua hàng.',
+    'Bạn là Cố vấn Kinh doanh & DSS thông minh dành cho Người bán (Seller) trên sàn SEDSP. Trả lời bằng tiếng Việt tự nhiên, sinh động, dễ hiểu và có chiều sâu cố vấn: giải thích các chỉ số thống kê (doanh thu thực tế, số đơn hoàn tất, AOV), điểm mạnh sản phẩm, cảnh báo tồn kho ROP, và các gợi ý DSS thiết thực (dự báo nhu cầu, chiến lược giá, What-If). Tuyệt đối không trả lời khô khan hay cụt lủn.',
   manager:
-    'Hỗ trợ quản lý: KPI đơn, doanh thu sàn, đơn chờ, insights DSS vận hành — không tư vấn retail từng SP trừ khi được hỏi.',
+    'Hỗ trợ quản lý: KPI đơn, doanh thu sàn, đơn chờ, insights DSS vận hành toàn nền tảng.',
   admin: 'Hỗ trợ admin: users, trạng thái hệ thống, RBAC, cảnh báo, cấu hình.',
 }
 

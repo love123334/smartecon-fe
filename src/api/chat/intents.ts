@@ -484,10 +484,18 @@ const SELLER: IntentRule[] = [
   },
   {
     intent: 'seller_top_products',
-    keywords: ['ban chay', 'top product', 'best seller', 'sp ban nhieu'],
-    phrases: ['ban chay', 'best seller'],
+    keywords: [
+      'ban chay', 'top product', 'best seller', 'sp ban nhieu',
+      'cac san pham', 'san pham hien co', 'san pham trong shop', 'shop co nhung san pham nao',
+      'danh sach san pham', 'shop dang ban gi', 'shop toi ban gi', 'catalog cua shop',
+      'danh muc san pham', 'nhung san pham', 'danh sach mat hang',
+    ],
+    phrases: [
+      'ban chay', 'best seller', 'cac san pham', 'san pham hien co', 'san pham trong shop',
+      'shop co nhung san pham nao', 'danh sach san pham', 'shop dang ban gi', 'shop toi ban gi',
+    ],
     roles: ['seller'],
-    priority: 7,
+    priority: 9,
   },
   {
     intent: 'seller_rating',

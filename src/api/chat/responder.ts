@@ -43,7 +43,6 @@ import {
   intentAllowedForRole,
   outOfScopeReply,
   resolveIntentForRole,
-  SELLER_OPS_INTENTS,
 } from '@/api/chat/rolePolicy'
 import { buildProcessingLocale, englishGlossForPrompt } from '@/api/chat/chatLocale'
 import { buildChatMemoryLayers } from '@/api/chat/conversationMemory'
@@ -80,29 +79,8 @@ export interface ChatReply {
  * Browse / budget / search / recommend → local lọc SP + LLM viết thoại tự nhiên.
  */
 const STRICT_LOCAL_INTENTS = new Set<ChatIntent>([
-  'product_stock',
-  'orders',
-  'order_detail',
   'order_cancel',
-  'cart',
   'cart_summary',
-  'seller_dss_demand',
-  'seller_dss_price',
-  'seller_dss_inventory',
-  'seller_whatif',
-  'seller_pricing',
-  'seller_revenue',
-  'seller_orders',
-  'seller_recent_orders',
-  'seller_purchase_orders',
-  'seller_inventory',
-  'seller_top_products',
-  'seller_business_health',
-  'seller_profit',
-  'seller_dss_explain',
-  'manager_kpi',
-  'manager_pending',
-  'manager_revenue',
 ])
 
 function resolveFollowUpIntent(
@@ -163,26 +141,16 @@ function resolveFocusProduct(enriched: ChatContext, prior: ChatProductRef): Prod
 }
 
 function shouldForceLocal(
-  normalized: string,
+  _normalized: string,
   intent: ChatIntent | null,
-  followUp: boolean,
+  _followUp: boolean,
   _hasPriceFilter: boolean,
   priceStats: boolean,
-  _backendAiReady: boolean,
+  backendAiReady: boolean,
 ): boolean {
-  // Price-band stats (min/avg/max) stay local — numeric aggregation, not shopping chat.
+  if (!backendAiReady) return true
   if (priceStats) return true
   if (intent != null && STRICT_LOCAL_INTENTS.has(intent)) return true
-  if (
-    followUp &&
-    (intent === 'product_stock' ||
-      asksSellerInfo(normalized) ||
-      asksProductOrigin(normalized) ||
-      asksProductListedDate(normalized) ||
-      /^(con hang|het hang|con khong)/.test(normalized))
-  ) {
-    return true
-  }
   return false
 }
 
@@ -401,16 +369,14 @@ export async function resolveChatReply(
   const hasPriceFilter = Boolean(extractPriceRange(userMessage))
   const priceStats = isPriceStatsQuery(userMessage)
   const backendAiReady = isLlmConfigured()
-  const forceLocal =
-    shouldForceLocal(
-      normalized,
-      intent,
-      followUp,
-      hasPriceFilter,
-      priceStats,
-      backendAiReady,
-    ) ||
-    (ctx.role === 'seller' && intent != null && SELLER_OPS_INTENTS.has(intent))
+  const forceLocal = shouldForceLocal(
+    normalized,
+    intent,
+    followUp,
+    hasPriceFilter,
+    priceStats,
+    backendAiReady,
+  )
 
   const localStarted = performance.now()
   const local = await generateAssistantReply(userMessage, ctxForReply, effectiveAttachments, intent)
