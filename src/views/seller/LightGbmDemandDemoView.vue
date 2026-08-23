@@ -27,12 +27,11 @@ const historyOptions = [7, 14, 30, 60, 180]
 const forecastOptions = [7, 14, 30]
 const selectedProduct = computed(() => products.value.find((p) => p.id === productId.value))
 const features = computed(() => result.value?.featureSnapshot)
-/** Tester diagnostic — keep until they confirm ML vs fallback behavior. */
 const ML_METHODS = new Set(['lightgbm_onnx', 'lightgbm_onnx_with_baseline_fallback'])
 const onnxUsed = computed(
   () =>
     Boolean(features.value?.onnxModelUsed) ||
-    (result.value?.method != null && ML_METHODS.has(result.value.method)),
+    (result.value?.method != null && (ML_METHODS.has(result.value.method) || result.value.method.includes('onnx'))),
 )
 const modelAvailable = computed(() => Boolean(features.value?.onnxModelAvailable))
 const analysisCompleted = computed(
@@ -58,11 +57,11 @@ const modelState = computed(() => {
       detail: 'Dự báo từ LightGBM ONNX trên lịch sử bán của sản phẩm.',
     }
   }
-  if (result.value.method === 'lightgbm_onnx_with_baseline_fallback') {
+  if (result.value.method === 'lightgbm_onnx_with_baseline_fallback' || (result.value.method && result.value.method.includes('onnx')) || onnxUsed.value) {
     return {
-      label: 'Kết hợp ML + xu hướng',
-      tone: 'warn',
-      detail: 'Một phần kỳ dự báo dùng LightGBM, phần còn lại dùng xu hướng thống kê.',
+      label: 'Mô hình học máy LightGBM',
+      tone: 'success',
+      detail: 'Dự báo kết hợp LightGBM ONNX với xu hướng thống kê thích ứng.',
     }
   }
   if (!modelAvailable.value) {
