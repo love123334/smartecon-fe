@@ -521,3 +521,49 @@ export function insightPlan() {
     timeoutMs: DSS_GENERATE_TIMEOUT_MS,
   })
 }
+
+export interface BusinessHealthApi {
+  healthScore: number
+  healthStatus: 'HEALTHY' | 'MODERATE' | 'AT_RISK' | string
+  healthStatusLabel: string
+  overallEvaluation: string
+  revenueTrendScore: number
+  orderTrendScore: number
+  profitTrendScore: number
+  inventoryHealthScore: number
+  demandTrendScore: number
+  recentRevenue: number
+  previousRevenue: number
+  revenueGrowthPercent: number
+  recentOrders: number
+  previousOrders: number
+  orderGrowthPercent: number
+  recentEstimatedProfit: number
+  profitMarginPercent: number
+  totalProducts: number
+  lowStockProducts: number
+  outOfStockProducts: number
+  inventoryHealthyRate: number
+  averageDailyDemand: number
+  demandGrowthPercent: number
+  keyStrengths: string[]
+  riskAlerts: string[]
+  actionRecommendations: string[]
+  topRestockPriorities: Array<{
+    productId: number
+    productName: string
+    currentStock: number
+    reorderPoint: number
+    restockScore: number
+    averageDailyDemand: number
+    status: string
+  }>
+  generatedAt: string
+}
+
+export function getBusinessHealth() {
+  return http.get<BusinessHealthApi>('/dss/business-health', {
+    timeoutMs: 15_000,
+  })
+}
+
