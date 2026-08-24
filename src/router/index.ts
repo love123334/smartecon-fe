@@ -15,6 +15,15 @@ declare module 'vue-router' {
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
+  scrollBehavior(to, _from, savedPosition) {
+    if (savedPosition) {
+      return savedPosition
+    }
+    if (to.hash) {
+      return { el: to.hash, behavior: 'smooth' }
+    }
+    return { top: 0, left: 0 }
+  },
   routes: [
     {
       path: '/',
@@ -323,6 +332,16 @@ router.beforeEach(async (to) => {
   }
 
   return true
+})
+
+router.afterEach(() => {
+  if (typeof window !== 'undefined') {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+  }
+  if (typeof document !== 'undefined') {
+    document.body.scrollTop = 0
+    document.documentElement.scrollTop = 0
+  }
 })
 
 function roleHome(role: UserRole): { path: string } {

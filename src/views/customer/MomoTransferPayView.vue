@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { formatVnd, orderApi } from '@/api/services'
+import { formatVnd, orderApi, productApi, sellerMomoApi } from '@/api/services'
 import type { Order } from '@/types'
 import { isMobileBrowser, momoTransferDeeplink, momoTransferQrImageUrl, openMomoTransfer } from '@/utils/momoTransfer'
 import { resolvePublicAssetUrl } from '@/utils/productImage'
@@ -19,20 +19,41 @@ const completing = ref(false)
 const processingPayment = ref(false)
 const processingCountdown = ref(0)
 const qrImageFailed = ref(false)
+const copiedField = ref<string | null>(null)
 
-const AUTO_COMPLETE_MS = 9_000
-const PAYMENT_PROCESSING_MS = 2_500
-let autoCompleteTimer: ReturnType<typeof setTimeout> | undefined
+const sellerPhone = ref('0901234567')
+const sellerQrUrl = ref('')
+const sellerStoreName = ref('SEDSP Shop')
+
+const PAYMENT_PROCESSING_MS = 2_000
 let countdownTimer: ReturnType<typeof setInterval> | undefined
 
-const transfer = computed(() => order.value?.momoTransfer)
+const transfer = computed(() => {
+  if (order.value?.momoTransfer) {
+    return order.value.momoTransfer
+  }
+  if (order.value) {
+    return {
+      amount: order.value.total ?? 0,
+      transferNote: `SEDSP ${order.value.id}`,
+      sellerMomoPhone: sellerPhone.value,
+      sellerMomoQrUrl: sellerQrUrl.value || undefined,
+      sellerStoreName: sellerStoreName.value,
+      configured: true,
+    }
+  }
+  return null
+})
+
 const amount = computed(() => transfer.value?.amount ?? order.value?.total ?? 0)
-const note = computed(() => transfer.value?.transferNote ?? '')
-const phone = computed(() => transfer.value?.sellerMomoPhone ?? '')
-const qrUrl = computed(() => resolvePublicAssetUrl(transfer.value?.sellerMomoQrUrl))
-const storeName = computed(() => transfer.value?.sellerStoreName ?? 'Shop')
+const note = computed(() => transfer.value?.transferNote || (order.value ? `SEDSP ${order.value.id}` : ''))
+const phone = computed(() => transfer.value?.sellerMomoPhone || sellerPhone.value)
+const qrUrl = computed(() => resolvePublicAssetUrl(transfer.value?.sellerMomoQrUrl || sellerQrUrl.value))
+const storeName = computed(() => transfer.value?.sellerStoreName || sellerStoreName.value)
+
 const isPending = computed(
   () =>
+    !order.value?.status ||
     order.value?.status === 'pending' ||
     order.value?.rawStatus === 'PENDING',
 )
@@ -47,9 +68,12 @@ const generatedQrUrl = computed(() =>
 )
 
 const displayQrUrl = computed(() => {
-  if (!deeplink.value && !qrUrl.value) return ''
   if (qrUrl.value && !qrImageFailed.value) return qrUrl.value
-  return generatedQrUrl.value
+  if (generatedQrUrl.value) return generatedQrUrl.value
+  if (phone.value) {
+    return momoTransferQrImageUrl(momoTransferDeeplink(phone.value, amount.value, note.value))
+  }
+  return ''
 })
 
 const qrCaption = computed(() =>
@@ -64,9 +88,20 @@ function onQrError() {
   }
 }
 
+async function copyText(text: string, field: string) {
+  try {
+    await navigator.clipboard.writeText(text)
+    copiedField.value = field
+    window.setTimeout(() => {
+      if (copiedField.value === field) copiedField.value = null
+    }, 2000)
+  } catch {
+    /* ignore clipboard error */
+  }
+}
+
 async function completePayment() {
   if (!order.value || completing.value || processingPayment.value || !isPending.value) return
-  clearAutoCompleteTimers()
   processingPayment.value = true
   processingCountdown.value = Math.ceil(PAYMENT_PROCESSING_MS / 1000)
   countdownTimer = setInterval(() => {
@@ -96,25 +131,6 @@ async function completePayment() {
   }
 }
 
-function clearAutoCompleteTimers() {
-  if (autoCompleteTimer) {
-    clearTimeout(autoCompleteTimer)
-    autoCompleteTimer = undefined
-  }
-  if (countdownTimer) {
-    clearInterval(countdownTimer)
-    countdownTimer = undefined
-  }
-}
-
-function startAutoComplete() {
-  if (!isPending.value || !order.value) return
-  clearAutoCompleteTimers()
-  autoCompleteTimer = setTimeout(() => {
-    void completePayment()
-  }, AUTO_COMPLETE_MS)
-}
-
 function launchMomo() {
   if (!phone.value || !isPending.value) return
   openMomoTransfer(phone.value, amount.value, note.value)
@@ -133,20 +149,24 @@ async function load() {
       error.value = 'Không tìm thấy đơn hàng'
       return
     }
-    const isMomoQr =
-      order.value.paymentMethod === 'momo_qr' ||
-      order.value.momoTransfer != null
-    if (!isMomoQr) {
-      await router.replace({ name: 'order-detail', params: { id: order.value.id } })
-      return
-    }
-    if (order.value.status === 'confirmed' || order.value.rawStatus === 'PAID') {
-      await router.replace({
-        name: 'order-detail',
-        params: { id: order.value.id },
-        query: { view: 'detail' },
-      })
-      return
+
+    if (!order.value.momoTransfer) {
+      try {
+        const firstItem = order.value.items?.[0]
+        if (firstItem?.productId) {
+          const prod = await productApi.getById(firstItem.productId, { withStock: false })
+          if (prod?.sellerId) {
+            const pubMomo = await sellerMomoApi.getPublic(prod.sellerId)
+            if (pubMomo) {
+              if (pubMomo.momoPhone) sellerPhone.value = pubMomo.momoPhone
+              if (pubMomo.momoQrUrl) sellerQrUrl.value = pubMomo.momoQrUrl
+              if (pubMomo.storeName) sellerStoreName.value = pubMomo.storeName
+            }
+          }
+        }
+      } catch {
+        /* fallback default */
+      }
     }
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Không tải được đơn'
@@ -163,9 +183,6 @@ watch(
         if (isPending.value && phone.value && isMobileBrowser()) {
           window.setTimeout(() => launchMomo(), 600)
         }
-        if (isPending.value) {
-          startAutoComplete()
-        }
       })
     }
   },
@@ -173,13 +190,10 @@ watch(
 )
 
 onMounted(() => {
+  window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
   if (!order.value && route.params.id) {
     void load()
   }
-})
-
-onUnmounted(() => {
-  clearAutoCompleteTimers()
 })
 </script>
 
@@ -189,7 +203,7 @@ onUnmounted(() => {
       <h1 class="elegant-page-title elegant-page-title--center">Chuyển MoMo tới shop</h1>
       <CheckoutStepper :step="3" />
 
-      <LoadingSpinner v-if="loading" page label="Đang tải" />
+      <LoadingSpinner v-if="loading" page label="Đang tải thông tin thanh toán…" />
       <p v-else-if="error" class="elegant-alert elegant-alert--error">{{ error }}</p>
 
       <div v-else-if="order" class="momo-pay">
@@ -214,21 +228,51 @@ onUnmounted(() => {
               loading="lazy"
               @error="onQrError"
             />
-            <p class="elegant-muted">{{ qrCaption }}</p>
+            <p class="elegant-muted" style="margin-top: 0.5rem">{{ qrCaption }}</p>
           </div>
 
           <dl class="momo-pay__fields">
             <div class="momo-pay__row">
               <dt>Số tiền</dt>
-              <dd><strong>{{ formatVnd(amount) }}</strong></dd>
+              <dd class="momo-pay__val-wrap">
+                <strong style="font-size: 1.15rem; color: #dc2626">{{ formatVnd(amount) }}</strong>
+                <button
+                  type="button"
+                  class="btn-copy"
+                  title="Sao chép số tiền"
+                  @click="copyText(String(amount), 'amount')"
+                >
+                  {{ copiedField === 'amount' ? '✓ Đã chép' : 'Sao chép' }}
+                </button>
+              </dd>
             </div>
             <div class="momo-pay__row">
               <dt>Nội dung CK</dt>
-              <dd><code>{{ note }}</code></dd>
+              <dd class="momo-pay__val-wrap">
+                <code>{{ note }}</code>
+                <button
+                  type="button"
+                  class="btn-copy"
+                  title="Sao chép nội dung"
+                  @click="copyText(note, 'note')"
+                >
+                  {{ copiedField === 'note' ? '✓ Đã chép' : 'Sao chép' }}
+                </button>
+              </dd>
             </div>
             <div v-if="phone" class="momo-pay__row">
               <dt>SĐT MoMo shop</dt>
-              <dd>{{ phone }}</dd>
+              <dd class="momo-pay__val-wrap">
+                <span>{{ phone }}</span>
+                <button
+                  type="button"
+                  class="btn-copy"
+                  title="Sao chép SĐT"
+                  @click="copyText(phone, 'phone')"
+                >
+                  {{ copiedField === 'phone' ? '✓ Đã chép' : 'Sao chép' }}
+                </button>
+              </dd>
             </div>
           </dl>
 
@@ -333,6 +377,37 @@ onUnmounted(() => {
 
 .momo-pay__row dd {
   margin: 0;
+}
+
+.momo-pay__val-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.btn-copy {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-copy:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+  color: #111827;
+}
+
+.btn-copy:active {
+  transform: scale(0.96);
 }
 
 .momo-pay__actions {
