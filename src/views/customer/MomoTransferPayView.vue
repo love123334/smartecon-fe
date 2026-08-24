@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { formatVnd, orderApi, productApi, sellerMomoApi } from '@/api/services'
 import type { Order } from '@/types'
@@ -25,8 +25,38 @@ const sellerPhone = ref('0901234567')
 const sellerQrUrl = ref('')
 const sellerStoreName = ref('SEDSP Shop')
 
-const PAYMENT_PROCESSING_MS = 2_000
+const AUTO_COMPLETE_SECONDS = 7
+const autoCountdown = ref(AUTO_COMPLETE_SECONDS)
+let autoCompleteTimer: ReturnType<typeof setTimeout> | undefined
+let autoCountdownInterval: ReturnType<typeof setInterval> | undefined
+
+const PAYMENT_PROCESSING_MS = 1_500
 let countdownTimer: ReturnType<typeof setInterval> | undefined
+
+function clearAutoTimers() {
+  if (autoCompleteTimer) {
+    clearTimeout(autoCompleteTimer)
+    autoCompleteTimer = undefined
+  }
+  if (autoCountdownInterval) {
+    clearInterval(autoCountdownInterval)
+    autoCountdownInterval = undefined
+  }
+}
+
+function startAutoDirect() {
+  if (!isPending.value || !order.value) return
+  clearAutoTimers()
+  autoCountdown.value = AUTO_COMPLETE_SECONDS
+  autoCountdownInterval = setInterval(() => {
+    autoCountdown.value = Math.max(0, autoCountdown.value - 1)
+  }, 1000)
+
+  autoCompleteTimer = setTimeout(() => {
+    clearAutoTimers()
+    void completePayment()
+  }, AUTO_COMPLETE_SECONDS * 1000)
+}
 
 const transfer = computed(() => {
   if (order.value?.momoTransfer) {
@@ -102,6 +132,7 @@ async function copyText(text: string, field: string) {
 
 async function completePayment() {
   if (!order.value || completing.value || processingPayment.value || !isPending.value) return
+  clearAutoTimers()
   processingPayment.value = true
   processingCountdown.value = Math.ceil(PAYMENT_PROCESSING_MS / 1000)
   countdownTimer = setInterval(() => {
@@ -168,6 +199,10 @@ async function load() {
         /* fallback default */
       }
     }
+
+    if (isPending.value) {
+      startAutoDirect()
+    }
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Không tải được đơn'
   } finally {
@@ -193,6 +228,14 @@ onMounted(() => {
   window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
   if (!order.value && route.params.id) {
     void load()
+  }
+})
+
+onUnmounted(() => {
+  clearAutoTimers()
+  if (countdownTimer) {
+    clearInterval(countdownTimer)
+    countdownTimer = undefined
   }
 })
 </script>
@@ -306,7 +349,7 @@ onMounted(() => {
           <p class="elegant-muted momo-pay__hint">
             Đơn #{{ order.id }} · Tổng {{ formatVnd(order.total) }}
             <template v-if="isPending">
-              · Chụp màn hình mã QR hoặc chuyển đúng cú pháp để shop đối soát nhanh.
+              · Tự động hoàn tất thanh toán sau <strong>{{ autoCountdown }}s</strong>.
             </template>
           </p>
         </template>
