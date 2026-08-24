@@ -236,8 +236,11 @@ async function placeOrder() {
     )
 
     consumePendingVoucherCode()
-    await cart.refresh()
-    await router.push({ path: `/orders/${order.id}/pay-momo`, query: { placed: '1' } })
+    if (payment.value === 'momo_qr' || order.paymentMethod === 'momo_qr') {
+      await router.push({ path: `/orders/${order.id}/pay-momo`, query: { placed: '1' } })
+    } else {
+      await router.push({ path: `/orders/${order.id}`, query: { placed: '1' } })
+    }
   } catch (e) {
     await cart.refresh()
     if (!cart.lines.length && auth.user) {

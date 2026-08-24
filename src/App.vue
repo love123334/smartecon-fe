@@ -61,17 +61,10 @@ onMounted(async () => {
       'page--catalog': isShopCatalog,
     }"
   >
-    <div v-if="shopWide || fullBleed" class="page-bleed-wrap">
-      <RouterView v-slot="{ Component }">
+    <div :class="shopWide || fullBleed ? 'page-bleed-wrap' : 'container'">
+      <RouterView v-slot="{ Component, route: currentRoute }">
         <Transition name="page-fade" mode="out-in">
-          <component :is="Component" />
-        </Transition>
-      </RouterView>
-    </div>
-    <div v-else :class="fullBleed ? 'page-bleed-wrap' : 'container'">
-      <RouterView v-slot="{ Component }">
-        <Transition name="page-fade" mode="out-in">
-          <component :is="Component" />
+          <component :is="Component" :key="currentRoute.fullPath" />
         </Transition>
       </RouterView>
     </div>

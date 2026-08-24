@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { formatVnd, orderApi } from '@/api/services'
 import type { Order } from '@/types'
 import { isMobileBrowser, momoTransferDeeplink, momoTransferQrImageUrl, openMomoTransfer } from '@/utils/momoTransfer'
 import { resolvePublicAssetUrl } from '@/utils/productImage'
+import { clearApiCache } from '@/api/http/client'
 import CheckoutStepper from '@/components/CheckoutStepper.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import NewsletterBanner from '@/components/NewsletterBanner.vue'
@@ -120,11 +121,14 @@ function launchMomo() {
 }
 
 async function load() {
+  const id = String(route.params.id || '')
+  if (!id) return
   loading.value = true
   error.value = ''
   qrImageFailed.value = false
+  clearApiCache(`/orders/${id}`)
   try {
-    order.value = await orderApi.getById(String(route.params.id))
+    order.value = await orderApi.getById(id)
     if (!order.value) {
       error.value = 'Không tìm thấy đơn hàng'
       return
@@ -136,15 +140,13 @@ async function load() {
       await router.replace({ name: 'order-detail', params: { id: order.value.id } })
       return
     }
-    if (!order.value.momoTransfer) {
-      error.value = 'Chưa tải được thông tin chuyển MoMo. Thử reload trang.'
-    }
     if (order.value.status === 'confirmed' || order.value.rawStatus === 'PAID') {
       await router.replace({
         name: 'order-detail',
         params: { id: order.value.id },
         query: { view: 'detail' },
       })
+      return
     }
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Không tải được đơn'
@@ -153,15 +155,27 @@ async function load() {
   }
 }
 
+watch(
+  () => [route.params.id, route.query.placed] as const,
+  ([id]) => {
+    if (id) {
+      void load().then(() => {
+        if (isPending.value && phone.value && isMobileBrowser()) {
+          window.setTimeout(() => launchMomo(), 600)
+        }
+        if (isPending.value) {
+          startAutoComplete()
+        }
+      })
+    }
+  },
+  { immediate: true },
+)
+
 onMounted(() => {
-  void load().then(() => {
-    if (isPending.value && phone.value && isMobileBrowser()) {
-      window.setTimeout(() => launchMomo(), 600)
-    }
-    if (isPending.value) {
-      startAutoComplete()
-    }
-  })
+  if (!order.value && route.params.id) {
+    void load()
+  }
 })
 
 onUnmounted(() => {

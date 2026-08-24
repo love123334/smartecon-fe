@@ -2,6 +2,7 @@
 import { onMounted, ref, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { formatVnd, orderApi, reviewApi } from '@/api/services'
+import { clearApiCache } from '@/api/http/client'
 import type { Order, ProductReview } from '@/types'
 import { useAuthStore } from '@/stores/auth'
 import { orderStatusLabel } from '@/utils/orderStatus'
@@ -28,6 +29,7 @@ onMounted(async () => {
   }
   loading.value = true
   error.value = ''
+  clearApiCache('/orders')
   try {
     orders.value = await orderApi.listForCustomer(auth.user.id)
     const deliveredIds = [
