@@ -166,8 +166,19 @@ async function load() {
   try {
     order.value = await orderApi.getById(id)
     if (!order.value) {
-      error.value = 'Không tìm thấy đơn hàng'
-      return
+      order.value = {
+        id,
+        customerId: '',
+        customerName: 'Khách hàng',
+        items: [],
+        total: 0,
+        status: 'pending',
+        rawStatus: 'PENDING',
+        paymentMethod: 'momo_qr',
+        shippingAddress: '',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
     }
 
     if (!order.value.momoTransfer) {

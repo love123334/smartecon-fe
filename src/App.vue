@@ -63,9 +63,7 @@ onMounted(async () => {
   >
     <div :class="shopWide || fullBleed ? 'page-bleed-wrap' : 'container'">
       <RouterView v-slot="{ Component, route: currentRoute }">
-        <Transition name="page-fade" mode="out-in">
-          <component :is="Component" :key="currentRoute.fullPath" />
-        </Transition>
+        <component :is="Component" :key="currentRoute.fullPath" />
       </RouterView>
     </div>
   </main>
