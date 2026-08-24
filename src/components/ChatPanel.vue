@@ -513,19 +513,22 @@ defineExpose({ scrollToEnd: scrollEnd })
 }
 
 .chat-bubble--order {
+  border-left: 4px solid #2563eb;
   border-color: #93c5fd;
-  background: linear-gradient(180deg, #eff6ff 0%, #f8fafc 100%);
+  background: linear-gradient(135deg, #f0f7ff 0%, #ffffff 100%);
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.12), 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .chat-bubble__tag--order {
-  background: #1d4ed8;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
   color: #fff;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.35);
 }
 
 .chat-bubble__tag {
   display: inline-block;
   margin-top: 0.4rem;
-  padding: 0.12rem 0.45rem;
+  padding: 0.15rem 0.5rem;
   font-size: 0.625rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -552,41 +555,48 @@ defineExpose({ scrollToEnd: scrollEnd })
   background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
   color: #ffffff;
   border-bottom-right-radius: 4px;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.22);
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.28);
 }
 
 .chat-bubble.assistant {
   align-self: flex-start;
   background: #ffffff;
   color: #1e293b;
-  border: 1px solid #e2e8f0;
+  border: 1px solid rgba(226, 232, 240, 0.9);
   border-bottom-left-radius: 4px;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.06);
 }
 
 .chat-bubble--typing {
   padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
 }
 
 .typing-dots {
   display: inline-flex;
-  gap: 0.25rem;
+  gap: 0.3rem;
+  align-items: center;
 }
 
 .typing-dots i {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: var(--slate-400);
-  animation: chat-typing 1.2s infinite ease-in-out;
+  background: linear-gradient(135deg, #38bdf8 0%, #3b82f6 100%);
+  box-shadow: 0 0 6px rgba(56, 189, 248, 0.6);
+  animation: chat-typing 1.1s infinite ease-in-out;
 }
 
 .typing-dots i:nth-child(2) {
   animation-delay: 0.15s;
+  background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
 }
 
 .typing-dots i:nth-child(3) {
   animation-delay: 0.3s;
+  background: linear-gradient(135deg, #6366f1 0%, #818cf8 100%);
 }
 
 @keyframes chat-typing {
@@ -594,11 +604,11 @@ defineExpose({ scrollToEnd: scrollEnd })
   80%,
   100% {
     opacity: 0.35;
-    transform: translateY(0);
+    transform: translateY(0) scale(0.9);
   }
   40% {
     opacity: 1;
-    transform: translateY(-3px);
+    transform: translateY(-4px) scale(1.15);
   }
 }
 

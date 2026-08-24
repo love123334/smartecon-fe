@@ -502,16 +502,20 @@ table.data tbody tr:last-child td {
   flex-direction: column;
   overflow: hidden;
   padding: 0;
+  border-left: 3.5px solid var(--primary-500, #3b82f6);
+  border-radius: var(--radius-lg, 12px);
   transition:
     transform var(--transition-slow),
     box-shadow var(--transition-slow),
-    border-color var(--transition);
+    border-color var(--transition),
+    border-left-color var(--transition);
 }
 
 .product-card:hover {
   transform: translateY(-3px);
-  box-shadow: var(--shadow-md);
+  box-shadow: -2px 6px 18px rgba(37, 99, 235, 0.12), var(--shadow-md);
   border-color: var(--primary-200);
+  border-left-color: var(--primary-600, #2563eb);
 }
 
 .product-card__media {

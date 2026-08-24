@@ -33,7 +33,7 @@ let notifyTimer: ReturnType<typeof setInterval> | undefined
 let sendSeq = 0
 
 const shouldPollNotifications = computed(
-  () => auth.isLoggedIn && auth.role === 'customer',
+  () => auth.isLoggedIn && (auth.role === 'customer' || auth.role === 'seller'),
 )
 
 const effectiveRole = computed<UserRole>(() => {
@@ -123,7 +123,7 @@ async function onOpenSession(sessionId: string) {
 async function pullProactiveNotifications(silent = false) {
   if (!shouldPollNotifications.value) return
   try {
-    const res = await chatApi.syncProactiveNotifications(chatUserId.value)
+    const res = await chatApi.syncProactiveNotifications(chatUserId.value, effectiveRole.value)
     widget.setUnreadBadge(res.unread)
     if (res.appended > 0) {
       messages.value = res.messages
@@ -144,7 +144,7 @@ function startNotificationPolling() {
   void pullProactiveNotifications(true)
   notifyTimer = setInterval(() => {
     void pullProactiveNotifications(true)
-  }, 25_000)
+  }, 10_000)
 }
 
 function stopNotificationPolling() {
@@ -577,19 +577,32 @@ function onFabDrop(e: DragEvent) {
 
 .chat-fab__badge {
   position: absolute;
-  top: -4px;
-  right: -4px;
-  min-width: 1.15rem;
-  height: 1.15rem;
-  padding: 0 0.25rem;
+  top: -2px;
+  right: -2px;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 0.35rem;
   border-radius: 999px;
-  background: #dc2626;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
   color: #fff;
-  font-size: 0.65rem;
+  font-size: 0.72rem;
   font-weight: 800;
-  line-height: 1.15rem;
+  line-height: 1.35rem;
   text-align: center;
-  box-shadow: 0 0 0 2px #fff;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.8), 0 2px 6px rgba(0, 0, 0, 0.2);
+  animation: badge-pulse 2s infinite ease-in-out;
+}
+
+@keyframes badge-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.8), 0 2px 6px rgba(0, 0, 0, 0.2);
+  }
+  50% {
+    transform: scale(1.12);
+    box-shadow: 0 0 16px rgba(239, 68, 68, 1), 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
 }
 
 .chat-popup {

@@ -5,6 +5,9 @@ import type { User, UserRole } from '@/types'
 import { saveUserAvatar } from '@/utils/avatar'
 import { clearUserSnapshot, readUserSnapshot, saveUserSnapshot } from '@/utils/sessionSnapshot'
 import { useChatSessionStore } from '@/stores/chatSession'
+import { useCartStore } from '@/stores/cart'
+import { useChatWidgetStore } from '@/stores/chatWidget'
+import { clearApiCache } from '@/api/http/client'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
@@ -63,10 +66,16 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       user.value = await authApi.login(email, password)
       if (user.value) {
+        clearApiCache()
         saveUserSnapshot(user.value)
         const chatKey =
           user.value.role === 'seller' ? `seller-${user.value.id}` : user.value.id
         chatApi.onUserLogin(chatKey, user.value.role)
+        try {
+          void useCartStore().refresh()
+        } catch {
+          /* ignore */
+        }
       }
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Đăng nhập thất bại'
@@ -88,11 +97,17 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const result = await authApi.register(data)
       if (result.status === 'active') {
+        clearApiCache()
         user.value = result.user
         saveUserSnapshot(result.user)
         const chatKey =
           result.user.role === 'seller' ? `seller-${result.user.id}` : result.user.id
         chatApi.onUserLogin(chatKey, result.user.role)
+        try {
+          void useCartStore().refresh()
+        } catch {
+          /* ignore */
+        }
       }
       return result
     } catch (e) {
@@ -117,12 +132,19 @@ export const useAuthStore = defineStore('auth', () => {
         ? `seller-${user.value.id}`
         : user.value.id
       : null
-    await authApi.logout()
+    try {
+      await authApi.logout()
+    } catch {
+      /* ignore */
+    }
     if (chatKey) chatApi.onUserLogout(chatKey)
     user.value = null
     clearUserSnapshot()
+    clearApiCache()
     try {
       useChatSessionStore().resetSession()
+      useChatWidgetStore().setUnreadBadge(0)
+      void useCartStore().refresh()
     } catch {
       /* pinia chưa mount */
     }

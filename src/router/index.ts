@@ -329,4 +329,16 @@ function roleHome(role: UserRole): { path: string } {
   return { path: roleHomePath(role) }
 }
 
+router.onError((error, to) => {
+  const msg = error?.message || ''
+  if (
+    /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module/i.test(
+      msg,
+    )
+  ) {
+    const targetUrl = to?.fullPath ? to.fullPath : window.location.href
+    window.location.href = targetUrl
+  }
+})
+
 export default router

@@ -25,7 +25,6 @@ import * as realVouchers from '@/api/real/vouchers'
 import * as realNotifications from '@/api/real/notifications'
 import { fetchSystemHealthMetrics } from '@/api/real/systemHealth'
 import * as realProductImages from '@/api/real/productImages'
-import { typingDelay } from '@/api/chat/engine'
 import { buildChatContext, prewarmChatContext } from '@/api/chat/context'
 import { emptyConversationContext } from '@/api/chat/conversationContext'
 import {
@@ -2118,7 +2117,7 @@ function writeNotificationCursor(userId: string, id: number): void {
 }
 
 function formatOrderNotificationMessage(n: realNotifications.CustomerNotification): string {
-  return `**${n.title}**\n${n.message}`
+  return `📢 **${n.title}**\n${n.message}`
 }
 
 // ——— Chatbot (LLM Groq/OpenAI + fallback engine local) ———
@@ -2286,8 +2285,7 @@ export const chatApi = {
       })
     }
 
-    const delayMs = typingDelay(reply)
-    if (delayMs > 0) await delay(delayMs)
+    // Instant delivery for maximum responsiveness
 
     const assistantMsg: ChatMessage = {
       id: `c-${Date.now() + 1}`,
@@ -2319,18 +2317,18 @@ export const chatApi = {
     }
   },
 
-  async syncProactiveNotifications(userId: string): Promise<{
+  async syncProactiveNotifications(userId: string, role: UserRole = 'customer'): Promise<{
     messages: ChatMessage[]
     appended: number
     unread: number
   }> {
     if (!hasBackendToken()) {
-      return { messages: ensureActiveSession(userId, 'customer').messages, appended: 0, unread: 0 }
+      return { messages: ensureActiveSession(userId, role).messages, appended: 0, unread: 0 }
     }
     try {
       const afterId = readNotificationCursor(userId)
       const pending = await realNotifications.listUnreadNotifications(afterId || undefined)
-      const history = ensureActiveSession(userId, 'customer').messages
+      const history = ensureActiveSession(userId, role).messages
       const knownIds = new Set(
         history
           .map((m) => m.meta?.notificationId)
