@@ -7,7 +7,9 @@ import { parseDraggedProduct } from '@/api/chat/productCards'
 import ChatProductMiniCard from '@/components/ChatProductMiniCard.vue'
 import ChatReviewSummaryCard from '@/components/ChatReviewSummaryCard.vue'
 import ChatSellerMiniCard from '@/components/ChatSellerMiniCard.vue'
+import ChatOrderActionCard from '@/components/ChatOrderActionCard.vue'
 import ChatBotIcon from '@/components/icons/ChatBotIcon.vue'
+import { useAuthStore } from '@/stores/auth'
 
 const props = defineProps<{
   messages: ChatMessage[]
@@ -27,10 +29,17 @@ const emit = defineEmits<{
   navigate: [path: string]
 }>()
 
+const auth = useAuthStore()
 const input = ref('')
 const listEl = ref<HTMLElement | null>(null)
 const dropActive = ref(false)
 const isDev = import.meta.env.DEV
+
+function isOrderUpdateMessage(m: ChatMessage): boolean {
+  if (m.meta?.kind === 'order_update' || m.meta?.orderId) return true
+  if (m.role === 'assistant' && (/#\d+|đơn\s+\d+/i.test(m.content) && (/đặt đơn|thanh toán|giao hàng|hủy|cập nhật đơn/i.test(m.content)))) return true
+  return false
+}
 
 const visibleQuickPrompts = computed(() =>
   (props.quickPrompts ?? []).filter((p) => p.text.trim()),
@@ -199,6 +208,13 @@ defineExpose({ scrollToEnd: scrollEnd })
                 :product="p"
               />
             </div>
+            <ChatOrderActionCard
+              v-if="isOrderUpdateMessage(m)"
+              :order-id="m.meta?.orderId"
+              :message-content="m.content"
+              :role="auth.role"
+              @navigate="emit('navigate', $event)"
+            />
             <span v-if="m.meta?.kind === 'order_update'" class="chat-bubble__tag chat-bubble__tag--order">
               Cập nhật đơn
             </span>

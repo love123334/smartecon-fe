@@ -501,6 +501,59 @@ export function presentSellerCatalogReply(catalog: Product[], userName?: string)
   return `${name}Danh sách **${catalog.length}** sản phẩm hiện có trong shop của bạn:\n\n${lines.join('\n')}\n\nBạn có thể hỏi thêm về dự báo nhu cầu bán hoặc kiểm tra tồn kho chi tiết cho từng sản phẩm nhé!`
 }
 
+export function presentDssSummaryReport(
+  ctx: ChatContext,
+  catalog: Product[],
+  userName?: string,
+): string {
+  const name = sellerGreet(userName)
+  const health = buildBusinessHealth(ctx, catalog)
+  const perf = ctx.salesPerformance
+  const dashboard = ctx.sellerDashboard
+  const rev = perf?.summary.totalRevenue ?? dashboard?.revenue.totalRevenue ?? 0
+  const orders = perf?.summary.completedOrders ?? dashboard?.revenue.completedOrders ?? ctx.orders.length
+  const aov = perf?.summary.averageOrderValue ?? (orders > 0 ? rev / orders : 0)
+
+  const lowStockProducts = catalog.filter((p) => (p.stock ?? 0) <= 5)
+  const totalStock = catalog.reduce((sum, p) => sum + (p.stock ?? 0), 0)
+
+  const lines = [
+    `${name}**BÁO CÁO TỔNG HỢP THỐNG KÊ DSS (DECISION SUPPORT SYSTEM)** 📊`,
+    '',
+    '**1. 🏥 Sức khỏe gian hàng & Hiệu suất kinh doanh:**',
+    `• Đánh giá chung: **${health.statusLabel}**`,
+    `• Doanh thu tích lũy: **${formatVnd(rev)}** · Đơn hoàn tất: **${orders}** đơn`,
+    `• Giá trị đơn trung bình (AOV): **${formatVnd(aov)}**`,
+    health.revenueComparison?.previous
+      ? `• Tăng trưởng doanh thu: **${formatPct(health.revenueComparison.changePct)}** so với kỳ trước`
+      : '',
+    '',
+    '**2. 📈 Dự báo nhu cầu bán hàng (Demand Forecasting):**',
+    '• Mô hình: **Hybrid Adaptive (Damped Holt-Winters, Holt Linear, Croston SBA)**',
+    '• Tính năng: Tự động phát hiện chu kỳ tuần, lọc nhiễu ngoại lai và dự báo xu hướng bán theo ngày.',
+    '• Gợi ý nhanh: Bạn có thể hỏi *"dự báo nhu cầu [tên SP]"* để xem biểu đồ và chi tiết lượng đặt.',
+    '',
+    '**3. 📦 Khuyến nghị tồn kho & Điểm đặt hàng lại (ROP):**',
+    `• Tổng tồn kho: **${totalStock}** sản phẩm trên **${catalog.length}** mặt hàng.`,
+    lowStockProducts.length > 0
+      ? `• ⚠️ Cảnh báo tồn thấp: Có **${lowStockProducts.length}** sản phẩm sắp hết hàng (tồn ≤ 5): ${lowStockProducts.slice(0, 3).map((p) => p.name).join(', ')}.`
+      : '• ✅ Trạng thái tồn kho của các sản phẩm đang ở mức an toàn.',
+    '• Tính năng ROP: Tính toán điểm đặt hàng lại an toàn dựa trên tốc độ tiêu thụ và lead time của nhà cung cấp.',
+    '',
+    '**4. 🏷️ Chiến lược giá & Phân tích What-If (Price & Discount Optimization):**',
+    '• Độ co giãn giá (Price Elasticity): Đánh giá mức độ nhạy cảm của khách hàng khi đổi giá.',
+    '• Mô phỏng What-If: Ước tính doanh thu, giá vốn COGS và biên lợi nhuận trước khi tung chương trình giảm giá.',
+    '• Gợi ý nhanh: Bạn có thể hỏi *"nếu giảm giá 10% [tên SP] thì sao?"* để chạy kịch bản What-If.',
+    '',
+    '**5. 🎟️ Hiệu quả Voucher & Khuyến mãi:**',
+    '• Hỗ trợ theo dõi ROI, tỷ lệ sử dụng mã giảm giá và chuyển đổi đơn hàng.',
+    '',
+    '💡 *Bạn có thể bấm vào các nút điều hướng hoặc hỏi sâu hơn về bất kỳ mục nào ở trên nhé!*',
+  ].filter(Boolean)
+
+  return lines.join('\n')
+}
+
 /** Route seller intent → analytics presentation when applicable. */
 export function buildSellerAnalyticsReply(
   ctx: ChatContext,
@@ -510,11 +563,20 @@ export function buildSellerAnalyticsReply(
 ): string | null {
   const catalog = ctx.sellerProducts.length ? ctx.sellerProducts : ctx.products
   const spec = parseSellerBusinessQuery(raw, intent, prior)
+  const norm = normalizeText(raw)
+
+  if (
+    /thong ke.*(dss|chuc nang|tinh nang|he thong|tat ca)|tong hop.*dss|bao cao.*dss|cac chuc nang can thiet.*dss|dss co gi|dss gom nhung gi/.test(
+      norm,
+    )
+  ) {
+    return presentDssSummaryReport(ctx, catalog, ctx.userName)
+  }
 
   if (
     intent === 'seller_top_products' ||
     /cac san pham|san pham hien co|san pham trong shop|shop co nhung san pham nao|danh sach san pham|shop dang ban gi|shop toi ban gi|catalog cua shop|cac mat hang/.test(
-      normalizeText(raw),
+      norm,
     )
   ) {
     return presentSellerCatalogReply(catalog, ctx.userName)
@@ -539,14 +601,14 @@ export function buildSellerAnalyticsReply(
     return presentRevenueReply(ctx.salesPerformance, spec, ctx.userName)
   }
 
-  if (spec.metric === 'restock' || (intent === 'seller_inventory' && /nhap|restock|nen nhap/.test(normalizeText(raw)))) {
+  if (spec.metric === 'restock' || (intent === 'seller_inventory' && /nhap|restock|nen nhap/.test(norm))) {
     return presentRestockReply(ctx.sellerDashboard, catalog, ctx.userName)
   }
 
   if (
     (intent === 'seller_orders' || intent === 'seller_recent_orders' || spec.metric === 'orders') &&
     /hom nay|hom qua|thang nay|tuan nay|gan day|dang giao|bao nhieu don|don ban|don can xu ly|don cho|don moi/.test(
-      normalizeText(raw),
+      norm,
     )
   ) {
     const orders = ctx.orders.length ? ctx.orders : ctx.sellerDashboard?.recentOrders?.map(sellerOrderToOrder) ?? []

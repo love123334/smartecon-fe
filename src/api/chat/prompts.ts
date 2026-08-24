@@ -28,6 +28,7 @@ const SHOPPER_PROMPT_POOL: QuickPrompt[] = [
 
 /** Pool quản trị và kinh doanh cho người bán (Seller DSS) */
 const SELLER_PROMPT_POOL: QuickPrompt[] = [
+  { label: '📋 Thống kê DSS', text: 'Thống kê giùm các chức năng cần thiết trong DSS cho shop' },
   { label: '📊 Sức khỏe shop', text: 'Đánh giá sức khỏe kinh doanh của shop tôi?' },
   { label: '📦 Cần nhập gì', text: 'Tháng tới shop nên nhập thêm những sản phẩm nào?' },
   { label: '📈 Dự báo nhu cầu', text: 'Dự báo nhu cầu bán hàng của Bàn phím cơ KeyPro K87?' },

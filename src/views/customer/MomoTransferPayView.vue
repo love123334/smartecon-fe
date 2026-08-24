@@ -240,7 +240,16 @@ onUnmounted(() => {
               :disabled="completing || processingPayment"
               @click="launchMomo"
             >
-              Mở MoMo & chuyển tiền
+              📲 Mở MoMo chuyển tiền
+            </button>
+            <button
+              v-if="isPending"
+              type="button"
+              class="btn-elegant-primary btn-interactive"
+              :disabled="completing || processingPayment"
+              @click="completePayment"
+            >
+              ✅ Tôi đã chuyển tiền xong
             </button>
             <RouterLink
               class="btn-elegant-outline btn-interactive"
@@ -252,8 +261,8 @@ onUnmounted(() => {
 
           <p class="elegant-muted momo-pay__hint">
             Đơn #{{ order.id }} · Tổng {{ formatVnd(order.total) }}
-            <template v-if="isPending && route.query.placed === '1'">
-              · Sau khi chuyển tiền, hệ thống sẽ tự xác nhận trong vài giây.
+            <template v-if="isPending">
+              · Chụp màn hình mã QR hoặc chuyển đúng cú pháp để shop đối soát nhanh.
             </template>
           </p>
         </template>

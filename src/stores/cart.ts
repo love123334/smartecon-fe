@@ -220,6 +220,12 @@ export const useCartStore = defineStore('cart', () => {
     })()
   }
 
+  function clearLocal() {
+    lines.value = []
+    dirty.value = false
+    error.value = null
+  }
+
   function openDrawer() {
     drawerOpen.value = true
   }
@@ -240,6 +246,7 @@ export const useCartStore = defineStore('cart', () => {
     refresh,
     syncToServer,
     prepareForCheckout,
+    clearLocal,
     add,
     setQuantity,
     remove,

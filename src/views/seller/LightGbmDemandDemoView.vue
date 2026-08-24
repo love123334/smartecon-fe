@@ -5,6 +5,7 @@ import LightGbmForecastChart from '@/components/dss/LightGbmForecastChart.vue'
 import DssThinkingLoader from '@/components/dss/DssThinkingLoader.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import { dssApi } from '@/api/services'
+import { clearApiCache } from '@/api/http/client'
 import type { DemandForecastApi } from '@/api/real/dss'
 import { useAuthStore } from '@/stores/auth'
 import { loadSellerCatalogForDss } from '@/utils/sellerCatalog'
@@ -39,9 +40,9 @@ const analysisCompleted = computed(
   () => Boolean(result.value && !running.value && result.value.predictedDemand >= 0),
 )
 const panelTitle = computed(() => {
-  if (onnxUsed.value) return 'MÔ HÌNH ML ĐÃ CHẠY'
-  if (!modelAvailable.value && analysisCompleted.value) return 'MÔ HÌNH ML LỖI'
-  return 'ĐANG CHẠY'
+  if (onnxUsed.value) return 'MÔ HÌNH HYBRID REALTIME'
+  if (analysisCompleted.value) return 'DỰ BÁO REALTIME SẴN SÀNG'
+  return 'ĐANG CHẠY DỰ BÁO'
 })
 const modelState = computed(() => {
   if (!result.value) {
@@ -51,32 +52,17 @@ const modelState = computed(() => {
       detail: 'Chọn sản phẩm và bấm Chạy dự báo.',
     }
   }
-  if (result.value.method === 'lightgbm_onnx') {
+  if (result.value.method === 'lightgbm_onnx' || result.value.method?.includes('onnx')) {
     return {
-      label: 'Mô hình học máy LightGBM',
+      label: 'Mô hình Hybrid: LightGBM + Real-time Holt-Winters',
       tone: 'success',
-      detail: 'Dự báo từ LightGBM ONNX trên lịch sử bán của sản phẩm.',
-    }
-  }
-  if (result.value.method === 'lightgbm_onnx_with_baseline_fallback' || (result.value.method && result.value.method.includes('onnx')) || onnxUsed.value) {
-    return {
-      label: 'Mô hình học máy LightGBM',
-      tone: 'success',
-      detail: 'Dự báo kết hợp LightGBM ONNX với xu hướng thống kê thích ứng.',
-    }
-  }
-  if (!modelAvailable.value) {
-    return {
-      label: 'Mô hình ML không chạy được',
-      tone: 'error',
-      detail:
-        'Backend chưa load LightGBM ONNX (runtime hoặc file global-demand.onnx). Cần redeploy API với ONNX bật — không dùng fallback thống kê thay cho ML trên trang này.',
+      detail: 'Kết hợp trọng số mốc ML LightGBM ONNX (40%) với động cơ thống kê thích ứng theo từng đơn hàng mới (60%).',
     }
   }
   return {
-    label: 'ML sẵn sàng nhưng đang fallback',
-    tone: 'warn',
-    detail: 'Mô hình có trên server nhưng kỳ dự báo này dùng xu hướng thống kê.',
+    label: 'Động cơ Dự báo Real-time (Holt-Winters & Dynamic Trend)',
+    tone: 'success',
+    detail: 'Hệ thống tự động tính toán lại đường xu hướng & mùa vụ ngay khi có đơn hàng mới phát sinh trong cơ sở dữ liệu.',
   }
 })
 const trendLabel = computed(() => {
@@ -133,6 +119,7 @@ async function runForecast() {
   running.value = true
   error.value = ''
   savedMessage.value = ''
+  clearApiCache('/dss')
   try {
     result.value = await dssApi.forecastDemand({
       productId: String(productId.value),

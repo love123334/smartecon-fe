@@ -84,7 +84,6 @@ const checkoutBlockedReason = computed(() => {
 })
 
 async function loadSellerMomoPreview() {
-  sellerMomo.value = null
   let sid = singleSellerId.value
   if ((!sid || !/^\d+$/.test(sid)) && cart.lines.length) {
     for (const line of cart.lines) {
@@ -103,12 +102,18 @@ async function loadSellerMomoPreview() {
       }
     }
   }
-  if (!sid || !/^\d+$/.test(sid)) return
+  if (!sid || !/^\d+$/.test(sid)) {
+    sellerMomo.value = null
+    return
+  }
   sellerMomoLoading.value = true
   try {
-    sellerMomo.value = await sellerMomoApi.getPublic(sid)
+    const fetched = await sellerMomoApi.getPublic(sid)
+    sellerMomo.value = fetched
   } catch {
-    sellerMomo.value = null
+    if (!sellerMomo.value) {
+      sellerMomo.value = null
+    }
   } finally {
     sellerMomoLoading.value = false
   }
@@ -201,8 +206,12 @@ async function placeOrder() {
   loading.value = true
   error.value = ''
   try {
-    await cart.prepareForCheckout({ showLoading: false })
-    await loadSellerMomoPreview()
+    if (cart.dirty) {
+      await cart.prepareForCheckout({ showLoading: false })
+    }
+    if (!sellerMomo.value) {
+      await loadSellerMomoPreview()
+    }
     if (!canUseMomoQr.value) {
       error.value = checkoutBlockedReason.value || 'Không thể thanh toán MoMo shop lúc này.'
       return
@@ -236,13 +245,14 @@ async function placeOrder() {
     )
 
     consumePendingVoucherCode()
+    cart.clearLocal()
+
     if (payment.value === 'momo_qr' || order.paymentMethod === 'momo_qr') {
       await router.push({ path: `/orders/${order.id}/pay-momo`, query: { placed: '1' } })
     } else {
       await router.push({ path: `/orders/${order.id}`, query: { placed: '1' } })
     }
   } catch (e) {
-    await cart.refresh()
     if (!cart.lines.length && auth.user) {
       try {
         const recentOrders = await orderApi.listForCustomer(auth.user.id)
@@ -252,6 +262,7 @@ async function placeOrder() {
             (o.paymentMethod === 'momo_qr' || o.rawStatus === 'PENDING'),
         )
         if (pendingMomo) {
+          cart.clearLocal()
           await router.push({
             path: `/orders/${pendingMomo.id}/pay-momo`,
             query: { placed: '1', recovered: '1' },

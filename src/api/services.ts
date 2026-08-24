@@ -7,7 +7,7 @@ import {
   DEMO_PASSWORD_BACKEND,
 } from '@/api/mockData'
 import { apiConfig } from '@/api/config'
-import { ApiError } from '@/api/http/client'
+import { ApiError, clearApiCache } from '@/api/http/client'
 import * as realAuth from '@/api/real/auth'
 import * as realProducts from '@/api/real/products'
 import * as realCart from '@/api/real/cart'
@@ -1328,29 +1328,7 @@ export const orderApi = {
     return null
   },
 
-  async updateStatus(id: string, status: Order['status']): Promise<Order> {
-    if (apiConfig.useRealOrders && hasBackendToken()) {
-      if (status === 'cancelled') {
-        await realOrders.cancelOrder(id)
-        const order = await realOrders.getOrderById(id)
-        if (!order) throw new Error('Đơn hàng không tồn tại')
-        saveOrderOverlay({
-          orderId: id,
-          status: 'cancelled',
-          rawStatus: 'CANCELLED',
-          note: 'Khách hủy đơn',
-          updatedByRole: 'customer',
-          customerName: order.customerName,
-          total: order.total,
-          shippingAddress: order.shippingAddress,
-          items: order.items,
-          createdAt: order.createdAt,
-        })
-        return applyOrderOverlay(order)
-      }
-      throw new Error('Chỉ hỗ trợ hủy đơn qua API backend')
-    }
-    const updated = await mockOrderApi.updateStatus(id, status)
+  async updateStatus(id: string, status: Order['status'], note?: string): Promise<Order> {
     const rawMap: Record<Order['status'], realOrders.BackendOrderStatus> = {
       pending: 'PENDING',
       confirmed: 'PROCESSING',
@@ -1358,15 +1336,65 @@ export const orderApi = {
       delivered: 'DELIVERED',
       cancelled: 'CANCELLED',
     }
+    const rawStatus = rawMap[status] ?? 'PENDING'
+
+    if (apiConfig.useRealOrders && hasBackendToken()) {
+      if (status === 'cancelled') {
+        try {
+          await realOrders.cancelOrder(id)
+        } catch {
+          await realOrders.updateOrderStatus(id, 'CANCELLED', note || 'Hủy đơn hàng')
+        }
+        const order = await realOrders.getOrderById(id)
+        if (order) {
+          saveOrderOverlay({
+            orderId: id,
+            status: 'cancelled',
+            rawStatus: 'CANCELLED',
+            note: note || 'Đơn hàng đã hủy',
+            updatedByRole: 'seller',
+            customerName: order.customerName,
+            total: order.total,
+            shippingAddress: order.shippingAddress,
+            items: order.items,
+            createdAt: order.createdAt,
+          })
+          clearApiCache('/orders')
+          clearApiCache('/dss')
+          return applyOrderOverlay(order)
+        }
+      } else {
+        const order = await realOrders.updateOrderStatus(id, rawStatus, note)
+        saveOrderOverlay({
+          orderId: id,
+          status,
+          rawStatus,
+          note,
+          updatedByRole: 'seller',
+          customerName: order.customerName,
+          total: order.total,
+          shippingAddress: order.shippingAddress,
+          items: order.items,
+          createdAt: order.createdAt,
+        })
+        clearApiCache('/orders')
+        clearApiCache('/dss')
+        return applyOrderOverlay(order)
+      }
+    }
+
+    const updated = await mockOrderApi.updateStatus(id, status)
     saveOrderOverlay({
       orderId: id,
       status,
-      rawStatus: rawMap[status],
+      rawStatus,
       customerName: updated.customerName,
       total: updated.total,
       items: updated.items,
       createdAt: updated.createdAt,
     })
+    clearApiCache('/orders')
+    clearApiCache('/dss')
     return applyOrderOverlay(updated)
   },
 
@@ -2317,7 +2345,20 @@ export const chatApi = {
     }
   },
 
-  async syncProactiveNotifications(userId: string, role: UserRole = 'customer'): Promise<{
+  async markAllNotificationsRead(): Promise<void> {
+    if (!hasBackendToken()) return
+    try {
+      await realNotifications.markAllNotificationsRead()
+    } catch {
+      /* ignore */
+    }
+  },
+
+  async syncProactiveNotifications(
+    userId: string,
+    role: UserRole = 'customer',
+    markRead = false,
+  ): Promise<{
     messages: ChatMessage[]
     appended: number
     unread: number
@@ -2355,10 +2396,12 @@ export const chatApi = {
           },
         })
         appended += 1
-        try {
-          await realNotifications.markNotificationRead(n.id)
-        } catch {
-          /* keep cursor — will retry */
+        if (markRead) {
+          try {
+            await realNotifications.markNotificationRead(n.id)
+          } catch {
+            /* ignore */
+          }
         }
       }
 
@@ -2375,9 +2418,15 @@ export const chatApi = {
         unread = 0
       }
 
+      if (markRead) {
+        unread = 0
+      } else if (appended > 0 && unread === 0) {
+        unread = appended
+      }
+
       return { messages: appended ? next : history, appended, unread }
     } catch {
-      return { messages: ensureActiveSession(userId, 'customer').messages, appended: 0, unread: 0 }
+      return { messages: ensureActiveSession(userId, role).messages, appended: 0, unread: 0 }
     }
   },
 }

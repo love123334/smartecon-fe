@@ -8,7 +8,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useChatSessionStore } from '@/stores/chatSession'
 import { useChatWidgetStore } from '@/stores/chatWidget'
 import type { ChatLoginSession } from '@/api/chat/chatPersistence'
-import { isChatPage, roleChatPath } from '@/utils/roleAiNav'
+import { isChatPage } from '@/utils/roleAiNav'
 import { isShopBrowsePath } from '@/utils/roleNav'
 import ChatPanel from '@/components/ChatPanel.vue'
 import HammerSickleLoader from '@/components/HammerSickleLoader.vue'
@@ -123,15 +123,24 @@ async function onOpenSession(sessionId: string) {
 async function pullProactiveNotifications(silent = false) {
   if (!shouldPollNotifications.value) return
   try {
-    const res = await chatApi.syncProactiveNotifications(chatUserId.value, effectiveRole.value)
-    widget.setUnreadBadge(res.unread)
+    const res = await chatApi.syncProactiveNotifications(
+      chatUserId.value,
+      effectiveRole.value,
+      widget.open,
+    )
+    if (!widget.open) {
+      const badgeCount = Math.max(res.unread, widget.unreadBadge + res.appended)
+      if (badgeCount > 0) {
+        widget.setUnreadBadge(badgeCount)
+      }
+    } else {
+      widget.setUnreadBadge(0)
+    }
     if (res.appended > 0) {
       messages.value = res.messages
       if (!silent && !widget.open) {
         widget.show()
       }
-    } else if (res.unread === 0 && widget.unreadBadge > 0 && res.appended === 0) {
-      widget.setUnreadBadge(res.unread)
     }
   } catch {
     /* ignore polling errors */
@@ -144,7 +153,7 @@ function startNotificationPolling() {
   void pullProactiveNotifications(true)
   notifyTimer = setInterval(() => {
     void pullProactiveNotifications(true)
-  }, 10_000)
+  }, 5_000)
 }
 
 function stopNotificationPolling() {
@@ -154,13 +163,23 @@ function stopNotificationPolling() {
   }
 }
 
+function onFabClick() {
+  widget.setUnreadBadge(0)
+  void chatApi.markAllNotificationsRead()
+  widget.toggle()
+}
+
 watch(
   () => widget.open,
   async (isOpen) => {
     if (isOpen) {
+      widget.setUnreadBadge(0)
+      void chatApi.markAllNotificationsRead()
       reshufflePrompts()
       await loadHistory()
-    } else if (shouldPollNotifications.value) void pullProactiveNotifications(true)
+    } else if (shouldPollNotifications.value) {
+      void pullProactiveNotifications(true)
+    }
   },
 )
 
@@ -210,19 +229,6 @@ function toggleHistory() {
 
 function closeHistory() {
   showHistory.value = false
-}
-
-function onFabClick() {
-  if (!auth.isLoggedIn && !showFab.value) {
-    void router.push({ path: '/login', query: { redirect: roleChatPath('customer') } })
-    return
-  }
-  if (!auth.isLoggedIn) {
-    // guest vẫn chat được trên shop
-    widget.toggle()
-    return
-  }
-  widget.toggle()
 }
 
 async function onSend(text: string) {
