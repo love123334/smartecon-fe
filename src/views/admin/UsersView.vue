@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { adminApi } from '@/api/services'
 import type { User, UserRole } from '@/types'
 import PageHeader from '@/components/PageHeader.vue'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import { listPendingRoleApplications } from '@/utils/roleApplications'
 import { useAuthStore } from '@/stores/auth'
 
@@ -110,7 +111,12 @@ const roleLabel: Record<UserRole, string> = {
     </p>
 
     <div class="table-wrap card users-table-card">
-      <p v-if="loading" class="muted users-empty" role="status">Đang tải danh sách người dùng…</p>
+      <LoadingSpinner
+        v-if="loading"
+        page
+        label="Đang tải danh sách người dùng hệ thống..."
+        sublabel="Đang nạp thông tin tài khoản, vai trò và trạng thái kích hoạt."
+      />
       <p v-else-if="!users.length" class="muted users-empty" role="status">
         Chưa có người dùng để hiển thị.
       </p>

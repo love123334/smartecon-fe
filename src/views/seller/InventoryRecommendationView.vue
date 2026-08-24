@@ -4,6 +4,7 @@ import { RouterLink } from 'vue-router'
 import InventoryStockBarChart from '@/components/dss/InventoryStockBarChart.vue'
 import InventorySalesTrendChart from '@/components/dss/InventorySalesTrendChart.vue'
 import DssAiInsightCollapsible from '@/components/dss/DssAiInsightCollapsible.vue'
+import DssThinkingLoader from '@/components/dss/DssThinkingLoader.vue'
 import { apiConfig } from '@/api/config'
 import { dssApi } from '@/api/services'
 import { useAuthStore } from '@/stores/auth'
@@ -251,16 +252,16 @@ function clearError() {
         </div>
       </section>
 
-      <div v-if="success" class="dss-alert dss-alert--success" role="status">
+      <div v-if="success && !loading" class="dss-alert dss-alert--success" role="status">
         Tạo khuyến nghị tồn kho thành công.
       </div>
 
-      <template v-if="loading">
-        <section class="dss-kpi-grid">
-          <div v-for="n in 4" :key="n" class="dss-skel dss-skel--kpi" />
-        </section>
-        <div class="dss-skel dss-skel--panel" />
-      </template>
+      <DssThinkingLoader
+        v-if="loading"
+        title="Đang tính toán khuyến nghị tồn kho"
+        detail="Hệ thống đang tính toán điểm đặt hàng lại (ROP), tồn kho an toàn và số lượng bổ sung đề xuất."
+        :cards="3"
+      />
 
       <section v-else-if="!result" class="dss-empty">
         <div class="dss-empty__art" aria-hidden="true">📦</div>

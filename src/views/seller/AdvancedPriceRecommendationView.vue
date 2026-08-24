@@ -12,6 +12,7 @@ import {
 import { listProducts } from '@/api/real/products'
 import { useAuthStore } from '@/stores/auth'
 import DssThinkingLoader from '@/components/dss/DssThinkingLoader.vue'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import {
   ADVANCED_PRICE_CHANGE_MAX,
   ADVANCED_PRICE_CHANGE_MIN,
@@ -303,7 +304,11 @@ function scenarioClass(change: number): string {
         </span>
       </div>
 
-      <p v-if="productsLoading" class="dss-hint" role="status">Đang tải sản phẩm…</p>
+      <LoadingSpinner
+        v-if="productsLoading"
+        size="sm"
+        label="Đang tải danh sách sản phẩm..."
+      />
       <div v-else-if="productsError" class="dss-alert dss-alert--warn" role="alert">
         {{ productsError }}
       </div>

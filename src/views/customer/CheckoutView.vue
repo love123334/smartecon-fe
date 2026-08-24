@@ -18,6 +18,7 @@ import { useCartStore } from '@/stores/cart'
 import { trySiteFx } from '@/utils/siteFx'
 import QuantityStepper from '@/components/QuantityStepper.vue'
 import CheckoutStepper from '@/components/CheckoutStepper.vue'
+import LoadingOverlay from '@/components/LoadingOverlay.vue'
 import NewsletterBanner from '@/components/NewsletterBanner.vue'
 
 type CheckoutPayment = 'momo_qr'
@@ -280,6 +281,13 @@ async function placeOrder() {
 </script>
 
 <template>
+  <LoadingOverlay
+    :show="loading"
+    label="Đang tạo đơn hàng & kết nối MoMo..."
+    sublabel="Vui lòng giữ nguyên màn hình trong giây lát."
+    fixed
+  />
+
   <div class="elegant-page">
     <div class="elegant-page__inner">
       <h1 class="elegant-page-title elegant-page-title--center">Thanh toán</h1>

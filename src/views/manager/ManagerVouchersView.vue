@@ -155,7 +155,12 @@ function discountLabel(v: Pick<Voucher, 'discountType' | 'discountValue'>) {
     <p v-if="error" class="alert alert-error">{{ error }}</p>
     <p v-if="success" class="alert alert-success">{{ success }}</p>
 
-    <LoadingSpinner v-if="loading" />
+    <LoadingSpinner
+      v-if="loading"
+      page
+      label="Đang tải danh sách voucher và yêu cầu..."
+      sublabel="Đang nạp dữ liệu khuyến mãi toàn sàn từ hệ thống."
+    />
 
     <template v-else>
       <section v-if="tab === 'vouchers'" class="card voucher-card">

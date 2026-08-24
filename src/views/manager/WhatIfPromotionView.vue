@@ -7,6 +7,7 @@ import { useCategoryStore } from '@/stores/categories'
 import PromoDemandColumnChart from '@/components/dss/PromoDemandColumnChart.vue'
 import PromoProfitLineChart from '@/components/dss/PromoProfitLineChart.vue'
 import PromoRadarChart from '@/components/dss/PromoRadarChart.vue'
+import DssThinkingLoader from '@/components/dss/DssThinkingLoader.vue'
 import {
   CAMPAIGN_DURATIONS,
   defaultManagerWhatIf,
@@ -124,7 +125,14 @@ async function generate() {
       </div>
     </section>
 
-    <template v-if="result">
+    <DssThinkingLoader
+      v-if="running"
+      title="Đang mô phỏng các kịch bản khuyến mãi"
+      detail="Hệ thống đang tính toán co giãn cầu, doanh số dự báo và tối ưu hoá GMV/lợi nhuận cho từng mức giảm giá."
+      :cards="3"
+    />
+
+    <template v-if="result && !running">
       <section class="dss-card">
         <h2 class="dss-card__title">Bảng so sánh kịch bản</h2>
         <p class="dss-hint">

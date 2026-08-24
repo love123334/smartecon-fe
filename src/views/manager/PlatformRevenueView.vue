@@ -13,6 +13,7 @@ import PlatformRankingTables from '@/components/platform-revenue/PlatformRanking
 import PlatformOrderStatusChart from '@/components/platform-revenue/PlatformOrderStatusChart.vue'
 import PlatformActivitySection from '@/components/platform-revenue/PlatformActivitySection.vue'
 import LookerStudioEmbed from '@/components/LookerStudioEmbed.vue'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import {
   LOOKER_STUDIO_PLATFORM_REVENUE_URL,
 } from '@/constants/lookerStudio'
@@ -139,7 +140,12 @@ function retry() {
         </button>
       </div>
 
-      <p v-if="initialLoading && !data" class="muted" role="status">Đang tải báo cáo toàn sàn…</p>
+      <LoadingSpinner
+        v-if="initialLoading && !data"
+        page
+        label="Đang tải báo cáo doanh thu toàn sàn..."
+        sublabel="Đang tổng hợp dữ liệu giao dịch, xếp hạng người bán và phân bổ trạng thái đơn."
+      />
 
       <template v-else-if="data">
         <div v-if="filterLoading" class="pr-loading-bar" role="status">Đang cập nhật theo bộ lọc…</div>

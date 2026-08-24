@@ -45,22 +45,30 @@ onMounted(async () => {
       <RouterLink to="/manager/dss" class="btn btn-outline btn-sm">DSS quản lý</RouterLink>
     </p>
 
-    <div class="stat-grid grid-stagger">
-      <div class="card stat-card stat-card--hover">
-        <span class="stat-label">Tổng đơn hàng</span>
-        <span class="stat-value">{{ orders.length }}</span>
+    <LoadingSpinner
+      v-if="loading"
+      page
+      label="Đang tải dữ liệu tổng quan quản lý..."
+      sublabel="Đang tổng hợp đơn hàng toàn hệ thống và biểu đồ doanh thu."
+    />
+
+    <template v-else>
+      <div class="stat-grid grid-stagger">
+        <div class="card stat-card stat-card--hover">
+          <span class="stat-label">Tổng đơn hàng</span>
+          <span class="stat-value">{{ orders.length }}</span>
+        </div>
+        <div class="card stat-card stat-card--hover">
+          <span class="stat-label">Doanh thu</span>
+          <span class="stat-value">{{ formatVnd(totalRev) }}</span>
+        </div>
+        <div class="card stat-card stat-card--hover">
+          <span class="stat-label">Đơn trung bình</span>
+          <span class="stat-value">
+            {{ salesOrderCount ? formatVnd(totalRev / salesOrderCount) : '—' }}
+          </span>
+        </div>
       </div>
-      <div class="card stat-card stat-card--hover">
-        <span class="stat-label">Doanh thu</span>
-        <span class="stat-value">{{ formatVnd(totalRev) }}</span>
-      </div>
-      <div class="card stat-card stat-card--hover">
-        <span class="stat-label">Đơn trung bình</span>
-        <span class="stat-value">
-          {{ salesOrderCount ? formatVnd(totalRev / salesOrderCount) : '—' }}
-        </span>
-      </div>
-    </div>
 
     <div class="card chart-card card--flat">
       <h2 class="card-title">Xu hướng doanh thu</h2>
@@ -92,5 +100,6 @@ onMounted(async () => {
         </table>
       </div>
     </div>
+    </template>
   </div>
 </template>

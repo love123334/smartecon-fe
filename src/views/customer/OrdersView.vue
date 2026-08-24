@@ -141,7 +141,12 @@ function scrollToOrderReview(order: Order) {
       lead="Theo dõi trạng thái từng đơn — từ chờ xác nhận đến đã giao. Đánh giá sản phẩm trong 30 ngày sau khi nhận hàng."
     />
 
-    <LoadingSpinner v-if="loading" />
+    <LoadingSpinner
+      v-if="loading"
+      page
+      label="Đang tải lịch sử đơn hàng..."
+      sublabel="Đang đồng bộ trạng thái vận chuyển và thông tin đơn hàng."
+    />
     <p v-else-if="error" class="form-error">{{ error }}</p>
     <EmptyState
       v-else-if="!orders.length"

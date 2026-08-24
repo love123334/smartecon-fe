@@ -136,7 +136,12 @@ function formatDate(iso: string | null | undefined) {
     <p v-if="error" class="alert alert-error">{{ error }}</p>
     <p v-if="success" class="alert alert-success">{{ success }}</p>
 
-    <LoadingSpinner v-if="loading" />
+    <LoadingSpinner
+      v-if="loading"
+      page
+      label="Đang tải danh sách yêu cầu voucher..."
+      sublabel="Đang nạp dữ liệu khuyến mãi từ hệ thống."
+    />
 
     <template v-else>
       <section class="card voucher-card">

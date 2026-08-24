@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import { ApiError } from '@/api/http/client'
 import {
   getProductUnitEconomicsById,
@@ -215,7 +216,14 @@ function decisionCopy(decision?: OrderEconomicsDecision) {
       </div>
     </header>
 
-    <section class="dss-card economics-input" aria-labelledby="economics-input-title">
+    <LoadingSpinner
+      v-if="productsLoading"
+      page
+      label="Đang tải dữ liệu sản phẩm & chi phí..."
+      sublabel="Đang tính toán các chỉ số kinh tế đơn hàng (Order Economics)."
+    />
+
+    <section v-else class="dss-card economics-input" aria-labelledby="economics-input-title">
       <h2 id="economics-input-title" class="economics-inline-title">Giả định chi phí / đơn</h2>
       <div v-if="loadError" class="dss-alert dss-alert--warn" role="alert">{{ loadError }}</div>
 

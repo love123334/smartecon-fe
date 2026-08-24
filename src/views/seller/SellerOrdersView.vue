@@ -116,7 +116,12 @@ async function applyStatus(order: Order) {
     />
 
     <p v-if="error" class="form-error">{{ error }}</p>
-    <LoadingSpinner v-if="loading" label="Đang tải đơn hàng" />
+    <LoadingSpinner
+      v-if="loading"
+      page
+      label="Đang tải danh sách đơn hàng của Shop..."
+      sublabel="Đang đồng bộ trạng thái xử lý và vận chuyển."
+    />
     <p v-else-if="!orders.length" class="seller-orders-empty">Chưa có đơn hàng nào.</p>
 
     <template v-else>

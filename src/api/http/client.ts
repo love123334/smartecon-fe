@@ -102,6 +102,27 @@ export type ApiRequestConfig = {
   baseUrl?: string
   /** Override default request timeout (ms). */
   timeoutMs?: number
+  /** Cache duration in ms for GET requests (default: 0 = no cache). */
+  cacheTtlMs?: number
+  /** Skip in-flight deduplication if explicitly needed. */
+  skipDedupe?: boolean
+}
+
+// In-memory cache for fast GET responses
+const apiCache = new Map<string, { data: unknown; expiresAt: number }>()
+// Single-flight in-flight request deduplication map
+const inFlightRequests = new Map<string, Promise<unknown>>()
+
+export function clearApiCache(prefix?: string) {
+  if (!prefix) {
+    apiCache.clear()
+    return
+  }
+  for (const key of apiCache.keys()) {
+    if (key.includes(prefix)) {
+      apiCache.delete(key)
+    }
+  }
 }
 
 export async function apiRequest<T>(
@@ -112,36 +133,85 @@ export async function apiRequest<T>(
   const root = (config?.baseUrl ?? apiConfig.baseUrl).replace(/\/$/, '')
   const url = `${root}/${path.replace(/^\//, '')}`
   const method = (options.method ?? 'GET').toUpperCase()
+
+  // Invalidate cache on mutations
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+    clearApiCache()
+  }
+
+  const cacheKey = `${method}:${url}`
+
+  // Check cache for GET
+  if (method === 'GET' && config?.cacheTtlMs && config.cacheTtlMs > 0) {
+    const cached = apiCache.get(cacheKey)
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.data as T
+    }
+  }
+
+  // Deduplicate simultaneous identical GET requests (Single-Flight)
+  if (method === 'GET' && !config?.skipDedupe) {
+    const inFlight = inFlightRequests.get(cacheKey)
+    if (inFlight) {
+      return inFlight as Promise<T>
+    }
+  }
+
   const hasJsonBody =
     typeof options.body === 'string' &&
     ['POST', 'PUT', 'PATCH'].includes(method)
-  let res: Response
-  const timeoutMs = config?.timeoutMs ?? DEFAULT_TIMEOUT_MS
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
-  try {
-    res = await fetch(url, {
-      ...options,
-      signal: mergeAbortSignals(controller.signal, options.signal),
-      headers: { ...authHeaders(hasJsonBody), ...options.headers },
-    })
-  } catch (e) {
-    const aborted = e instanceof DOMException && e.name === 'AbortError'
-    throw new ApiError(
-      aborted
-        ? 'Backend phản hồi chậm (timeout). Thử lại — nếu kéo dài, kiểm tra Railway API.'
-        : CONNECTIVITY_ERROR,
-      0,
-    )
-  } finally {
-    clearTimeout(timeoutId)
+
+  const execute = async (): Promise<T> => {
+    let res: Response
+    const timeoutMs = config?.timeoutMs ?? DEFAULT_TIMEOUT_MS
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+    try {
+      res = await fetch(url, {
+        ...options,
+        signal: mergeAbortSignals(controller.signal, options.signal),
+        headers: { ...authHeaders(hasJsonBody), ...options.headers },
+      })
+    } catch (e) {
+      const aborted = e instanceof DOMException && e.name === 'AbortError'
+      throw new ApiError(
+        aborted
+          ? 'Backend phản hồi chậm (timeout). Thử lại — nếu kéo dài, kiểm tra Railway API.'
+          : CONNECTIVITY_ERROR,
+        0,
+      )
+    } finally {
+      clearTimeout(timeoutId)
+    }
+
+    const body = await parseJsonBody(res)
+    const result = unwrapApiBody<T>(res, body, 'Request failed')
+
+    if (method === 'GET' && config?.cacheTtlMs && config.cacheTtlMs > 0) {
+      apiCache.set(cacheKey, {
+        data: result,
+        expiresAt: Date.now() + config.cacheTtlMs,
+      })
+    }
+
+    return result
   }
 
-  const body = await parseJsonBody(res)
-  return unwrapApiBody<T>(res, body, 'Request failed')
+  if (method === 'GET' && !config?.skipDedupe) {
+    const promise = execute()
+    inFlightRequests.set(cacheKey, promise)
+    try {
+      return await promise
+    } finally {
+      inFlightRequests.delete(cacheKey)
+    }
+  }
+
+  return execute()
 }
 
 export async function apiUpload<T>(path: string, formData: FormData): Promise<T> {
+  clearApiCache()
   const url = `${apiConfig.baseUrl.replace(/\/$/, '')}/${path.replace(/^\//, '')}`
   const headers = authHeaders(false) as Record<string, string>
 
@@ -171,6 +241,8 @@ export async function apiUpload<T>(path: string, formData: FormData): Promise<T>
 
 export const http = {
   get: <T>(path: string, config?: ApiRequestConfig) => apiRequest<T>(path, {}, config),
+  getCached: <T>(path: string, cacheTtlMs = 15_000, config?: ApiRequestConfig) =>
+    apiRequest<T>(path, {}, { ...config, cacheTtlMs }),
   post: <T>(path: string, data?: unknown, config?: ApiRequestConfig) =>
     apiRequest<T>(path, { method: 'POST', body: JSON.stringify(data ?? {}) }, config),
   /** POST tới base khác `/api/v1` (vd. `/api/dss/...`). */
@@ -187,4 +259,5 @@ export const http = {
   delete: <T>(path: string, config?: ApiRequestConfig) =>
     apiRequest<T>(path, { method: 'DELETE' }, config),
   upload: <T>(path: string, formData: FormData) => apiUpload<T>(path, formData),
+  clearCache: (prefix?: string) => clearApiCache(prefix),
 }

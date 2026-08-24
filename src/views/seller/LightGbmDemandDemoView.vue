@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import LightGbmForecastChart from '@/components/dss/LightGbmForecastChart.vue'
 import DssThinkingLoader from '@/components/dss/DssThinkingLoader.vue'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import { dssApi } from '@/api/services'
 import type { DemandForecastApi } from '@/api/real/dss'
 import { useAuthStore } from '@/stores/auth'
@@ -178,7 +179,14 @@ async function saveForecast() {
       </div>
     </header>
 
-    <section class="dss-card config-card">
+    <LoadingSpinner
+      v-if="loadingProducts"
+      page
+      label="Đang tải danh sách sản phẩm DSS..."
+      sublabel="Đang nạp dữ liệu tồn kho và lịch sử bán hàng từ hệ thống."
+    />
+
+    <section v-else class="dss-card config-card">
       <div class="section-head">
         <div><h2 class="dss-card__title">Cấu hình lần chạy</h2><p>Chạy để xem trước; lưu kết quả khi bạn hài lòng với dự báo.</p></div>
         <span :class="['model-state', `model-state--${modelState.tone}`]">{{ modelState.label }}</span>

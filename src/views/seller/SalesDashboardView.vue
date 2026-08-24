@@ -54,7 +54,12 @@ onMounted(async () => {
       lead="Doanh thu đã giao, đơn và hiệu suất shop — một khung nhìn gọn."
     />
     <p v-if="error" class="form-error">{{ error }}</p>
-    <LoadingSpinner v-if="loading" label="Đang tải" />
+    <LoadingSpinner
+      v-if="loading"
+      page
+      label="Đang tổng hợp báo cáo doanh số..."
+      sublabel="Đang phân tích doanh thu đã giao, giá trị đơn và xu hướng theo tháng."
+    />
 
     <section v-if="performance || dashboard" class="sales-hero" aria-label="Chỉ số chính">
       <div class="sales-hero__main">
