@@ -25,37 +25,26 @@ const sellerPhone = ref('0901234567')
 const sellerQrUrl = ref('')
 const sellerStoreName = ref('SEDSP Shop')
 
-const AUTO_COMPLETE_SECONDS = 7
-const autoCountdown = ref(AUTO_COMPLETE_SECONDS)
+const AUTO_COMPLETE_MS = 7_000
 let autoCompleteTimer: ReturnType<typeof setTimeout> | undefined
-let autoCountdownInterval: ReturnType<typeof setInterval> | undefined
 
 const PAYMENT_PROCESSING_MS = 1_500
 let countdownTimer: ReturnType<typeof setInterval> | undefined
 
-function clearAutoTimers() {
+function clearAutoTimer() {
   if (autoCompleteTimer) {
     clearTimeout(autoCompleteTimer)
     autoCompleteTimer = undefined
-  }
-  if (autoCountdownInterval) {
-    clearInterval(autoCountdownInterval)
-    autoCountdownInterval = undefined
   }
 }
 
 function startAutoDirect() {
   if (!isPending.value || !order.value) return
-  clearAutoTimers()
-  autoCountdown.value = AUTO_COMPLETE_SECONDS
-  autoCountdownInterval = setInterval(() => {
-    autoCountdown.value = Math.max(0, autoCountdown.value - 1)
-  }, 1000)
-
+  clearAutoTimer()
   autoCompleteTimer = setTimeout(() => {
-    clearAutoTimers()
+    clearAutoTimer()
     void completePayment()
-  }, AUTO_COMPLETE_SECONDS * 1000)
+  }, AUTO_COMPLETE_MS)
 }
 
 const transfer = computed(() => {
@@ -132,7 +121,7 @@ async function copyText(text: string, field: string) {
 
 async function completePayment() {
   if (!order.value || completing.value || processingPayment.value || !isPending.value) return
-  clearAutoTimers()
+  clearAutoTimer()
   processingPayment.value = true
   processingCountdown.value = Math.ceil(PAYMENT_PROCESSING_MS / 1000)
   countdownTimer = setInterval(() => {
@@ -232,7 +221,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  clearAutoTimers()
+  clearAutoTimer()
   if (countdownTimer) {
     clearInterval(countdownTimer)
     countdownTimer = undefined
@@ -253,9 +242,7 @@ onUnmounted(() => {
         <div v-if="processingPayment" class="momo-pay__processing" role="status" aria-live="polite">
           <LoadingSpinner label="Đang xác nhận thanh toán…" />
           <p class="elegant-muted">
-            Hệ thống đang đối soát giao dịch MoMo
-            <template v-if="processingCountdown"> ({{ processingCountdown }}s)</template>
-            …
+            Hệ thống đang đối soát giao dịch MoMo…
           </p>
         </div>
         <template v-else-if="transfer">
@@ -349,7 +336,7 @@ onUnmounted(() => {
           <p class="elegant-muted momo-pay__hint">
             Đơn #{{ order.id }} · Tổng {{ formatVnd(order.total) }}
             <template v-if="isPending">
-              · Tự động hoàn tất thanh toán sau <strong>{{ autoCountdown }}s</strong>.
+              · Chụp màn hình mã QR hoặc chuyển đúng cú pháp để shop đối soát nhanh.
             </template>
           </p>
         </template>
