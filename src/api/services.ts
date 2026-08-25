@@ -2221,6 +2221,8 @@ export const chatApi = {
       attachments?: import('@/types').ChatProductRef[]
       /** History already includes optimistic user bubble (last message = user). */
       optimisticHistory?: ChatMessage[]
+      /** Local facts/cards first — hide typing while Gemini still runs. */
+      onDraft?: (messages: ChatMessage[]) => void
     },
   ): Promise<ChatMessage[]> {
     const session = ensureActiveSession(userId, role)
@@ -2292,6 +2294,27 @@ export const chatApi = {
       ctx,
       userMsg.attachments ?? attachments,
       priorConversation,
+      opts?.onDraft
+        ? (draft) => {
+            const assistantDraft: ChatMessage = {
+              id: `c-${Date.now() + 1}`,
+              role: 'assistant',
+              content: draft.content,
+              timestamp: new Date().toISOString(),
+              products: draft.products,
+              sellers: draft.sellers,
+              reviewSummary: draft.reviewSummary,
+              meta: {
+                source: draft.source,
+                intent: draft.telemetry.intent ?? undefined,
+                suggestedActions: draft.suggestedActions?.length
+                  ? draft.suggestedActions
+                  : undefined,
+              },
+            }
+            opts.onDraft?.([...priorHistory, userMsg, assistantDraft])
+          }
+        : undefined,
     )
 
     try {

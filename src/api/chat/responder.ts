@@ -279,6 +279,7 @@ export async function resolveChatReply(
   ctx: ChatContext,
   attachments?: ChatProductRef[],
   priorConversation?: ConversationContext,
+  onDraft?: (reply: ChatReply) => void,
 ): Promise<ChatReply> {
   const started = performance.now()
   let localLatencyMs = 0
@@ -457,6 +458,7 @@ export async function resolveChatReply(
   }
 
   if (isLlmConfigured()) {
+    onDraft?.(replyPayload('local', localContent))
     try {
       const llmStarted = performance.now()
       const route = routeFromIntent(intent)

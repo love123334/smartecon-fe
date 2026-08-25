@@ -99,6 +99,10 @@ async function onSend(text: string) {
     messages.value = await chatApi.send(chatUserId.value, text, effectiveRole.value, {
       userName: auth.user?.fullName,
       sellerBackendId: auth.user?.backendId,
+      onDraft: (next) => {
+        messages.value = next
+        loading.value = false
+      },
     })
   } catch (e) {
     lastFailedText.value = text
