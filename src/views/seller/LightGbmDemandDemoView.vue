@@ -20,9 +20,7 @@ const historyDays = ref(30)
 const forecastDays = ref(7)
 const loadingProducts = ref(false)
 const running = ref(false)
-const saving = ref(false)
 const error = ref('')
-const savedMessage = ref('')
 const result = ref<DemandForecastApi | null>(null)
 
 const historyOptions = [7, 14, 30, 60, 180]
@@ -30,7 +28,7 @@ const forecastOptions = [7, 14, 30]
 const selectedProduct = computed(() => products.value.find((p) => p.id === productId.value))
 const features = computed(() => result.value?.featureSnapshot)
 const modelState = computed(() => ({
-  label: 'Mô hình LightGBM real time cải tiến',
+  label: 'Mô hình LightGBM',
   tone: 'success',
 }))
 const trendLabel = computed(() => {
@@ -39,6 +37,24 @@ const trendLabel = computed(() => {
   if (slope <= -0.02) return 'Đang giảm'
   return 'Tương đối ổn định'
 })
+const daysWithSales = computed(() => {
+  const fromApi = Number(features.value?.positiveDays)
+  if (Number.isFinite(fromApi) && fromApi >= 0) return fromApi
+  return historicalSeries.value.filter((p) => p.qty > 0).length
+})
+const avgDailyForecast = computed(() => {
+  const fromApi = Number(features.value?.forecastAverageDailyDemand)
+  if (Number.isFinite(fromApi)) return fromApi
+  const total = Number(result.value?.predictedDemand)
+  const days = Number(result.value?.forecastDays || forecastDays.value)
+  if (!Number.isFinite(total) || !days) return 0
+  return total / days
+})
+const historyWindowLabel = computed(() => `${result.value?.historicalDays ?? historyDays.value} ngày`)
+const forecastWindowLabel = computed(() => `${result.value?.forecastDays ?? forecastDays.value} ngày`)
+const recommendationProductName = computed(
+  () => result.value?.productName || selectedProduct.value?.name || 'sản phẩm đã chọn',
+)
 const historicalSeries = computed(() =>
   (result.value?.historicalSales ?? [])
     .filter((p) => (p.date || p.day != null) && Number.isFinite(Number(p.qty)))
@@ -86,7 +102,6 @@ async function runForecast() {
   if (!productId.value || running.value) return
   running.value = true
   error.value = ''
-  savedMessage.value = ''
   clearApiCache('/dss')
   try {
     result.value = await dssApi.forecastDemand({
@@ -99,25 +114,6 @@ async function runForecast() {
     error.value = mapDemandPredictionError(e)
   } finally {
     running.value = false
-  }
-}
-
-async function saveForecast() {
-  if (!productId.value || !result.value || saving.value) return
-  saving.value = true
-  error.value = ''
-  savedMessage.value = ''
-  try {
-    await dssApi.createDemandPrediction({
-      productId: Number(productId.value),
-      historicalDays: historyDays.value,
-      forecastPeriod: forecastDays.value,
-    })
-    savedMessage.value = 'Đã lưu kết quả dự báo thành công.'
-  } catch (e) {
-    error.value = mapDemandPredictionError(e)
-  } finally {
-    saving.value = false
   }
 }
 </script>
@@ -143,7 +139,7 @@ async function saveForecast() {
 
     <section v-else class="dss-card config-card">
       <div class="section-head">
-        <div><h2 class="dss-card__title">Cấu hình lần chạy</h2><p>Chạy để xem trước; lưu kết quả khi bạn hài lòng với dự báo.</p></div>
+        <div><h2 class="dss-card__title">Cấu hình lần chạy</h2><p>Chọn sản phẩm và kỳ hạn, rồi chạy để xem dự báo.</p></div>
         <span :class="['model-state', `model-state--${modelState.tone}`]">{{ modelState.label }}</span>
       </div>
 
@@ -172,7 +168,6 @@ async function saveForecast() {
     />
 
     <div v-if="error" class="dss-alert dss-alert--warn" role="alert">{{ error }}</div>
-    <div v-if="savedMessage" class="dss-alert dss-alert--success" role="status">{{ savedMessage }}</div>
 
     <template v-if="result && !running">
       <section class="metric-grid">
@@ -187,23 +182,17 @@ async function saveForecast() {
         <LightGbmForecastChart :historical="historicalSeries" :forecast="forecastSeries" />
       </section>
 
-      <section class="detail-grid">
-        <article class="dss-card">
-          <h2 class="dss-card__title">Chỉ số đầu vào đã dùng</h2>
-          <dl class="feature-list">
-            <div><dt>Nhu cầu gần đây</dt><dd>{{ formatViNumber(features?.recentAverageDailyDemand) }}</dd></div>
-            <div><dt>Nhu cầu trung hạn</dt><dd>{{ formatViNumber(features?.mediumAverageDailyDemand) }}</dd></div>
-            <div><dt>Đà nhu cầu</dt><dd>{{ formatViNumber(features?.momentum) }}</dd></div>
-            <div><dt>Cách đây 7 ngày</dt><dd>{{ formatViNumber(features?.lag7) }}</dd></div>
-            <div><dt>Tín hiệu mùa vụ tuần</dt><dd>{{ formatViNumber(features?.seasonalSignal) }}</dd></div>
-            <div><dt>Tồn kho hiện tại</dt><dd>{{ formatViNumber(features?.currentStock) }}</dd></div>
-          </dl>
-        </article>
-        <article class="dss-card action-card">
-          <h2 class="dss-card__title">Xác nhận kết quả</h2>
-          <p>Biểu đồ trên là kết quả xem trước. Nếu hợp lý, lưu lần dự báo này để hệ thống ghi nhận.</p>
-          <button class="dss-btn dss-btn--outline" :disabled="saving" @click="saveForecast">{{ saving ? 'Đang lưu…' : 'Lưu kết quả dự báo' }}</button>
-        </article>
+      <section class="dss-card recommend-card" aria-labelledby="system-recommend-title">
+        <h2 id="system-recommend-title" class="dss-card__title">Khuyến nghị từ hệ thống</h2>
+        <p>
+          Khuyến nghị cho sản phẩm <strong>{{ recommendationProductName }}</strong>:
+          Dữ liệu ghi nhận <strong>{{ formatViNumber(daysWithSales) }}</strong> ngày có bán hàng trong
+          <strong>{{ historyWindowLabel }}</strong>.
+          Dự báo <strong>{{ forecastWindowLabel }}</strong> đạt
+          <strong>{{ formatViNumber(result.predictedDemand) }}</strong> sản phẩm
+          (~<strong>{{ formatViNumber(avgDailyForecast) }}</strong> sản phẩm/ngày).
+        </p>
+        <p>Dự báo sản phẩm có xu hướng <strong>{{ trendLabel.toLowerCase() }}</strong>.</p>
       </section>
     </template>
   </div>
@@ -214,7 +203,7 @@ async function saveForecast() {
 .demo-header,.section-head { display:flex; align-items:center; justify-content:space-between; gap:1rem; }
 .section-head { align-items:flex-start; margin-bottom:1rem; }
 .section-head h2 { margin-bottom:.25rem; }
-.section-head p,.action-card p { margin:0; color:#64748b; font-size:.88rem; line-height:1.55; }
+.section-head p { margin:0; color:#64748b; font-size:.88rem; line-height:1.55; }
 .model-state { padding:.38rem .65rem; border-radius:999px; font-size:.78rem; font-weight:800; white-space:nowrap; }
 .model-state--idle,.model-state--muted { background:#f1f5f9; color:#475569; }
 .model-state--success { background:#dcfce7; color:#166534; }
@@ -224,11 +213,10 @@ async function saveForecast() {
 .metric-grid strong { display:block; margin:.35rem 0; color:#0f3d78; font-size:1.35rem; }
 .chart-card { padding-bottom:1rem; }
 .data-warning { color:#b45309; background:#fef3c7; padding:.35rem .6rem; border-radius:999px; font-size:.8rem; font-weight:700; }
-.detail-grid { display:grid; grid-template-columns:1.5fr 1fr; gap:1rem; }
-.feature-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.65rem; margin:0; }
-.feature-list div { display:flex; justify-content:space-between; gap:1rem; padding:.65rem .75rem; background:#f8fafc; border-radius:8px; }
-.feature-list dt { color:#64748b; }.feature-list dd { margin:0; font-weight:750; color:#0f172a; }
-.action-card { display:flex; flex-direction:column; align-items:flex-start; }.action-card .dss-btn { margin-top:auto; }
-@media (max-width:800px) { .demo-header,.section-head { align-items:flex-start; flex-direction:column; }.metric-grid { grid-template-columns:repeat(2,1fr); }.detail-grid { grid-template-columns:1fr; } }
-@media (max-width:520px) { .metric-grid,.feature-list { grid-template-columns:1fr; } }
+.recommend-card { margin-top:1rem; }
+.recommend-card p { margin:0 0 .75rem; color:#334155; font-size:.95rem; line-height:1.65; }
+.recommend-card p:last-child { margin-bottom:0; }
+.recommend-card strong { color:#0f3d78; }
+@media (max-width:800px) { .demo-header,.section-head { align-items:flex-start; flex-direction:column; }.metric-grid { grid-template-columns:repeat(2,1fr); } }
+@media (max-width:520px) { .metric-grid { grid-template-columns:1fr; } }
 </style>
