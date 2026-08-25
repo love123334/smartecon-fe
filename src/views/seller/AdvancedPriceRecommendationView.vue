@@ -12,6 +12,7 @@ import {
 import { listProducts } from '@/api/real/products'
 import { useAuthStore } from '@/stores/auth'
 import DssThinkingLoader from '@/components/dss/DssThinkingLoader.vue'
+import ViDateInput from '@/components/dss/ViDateInput.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import {
   ADVANCED_PRICE_CHANGE_MAX,
@@ -337,13 +338,11 @@ function scenarioClass(change: number): string {
 
           <label class="dss-field">
             <span>Từ ngày</span>
-            <input
+            <ViDateInput
               v-model="fromDate"
-              type="date"
-              class="dss-input"
               :max="toDate || maxToDate"
               :disabled="fixedInputsLocked"
-              :aria-invalid="Boolean(fieldErrors.fromDate)"
+              :invalid="Boolean(fieldErrors.fromDate)"
               required
             />
             <small v-if="fieldErrors.fromDate" class="advanced-error">{{ fieldErrors.fromDate }}</small>
@@ -351,14 +350,12 @@ function scenarioClass(change: number): string {
 
           <label class="dss-field">
             <span>Đến ngày</span>
-            <input
+            <ViDateInput
               v-model="toDate"
-              type="date"
-              class="dss-input"
               :min="fromDate || undefined"
               :max="maxToDate"
               :disabled="fixedInputsLocked"
-              :aria-invalid="Boolean(fieldErrors.toDate)"
+              :invalid="Boolean(fieldErrors.toDate)"
               required
             />
             <small v-if="fieldErrors.toDate" class="advanced-error">{{ fieldErrors.toDate }}</small>

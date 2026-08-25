@@ -6,6 +6,7 @@ import type { PricePredictionApi } from '@/api/real/dss'
 import { useAuthStore } from '@/stores/auth'
 import { loadSellerCatalogForDss } from '@/utils/sellerCatalog'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
+import ViDateInput from '@/components/dss/ViDateInput.vue'
 import {
   defaultPriceRange,
   formatElasticity,
@@ -265,15 +266,13 @@ async function onCustomPriceSubmit() {
 
           <label class="dss-field">
             <span id="from-label">Từ ngày</span>
-            <input
+            <ViDateInput
               v-model="fromDate"
-              type="date"
-              class="dss-input"
               :max="toDate || maxToDate"
               :disabled="submitting"
-              aria-labelledby="from-label"
-              aria-describedby="from-help from-error"
-              :aria-invalid="Boolean(fieldErrors.fromDate)"
+              labelled-by="from-label"
+              described-by="from-help from-error"
+              :invalid="Boolean(fieldErrors.fromDate)"
               required
             />
             <small id="from-help" class="dss-hint">Ngày bắt đầu khoảng lịch sử giá / bán hàng.</small>
@@ -284,16 +283,14 @@ async function onCustomPriceSubmit() {
 
           <label class="dss-field">
             <span id="to-label">Đến ngày</span>
-            <input
+            <ViDateInput
               v-model="toDate"
-              type="date"
-              class="dss-input"
               :min="fromDate || undefined"
               :max="maxToDate"
               :disabled="submitting"
-              aria-labelledby="to-label"
-              aria-describedby="to-help to-error"
-              :aria-invalid="Boolean(fieldErrors.toDate)"
+              labelled-by="to-label"
+              described-by="to-help to-error"
+              :invalid="Boolean(fieldErrors.toDate)"
               required
             />
             <small id="to-help" class="dss-hint">Không được chọn ngày trong tương lai.</small>

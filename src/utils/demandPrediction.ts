@@ -90,15 +90,18 @@ export function formatViDateTime(value: string | null | undefined): string {
   }).format(date)
 }
 
+/** ISO date (YYYY-MM-DD) → dd/MM/yyyy (padded, khớp trục biểu đồ DSS). */
+export function formatIsoDateVi(value: string | null | undefined): string {
+  if (value == null || String(value).trim() === '') return ''
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value).trim())
+  if (!match) return ''
+  return `${match[3]}/${match[2]}/${match[1]}`
+}
+
 /** ISO date (YYYY-MM-DD) → dd/MM/yyyy */
 export function formatViDate(value: string | null | undefined): string {
-  if (value == null || String(value).trim() === '') return '—'
-  const iso = String(value).trim().slice(0, 10)
-  const [y, m, d] = iso.split('-').map(Number)
-  if (!y || !m || !d) return '—'
-  const date = new Date(y, m - 1, d)
-  if (Number.isNaN(date.getTime())) return '—'
-  return new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short' }).format(date)
+  const padded = formatIsoDateVi(value)
+  return padded || '—'
 }
 
 export function mapDemandPredictionError(error: unknown): string {

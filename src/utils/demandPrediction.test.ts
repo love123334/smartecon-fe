@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { ApiError } from '@/api/http/client'
 import {
+  formatIsoDateVi,
+  formatViDate,
   formatViDateTime,
   formatViNumber,
   mapDemandPredictionError,
@@ -63,6 +65,15 @@ describe('demand prediction response formatting', () => {
     expect(formatViDateTime(undefined)).toBe('—')
     expect(formatViDateTime('not-a-date')).toBe('—')
     expect(formatViDateTime('2026-07-26T10:25:00')).not.toBe('—')
+  })
+
+  it('formats ISO dates as dd/MM/yyyy to match DSS charts', () => {
+    expect(formatIsoDateVi('2026-07-27')).toBe('27/07/2026')
+    expect(formatIsoDateVi('2026-08-25')).toBe('25/08/2026')
+    expect(formatIsoDateVi('2026-07-27T00:00:00')).toBe('27/07/2026')
+    expect(formatIsoDateVi('')).toBe('')
+    expect(formatViDate(null)).toBe('—')
+    expect(formatViDate('not-a-date')).toBe('—')
   })
 })
 
