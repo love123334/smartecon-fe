@@ -29,42 +29,10 @@ const historyOptions = [7, 14, 30, 60, 180]
 const forecastOptions = [7, 14, 30]
 const selectedProduct = computed(() => products.value.find((p) => p.id === productId.value))
 const features = computed(() => result.value?.featureSnapshot)
-const ML_METHODS = new Set(['lightgbm_onnx', 'lightgbm_onnx_with_baseline_fallback'])
-const onnxUsed = computed(
-  () =>
-    Boolean(features.value?.onnxModelUsed) ||
-    (result.value?.method != null && (ML_METHODS.has(result.value.method) || result.value.method.includes('onnx'))),
-)
-const modelAvailable = computed(() => Boolean(features.value?.onnxModelAvailable))
-const analysisCompleted = computed(
-  () => Boolean(result.value && !running.value && result.value.predictedDemand >= 0),
-)
-const panelTitle = computed(() => {
-  if (onnxUsed.value) return 'MÔ HÌNH HYBRID REALTIME'
-  if (analysisCompleted.value) return 'DỰ BÁO REALTIME SẴN SÀNG'
-  return 'ĐANG CHẠY DỰ BÁO'
-})
-const modelState = computed(() => {
-  if (!result.value) {
-    return {
-      label: 'Chưa chạy',
-      tone: 'idle',
-      detail: 'Chọn sản phẩm và bấm Chạy dự báo.',
-    }
-  }
-  if (result.value.method === 'lightgbm_onnx' || result.value.method?.includes('onnx')) {
-    return {
-      label: 'Mô hình Hybrid: LightGBM + Real-time Holt-Winters',
-      tone: 'success',
-      detail: 'Kết hợp trọng số mốc ML LightGBM ONNX (40%) với động cơ thống kê thích ứng theo từng đơn hàng mới (60%).',
-    }
-  }
-  return {
-    label: 'Động cơ Dự báo Real-time (Holt-Winters & Dynamic Trend)',
-    tone: 'success',
-    detail: 'Hệ thống tự động tính toán lại đường xu hướng & mùa vụ ngay khi có đơn hàng mới phát sinh trong cơ sở dữ liệu.',
-  }
-})
+const modelState = computed(() => ({
+  label: 'Mô hình LightGBM real time cải tiến',
+  tone: 'success',
+}))
 const trendLabel = computed(() => {
   const slope = Number(features.value?.trendSlope ?? 0)
   if (slope >= 0.02) return 'Đang tăng'
@@ -207,18 +175,6 @@ async function saveForecast() {
     <div v-if="savedMessage" class="dss-alert dss-alert--success" role="status">{{ savedMessage }}</div>
 
     <template v-if="result && !running">
-      <section :class="['model-panel', `model-panel--${modelState.tone}`]">
-        <div>
-          <small>{{ panelTitle }}</small>
-          <strong>{{ modelState.label }}</strong>
-          <p>{{ modelState.detail }}</p>
-        </div>
-        <div class="model-flags">
-          <span>Mô hình sẵn sàng <b :class="{ 'flag-ok': modelAvailable }">{{ modelAvailable ? 'Có' : 'Không' }}</b></span>
-          <span>Đã dùng ML <b :class="{ 'flag-ok': onnxUsed }">{{ onnxUsed ? 'Có' : 'Không' }}</b></span>
-        </div>
-      </section>
-
       <section class="metric-grid">
         <article><span>Tổng dự báo</span><strong>{{ formatViNumber(result.predictedDemand) }}</strong><small>đơn vị / {{ result.forecastDays }} ngày</small></article>
         <article><span>TB dự báo/ngày</span><strong>{{ formatViNumber(features?.forecastAverageDailyDemand ?? result.predictedDemand / result.forecastDays) }}</strong><small>đơn vị</small></article>
@@ -255,26 +211,13 @@ async function saveForecast() {
 
 <style scoped>
 .lgbm-demo { max-width: 1180px; }
-.demo-header,.section-head,.model-panel,.model-flags { display:flex; align-items:center; justify-content:space-between; gap:1rem; }
+.demo-header,.section-head { display:flex; align-items:center; justify-content:space-between; gap:1rem; }
 .section-head { align-items:flex-start; margin-bottom:1rem; }
 .section-head h2 { margin-bottom:.25rem; }
 .section-head p,.action-card p { margin:0; color:#64748b; font-size:.88rem; line-height:1.55; }
 .model-state { padding:.38rem .65rem; border-radius:999px; font-size:.78rem; font-weight:800; white-space:nowrap; }
 .model-state--idle,.model-state--muted { background:#f1f5f9; color:#475569; }
 .model-state--success { background:#dcfce7; color:#166534; }
-.model-state--warn { background:#ffedd5; color:#9a3412; }
-.model-panel { padding:1.1rem 1.25rem; margin-bottom:1rem; border:1px solid #cbd5e1; border-left:5px solid #64748b; border-radius:12px; background:#fff; }
-.model-panel--success { border-left-color:#16a34a; background:#f7fff9; }
-.model-panel--error { border-left-color:#dc2626; background:#fef2f2; }
-.model-panel--warn { border-left-color:#f97316; background:#fffaf5; }
-.flag-ok { color:#166534 !important; }
-.model-state--error { background:#fee2e2; color:#991b1b; }
-.model-panel small { display:block; color:#64748b; font-weight:700; letter-spacing:.07em; }
-.model-panel strong { display:block; margin:.2rem 0; color:#0f172a; font-size:1.2rem; }
-.model-panel p { margin:0; color:#475569; }
-.model-flags { justify-content:flex-end; flex-wrap:wrap; }
-.model-flags span { padding:.55rem .7rem; border-radius:8px; background:#fff; border:1px solid #e2e8f0; font-size:.8rem; color:#64748b; }
-.model-flags b { display:block; color:#0f172a; font-size:.95rem; margin-top:.1rem; }
 .metric-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.8rem; margin-bottom:1rem; }
 .metric-grid article { padding:1rem; border-radius:12px; border:1px solid #e2e8f0; background:#fff; box-shadow:var(--dss-shadow); }
 .metric-grid span,.metric-grid small { display:block; color:#64748b; font-size:.78rem; }
@@ -286,6 +229,6 @@ async function saveForecast() {
 .feature-list div { display:flex; justify-content:space-between; gap:1rem; padding:.65rem .75rem; background:#f8fafc; border-radius:8px; }
 .feature-list dt { color:#64748b; }.feature-list dd { margin:0; font-weight:750; color:#0f172a; }
 .action-card { display:flex; flex-direction:column; align-items:flex-start; }.action-card .dss-btn { margin-top:auto; }
-@media (max-width:800px) { .demo-header,.model-panel { align-items:flex-start; flex-direction:column; }.metric-grid { grid-template-columns:repeat(2,1fr); }.detail-grid { grid-template-columns:1fr; } }
+@media (max-width:800px) { .demo-header,.section-head { align-items:flex-start; flex-direction:column; }.metric-grid { grid-template-columns:repeat(2,1fr); }.detail-grid { grid-template-columns:1fr; } }
 @media (max-width:520px) { .metric-grid,.feature-list { grid-template-columns:1fr; } }
 </style>

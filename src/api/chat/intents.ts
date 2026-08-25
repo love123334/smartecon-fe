@@ -563,10 +563,10 @@ const SELLER: IntentRule[] = [
   {
     intent: 'seller_dss_explain',
     keywords: [
-      'dss la gi', 'dss giup', 'dss cua sedsp', 'he thong ho tro quyet dinh',
-      'decision support', 'dss hoat dong',
+      'dss la gi', 'dss giup', 'dss cua sedsp', 'dss cua shop', 'dss shop',
+      'he thong ho tro quyet dinh', 'decision support', 'dss hoat dong',
     ],
-    phrases: ['dss la gi', 'dss giup gi'],
+    phrases: ['dss la gi', 'dss giup gi', 'dss cua shop'],
     roles: ['seller'],
     priority: 9,
   },
@@ -753,7 +753,7 @@ function refineIntent(
     if (/mo phong giam|what\s*if|diem hoa von|break.?even/.test(normalized)) {
       return 'seller_whatif'
     }
-    if (/dss la gi|dss giup|dss cua sedsp|decision support/.test(normalized)) {
+    if (/dss la gi|dss giup|dss cua sedsp|dss cua shop|dss shop|decision support|\bdss\b/.test(normalized)) {
       return 'seller_dss_explain'
     }
     if (/loi nhuan|profit|margin|gia von|von bao nhieu|kiem duoc bao nhieu/.test(normalized)) {

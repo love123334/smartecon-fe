@@ -619,7 +619,7 @@ function sellerRatingReply(ctx: ChatContext): string {
     if (dash.ratingWarning) msg += `\n⚠ ${dash.ratingWarning}`
     return msg + `\n\nTrả lời review <24h · **Quản lý SP** · **Bảng doanh số**.`
   }
-  const catalog = ctx.sellerProducts.length ? ctx.sellerProducts : ctx.products
+  const catalog = ctx.sellerProducts
   const avgSold = catalog.length
     ? catalog.reduce((s, p) => s + p.soldCount, 0) / catalog.length
     : 0
@@ -748,7 +748,7 @@ function buildCustomerIntent(ctx: ChatContext, intent: ChatIntent, raw: string):
 
 function buildSellerIntent(ctx: ChatContext, intent: ChatIntent, raw: string): string | null {
   const name = greet(ctx.userName ?? '')
-  const catalog = ctx.sellerProducts.length ? ctx.sellerProducts : ctx.products
+  const catalog = ctx.sellerProducts
   const prior = ctx.enrichment?.sellerAnalyticsPrior
 
   const analyticsReply = buildSellerAnalyticsReply(ctx, intent, raw, prior)

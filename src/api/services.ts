@@ -2297,7 +2297,7 @@ export const chatApi = {
       opts?.onDraft
         ? (draft) => {
             const assistantDraft: ChatMessage = {
-              id: `c-${Date.now() + 1}`,
+              id: `${userMsg.id}-bot`,
               role: 'assistant',
               content: draft.content,
               timestamp: new Date().toISOString(),
@@ -2339,7 +2339,7 @@ export const chatApi = {
     // Instant delivery for maximum responsiveness
 
     const assistantMsg: ChatMessage = {
-      id: `c-${Date.now() + 1}`,
+      id: `${userMsg.id}-bot`,
       role: 'assistant',
       content: reply,
       timestamp: new Date().toISOString(),

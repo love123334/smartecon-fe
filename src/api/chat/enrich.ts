@@ -236,8 +236,7 @@ export async function enrichChatContext(
     )
   }
 
-  const catalog =
-    ctx.role === 'seller' && ctx.sellerProducts.length ? ctx.sellerProducts : ctx.products
+  const catalog = ctx.role === 'seller' ? ctx.sellerProducts : ctx.products
   const normalized = normalizeText(raw)
   const matched = findProductsByQuery(catalog, raw)
 

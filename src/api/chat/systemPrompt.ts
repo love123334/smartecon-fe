@@ -11,7 +11,7 @@ const ROLE_GUIDE: Record<string, string> = {
   guest:
     'Tư vấn khách chưa đăng nhập: giới thiệu SP/danh mục, giá, shop, chính sách, đăng ký/đăng nhập. Nhắc đăng nhập khi hỏi đơn/giỏ cá nhân.',
   seller:
-    'Bạn là Cố vấn Kinh doanh & DSS thông minh dành cho Người bán (Seller) trên sàn SEDSP. Trả lời bằng tiếng Việt tự nhiên, sinh động, dễ hiểu và có chiều sâu cố vấn: giải thích các chỉ số thống kê (doanh thu thực tế, số đơn hoàn tất, AOV), điểm mạnh sản phẩm, cảnh báo tồn kho ROP, và các gợi ý DSS thiết thực (dự báo nhu cầu, chiến lược giá, What-If). Tuyệt đối không trả lời khô khan hay cụt lủn.',
+    'Bạn là Cố vấn Kinh doanh & DSS cho **shop đang đăng nhập**. Chỉ dùng số liệu shop này — cấm GMV/KPI toàn sàn hay shop khác. Hỏi tháng nào thì trả tháng đó, không lấy tháng có dữ liệu gần nhất thế chỗ.',
   manager:
     'Hỗ trợ quản lý: KPI đơn, doanh thu sàn, đơn chờ, insights DSS vận hành toàn nền tảng.',
   admin: 'Hỗ trợ admin: users, trạng thái hệ thống, RBAC, cảnh báo, cấu hình.',
@@ -90,11 +90,17 @@ function serializeContext(ctx: ChatContext, intent?: ChatIntent | null): string 
     if (ctx.cartItemCount) {
       lines.push(`Giỏ: ${ctx.cartItemCount} món, ${formatVnd(ctx.cartTotal)}`)
     }
-    lines.push(`Catalog: ${ctx.products.length} SP trên sàn`)
+    if (ctx.role === 'seller') {
+      lines.push(`Shop này: ${ctx.sellerProducts.length} SP (không dùng catalog toàn sàn)`)
+    } else {
+      lines.push(`Catalog: ${ctx.products.length} SP trên sàn`)
+    }
     return lines.join('\n')
   }
 
-  if (includeShopping && ctx.categories.length) {
+  const sellerOpsOnly = ctx.role === 'seller' && includeSellerOps
+
+  if (includeShopping && ctx.categories.length && !sellerOpsOnly) {
     lines.push(`Danh mục (${ctx.categories.length}):`)
     for (const c of ctx.categories.slice(0, 10)) {
       lines.push(`- ${c.name}: ${c.productCount} SP`)
@@ -137,8 +143,19 @@ function serializeContext(ctx: ChatContext, intent?: ChatIntent | null): string 
     }
   }
 
-  const catalog = ctx.sellerProducts.length ? ctx.sellerProducts : ctx.products
-  if (includeShopping && catalog.length) {
+  const catalog = sellerOpsOnly
+    ? ctx.sellerProducts
+    : ctx.role === 'seller' && ctx.sellerProducts.length && !includeShopping
+      ? ctx.sellerProducts
+      : ctx.products
+  if (sellerOpsOnly && ctx.sellerProducts.length) {
+    lines.push(`SP SHOP NÀY (${ctx.sellerProducts.length}) — cấm lấy SP/GMV toàn sàn:`)
+    for (const p of ctx.sellerProducts.slice(0, 12)) {
+      lines.push(
+        `- ${p.name} | ${p.category} | ${formatVnd(p.price)} | tồn ${p.stock}`,
+      )
+    }
+  } else if (includeShopping && catalog.length && !sellerOpsOnly) {
     lines.push(`Sản phẩm + seller (${catalog.length}):`)
     for (const p of catalog.slice(0, 12)) {
       lines.push(
@@ -150,10 +167,14 @@ function serializeContext(ctx: ChatContext, intent?: ChatIntent | null): string 
   if (includeSellerOps && ctx.salesPerformance) {
     const s = ctx.salesPerformance.summary
     lines.push(
-      `Doanh số seller: ${formatVnd(s.totalRevenue)}, ${s.completedOrders} đơn, AOV ${formatVnd(s.averageOrderValue)}`,
+      `Doanh số SHOP NÀY (không phải GMV sàn): ${formatVnd(s.totalRevenue)}, ${s.completedOrders} đơn, AOV ${formatVnd(s.averageOrderValue)}`,
     )
+    lines.push('Doanh thu shop theo tháng:')
+    for (const m of ctx.salesPerformance.monthlyRevenue.slice(-12)) {
+      lines.push(`- ${m.label}: ${formatVnd(m.value)}`)
+    }
     for (const tp of ctx.salesPerformance.topProducts.slice(0, 4)) {
-      lines.push(`- Top: ${tp.productName} (${tp.quantitySold} sp, ${formatVnd(tp.revenue)})`)
+      lines.push(`- Top shop: ${tp.productName} (${tp.quantitySold} sp, ${formatVnd(tp.revenue)})`)
     }
   }
 

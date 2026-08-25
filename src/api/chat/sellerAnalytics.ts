@@ -18,6 +18,7 @@ export type SellerPeriodType =
   | 'last_30_days'
   | 'all'
   | 'compare_month'
+  | 'calendar_month'
 
 export type SellerMetricFocus =
   | 'revenue'
@@ -38,12 +39,16 @@ export interface SellerAnalyticsSpec {
   detailLevel: SellerDetailLevel
   comparePrevious: boolean
   productQuery?: string
+  /** Explicit calendar month from "tháng 8", "tháng tám", "8/2026". */
+  calendarMonth?: { year: number; month: number }
 }
 
 export interface RevenueSlice {
   label: string
   revenue: number
   orders?: number
+  /** True when the asked calendar month is not in monthlyRevenue. */
+  missing?: boolean
 }
 
 export interface RevenueComparison {
@@ -105,11 +110,98 @@ export function defaultSellerAnalyticsSpec(): SellerAnalyticsSpec {
   }
 }
 
+const VI_NAMED_MONTHS: Array<[RegExp, number]> = [
+  [/tháng\s*mười\s*một\b/i, 11],
+  [/tháng\s*mười\s*hai\b/i, 12],
+  [/tháng\s*mười\b/i, 10],
+  [/tháng\s*một\b|tháng\s*giêng/i, 1],
+  [/tháng\s*hai\b/i, 2],
+  [/tháng\s*ba\b/i, 3],
+  [/tháng\s*tư\b|tháng\s*bốn\b/i, 4],
+  [/tháng\s*năm\b/i, 5],
+  [/tháng\s*sáu\b/i, 6],
+  [/tháng\s*bảy\b/i, 7],
+  [/tháng\s*tám\b/i, 8],
+  [/tháng\s*chín\b/i, 9],
+]
+
+/** Parse "tháng 8", "tháng tám", "8/2026" — not "tháng này/trước". */
+export function parseExplicitCalendarMonth(
+  raw: string,
+  now = new Date(),
+): { year: number; month: number } | null {
+  const n = normalizeText(raw)
+  if (/thang nay|this month|thang truoc|last month|thang vua roi/.test(n) && !/thang\s*(1[0-2]|0?[1-9])(?!\d)/.test(n)) {
+    return null
+  }
+
+  let month: number | null = null
+  for (const [re, m] of VI_NAMED_MONTHS) {
+    if (re.test(raw)) {
+      month = m
+      break
+    }
+  }
+
+  const yearFromText = raw.match(/(20\d{2})/) ?? n.match(/(20\d{2})/)
+  let year = yearFromText ? Number(yearFromText[1]) : now.getFullYear()
+
+  if (month == null) {
+    const slash = n.match(/\b(1[0-2]|0?[1-9])\s*[\/\-]\s*(20\d{2})\b/)
+    if (slash) {
+      return { month: Number(slash[1]), year: Number(slash[2]) }
+    }
+    const iso = n.match(/\b(20\d{2})\s*[\/\-]\s*(1[0-2]|0?[1-9])\b/)
+    if (iso) {
+      return { year: Number(iso[1]), month: Number(iso[2]) }
+    }
+    const numbered = n.match(/thang\s*(1[0-2]|0?[1-9])(?!\d)/)
+    if (numbered) {
+      month = Number(numbered[1])
+    }
+  }
+
+  if (month == null || month < 1 || month > 12) return null
+  return { year, month }
+}
+
+export function formatViCalendarMonth(year: number, month: number): string {
+  return `tháng ${month}/${year}`
+}
+
+export function parseMonthLabel(label: string): { year: number; month: number } | null {
+  const s = String(label).trim()
+  let m = s.match(/^(20\d{2})-(\d{1,2})$/)
+  if (m) return { year: Number(m[1]), month: Number(m[2]) }
+  m = s.match(/(\d{1,2})\s*[\/\-]\s*(20\d{2})/)
+  if (m) return { year: Number(m[2]), month: Number(m[1]) }
+  m = s.match(/(20\d{2})\s*[\/\-]\s*(\d{1,2})/)
+  if (m) return { year: Number(m[1]), month: Number(m[2]) }
+  return null
+}
+
+export function findMonthlyPoint(
+  perf: SalesPerformance,
+  year: number,
+  month: number,
+): { label: string; value: number } | undefined {
+  return perf.monthlyRevenue.find((row) => {
+    const parsed = parseMonthLabel(row.label)
+    return parsed != null && parsed.year === year && parsed.month === month
+  })
+}
+
+function shiftMonth(year: number, month: number, delta: number): { year: number; month: number } {
+  const d = new Date(year, month - 1 + delta, 1)
+  return { year: d.getFullYear(), month: d.getMonth() + 1 }
+}
+
 /** Parse business question → structured spec (temporal + metric + detail). */
 export function parseSellerBusinessQuery(
   raw: string,
   intent: ChatIntent | null,
   prior?: Partial<SellerAnalyticsSpec>,
+  now = new Date(),
 ): SellerAnalyticsSpec {
   const n = normalizeText(raw)
   const spec: SellerAnalyticsSpec = {
@@ -124,15 +216,33 @@ export function parseSellerBusinessQuery(
     spec.comparePrevious = true
   }
 
-  if (/hom nay|today/.test(n)) spec.period = 'today'
-  else if (/tuan nay|this week|trong tuan/.test(n)) spec.period = 'this_week'
-  else if (/thang truoc|last month|thang vua roi/.test(n)) spec.period = 'last_month'
-  else if (/30 ngay|rolling 30|gan day/.test(n)) spec.period = 'last_30_days'
-  else if (/thang nay|this month|trong thang/.test(n)) spec.period = 'this_month'
+  const explicit = parseExplicitCalendarMonth(raw, now)
+  if (/hom nay|today/.test(n)) {
+    spec.period = 'today'
+    spec.calendarMonth = undefined
+  } else if (/tuan nay|this week|trong tuan/.test(n)) {
+    spec.period = 'this_week'
+    spec.calendarMonth = undefined
+  } else if (/thang truoc|last month|thang vua roi/.test(n) && !explicit) {
+    spec.period = 'last_month'
+    spec.calendarMonth = shiftMonth(now.getFullYear(), now.getMonth() + 1, -1)
+  } else if (/30 ngay|rolling 30|gan day/.test(n) && !explicit) {
+    spec.period = 'last_30_days'
+    spec.calendarMonth = undefined
+  } else if (explicit) {
+    spec.period = 'calendar_month'
+    spec.calendarMonth = explicit
+  } else if (/thang nay|this month|trong thang/.test(n)) {
+    spec.period = 'this_month'
+    spec.calendarMonth = { year: now.getFullYear(), month: now.getMonth() + 1 }
+  }
 
-  if (/so voi|tang hay giam|tang hay giam|hon thang|compare|doi chieu|so sanh thang/.test(n)) {
+  if (/so voi|tang hay giam|hon thang|compare|doi chieu|so sanh thang/.test(n)) {
     spec.period = 'compare_month'
     spec.comparePrevious = true
+    if (!spec.calendarMonth && !explicit) {
+      spec.calendarMonth = { year: now.getFullYear(), month: now.getMonth() + 1 }
+    }
   }
 
   if (
@@ -147,7 +257,7 @@ export function parseSellerBusinessQuery(
     spec.metric = 'profit'
   } else if (
     intent === 'seller_dss_explain' ||
-    /dss la gi|dss giup|dss cua sedsp|he thong ho tro quyet dinh/.test(n)
+    /dss la gi|dss giup|dss cua sedsp|dss cua shop|dss shop|he thong ho tro quyet dinh/.test(n)
   ) {
     spec.metric = 'dss_explain'
   } else if (/nhap them|restock|nhap hang|nen nhap|sap het|ton kho thap/.test(n)) {
@@ -165,8 +275,10 @@ export function parseSellerBusinessQuery(
   if (prior?.metric && prior.metric !== 'general' && spec.metric === 'general') {
     spec.metric = prior.metric
   }
-  if (prior?.period && spec.period === 'this_month' && !/hom nay|tuan|thang|30 ngay/.test(n)) {
+  const mentionsTime = /hom nay|tuan|thang|30 ngay/.test(n) || Boolean(explicit)
+  if (prior?.period && spec.period === 'this_month' && !mentionsTime) {
     spec.period = prior.period
+    if (prior.calendarMonth) spec.calendarMonth = prior.calendarMonth
   }
 
   return spec
@@ -194,16 +306,39 @@ function containsWholeProductName(query: string, hay: string): boolean {
   return qTokens.filter((t) => hay.includes(t)).length >= Math.min(2, qTokens.length)
 }
 
-/** Revenue từ monthlyRevenue — tháng cuối = tháng gần nhất có dữ liệu. */
-export function buildRevenueComparison(perf: SalesPerformance): RevenueComparison | null {
-  const months = perf.monthlyRevenue.filter((m) => m.value > 0)
-  if (!months.length) return null
-  const current = months[months.length - 1]
-  const previous = months.length >= 2 ? months[months.length - 2] : undefined
-  const change = previous ? pctChange(current.value, previous.value) : null
+/** Revenue từ monthlyRevenue — theo tháng lịch, không lấy tháng có số gần nhất thế chỗ. */
+export function buildRevenueComparison(
+  perf: SalesPerformance,
+  spec?: Pick<SellerAnalyticsSpec, 'period' | 'calendarMonth'>,
+  now = new Date(),
+): RevenueComparison | null {
+  if (!perf.monthlyRevenue.length) return null
+
+  let year = now.getFullYear()
+  let month = now.getMonth() + 1
+  if (spec?.calendarMonth) {
+    year = spec.calendarMonth.year
+    month = spec.calendarMonth.month
+  } else if (spec?.period === 'last_month') {
+    const prev = shiftMonth(year, month, -1)
+    year = prev.year
+    month = prev.month
+  }
+
+  const currentPt = findMonthlyPoint(perf, year, month)
+  const prevCal = shiftMonth(year, month, -1)
+  const previousPt = findMonthlyPoint(perf, prevCal.year, prevCal.month)
+  const currentRev = currentPt?.value ?? 0
+  const change = previousPt ? pctChange(currentRev, previousPt.value) : null
   return {
-    current: { label: current.label, revenue: current.value },
-    previous: previous ? { label: previous.label, revenue: previous.value } : undefined,
+    current: {
+      label: currentPt?.label ?? formatViCalendarMonth(year, month),
+      revenue: currentRev,
+      missing: !currentPt,
+    },
+    previous: previousPt
+      ? { label: previousPt.label, revenue: previousPt.value }
+      : undefined,
     changePct: change,
     trend: trendFromChange(change),
   }
@@ -343,7 +478,7 @@ export function presentDssExplain(): string {
   return [
     '**DSS** (Decision Support System) là hệ thống hỗ trợ ra quyết định trên SEDSP.',
     '',
-    'Với shop của bạn, DSS hiện có:',
+    'Với **shop của bạn** (không phải toàn sàn), DSS hiện có:',
     '• **Dự báo nhu cầu** — dự đoán lượng bán dựa trên đơn đã giao',
     '• **Khuyến nghị giá** — gợi ý mức giá từ lịch sử bán',
     '• **Khuyến nghị tồn kho** — ROP và số lượng nên nhập',
@@ -359,11 +494,24 @@ export function presentRevenueReply(
   userName?: string,
 ): string {
   const name = sellerGreet(userName)
-  const cmp = buildRevenueComparison(perf)
+  const cmp = buildRevenueComparison(perf, spec)
+  const asked = spec.calendarMonth
+    ? formatViCalendarMonth(spec.calendarMonth.year, spec.calendarMonth.month)
+    : cmp?.current.label ?? 'tháng này'
+
+  if (cmp?.current.missing) {
+    const available = perf.monthlyRevenue
+      .filter((m) => m.value > 0)
+      .map((m) => `${m.label} (${formatVnd(m.value)})`)
+    const availLine = available.length
+      ? ` Các tháng shop có doanh thu: ${available.join(', ')}.`
+      : ' Shop chưa có tháng nào ghi nhận doanh thu.'
+    return `${name}Chưa có doanh thu **shop của bạn** trong **${asked}**.${availLine} Mình không lấy tháng khác (hay số toàn sàn) thế chỗ.`
+  }
 
   if (spec.period === 'compare_month' || spec.comparePrevious) {
     if (!cmp?.previous) {
-      return `${name}Chưa đủ dữ liệu 2 tháng để so sánh. Hiện **${cmp?.current.label ?? 'kỳ gần nhất'}**: **${formatVnd(cmp?.current.revenue ?? perf.summary.totalRevenue)}**.`
+      return `${name}Chưa đủ dữ liệu tháng trước để so sánh. **${cmp?.current.label ?? asked}** shop đạt **${formatVnd(cmp?.current.revenue ?? 0)}**.`
     }
     const dir =
       cmp.trend === 'up' ? 'tăng' : cmp.trend === 'down' ? 'giảm' : 'gần như giữ nguyên'
@@ -376,7 +524,7 @@ export function presentRevenueReply(
 
   if (spec.detailLevel === 'summary') {
     const slice = cmp?.current
-    return `${name}Doanh thu shop **${slice?.label ?? 'tháng này'}** đạt khoảng **${formatVnd(slice?.revenue ?? perf.summary.totalRevenue)}** với **${perf.summary.completedOrders}** đơn hàng hoàn tất (giá trị đơn trung bình AOV khoảng **${formatVnd(perf.summary.averageOrderValue)}**).`
+    return `${name}Doanh thu **shop của bạn** **${slice?.label ?? asked}** đạt khoảng **${formatVnd(slice?.revenue ?? 0)}** với **${perf.summary.completedOrders}** đơn hàng hoàn tất (AOV khoảng **${formatVnd(perf.summary.averageOrderValue)}**). Đây không phải GMV toàn sàn.`
   }
 
   const chart = perf.monthlyRevenue
@@ -387,7 +535,7 @@ export function presentRevenueReply(
     .slice(0, 3)
     .map((p) => `• **${p.productName}**: ${p.quantitySold} sp · ${formatVnd(p.revenue)}`)
     .join('\n')
-  return `${name}**Doanh thu theo tháng:**\n${chart}\n\n**Top sản phẩm:**\n${top}`
+  return `${name}**Doanh thu shop theo tháng:**\n${chart}\n\n**Top sản phẩm shop:**\n${top}`
 }
 
 export function presentProfitReply(profit: ProfitSnapshot, userName?: string): string {
@@ -460,13 +608,13 @@ export function presentSellerAnalyticsFacts(
   ctx: ChatContext,
   spec: SellerAnalyticsSpec,
 ): string {
-  const catalog = ctx.sellerProducts.length ? ctx.sellerProducts : ctx.products
+  const catalog = ctx.sellerProducts
   if (spec.metric === 'health') {
     const h = buildBusinessHealth(ctx, catalog)
     return `Sức khỏe shop: ${h.statusLabel}; đơn HT ${h.orderCount}; tồn thấp ${h.lowStockCount}`
   }
   if (spec.metric === 'revenue' && ctx.salesPerformance) {
-    const cmp = buildRevenueComparison(ctx.salesPerformance)
+    const cmp = buildRevenueComparison(ctx.salesPerformance, spec)
     return cmp
       ? `Doanh thu ${cmp.current.label}: ${formatVnd(cmp.current.revenue)}; Δ ${formatPct(cmp.changePct)}`
       : `Doanh thu tổng: ${formatVnd(ctx.salesPerformance.summary.totalRevenue)}`
@@ -561,7 +709,7 @@ export function buildSellerAnalyticsReply(
   raw: string,
   prior?: Partial<SellerAnalyticsSpec>,
 ): string | null {
-  const catalog = ctx.sellerProducts.length ? ctx.sellerProducts : ctx.products
+  const catalog = ctx.sellerProducts
   const spec = parseSellerBusinessQuery(raw, intent, prior)
   const norm = normalizeText(raw)
 

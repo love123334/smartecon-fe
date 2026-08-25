@@ -88,6 +88,17 @@ describe('parseSellerBusinessQuery', () => {
     expect(spec.comparePrevious).toBe(true)
   })
 
+  it('parses numbered calendar month instead of last month with data', () => {
+    const spec = parseSellerBusinessQuery('doanh thu tháng 8', 'seller_revenue', undefined, new Date(2026, 7, 25))
+    expect(spec.period).toBe('calendar_month')
+    expect(spec.calendarMonth).toEqual({ year: 2026, month: 8 })
+  })
+
+  it('parses Vietnamese month name tháng tám', () => {
+    const spec = parseSellerBusinessQuery('doanh thu tháng tám', 'seller_revenue', undefined, new Date(2026, 7, 25))
+    expect(spec.calendarMonth).toEqual({ year: 2026, month: 8 })
+  })
+
   it('keeps prior metric on follow-up', () => {
     const prior = parseSellerBusinessQuery('doanh thu tháng này?', 'seller_revenue')
     const follow = parseSellerBusinessQuery('tại sao tăng?', null, prior)
@@ -98,9 +109,23 @@ describe('parseSellerBusinessQuery', () => {
 
 describe('buildRevenueComparison', () => {
   it('computes month-over-month change', () => {
-    const cmp = buildRevenueComparison(perf)
+    const cmp = buildRevenueComparison(perf, undefined, new Date(2026, 7, 25))
     expect(cmp?.trend).toBe('up')
     expect(cmp?.changePct).toBeGreaterThan(0)
+  })
+
+  it('does not substitute another month when the asked month is empty', () => {
+    const juneOnly: SalesPerformance = {
+      ...perf,
+      monthlyRevenue: [
+        { label: '2026-06', value: 38_000_000 },
+      ],
+    }
+    const spec = parseSellerBusinessQuery('doanh thu tháng 8', 'seller_revenue', undefined, new Date(2026, 7, 25))
+    const cmp = buildRevenueComparison(juneOnly, spec, new Date(2026, 7, 25))
+    expect(cmp?.current.missing).toBe(true)
+    expect(cmp?.current.revenue).toBe(0)
+    expect(cmp?.current.label).toMatch(/8/)
   })
 })
 
@@ -111,6 +136,19 @@ describe('presentRevenueReply', () => {
     expect(reply).toMatch(/tăng/i)
     expect(reply).toMatch(/KeyPro K87/)
     expect(reply).not.toMatch(/createdAt|updatedAt/)
+  })
+
+  it('says August is empty instead of answering with June', () => {
+    const juneOnly: SalesPerformance = {
+      ...perf,
+      monthlyRevenue: [{ label: '2026-06', value: 38_000_000 }],
+    }
+    const spec = parseSellerBusinessQuery('doanh thu tháng 8', 'seller_revenue', undefined, new Date(2026, 7, 25))
+    const reply = presentRevenueReply(juneOnly, spec)
+    expect(reply).toMatch(/tháng 8/i)
+    expect(reply).toMatch(/Chưa có doanh thu/)
+    expect(reply).toMatch(/2026-06/)
+    expect(reply).not.toMatch(/tháng này.*38/)
   })
 })
 

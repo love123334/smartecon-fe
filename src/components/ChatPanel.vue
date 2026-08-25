@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, ref, watch, computed } from 'vue'
+import { nextTick, onUnmounted, ref, watch, computed } from 'vue'
 import type { ChatMessage, ChatProductRef, ChatSuggestedAction } from '@/types'
 import type { QuickPrompt } from '@/api/chat/prompts'
 import { formatChatHtml } from '@/api/chat/engine'
@@ -80,6 +80,99 @@ watch(
     void scrollEnd()
   },
 )
+
+const typedLen = ref(0)
+const typingId = ref<string | null>(null)
+const finishedTypeIds = new Set<string>()
+let typeTimer: ReturnType<typeof setTimeout> | null = null
+
+function prefersReducedMotion(): boolean {
+  return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+
+function latestAssistant(messages: ChatMessage[]): ChatMessage | undefined {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i]
+    if (m.role === 'assistant' && !m.pending) return m
+  }
+  return undefined
+}
+
+function formatStreamingHtml(content: string): string {
+  let s = content
+  const stars = (s.match(/\*\*/g) ?? []).length
+  if (stars % 2 === 1) s += '**'
+  return formatChatHtml(s)
+}
+
+function displayedContent(m: ChatMessage): string {
+  if (m.role !== 'assistant' || m.pending) return m.content
+  if (finishedTypeIds.has(`${m.id}:${m.content.length}`)) return m.content
+  if (m.id !== typingId.value) return m.content
+  return m.content.slice(0, typedLen.value)
+}
+
+function isStreaming(m: ChatMessage): boolean {
+  return m.role === 'assistant' && m.id === typingId.value && typedLen.value < m.content.length
+}
+
+function stopTypewriter() {
+  if (typeTimer != null) {
+    clearTimeout(typeTimer)
+    typeTimer = null
+  }
+}
+
+function startTypewriter(id: string, full: string, resume = false) {
+  stopTypewriter()
+  typingId.value = id
+  if (prefersReducedMotion() || full.length < 18) {
+    typedLen.value = full.length
+    finishedTypeIds.add(`${id}:${full.length}`)
+    return
+  }
+  if (!resume) typedLen.value = 0
+
+  const tick = () => {
+    const last = latestAssistant(props.messages)
+    const target = last && last.id === id ? last.content : full
+    if (typedLen.value >= target.length) {
+      finishedTypeIds.add(`${id}:${target.length}`)
+      typeTimer = null
+      void scrollEnd()
+      return
+    }
+    const remain = target.length - typedLen.value
+    const chunk = remain > 480 ? 14 : remain > 160 ? 6 : 3
+    typedLen.value += chunk
+    void scrollEnd()
+    typeTimer = setTimeout(tick, 16)
+  }
+  tick()
+}
+
+watch(
+  () => {
+    const last = latestAssistant(props.messages)
+    return last ? `${last.id}\n${last.content}` : ''
+  },
+  (key, prevKey) => {
+    if (!key) return
+    const last = latestAssistant(props.messages)
+    if (!last) return
+    if (finishedTypeIds.has(`${last.id}:${last.content.length}`)) {
+      typedLen.value = last.content.length
+      typingId.value = last.id
+      return
+    }
+    const sameId = Boolean(prevKey && prevKey.startsWith(`${last.id}\n`))
+    const prevContent = prevKey ? prevKey.slice(prevKey.indexOf('\n') + 1) : ''
+    const grew = sameId && last.content.startsWith(prevContent)
+    startTypewriter(last.id, last.content, grew && typedLen.value > 0)
+  },
+)
+
+onUnmounted(() => stopTypewriter())
 
 async function submit(): Promise<void> {
   const text = input.value.trim()
@@ -175,7 +268,11 @@ defineExpose({ scrollToEnd: scrollEnd })
                 compact
               />
             </div>
-            <p class="chat-bubble__text" v-html="formatChatHtml(m.content)" />
+            <p
+              class="chat-bubble__text"
+              :class="{ 'chat-bubble__text--streaming': isStreaming(m) }"
+              v-html="formatStreamingHtml(displayedContent(m))"
+            />
             <div v-if="actionsFor(m).length" class="chat-bubble__nav" role="group" aria-label="Mở trang liên quan">
               <button
                 v-for="a in actionsFor(m)"
@@ -462,6 +559,17 @@ defineExpose({ scrollToEnd: scrollEnd })
 
 .chat-bubble__text :deep(a.chat-inline-link:hover) {
   text-decoration: underline;
+}
+
+.chat-bubble__text--streaming::after {
+  content: '▍';
+  margin-left: 1px;
+  color: #2563eb;
+  animation: chat-caret 0.9s step-end infinite;
+}
+
+@keyframes chat-caret {
+  50% { opacity: 0; }
 }
 
 .chat-bubble__nav {

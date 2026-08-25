@@ -403,7 +403,7 @@ export function catalogInsightHighlights(ctx: ChatContext, intent: string | null
     return buildCatalogInsight(ctx).highlightProducts
   }
   if (intent === 'seller_top_products') {
-    const catalog = ctx.sellerProducts.length ? ctx.sellerProducts : ctx.products
+    const catalog = ctx.sellerProducts
     return buildSellerTopInsight(ctx, catalog).highlightProducts
   }
   if (intent === 'recommend') {

@@ -261,7 +261,7 @@ export function buildVerifiedFacts(
   } else if (intent === 'recommend' && ctx.products.length) {
     insights = buildRecommendInsight(ctx, ctx.products.slice(0, 6))
   } else if (intent === 'seller_top_products') {
-    const catalog = ctx.sellerProducts.length ? ctx.sellerProducts : ctx.products
+    const catalog = ctx.sellerProducts
     insights = buildSellerTopInsight(ctx, catalog)
   }
   if (insights) {

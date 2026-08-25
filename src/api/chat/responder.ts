@@ -51,6 +51,7 @@ import { routeFromIntent } from '@/api/chat/intentRouter'
 import { buildSlimSystemPrompt } from '@/api/chat/slimPrompt'
 import { buildSystemPrompt } from '@/api/chat/systemPrompt'
 import { buildVerifiedFacts } from '@/api/chat/verifiedFacts'
+import { parseExplicitCalendarMonth } from '@/api/chat/sellerAnalytics'
 import { toChatProducts } from '@/api/chat/productCards'
 import type {
   ChatMessage,
@@ -81,6 +82,10 @@ export interface ChatReply {
 const STRICT_LOCAL_INTENTS = new Set<ChatIntent>([
   'order_cancel',
   'cart_summary',
+  'seller_revenue',
+  'seller_profit',
+  'seller_business_health',
+  'seller_dss_explain',
 ])
 
 function resolveFollowUpIntent(
@@ -176,6 +181,22 @@ function llmDeniesProductsWhileLocalHasHits(
   )
 }
 
+function llmLeaksPlatformScope(llmContent: string): boolean {
+  const n = normalizeText(llmContent)
+  return /toan san|toan nen tang|gmv (san|toan)|tat ca (shop|nguoi ban)|marketplace total|doanh thu san(?! pham)/.test(
+    n,
+  )
+}
+
+function llmWrongAskedMonth(userMessage: string, llmContent: string): boolean {
+  const asked = parseExplicitCalendarMonth(userMessage)
+  if (!asked) return false
+  const n = normalizeText(llmContent)
+  const mentioned = [...n.matchAll(/thang\s*(1[0-2]|0?[1-9])(?!\d)/g)].map((m) => Number(m[1]))
+  if (!mentioned.length) return false
+  return mentioned.every((m) => m !== asked.month)
+}
+
 function preferLocalOverLlm(
   normalized: string,
   llmContent: string,
@@ -183,11 +204,19 @@ function preferLocalOverLlm(
   facts: ReturnType<typeof buildVerifiedFacts>,
   backendGrounded = false,
   localProducts?: ChatProductRef[],
+  role?: string,
+  userMessage?: string,
 ): ChatFallbackReason | null {
   if (looksLikeSafetyMetadataLeak(llmContent)) {
     return 'low_quality'
   }
   if (llmDeniesProductsWhileLocalHasHits(llmContent, localProducts)) {
+    return 'contradicts_facts'
+  }
+  if (role === 'seller' && llmLeaksPlatformScope(llmContent) && localContent.trim().length > 20) {
+    return 'contradicts_facts'
+  }
+  if (role === 'seller' && userMessage && llmWrongAskedMonth(userMessage, llmContent) && localContent.trim().length > 20) {
     return 'contradicts_facts'
   }
   // Backend Gemini + tools already grounded — keep its wording unless clearly off-topic / price clash
@@ -497,6 +526,8 @@ export async function resolveChatReply(
         facts,
         backendGrounded,
         products,
+        ctx.role,
+        userMessage,
       )
       if (fallbackReason === 'contradicts_facts') {
         const repaired = repairPriceFactsInReply(content, facts)

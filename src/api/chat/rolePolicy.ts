@@ -147,6 +147,9 @@ export function resolveIntentForRole(
     if (/sp ban chay|top product|best seller|hang ban nhieu/.test(n)) {
       return 'seller_top_products'
     }
+    if (/\bdss\b/.test(n)) {
+      return 'seller_dss_explain'
+    }
   }
 
   if (role === 'manager') {
@@ -219,7 +222,7 @@ export function rolePromptBlock(role: UserRole): string {
     'Trả lời TRỰC TIẾP câu user vừa hỏi trước — không mở đầu bằng giới thiệu platform, không liệt kê chức năng chung, không đổi chủ đề.'
   switch (role) {
     case 'seller':
-      return `${focus}\n${answerFirst}\nƯu tiên: doanh số, đơn bán, tồn kho, DSS (dự báo/giá/what-if). Chỉ tư vấn mua sắm khi user hỏi rõ tên SP/giá/mua hàng.`
+      return `${focus}\n${answerFirst}\nƯu tiên: doanh số, đơn bán, tồn kho, DSS (dự báo/giá/what-if) **của shop này thôi**. Cấm lấy GMV/KPI toàn sàn hay shop khác. Hỏi tháng nào thì chỉ số tháng đó — không lấy tháng có dữ liệu gần nhất thế chỗ.`
     case 'manager':
       return `${focus}\n${answerFirst}\nƯu tiên: KPI, đơn chờ, doanh thu sàn, insights — không tư vấn chi tiết từng SP retail.`
     case 'guest':
