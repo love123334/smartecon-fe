@@ -69,13 +69,12 @@ describe('chatbot speed routing', () => {
     expect(reply.content.length).toBeGreaterThan(4)
   })
 
-  it('emits local product draft before waiting for LLM', async () => {
+  it('shopping questions wait for LLM wording instead of a local template', async () => {
     callChatLlm.mockClear()
-    const onDraft = vi.fn()
-    await resolveChatReply('có tai nghe sony không', [], ctx(), undefined, undefined, onDraft)
-    expect(onDraft).toHaveBeenCalled()
+    const reply = await resolveChatReply('có tai nghe sony không', [], ctx())
     expect(callChatLlm).toHaveBeenCalled()
-    const draft = onDraft.mock.calls[0][0]
-    expect(draft.content.length).toBeGreaterThan(10)
+    expect(reply.source).toBe('llm')
+    expect(reply.content).toMatch(/Sony WH-1000XM5/)
+    expect(reply.content).not.toMatch(/^•/)
   })
 })

@@ -171,20 +171,6 @@ function shouldForceLocal(
   return false
 }
 
-function enrichShortShoppingReply(llm: string, localContent: string, hasProducts: boolean): string {
-  if (!hasProducts) return llm
-  const bullets = localContent
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.startsWith('•'))
-  if (bullets.length < 2) return llm
-  const alreadyExplains =
-    llm.length >= 220 &&
-    (/[•\-]/.test(llm) || /đánh giá|đã bán|vì |bởi |ngân sách|★/.test(llm))
-  if (alreadyExplains) return llm
-  return `${llm}\n\n${bullets.join('\n')}`
-}
-
 function backendReplyLooksGrounded(content: string): boolean {
   const c = content.toLowerCase()
   return (
@@ -334,7 +320,7 @@ export async function resolveChatReply(
   ctx: ChatContext,
   attachments?: ChatProductRef[],
   priorConversation?: ConversationContext,
-  onLocalDraft?: (draft: ChatLocalDraft) => void,
+  _onLocalDraft?: (draft: ChatLocalDraft) => void,
 ): Promise<ChatReply> {
   const started = performance.now()
   let localLatencyMs = 0
@@ -525,15 +511,6 @@ export async function resolveChatReply(
   }
 
   if (isLlmConfigured()) {
-    if (localContent.trim().length >= 40 || products?.length) {
-      onLocalDraft?.({
-        content: localContent,
-        products,
-        sellers,
-        reviewSummary,
-        suggestedActions,
-      })
-    }
     try {
       const llmStarted = performance.now()
       const route = routeFromIntent(intent)
@@ -599,7 +576,7 @@ export async function resolveChatReply(
 
       return replyPayload(
         'llm',
-        enrichShortShoppingReply(content, localContent, Boolean(products?.length)),
+        content,
         undefined,
         true,
       )

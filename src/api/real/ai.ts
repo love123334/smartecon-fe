@@ -18,6 +18,6 @@ export function getAiStatus() {
 }
 
 export function chat(messages: { role: string; content: string }[]) {
-  // Gemini 1 round when FE already grounded — 12s HTTP + 2s buffer
-  return http.post<AiChatResult>(apiPaths.ai.chat, { messages }, { timeoutMs: 14_000 })
+  // Gemini ~8s + DeepSeek polish ~6s — one advisor reply within ~15s
+  return http.post<AiChatResult>(apiPaths.ai.chat, { messages }, { timeoutMs: 16_000 })
 }

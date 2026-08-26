@@ -110,24 +110,6 @@ async function onSend(text: string) {
       userName: auth.user?.fullName,
       sellerBackendId: auth.user?.backendId,
       optimisticHistory: messages.value,
-      onDraft: (draft) => {
-        const botId = `${optimisticUser.id}-bot`
-        const pending: ChatMessage = {
-          id: botId,
-          role: 'assistant',
-          content: draft.content,
-          timestamp: new Date().toISOString(),
-          pending: true,
-          products: draft.products,
-          sellers: draft.sellers,
-          reviewSummary: draft.reviewSummary,
-          meta: {
-            source: 'local',
-            suggestedActions: draft.suggestedActions?.length ? draft.suggestedActions : undefined,
-          },
-        }
-        messages.value = [...messages.value.filter((m) => m.id !== botId), pending]
-      },
     })
   } catch (e) {
     messages.value = messages.value.filter((m) => m.id !== optimisticUser.id)
