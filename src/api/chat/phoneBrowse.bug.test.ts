@@ -74,4 +74,49 @@ describe('phone browse bug', () => {
     expect(reply.products?.length ?? 0).toBeGreaterThan(0)
     expect(reply.content).not.toMatch(/chưa thấy|chưa tìm thấy|không có sản phẩm điện thoại/i)
   })
+
+  it('keeps only phones under 20 triệu and explains the pick', async () => {
+    const catalog = [
+      p({ id: '1', name: 'Điện thoại iPhone 15 Pro 128GB', price: 29_990_000, category: 'Điện thoại' }),
+      p({
+        id: '2',
+        name: 'Điện thoại Xiaomi 14',
+        price: 17_990_000,
+        category: 'Điện thoại',
+        rating: 4.7,
+        soldCount: 90,
+        description: 'Camera Leica, pin khỏe dùng cả ngày',
+      }),
+      p({ id: '3', name: 'Điện thoại Galaxy S24', price: 24_990_000, category: 'Điện thoại' }),
+    ]
+    const ctx = {
+      role: 'customer',
+      userName: 'Test',
+      products: catalog,
+      orders: [],
+      purchaseOrders: [],
+      cartLines: [],
+      cartTotal: 0,
+      cartItemCount: 0,
+      categories: [{ id: '1', name: 'Điện thoại', slug: 'dien-thoai', productCount: 3 }],
+      sellerProducts: [],
+      sellerInsights: [],
+      managerInsights: [],
+      categoryChart: [],
+      users: [],
+      systemMetrics: [],
+      recommendations: [],
+      publicVouchers: [],
+      dataSource: 'api',
+      backendOnline: true,
+      catalogSource: 'backend',
+    } as ChatContext
+    const reply = await resolveChatReply('có điện thoại gì dưới 20 triệu không', [], ctx)
+    expect(reply.products?.length).toBeGreaterThan(0)
+    expect(reply.products?.every((x) => x.price <= 20_000_000)).toBe(true)
+    expect(reply.products?.some((x) => /iphone 15 pro/i.test(x.name))).toBe(false)
+    expect(reply.content).toMatch(/17[.,]990|Xiaomi/i)
+    expect(reply.content).toMatch(/•/)
+    expect(reply.content).not.toMatch(/iPhone 15 Pro/i)
+  })
 })

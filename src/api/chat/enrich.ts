@@ -1,7 +1,7 @@
 import type { ChatContext, ChatEnrichment } from '@/api/chat/context'
 import type { ChatIntent } from '@/api/chat/intents'
 import { normalizeText, asksProductListedDate, asksProductOrigin, asksProductReview } from '@/api/chat/match'
-import { findProductsByQuery, extractProductSearchTerms, isPriceStatsQuery } from '@/api/chat/products'
+import { applyPriceRange, extractPriceRange, findProductsByQuery, extractProductSearchTerms, isPriceStatsQuery } from '@/api/chat/products'
 import { matchCategoryFromText } from '@/api/chat/synonyms'
 import {
   demandBriefLive,
@@ -324,6 +324,16 @@ export async function enrichChatContext(
   }
 
   await Promise.all(tasks)
+
+  const range = extractPriceRange(raw)
+  if (range) {
+    if (enrichment.searchResults?.length) {
+      enrichment.searchResults = applyPriceRange(enrichment.searchResults, range)
+    }
+    if (enrichment.categoryProducts?.length) {
+      enrichment.categoryProducts = applyPriceRange(enrichment.categoryProducts, range)
+    }
+  }
 
   if (!Object.keys(enrichment).length) return ctx
   return { ...ctx, enrichment }

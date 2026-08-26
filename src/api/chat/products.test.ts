@@ -43,6 +43,10 @@ const catalog: Product[] = [
 describe('extractPriceRange', () => {
   it('parses dưới X triệu', () => {
     expect(extractPriceRange('mua tai nghe dưới 2 triệu')).toEqual({ min: null, max: 2_000_000 })
+    expect(extractPriceRange('có điện thoại gì dưới 20 triệu không')).toEqual({
+      min: null,
+      max: 20_000_000,
+    })
   })
 
   it('parses từ X đến Y triệu', () => {
@@ -374,6 +378,19 @@ describe('phone under budget — no kettle false match', () => {
     expect(queryText).toMatch(/dien thoai/)
     expect(products.map((x) => x.id)).toEqual(['phone-cheap'])
     expect(products.some((x) => x.id === 'kettle' || x.id === 'phone-dear')).toBe(false)
+  })
+
+  it('drops phones over a 20 triệu cap', () => {
+    const catalog20 = [
+      p({ id: 'over1', name: 'Điện thoại iPhone 15 Pro 128GB', price: 29_990_000, category: 'Điện thoại' }),
+      p({ id: 'ok1', name: 'Điện thoại Xiaomi 14', price: 17_990_000, category: 'Điện thoại', rating: 4.6, soldCount: 80 }),
+      p({ id: 'over2', name: 'Điện thoại Galaxy S24', price: 24_990_000, category: 'Điện thoại' }),
+      p({ id: 'ok2', name: 'Điện thoại Oppo Reno', price: 9_990_000, category: 'Điện thoại', rating: 4.2, soldCount: 40 }),
+    ]
+    const { products } = filterProductsForQuery(catalog20, 'có điện thoại gì dưới 20 triệu không')
+    expect(products.length).toBeGreaterThan(0)
+    expect(products.every((x) => x.price <= 20_000_000)).toBe(true)
+    expect(products.some((x) => x.id === 'over1' || x.id === 'over2')).toBe(false)
   })
 
   it('drops the odd-category 6th hit on phone search', () => {

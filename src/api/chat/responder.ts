@@ -37,7 +37,7 @@ import {
   asksSellerInfo,
   normalizeText,
 } from '@/api/chat/match'
-import { extractPriceRange, isPriceStatsQuery } from '@/api/chat/products'
+import { constrainProductsToQueryBudget, extractPriceRange, isPriceStatsQuery } from '@/api/chat/products'
 import { sanitizeChatReply, softenLocalFallback } from '@/api/chat/responses'
 import { deriveSuggestedActions } from '@/api/chat/suggestedActions'
 import {
@@ -158,6 +158,20 @@ function shouldForceLocal(
   if (priceStats) return true
   if (intent != null && STRICT_LOCAL_INTENTS.has(intent)) return true
   return false
+}
+
+function enrichShortShoppingReply(llm: string, localContent: string, hasProducts: boolean): string {
+  if (!hasProducts) return llm
+  const bullets = localContent
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith('•'))
+  if (bullets.length < 2) return llm
+  const alreadyExplains =
+    llm.length >= 220 &&
+    (/[•\-]/.test(llm) || /đánh giá|đã bán|vì |bởi |ngân sách|★/.test(llm))
+  if (alreadyExplains) return llm
+  return `${llm}\n\n${bullets.join('\n')}`
 }
 
 function backendReplyLooksGrounded(content: string): boolean {
@@ -409,8 +423,13 @@ export async function resolveChatReply(
   )
 
   const localStarted = performance.now()
-  const local = await generateAssistantReply(userMessage, ctxForReply, effectiveAttachments, intent)
+  const rawLocal = await generateAssistantReply(userMessage, ctxForReply, effectiveAttachments, intent)
   localLatencyMs = Math.round(performance.now() - localStarted)
+  const rangedLocalProducts =
+    hasPriceFilter && rawLocal.products?.length
+      ? constrainProductsToQueryBudget(rawLocal.products, userMessage)
+      : rawLocal.products
+  const local = { ...rawLocal, products: rangedLocalProducts }
 
   const facts = buildVerifiedFacts(ctxForReply, intent, intentScore, local, userMessage)
   let products = local.products?.length
@@ -524,6 +543,14 @@ export async function resolveChatReply(
         return replyPayload('local', localContent, 'low_quality', true)
       }
 
+      if (
+        hasPriceFilter &&
+        products?.length &&
+        !products.some((p) => content.toLowerCase().includes(p.name.toLowerCase().slice(0, 16)))
+      ) {
+        return replyPayload('local', localContent, 'contradicts_facts', true)
+      }
+
       const backendGrounded = backendReplyLooksGrounded(content)
       const fallbackReason = preferLocalOverLlm(
         normalized,
@@ -546,7 +573,12 @@ export async function resolveChatReply(
         return replyPayload('local', localContent, fallbackReason, true)
       }
 
-      return replyPayload('llm', content, undefined, true)
+      return replyPayload(
+        'llm',
+        enrichShortShoppingReply(content, localContent, Boolean(products?.length)),
+        undefined,
+        true,
+      )
     } catch (e) {
       const errMsg = e instanceof Error ? e.message : ''
       // If Gemini is down, keep local facts but mark clearly in telemetry

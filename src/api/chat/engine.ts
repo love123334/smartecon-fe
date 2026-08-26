@@ -34,6 +34,7 @@ import {
   pickProductCatalog,
   productsUnderBudget,
   rankRecommendedProducts,
+  rankWithinBudget,
 } from '@/api/chat/products'
 import { presentProductSearchResult, searchProductsWithPolicy } from '@/api/chat/productMatch'
 import {
@@ -227,6 +228,50 @@ function warmProductIntro(
   }
 }
 
+function shoppingAdviceText(
+  ctx: ChatContext,
+  hits: Product[],
+  range: ReturnType<typeof extractPriceRange>,
+): string {
+  const name = greet(ctx.userName ?? '')
+  const pick = hits[0]
+  if (!pick) {
+    return range
+      ? `${name}Trong tầm **${formatPriceRangeLabel(range)}** mình chưa thấy mẫu khớp.`
+      : `${name}Mình chưa thấy mẫu nào khớp tiêu chí này.`
+  }
+  const reasons: string[] = []
+  if (range?.max != null) {
+    reasons.push(`Giá **${formatVnd(pick.price)}**, đúng mốc **${formatPriceRangeLabel(range)}**.`)
+  } else {
+    reasons.push(`Giá hiện tại **${formatVnd(pick.price)}**.`)
+  }
+  if (pick.rating) {
+    reasons.push(
+      pick.soldCount
+        ? `Đánh giá **${pick.rating}★**, đã bán **${pick.soldCount}**.`
+        : `Đánh giá **${pick.rating}★**.`,
+    )
+  } else if (pick.soldCount) {
+    reasons.push(`Đã bán **${pick.soldCount}** lượt trên shop.`)
+  }
+  const spec = (pick.description ?? '').replace(/\s+/g, ' ').trim()
+  if (spec.length >= 24) {
+    reasons.push(spec.length > 140 ? `${spec.slice(0, 137)}…` : spec)
+  }
+  if (hits.length > 1) {
+    const others = hits
+      .slice(1, 3)
+      .map((p) => `**${p.name}** (${formatVnd(p.price)})`)
+      .join(', ')
+    reasons.push(`Cùng tầm còn ${others} — tùy bạn nghiêng giá hay cấu hình.`)
+  }
+  const intro = range?.max
+    ? `${name}Trong tầm **${formatPriceRangeLabel(range)}** mình nghiêng **${pick.name}**.`
+    : `${name}Có vài lựa chọn ổn — mình nghiêng **${pick.name}**.`
+  return `${intro}\n\n${reasons.map((r) => `• ${r}`).join('\n')}`
+}
+
 function mergeShoppingCatalog(ctx: ChatContext, base: Product[]): Product[] {
   const map = new Map<string, Product>()
   for (const p of base) map.set(String(p.id), p)
@@ -406,20 +451,10 @@ function shoppingStructuredReply(
         content: presentProductSearchResult(policy, ctx.userName),
       }
     }
-    // Có keyword + giá → intro kiểu search (tránh giọng “chỉ lọc tầm giá” khi đã hỏi loại SP)
-    const mode: IntroMode =
-      filter.range && !filter.queryText ? 'budget' : filter.range ? 'search' : 'search'
-    const rangeLabel =
-      filter.range && !filter.queryText ? formatPriceRangeLabel(filter.range) : filter.queryText || undefined
+    const hits = rankWithinBudget(filter.products, 5)
     return {
-      content: warmProductIntro(
-        ctx,
-        policy.products.length,
-        rangeLabel,
-        mode,
-        policy.products[0]?.name,
-      ),
-      products: toChatProducts(policy.products, 5),
+      content: shoppingAdviceText(ctx, hits, filter.range),
+      products: toChatProducts(hits, 5),
     }
   }
 
@@ -872,7 +907,8 @@ export async function generateAssistantReply(
         products = undefined
       } else if (intent === 'product_search') {
         const policy = searchProductsWithPolicy(catalog, raw)
-        products = policy.allowCards ? toChatProducts(policy.products, 5) : undefined
+        const hits = rankWithinBudget(policy.allowCards ? policy.products : [], 5)
+        products = hits.length ? toChatProducts(hits, 5) : undefined
       } else if (enrichProducts?.length) {
         products = toChatProducts(enrichProducts, 5)
       }

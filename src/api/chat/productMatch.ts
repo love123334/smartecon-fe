@@ -1,5 +1,5 @@
 import { containsWholePhrase, fieldContainsToken, normalizeText } from '@/api/chat/match'
-import { findProductsByQuery } from '@/api/chat/products'
+import { applyPriceRange, extractPriceRange, findProductsByQuery } from '@/api/chat/products'
 import type { Product } from '@/types'
 
 export type ProductMatchTier = 'exact' | 'specific' | 'broad' | 'none' | 'alternative'
@@ -113,11 +113,12 @@ export function searchProductsWithPolicy(
   rawQuery: string,
 ): ProductSearchResult {
   const n = normalizeText(rawQuery)
+  const pool = applyPriceRange(catalog, extractPriceRange(rawQuery))
   const specific = detectSpecificProductType(n)
   const wantAlternative = asksProductAlternative(n)
 
   if (!specific) {
-    const products = findProductsByQuery(catalog, rawQuery).slice(0, 5)
+    const products = findProductsByQuery(pool, rawQuery).slice(0, 5)
     return {
       matchTier: products.length ? 'broad' : 'none',
       products,
@@ -128,7 +129,7 @@ export function searchProductsWithPolicy(
     }
   }
 
-  const exact = catalog.filter((p) => productMatchesSpecificType(p, specific))
+  const exact = pool.filter((p) => productMatchesSpecificType(p, specific))
   if (exact.length) {
     return {
       matchTier: 'exact',
@@ -141,7 +142,7 @@ export function searchProductsWithPolicy(
     }
   }
 
-  const alternatives = findRelatedAlternatives(catalog, specific, new Set())
+  const alternatives = findRelatedAlternatives(pool, specific, new Set())
 
   return {
     matchTier: 'none',

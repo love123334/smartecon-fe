@@ -380,6 +380,24 @@ export function applyPriceRange(products: Product[], range: PriceRange | null): 
   })
 }
 
+export function constrainProductsToQueryBudget<T extends { price: number }>(
+  products: T[],
+  raw: string,
+): T[] {
+  return applyPriceRange(products as Product[], extractPriceRange(raw)) as T[]
+}
+
+/** In-budget ranking: rating/sold first, then cheaper. Keeps stock=0 catalog rows. */
+export function rankWithinBudget(products: Product[], limit = 5): Product[] {
+  return [...products]
+    .sort((a, b) => {
+      const score = (p: Product) =>
+        (p.rating || 0) * 12 + Math.min(p.soldCount || 0, 300) / 15
+      return score(b) - score(a) || a.price - b.price
+    })
+    .slice(0, limit)
+}
+
 export function extractProductSearchTerms(raw: string): string {
   const prepared = prepareCatalogSearchQuery(raw)
   if (!prepared) return ''
