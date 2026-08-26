@@ -30,6 +30,14 @@ export interface DemandFeatureSnapshotApi {
   previousAverageDailyDemand?: number
   momentum?: number
   trendSlope?: number
+  historyTrend?: 'up' | 'down' | 'stable'
+  historyTrendLabel?: string
+  forecastTrend?: number
+  forecastTrendDirection?: 'up' | 'down' | 'stable'
+  forecastTrendLabel?: string
+  forecastTrendSlope?: number
+  trendBreakDate?: string | null
+  trendDivergenceReason?: string | null
   lag7?: number
   seasonalSignal?: number
   currentPrice?: number

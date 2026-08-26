@@ -50,10 +50,34 @@ const modelState = computed(() => {
   }
 })
 const trendLabel = computed(() => {
+  const fromApi = features.value?.historyTrendLabel
+  if (fromApi) return fromApi
   const slope = Number(features.value?.trendSlope ?? 0)
   if (slope >= 0.02) return 'Đang tăng'
   if (slope <= -0.02) return 'Đang giảm'
   return 'Tương đối ổn định'
+})
+const forecastTrendLabel = computed(() => {
+  const fromApi = features.value?.forecastTrendLabel
+  if (fromApi) return fromApi
+  if (!forecastSeries.value.length) return 'Tương đối ổn định'
+  const first = forecastSeries.value[0]?.qty ?? 0
+  const last = forecastSeries.value[forecastSeries.value.length - 1]?.qty ?? first
+  const days = Math.max(1, forecastSeries.value.length - 1)
+  const slope = (last - first) / days
+  if (slope >= 0.02) return 'Đang tăng'
+  if (slope <= -0.02) return 'Đang giảm'
+  return 'Tương đối ổn định'
+})
+const forecastTrendTone = computed(() => {
+  const code = features.value?.forecastTrendDirection
+  if (code === 'up') return 'up'
+  if (code === 'down') return 'down'
+  return 'stable'
+})
+const trendDivergenceReason = computed(() => {
+  const reason = features.value?.trendDivergenceReason
+  return typeof reason === 'string' && reason.trim() ? reason.trim() : ''
 })
 const daysWithSales = computed(() => {
   const fromApi = Number(features.value?.positiveDays)
@@ -191,13 +215,24 @@ async function runForecast() {
       <section class="metric-grid">
         <article><span>Tổng dự báo</span><strong>{{ formatViNumber(result.predictedDemand) }}</strong><small>đơn vị / {{ result.forecastDays }} ngày</small></article>
         <article><span>TB dự báo/ngày</span><strong>{{ formatViNumber(features?.forecastAverageDailyDemand ?? result.predictedDemand / result.forecastDays) }}</strong><small>đơn vị</small></article>
-        <article><span>Xu hướng</span><strong>{{ trendLabel }}</strong><small>độ dốc {{ formatViNumber(features?.trendSlope) }}</small></article>
+        <article><span>Xu hướng lịch sử</span><strong>{{ trendLabel }}</strong><small>độ dốc {{ formatViNumber(features?.trendSlope) }}</small></article>
         <article><span>Ngày có bán</span><strong>{{ formatViNumber(features?.positiveDays) }}</strong><small>/ {{ result.historicalDays }} ngày</small></article>
       </section>
 
       <section class="dss-card chart-card">
         <div class="section-head"><div><h2 class="dss-card__title">Lịch sử và đường dự báo</h2><p>{{ result.productName || selectedProduct?.name }} · tạo lúc {{ formatViDateTime(result.generatedAt) }}</p></div><span v-if="result.insufficientData" class="data-warning">Thiếu dữ liệu</span></div>
         <LightGbmForecastChart :historical="historicalSeries" :forecast="forecastSeries" />
+        <aside class="forecast-trend" :data-tone="forecastTrendTone">
+          <div class="forecast-trend__head">
+            <h3>Xu hướng theo dự báo</h3>
+            <strong>{{ forecastTrendLabel }}</strong>
+          </div>
+          <p class="forecast-trend__meta">
+            độ dốc {{ formatViNumber(features?.forecastTrendSlope) }}
+            · {{ forecastWindowLabel }} tới
+          </p>
+          <p v-if="trendDivergenceReason" class="forecast-trend__reason">{{ trendDivergenceReason }}</p>
+        </aside>
       </section>
 
       <section class="dss-card recommend-card" aria-labelledby="system-recommend-title">
@@ -210,7 +245,7 @@ async function runForecast() {
           <strong>{{ formatViNumber(result.predictedDemand) }}</strong> sản phẩm
           (~<strong>{{ formatViNumber(avgDailyForecast) }}</strong> sản phẩm/ngày).
         </p>
-        <p>Dự báo sản phẩm có xu hướng <strong>{{ trendLabel.toLowerCase() }}</strong>.</p>
+        <p>Dự báo sản phẩm có xu hướng <strong>{{ forecastTrendLabel.toLowerCase() }}</strong>.</p>
       </section>
     </template>
   </div>
@@ -230,6 +265,14 @@ async function runForecast() {
 .metric-grid span,.metric-grid small { display:block; color:#64748b; font-size:.78rem; }
 .metric-grid strong { display:block; margin:.35rem 0; color:#0f3d78; font-size:1.35rem; }
 .chart-card { padding-bottom:1rem; }
+.forecast-trend { margin-top:1rem; padding:1rem 1.1rem; border-radius:12px; border:1px solid #e2e8f0; background:#f8fafc; }
+.forecast-trend__head { display:flex; align-items:baseline; justify-content:space-between; gap:.75rem; }
+.forecast-trend h3 { margin:0; font-size:.95rem; color:#334155; }
+.forecast-trend strong { font-size:1.15rem; color:#0f3d78; }
+.forecast-trend[data-tone="up"] strong { color:#166534; }
+.forecast-trend[data-tone="down"] strong { color:#b45309; }
+.forecast-trend__meta { margin:.35rem 0 0; color:#64748b; font-size:.82rem; }
+.forecast-trend__reason { margin:.7rem 0 0; color:#334155; font-size:.92rem; line-height:1.6; }
 .data-warning { color:#b45309; background:#fef3c7; padding:.35rem .6rem; border-radius:999px; font-size:.8rem; font-weight:700; }
 .recommend-card { margin-top:1rem; }
 .recommend-card p { margin:0 0 .75rem; color:#334155; font-size:.95rem; line-height:1.65; }
