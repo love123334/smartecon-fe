@@ -2260,13 +2260,11 @@ export const chatApi = {
 
     const [ctx, refreshedAttachments] = await Promise.all([
       buildChatContext(role, ctxOpts),
-      Promise.all([
-        attachmentInput?.length
-          ? refreshChatProductStock(attachmentInput)
-          : Promise.resolve(undefined as import('@/types').ChatProductRef[] | undefined),
-        refreshBeAiStatus(),
-      ]).then(([attachments]) => attachments),
+      attachmentInput?.length
+        ? refreshChatProductStock(attachmentInput)
+        : Promise.resolve(undefined as import('@/types').ChatProductRef[] | undefined),
     ])
+    void refreshBeAiStatus()
 
     if (refreshedAttachments?.length) {
       userMsg = { ...userMsg, attachments: refreshedAttachments }

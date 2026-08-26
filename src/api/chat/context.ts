@@ -183,15 +183,9 @@ export async function buildChatContext(
   const cacheKey = `${role}|${opts?.userId ?? ''}|${opts?.sellerBackendId ?? ''}`
   const hit = ctxCache.get(cacheKey)
   if (hit && Date.now() - hit.at < CTX_TTL_MS) {
-    // Refresh cart in parallel with returning cached ctx (caller gets fresh totals)
-    const cartPromise = loadCart(opts?.userId)
-    const cartData = await cartPromise
     return {
       ...hit.ctx,
       userName: opts?.userName ?? hit.ctx.userName,
-      cartLines: cartData.lines,
-      cartTotal: cartData.total,
-      cartItemCount: cartData.lines.reduce((s, l) => s + l.quantity, 0),
       enrichment: undefined,
     }
   }

@@ -124,7 +124,7 @@ export async function callChatLlm(
   if (hasBackendToken()) {
     try {
       if (beAiConfigured === null) {
-        await refreshBeAiStatus()
+        void refreshBeAiStatus()
       }
       const beMessages = buildBackendDialogue(history, groundedUser, {
         recentTurns: options?.recentTurns,

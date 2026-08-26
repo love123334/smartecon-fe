@@ -18,6 +18,6 @@ export function getAiStatus() {
 }
 
 export function chat(messages: { role: string; content: string }[]) {
-  // Gemini ≤12s, DeepSeek polish only if time left — do not abort into local
-  return http.post<AiChatResult>(apiPaths.ai.chat, { messages }, { timeoutMs: 18_000 })
+  // Gemini flash-lite ~2–5s; do not wait 18s then dump local
+  return http.post<AiChatResult>(apiPaths.ai.chat, { messages }, { timeoutMs: 10_000 })
 }

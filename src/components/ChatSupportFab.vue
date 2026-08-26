@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { chatApi } from '@/api/services'
 import { pickQuickPrompts, welcomeMessage } from '@/api/chat/prompts'
+import type { ChatLocalDraft } from '@/api/chat/responder'
 import type { ChatMessage, ChatProductRef, UserRole } from '@/types'
 import { useAuthStore } from '@/stores/auth'
 import { useChatSessionStore } from '@/stores/chatSession'
@@ -259,6 +260,21 @@ async function onSend(text: string) {
       sellerBackendId: auth.user?.backendId,
       attachments: attached,
       optimisticHistory: messages.value,
+      onDraft: (draft: ChatLocalDraft) => {
+        if (seq !== sendSeq) return
+        const pendingId = `${optimisticUser.id}-bot`
+        const pending: ChatMessage = {
+          id: pendingId,
+          role: 'assistant',
+          content: draft.content || 'Đang tư vấn…',
+          timestamp: new Date().toISOString(),
+          pending: true,
+          products: draft.products,
+          sellers: draft.sellers,
+          reviewSummary: draft.reviewSummary,
+        }
+        messages.value = [...messages.value.filter((m) => m.id !== pendingId), pending]
+      },
     })
     savedSessions.value = chatApi.listSessions(chatUserId.value)
     if (seq !== sendSeq) return

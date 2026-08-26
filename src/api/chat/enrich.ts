@@ -194,6 +194,11 @@ export async function enrichChatContext(
           return
         }
         const q = searchQ ?? raw
+        const localHits = findProductsByQuery(ctx.products, q)
+        if (localHits.length >= 1 && ctx.products.length >= 8) {
+          enrichment.searchResults = localHits.slice(0, 12)
+          return
+        }
         enrichment.searchResults = await productApi.list({ q, withStock: false, size: 48 })
       })(),
     )

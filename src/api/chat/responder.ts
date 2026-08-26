@@ -328,7 +328,7 @@ export async function resolveChatReply(
   ctx: ChatContext,
   attachments?: ChatProductRef[],
   priorConversation?: ConversationContext,
-  _onLocalDraft?: (draft: ChatLocalDraft) => void,
+  onLocalDraft?: (draft: ChatLocalDraft) => void,
 ): Promise<ChatReply> {
   const started = performance.now()
   let localLatencyMs = 0
@@ -517,6 +517,14 @@ export async function resolveChatReply(
   if (forceLocal) {
     return replyPayload('local', localContent, 'force_local')
   }
+
+  onLocalDraft?.({
+    content: 'Đang tư vấn…',
+    products,
+    sellers,
+    reviewSummary,
+    suggestedActions,
+  })
 
   if (isLlmConfigured()) {
     try {

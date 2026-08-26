@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { chatApi } from '@/api/services'
 import { pickQuickPrompts, welcomeMessage } from '@/api/chat/prompts'
 import type { ChatLoginSession } from '@/api/chat/chatPersistence'
+import type { ChatLocalDraft } from '@/api/chat/responder'
 import type { ChatMessage, UserRole } from '@/types'
 import { useAuthStore } from '@/stores/auth'
 import { useChatSessionStore } from '@/stores/chatSession'
@@ -110,6 +111,20 @@ async function onSend(text: string) {
       userName: auth.user?.fullName,
       sellerBackendId: auth.user?.backendId,
       optimisticHistory: messages.value,
+      onDraft: (draft: ChatLocalDraft) => {
+        const pendingId = `${optimisticUser.id}-bot`
+        const pending: ChatMessage = {
+          id: pendingId,
+          role: 'assistant',
+          content: draft.content || 'Đang tư vấn…',
+          timestamp: new Date().toISOString(),
+          pending: true,
+          products: draft.products,
+          sellers: draft.sellers,
+          reviewSummary: draft.reviewSummary,
+        }
+        messages.value = [...messages.value.filter((m) => m.id !== pendingId), pending]
+      },
     })
   } catch (e) {
     messages.value = messages.value.filter((m) => m.id !== optimisticUser.id)

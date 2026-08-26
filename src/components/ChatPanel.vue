@@ -86,10 +86,6 @@ const typingId = ref<string | null>(null)
 const finishedTypeIds = new Set<string>()
 let typeTimer: ReturnType<typeof setTimeout> | null = null
 
-function prefersReducedMotion(): boolean {
-  return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
-}
-
 function latestAssistant(messages: ChatMessage[]): ChatMessage | undefined {
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i]
@@ -123,32 +119,11 @@ function stopTypewriter() {
   }
 }
 
-function startTypewriter(id: string, full: string, resume = false) {
+function startTypewriter(id: string, full: string) {
   stopTypewriter()
   typingId.value = id
-  if (prefersReducedMotion() || full.length < 18) {
-    typedLen.value = full.length
-    finishedTypeIds.add(`${id}:${full.length}`)
-    return
-  }
-  if (!resume) typedLen.value = 0
-
-  const tick = () => {
-    const last = latestAssistant(props.messages)
-    const target = last && last.id === id ? last.content : full
-    if (typedLen.value >= target.length) {
-      finishedTypeIds.add(`${id}:${target.length}`)
-      typeTimer = null
-      void scrollEnd()
-      return
-    }
-    const remain = target.length - typedLen.value
-    const chunk = remain > 480 ? 14 : remain > 160 ? 6 : 3
-    typedLen.value += chunk
-    void scrollEnd()
-    typeTimer = setTimeout(tick, 16)
-  }
-  tick()
+  typedLen.value = full.length
+  finishedTypeIds.add(`${id}:${full.length}`)
 }
 
 watch(
@@ -180,7 +155,7 @@ watch(
       finishedTypeIds.add(`${last.id}:${last.content.length}`)
       return
     }
-    startTypewriter(last.id, last.content, grew && typedLen.value > 0)
+    startTypewriter(last.id, last.content)
   },
 )
 
