@@ -13,8 +13,10 @@ interface ChatCompletionResponse {
   error?: { message?: string }
 }
 
-/** Cached BE Hugging Face status (token stays on server — easy Vercel/Railway deploy). */
+/** Cached BE AI status (token stays on server — easy Vercel/Railway deploy). */
 let beAiConfigured: boolean | null = null
+let beAiStatusAt = 0
+const BE_AI_STATUS_TTL_MS = 120_000
 
 function hasBackendToken(): boolean {
   return Boolean(localStorage.getItem('sedsp_access_token')?.trim())
@@ -28,13 +30,21 @@ function isDirectLlmConfigured(): boolean {
   return apiConfig.aiEnabled && Boolean(apiConfig.aiApiKey?.trim())
 }
 
-export async function refreshBeAiStatus(): Promise<boolean> {
+export async function refreshBeAiStatus(force = false): Promise<boolean> {
+  if (
+    !force &&
+    beAiConfigured !== null &&
+    Date.now() - beAiStatusAt < BE_AI_STATUS_TTL_MS
+  ) {
+    return beAiConfigured === true
+  }
   try {
     const status = await realAi.getAiStatus()
     beAiConfigured = Boolean(status.configured)
   } catch {
     beAiConfigured = false
   }
+  beAiStatusAt = Date.now()
   return beAiConfigured === true
 }
 

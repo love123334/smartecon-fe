@@ -65,6 +65,14 @@ import type {
 
 export type ChatReplySource = ChatFinalSource
 
+export interface ChatLocalDraft {
+  content: string
+  products?: ChatProductRef[]
+  sellers?: ChatSellerRef[]
+  reviewSummary?: ChatReviewSummary
+  suggestedActions?: ChatSuggestedAction[]
+}
+
 export interface ChatReply {
   content: string
   source: ChatReplySource
@@ -81,6 +89,8 @@ export interface ChatReply {
  * Browse / budget / search / recommend → local lọc SP + LLM viết thoại tự nhiên.
  */
 const STRICT_LOCAL_INTENTS = new Set<ChatIntent>([
+  'greeting',
+  'thanks',
   'order_cancel',
   'cart_summary',
   'promo',
@@ -324,6 +334,7 @@ export async function resolveChatReply(
   ctx: ChatContext,
   attachments?: ChatProductRef[],
   priorConversation?: ConversationContext,
+  onLocalDraft?: (draft: ChatLocalDraft) => void,
 ): Promise<ChatReply> {
   const started = performance.now()
   let localLatencyMs = 0
@@ -514,6 +525,15 @@ export async function resolveChatReply(
   }
 
   if (isLlmConfigured()) {
+    if (localContent.trim().length >= 40 || products?.length) {
+      onLocalDraft?.({
+        content: localContent,
+        products,
+        sellers,
+        reviewSummary,
+        suggestedActions,
+      })
+    }
     try {
       const llmStarted = performance.now()
       const route = routeFromIntent(intent)

@@ -259,6 +259,25 @@ async function onSend(text: string) {
       sellerBackendId: auth.user?.backendId,
       attachments: attached,
       optimisticHistory: messages.value,
+      onDraft: (draft) => {
+        if (seq !== sendSeq) return
+        const botId = `${optimisticUser.id}-bot`
+        const pending: ChatMessage = {
+          id: botId,
+          role: 'assistant',
+          content: draft.content,
+          timestamp: new Date().toISOString(),
+          pending: true,
+          products: draft.products,
+          sellers: draft.sellers,
+          reviewSummary: draft.reviewSummary,
+          meta: {
+            source: 'local',
+            suggestedActions: draft.suggestedActions?.length ? draft.suggestedActions : undefined,
+          },
+        }
+        messages.value = [...messages.value.filter((m) => m.id !== botId), pending]
+      },
     })
     savedSessions.value = chatApi.listSessions(chatUserId.value)
     if (seq !== sendSeq) return

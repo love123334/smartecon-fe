@@ -38,7 +38,7 @@ import {
   startNewChatInLogin,
   type ChatLoginSession,
 } from '@/api/chat/chatPersistence'
-import { chatModeLabel, resolveChatReply, refreshBeAiStatus } from '@/api/chat/responder'
+import { chatModeLabel, resolveChatReply, refreshBeAiStatus, type ChatLocalDraft } from '@/api/chat/responder'
 import { useChatSessionStore } from '@/stores/chatSession'
 import { refreshChatProductStock } from '@/api/chat/productCards'
 import { isLlmConfigured } from '@/api/chat/llm'
@@ -2221,6 +2221,8 @@ export const chatApi = {
       attachments?: import('@/types').ChatProductRef[]
       /** History already includes optimistic user bubble (last message = user). */
       optimisticHistory?: ChatMessage[]
+      /** Local facts/cards while Gemini is still writing. */
+      onDraft?: (draft: ChatLocalDraft) => void
     },
   ): Promise<ChatMessage[]> {
     const session = ensureActiveSession(userId, role)
@@ -2292,6 +2294,7 @@ export const chatApi = {
       ctx,
       userMsg.attachments ?? attachments,
       priorConversation,
+      opts?.onDraft,
     )
 
     try {

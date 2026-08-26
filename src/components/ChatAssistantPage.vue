@@ -92,15 +92,45 @@ async function onOpenSession(sessionId: string) {
 }
 
 async function onSend(text: string) {
+  if (loading.value) return
   loading.value = true
   chatError.value = ''
   lastFailedText.value = ''
+
+  const optimisticUser: ChatMessage = {
+    id: `c-${Date.now()}`,
+    role: 'user',
+    content: text.trim(),
+    timestamp: new Date().toISOString(),
+  }
+  messages.value = [...messages.value, optimisticUser]
+
   try {
     messages.value = await chatApi.send(chatUserId.value, text, effectiveRole.value, {
       userName: auth.user?.fullName,
       sellerBackendId: auth.user?.backendId,
+      optimisticHistory: messages.value,
+      onDraft: (draft) => {
+        const botId = `${optimisticUser.id}-bot`
+        const pending: ChatMessage = {
+          id: botId,
+          role: 'assistant',
+          content: draft.content,
+          timestamp: new Date().toISOString(),
+          pending: true,
+          products: draft.products,
+          sellers: draft.sellers,
+          reviewSummary: draft.reviewSummary,
+          meta: {
+            source: 'local',
+            suggestedActions: draft.suggestedActions?.length ? draft.suggestedActions : undefined,
+          },
+        }
+        messages.value = [...messages.value.filter((m) => m.id !== botId), pending]
+      },
     })
   } catch (e) {
+    messages.value = messages.value.filter((m) => m.id !== optimisticUser.id)
     lastFailedText.value = text
     chatError.value = e instanceof Error ? e.message : 'Không gửi được tin nhắn'
   } finally {

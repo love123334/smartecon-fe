@@ -49,7 +49,7 @@ const visibleQuickPrompts = computed(() =>
 const latestAssistantId = computed(() => {
   for (let i = props.messages.length - 1; i >= 0; i--) {
     const m = props.messages[i]
-    if (m.role === 'assistant' && !m.pending) return m.id
+    if (m.role === 'assistant') return m.id
   }
   return null
 })
@@ -93,7 +93,7 @@ function prefersReducedMotion(): boolean {
 function latestAssistant(messages: ChatMessage[]): ChatMessage | undefined {
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i]
-    if (m.role === 'assistant' && !m.pending) return m
+    if (m.role === 'assistant') return m
   }
   return undefined
 }
@@ -167,7 +167,19 @@ watch(
     }
     const sameId = Boolean(prevKey && prevKey.startsWith(`${last.id}\n`))
     const prevContent = prevKey ? prevKey.slice(prevKey.indexOf('\n') + 1) : ''
+    if (last.pending) {
+      typedLen.value = last.content.length
+      typingId.value = last.id
+      finishedTypeIds.add(`${last.id}:${last.content.length}`)
+      return
+    }
     const grew = sameId && last.content.startsWith(prevContent)
+    if (sameId && !grew && prevContent.length > 0) {
+      typedLen.value = last.content.length
+      typingId.value = last.id
+      finishedTypeIds.add(`${last.id}:${last.content.length}`)
+      return
+    }
     startTypewriter(last.id, last.content, grew && typedLen.value > 0)
   },
 )
@@ -333,7 +345,7 @@ defineExpose({ scrollToEnd: scrollEnd })
             }}</time>
           </div>
         </div>
-        <div v-if="loading" key="typing" class="chat-row chat-row--assistant">
+        <div v-if="loading && !messages.some((m) => m.pending)" key="typing" class="chat-row chat-row--assistant">
           <span class="chat-row__avatar" aria-hidden="true">
             <ChatBotIcon :size="36" />
           </span>
