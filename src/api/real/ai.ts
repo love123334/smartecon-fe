@@ -18,6 +18,6 @@ export function getAiStatus() {
 }
 
 export function chat(messages: { role: string; content: string }[]) {
-  // Gemini flash-lite ~2–5s; do not wait 18s then dump local
-  return http.post<AiChatResult>(apiPaths.ai.chat, { messages }, { timeoutMs: 10_000 })
+  // Gemini ~2–5s; if it fails, BE still has ~8s for DeepSeek
+  return http.post<AiChatResult>(apiPaths.ai.chat, { messages }, { timeoutMs: 16_000 })
 }
