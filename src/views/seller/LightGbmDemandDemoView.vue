@@ -73,6 +73,7 @@ const forecastTrendTone = computed(() => {
   const code = features.value?.forecastTrendDirection
   if (code === 'up') return 'up'
   if (code === 'down') return 'down'
+  if (code === 'seasonal') return 'seasonal'
   return 'stable'
 })
 const trendDivergenceReason = computed(() => {
@@ -271,6 +272,7 @@ async function runForecast() {
 .forecast-trend strong { font-size:1.15rem; color:#0f3d78; }
 .forecast-trend[data-tone="up"] strong { color:#166534; }
 .forecast-trend[data-tone="down"] strong { color:#b45309; }
+.forecast-trend[data-tone="seasonal"] strong { color:#1d4ed8; }
 .forecast-trend__meta { margin:.35rem 0 0; color:#64748b; font-size:.82rem; }
 .forecast-trend__reason { margin:.7rem 0 0; color:#334155; font-size:.92rem; line-height:1.6; }
 .data-warning { color:#b45309; background:#fef3c7; padding:.35rem .6rem; border-radius:999px; font-size:.8rem; font-weight:700; }

@@ -30,10 +30,10 @@ export interface DemandFeatureSnapshotApi {
   previousAverageDailyDemand?: number
   momentum?: number
   trendSlope?: number
-  historyTrend?: 'up' | 'down' | 'stable'
+  historyTrend?: 'up' | 'down' | 'stable' | 'seasonal'
   historyTrendLabel?: string
   forecastTrend?: number
-  forecastTrendDirection?: 'up' | 'down' | 'stable'
+  forecastTrendDirection?: 'up' | 'down' | 'stable' | 'seasonal'
   forecastTrendLabel?: string
   forecastTrendSlope?: number
   trendBreakDate?: string | null
