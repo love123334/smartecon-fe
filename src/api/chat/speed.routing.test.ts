@@ -3,13 +3,15 @@ import { resolveChatReply } from '@/api/chat/responder'
 import type { ChatContext } from '@/api/chat/context'
 import type { Product } from '@/types'
 
-const callChatLlm = vi.fn(async () =>
-  'Tai nghe Sony WH-1000XM5 đang bán 7.990.000đ, chống ồn tốt và còn 8 cái.',
-)
+const { callChatLlm } = vi.hoisted(() => ({
+  callChatLlm: vi.fn(async () =>
+    'Tai nghe Sony WH-1000XM5 đang bán 7.990.000đ, chống ồn tốt và còn 8 cái.',
+  ),
+}))
 
 vi.mock('@/api/chat/llm', () => ({
   isLlmConfigured: () => true,
-  callChatLlm: (...args: unknown[]) => callChatLlm(...args),
+  callChatLlm,
   llmProviderLabel: () => 'mock',
   refreshBeAiStatus: vi.fn(),
 }))
