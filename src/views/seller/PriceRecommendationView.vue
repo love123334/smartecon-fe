@@ -25,7 +25,6 @@ import { buildPricePredictionAiInsight } from '@/utils/sellerDssModuleAi'
 import DssProfitBreakdownPanel from '@/components/dss/DssProfitBreakdownPanel.vue'
 import DssAiInsightCollapsible from '@/components/dss/DssAiInsightCollapsible.vue'
 import DssPredictionContextPanel from '@/components/dss/DssPredictionContextPanel.vue'
-import DssForecastHolidayScopePanel from '@/components/dss/DssForecastHolidayScopePanel.vue'
 import type { CustomPriceScenarioApi } from '@/api/real/dss'
 
 interface SellerProductOption {
@@ -447,13 +446,6 @@ async function onCustomPriceSubmit() {
           <p v-if="result.recommendationReason" class="dss-hint">{{ result.recommendationReason }}</p>
         </div>
       </section>
-
-      <DssForecastHolidayScopePanel
-        :forecast-from="result.forecastFrom"
-        :forecast-to="result.forecastTo"
-        :forecast-period-label="result.forecastPeriodLabel"
-        :upcoming-holidays="result.upcomingHolidays"
-      />
 
       <DssPredictionContextPanel
         :product-context="result.productContext"

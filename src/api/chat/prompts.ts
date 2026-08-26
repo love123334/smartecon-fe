@@ -102,10 +102,10 @@ export function quickPromptsForRole(role: UserRole): QuickPrompt[] {
 export function welcomeMessage(role: UserRole, userName?: string): string {
   const name = userName?.trim() ? ` ${userName}` : ''
   if (role === 'seller') {
-    return `Xin chào${name}! 👋 Tôi là **Trợ lý DSS & Quản lý bán hàng** của bạn. Tôi có thể hỗ trợ dự báo nhu cầu bán hàng, cảnh báo điểm đặt hàng lại (ROP), phân tích What-If khi giảm giá và theo dõi sức khỏe kinh doanh của shop.`
+    return `Xin chào${name}! 👋 Tôi là Trợ lý DSS & Quản lý bán hàng của bạn.`
   }
   if (role === 'manager') {
-    return `Xin chào${name}! Tôi là **Trợ lý Quản trị Vận hành sàn**. Bạn cần xem báo cáo KPI, phê duyệt voucher hay phân tích doanh thu toàn nền tảng?`
+    return `Xin chào${name}! Tôi là Trợ lý Quản trị Vận hành sàn của bạn.`
   }
-  return `Chào bạn${name}! 👋 Tôi là **Trợ lý mua sắm SEDSP**. Bạn đang tìm kiếm sản phẩm nào (tai nghe, bàn phím, nồi chiên, giày chạy bộ...), cần săn mã giảm giá hay tra cứu đơn hàng?`
+  return `Xin chào${name}! 👋 Tôi là Trợ lý mua sắm SEDSP của bạn.`
 }

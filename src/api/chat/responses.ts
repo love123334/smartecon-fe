@@ -974,7 +974,13 @@ export function buildIntentReply(ctx: ChatContext, intent: ChatIntent, raw: stri
 
   switch (intent) {
     case 'greeting':
-      return `${name}Chào bạn! Mình hỗ trợ mua sắm SEDSP đây. ${roleHelpHints(ctx.role)}`
+      if (ctx.role === 'seller') {
+        return `${name}Xin chào! 👋 Tôi là Trợ lý DSS & Quản lý bán hàng của bạn.`
+      }
+      if (ctx.role === 'manager') {
+        return `${name}Xin chào! Tôi là Trợ lý Quản trị Vận hành sàn của bạn.`
+      }
+      return `${name}Xin chào! 👋 Tôi là Trợ lý mua sắm SEDSP của bạn.`
     case 'thanks':
       return `${name}Không có gì! Cần thêm cứ hỏi nhé.`
     case 'help':

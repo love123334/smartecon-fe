@@ -16,6 +16,7 @@ describe('interpretDemandTrend', () => {
     expect(plateau?.combined).toBe('up_to_high_stable')
     expect(plateau?.insightLabel).toBe('Tăng → ổn định ở mức cao')
     expect(plateau?.recommendation.toLowerCase()).not.toContain('đang giảm')
+    expect(plateau?.recommendation).not.toMatch(/đơn\/ngày/)
 
     const repeating = interpretDemandTrend(history, sideways)
     expect(repeating?.combined).toBe('up_to_high_stable')

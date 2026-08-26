@@ -37,13 +37,6 @@ function levelWindowSize(n: number): number {
   return Math.min(14, Math.max(7, Math.floor(n / 6)))
 }
 
-function formatQty(value: number): string {
-  if (!Number.isFinite(value)) return '0'
-  const rounded = Math.round(value * 10) / 10
-  if (Math.abs(rounded - Math.round(rounded)) < 0.05) return String(Math.round(rounded))
-  return rounded.toFixed(1)
-}
-
 function historyDir(liftRatio: number): DemandTrendDirection {
   if (liftRatio >= STRONG_LIFT) return 'up'
   if (liftRatio <= 0.67) return 'down'
@@ -131,27 +124,27 @@ function forecastLabel(direction: DemandTrendDirection, highLevel: boolean, lowL
   return 'Đang giảm'
 }
 
-function recommendation(combined: DemandTrendCombined, qty: string): string {
+function recommendation(combined: DemandTrendCombined): string {
   switch (combined) {
     case 'up_to_high_stable':
     case 'up_to_stable':
-      return `Nhu cầu gần đây đang tăng mạnh và dự báo duy trì ở mức cao khoảng ${qty} đơn/ngày. Nên giữ tồn kho cao hơn giai đoạn trước và theo dõi xem mức này có đứng vững sau 2–4 tuần.`
+      return 'Nhu cầu gần đây đang tăng mạnh và dự báo duy trì ở mức cao. Nên giữ tồn kho cao hơn giai đoạn trước và theo dõi xem mức này có đứng vững sau 2–4 tuần.'
     case 'continue_up':
-      return `Dự báo tiếp tục tăng — chủ động nhập thêm theo nhịp ~${qty} đơn/ngày, tránh hết hàng giữa kỳ.`
+      return 'Dự báo tiếp tục tăng — chủ động nhập thêm, tránh hết hàng giữa kỳ.'
     case 'up_then_cool':
-      return `Đã tăng nhưng có dấu hiệu hạ nhiệt. Giữ tồn đủ cho ~${qty} đơn/ngày, chưa tăng nhập mạnh thêm.`
+      return 'Đã tăng nhưng có dấu hiệu hạ nhiệt. Giữ tồn đủ cho nhịp hiện tại, chưa tăng nhập mạnh thêm.'
     case 'recovering':
-      return `Có tín hiệu phục hồi. Tăng tồn nhẹ theo dự báo ~${qty} đơn/ngày và theo dõi 1–2 tuần.`
+      return 'Có tín hiệu phục hồi. Tăng tồn nhẹ theo dự báo và theo dõi 1–2 tuần.'
     case 'continue_down':
-      return `Nhu cầu giảm rõ — hạ tồn, tránh nhập dày; kỳ tới khoảng ${qty} đơn/ngày.`
+      return 'Nhu cầu giảm rõ — hạ tồn, tránh nhập dày.'
     case 'down_to_stable':
-      return `Đã giảm rồi đi ngang quanh ${qty} đơn/ngày. Điều chỉnh tồn về mức mới, chưa cắt sâu thêm.`
+      return 'Đã giảm rồi đi ngang. Điều chỉnh tồn về mức mới, chưa cắt sâu thêm.'
     case 'may_rise':
-      return `Có khả năng tăng. Sẵn sàng tồn đệm quanh ${qty} đơn/ngày.`
+      return 'Có khả năng tăng. Sẵn sàng tồn đệm vừa phải.'
     case 'may_fall':
-      return `Có khả năng giảm. Giữ tồn vừa, ưu tiên xả chậm nếu bán chậm hơn kỳ trước.`
+      return 'Có khả năng giảm. Giữ tồn vừa, ưu tiên xả chậm nếu bán chậm hơn kỳ trước.'
     default:
-      return `Nhu cầu ổn định quanh ${qty} đơn/ngày. Duy trì tồn xoay vòng, tránh nhập đột biến.`
+      return 'Nhu cầu ổn định. Duy trì tồn xoay vòng, tránh nhập đột biến.'
   }
 }
 
@@ -170,12 +163,11 @@ export function interpretDemandTrend(
   const history = historyDir(liftRatio)
   const forecast = forecastDir(forecastQty, recentLevel)
   const combined = combine(history, forecast, highLevel)
-  const qty = formatQty(avg(forecastQty))
   return {
     historyLabel: historyLabel(history, liftRatio),
     forecastLabel: forecastLabel(forecast, highLevel, lowLevel),
     combined,
     insightLabel: INSIGHT_LABEL[combined],
-    recommendation: recommendation(combined, qty),
+    recommendation: recommendation(combined),
   }
 }

@@ -4,7 +4,6 @@ import { RouterLink } from 'vue-router'
 import ProductSalesHistoryChart from '@/components/dss/ProductSalesHistoryChart.vue'
 import DssAiInsightCollapsible from '@/components/dss/DssAiInsightCollapsible.vue'
 import DssPredictionContextPanel from '@/components/dss/DssPredictionContextPanel.vue'
-import DssForecastHolidayScopePanel from '@/components/dss/DssForecastHolidayScopePanel.vue'
 import { dssApi } from '@/api/services'
 import type { DemandPredictionApi } from '@/api/real/dss'
 import { useAuthStore } from '@/stores/auth'
@@ -398,7 +397,7 @@ function resetResult() {
             </div>
 
             <div class="demand-total-box" aria-label="Tổng nhu cầu dự báo">
-              <span>Tổng nhu cầu (có mùa vụ & ngày lễ)</span>
+              <span>Tổng nhu cầu (có mùa vụ theo thứ)</span>
               <strong>{{
                 formatViNumber(result.seasonalityAdjustedDemand ?? result.predictedDemand)
               }}</strong>
@@ -409,8 +408,7 @@ function resetResult() {
               v-if="result.seasonalityAdjustedDemand && result.predictedDemand !== result.seasonalityAdjustedDemand"
               class="dss-hint"
             >
-              Dự báo phẳng (không mùa vụ): {{ formatViNumber(result.predictedDemand) }} SP · Hệ số lễ
-              ×{{ formatViNumber(result.holidayAdjustmentFactor ?? 1) }}
+              Dự báo phẳng (không mùa vụ): {{ formatViNumber(result.predictedDemand) }} SP
             </p>
           </div>
         </section>
@@ -418,14 +416,6 @@ function resetResult() {
     </div>
 
     <template v-if="result">
-      <DssForecastHolidayScopePanel
-        :forecast-from="result.forecastFrom"
-        :forecast-to="result.forecastTo"
-        :forecast-period-label="result.forecastPeriodLabel"
-        :upcoming-holidays="result.upcomingHolidays"
-        :holiday-adjustment-factor="result.holidayAdjustmentFactor"
-      />
-
       <DssPredictionContextPanel
         :product-context="result.productContext"
         :price-change-impacts="result.priceChangeImpacts"
@@ -434,7 +424,7 @@ function resetResult() {
       <section v-if="hasChart || forecastSeriesForChart.length" class="dss-card" aria-labelledby="demand-chart-title">
         <h2 id="demand-chart-title" class="dss-card__title">Lịch sử & dự báo theo ngày</h2>
         <p class="dss-hint demand-chart-note">
-          Đường xanh: bán thực tế · Đường cam: dự báo có điều chỉnh mùa vụ / ngày lễ.
+          Đường xanh: bán thực tế · Đường cam: dự báo có điều chỉnh mùa vụ theo thứ.
         </p>
         <ProductSalesHistoryChart
           :historical="historicalSeries"
