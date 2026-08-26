@@ -371,7 +371,10 @@ export function affordableProductsForQuery(
     .slice(0, limit)
 }
 
-export function applyPriceRange(products: Product[], range: PriceRange | null): Product[] {
+export function applyPriceRange<T extends { price: number }>(
+  products: T[],
+  range: PriceRange | null,
+): T[] {
   if (!range) return products
   return products.filter((p) => {
     if (range.min != null && p.price < range.min) return false
@@ -384,7 +387,7 @@ export function constrainProductsToQueryBudget<T extends { price: number }>(
   products: T[],
   raw: string,
 ): T[] {
-  return applyPriceRange(products as Product[], extractPriceRange(raw)) as T[]
+  return applyPriceRange(products, extractPriceRange(raw))
 }
 
 /** In-budget ranking: rating/sold first, then cheaper. Keeps stock=0 catalog rows. */
