@@ -10,7 +10,6 @@ import PlatformRevenueFilter from '@/components/platform-revenue/PlatformRevenue
 import PlatformRevenueKpis from '@/components/platform-revenue/PlatformRevenueKpis.vue'
 import PlatformRevenueTrendChart from '@/components/platform-revenue/PlatformRevenueTrendChart.vue'
 import PlatformRankingTables from '@/components/platform-revenue/PlatformRankingTables.vue'
-import PlatformOrderStatusChart from '@/components/platform-revenue/PlatformOrderStatusChart.vue'
 import PlatformActivitySection from '@/components/platform-revenue/PlatformActivitySection.vue'
 import LookerStudioEmbed from '@/components/LookerStudioEmbed.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
@@ -44,7 +43,6 @@ const revenueTrend = computed(() => data.value?.revenueTrend ?? [])
 const sellers = computed(() => data.value?.topSellers ?? [])
 const products = computed(() => data.value?.topProducts ?? [])
 const categories = computed(() => data.value?.topCategories ?? [])
-const orderStatuses = computed(() => data.value?.orderStatusDistribution ?? [])
 const activity = computed(() => data.value?.platformActivity ?? null)
 
 onMounted(() => {
@@ -144,7 +142,7 @@ function retry() {
         v-if="initialLoading && !data"
         page
         label="Đang tải báo cáo doanh thu toàn sàn..."
-        sublabel="Đang tổng hợp dữ liệu giao dịch, xếp hạng người bán và phân bổ trạng thái đơn."
+        sublabel="Đang tổng hợp dữ liệu giao dịch và xếp hạng người bán."
       />
 
       <template v-else-if="data">
@@ -163,7 +161,6 @@ function retry() {
           :categories="categories"
         />
 
-        <PlatformOrderStatusChart v-if="orderStatuses.length" :items="orderStatuses" />
         <PlatformActivitySection v-if="activity" :activity="activity" />
       </template>
 
