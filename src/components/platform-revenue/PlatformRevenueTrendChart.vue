@@ -106,7 +106,7 @@ const options = computed(() =>
 
 <template>
   <section class="card" aria-labelledby="pr-revenue-trend-title">
-    <h2 id="pr-revenue-trend-title" class="pr-section-title">Xu hướng doanh thu</h2>
+    <h2 id="pr-revenue-trend-title" class="pr-section-title">Lịch sử doanh thu</h2>
     <p class="muted pr-sub">
       GMV và giá trị đơn hàng đã giao theo {{ granularity === 'MONTH' ? 'tháng' : 'ngày' }} — không phải lợi nhuận sàn.
     </p>

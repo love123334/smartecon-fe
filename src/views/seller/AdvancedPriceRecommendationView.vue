@@ -20,7 +20,6 @@ import {
   ADVANCED_PRICE_CHANGE_STEP,
   ADVANCED_PRICE_FORECAST_PERIODS,
   advancedPriceDateDefaults,
-  formatForecastMethod,
   formatNumber,
   formatSignedPercent,
   formatVnd,
@@ -510,10 +509,6 @@ function scenarioClass(change: number): string {
 
         <div class="advanced-model-meta">
           <span>
-            <small>Mô hình nhu cầu</small>
-            <strong>{{ formatForecastMethod(session.forecastMethod) }}</strong>
-          </span>
-          <span>
             <small>Hệ số co giãn E</small>
             <strong>{{ formatNumber(session.averageElasticity) }}</strong>
             <em>{{ elasticityLabel(session.elasticitySource) }}</em>
@@ -921,7 +916,7 @@ function scenarioClass(change: number): string {
 
 .advanced-model-meta {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.7rem;
   margin-top: 0.8rem;
 }

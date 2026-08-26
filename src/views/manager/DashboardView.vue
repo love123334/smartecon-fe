@@ -71,7 +71,7 @@ onMounted(async () => {
       </div>
 
     <div class="card chart-card card--flat">
-      <h2 class="card-title">Xu hướng doanh thu</h2>
+      <h2 class="card-title">Lịch sử doanh thu</h2>
       <LineChart v-if="sales.length" :data="sales" label="Doanh thu" />
       <p v-else-if="!loading" class="muted">Chưa có dữ liệu biểu đồ.</p>
       <LoadingSpinner v-else size="sm" label="Đang tải" />

@@ -77,11 +77,6 @@ const decisionContent = computed(() => decisionCopy(result.value?.decision))
 const adsHeadroom = computed(() =>
   result.value ? result.value.breakEvenAdsPerOrder - adsPerOrder.value : 0,
 )
-const adsFillPercent = computed(() => {
-  if (!result.value) return 0
-  const cap = Math.max(result.value.breakEvenAdsPerOrder, adsPerOrder.value, 1)
-  return Math.min(100, (adsPerOrder.value / cap) * 100)
-})
 
 const composition = computed(() => {
   if (!result.value || !product.value) return []
@@ -313,16 +308,6 @@ function decisionCopy(decision?: OrderEconomicsDecision) {
           <strong>{{ formatOrderEconomicsPercent(result.contributionMarginPercent) }}</strong>
           <small>Ngưỡng mở rộng 15%</small>
         </article>
-        <article class="economics-kpi">
-          <span>QC hòa vốn</span>
-          <strong>{{ formatOrderEconomicsVnd(result.breakEvenAdsPerOrder) }}</strong>
-          <div class="economics-meter" :class="{ 'economics-meter--over': adsHeadroom < 0 }">
-            <i :style="{ width: `${adsFillPercent}%` }" />
-          </div>
-          <small>
-            {{ adsHeadroom >= 0 ? `Còn ${formatOrderEconomicsVnd(adsHeadroom)}` : `Vượt ${formatOrderEconomicsVnd(Math.abs(adsHeadroom))}` }}
-          </small>
-        </article>
         <article class="economics-kpi economics-kpi--decision" :class="`economics-kpi--${decisionContent.tone}`">
           <span>Kết luận</span>
           <strong>{{ decisionContent.label }}</strong>
@@ -438,7 +423,7 @@ function decisionCopy(decision?: OrderEconomicsDecision) {
   pointer-events: none;
 }
 .economics-error { color: #c62828; }
-.economics-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; margin: 0 0 .85rem; }
+.economics-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; margin: 0 0 .85rem; }
 .economics-kpi {
   padding: .8rem .9rem .75rem;
   border: 1px solid #d8e3ef;
@@ -457,15 +442,6 @@ function decisionCopy(decision?: OrderEconomicsDecision) {
 .economics-kpi--fix, .economics-kpi--negative { border-color: #ef9a9a; background: #fff8f8; }
 .economics-kpi--fix strong, .economics-kpi--negative strong { color: #b71c1c; }
 .economics-kpi--decision strong { font-size: .92rem; letter-spacing: .02em; }
-.economics-meter {
-  height: 6px;
-  margin: .45rem 0 .3rem;
-  overflow: hidden;
-  border-radius: 99px;
-  background: #eceff1;
-}
-.economics-meter i { display: block; height: 100%; background: #43a047; }
-.economics-meter--over i { background: #e53935; }
 .economics-analysis-grid { display: grid; grid-template-columns: minmax(320px, 1.2fr) minmax(280px, .8fr); gap: .85rem; align-items: stretch; }
 .economics-analysis-grid > .dss-card { min-width: 0; padding: 1rem 1.1rem; color: #263238; }
 .economics-section-head { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }

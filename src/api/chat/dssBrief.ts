@@ -69,8 +69,8 @@ export async function demandBriefLive(catalog: Product[], focusOverride?: Produc
     const { dssApi } = await import('@/api/services')
     const r = await dssApi.forecastDemand({
       productId: focus.id,
-      historyDays: 30,
-      forecastDays: 14,
+      historyDays: 180,
+      forecastDays: 30,
     })
     return [
       `• Nguồn: **API DSS** (${r.method || 'moving_average'})`,
