@@ -231,9 +231,17 @@ function preferLocalOverLlm(
   if (role === 'seller' && userMessage && llmWrongAskedMonth(userMessage, llmContent) && localContent.trim().length > 20) {
     return 'contradicts_facts'
   }
-  // Backend Gemini + tools already grounded — keep its wording unless clearly off-topic / price clash
+  // Backend Gemini already grounded — keep wording unless leak / price clash / off-topic
   if (backendGrounded) {
     if (looksLikeOffTopicPlatformReply(normalized, llmContent)) return 'off_topic'
+    if (llmContradictsFacts(llmContent, facts)) return 'contradicts_facts'
+    return null
+  }
+  const namedHit = localProducts?.some((p) => {
+    const key = p.name.trim().toLowerCase()
+    return key.length >= 4 && llmContent.toLowerCase().includes(key.slice(0, Math.min(key.length, 16)))
+  })
+  if (namedHit) {
     if (llmContradictsFacts(llmContent, facts)) return 'contradicts_facts'
     return null
   }
@@ -581,11 +589,7 @@ export async function resolveChatReply(
         true,
       )
     } catch (e) {
-      const errMsg = e instanceof Error ? e.message : ''
-      // If Gemini is down, keep local facts but mark clearly in telemetry
-      if (/Gemini|BE AI|502|Bad Gateway|chưa cấu hình/i.test(errMsg) && localContent.trim()) {
-        return replyPayload('local', localContent, 'llm_error', true)
-      }
+      console.warn('[chat] LLM failed, local fallback', e)
       return replyPayload('local', localContent, 'llm_error', true)
     }
   }

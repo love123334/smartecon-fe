@@ -31,29 +31,26 @@ function isDirectLlmConfigured(): boolean {
 }
 
 export async function refreshBeAiStatus(force = false): Promise<boolean> {
-  if (
-    !force &&
-    beAiConfigured !== null &&
-    Date.now() - beAiStatusAt < BE_AI_STATUS_TTL_MS
-  ) {
-    return beAiConfigured === true
+  if (!force && beAiConfigured === true && Date.now() - beAiStatusAt < BE_AI_STATUS_TTL_MS) {
+    return true
   }
   try {
     const status = await realAi.getAiStatus()
     beAiConfigured = Boolean(status.configured)
+    beAiStatusAt = Date.now()
   } catch {
-    beAiConfigured = false
+    // Never lock into "AI off" — logged-in users still call the BE proxy.
+    if (beAiConfigured !== true) beAiConfigured = null
   }
-  beAiStatusAt = Date.now()
-  return beAiConfigured === true
+  return beAiConfigured === true || hasBackendToken()
 }
 
 /** true if BE Gemini proxy ready, or optional browser Groq key */
 export function isLlmConfigured(): boolean {
-  if (beAiConfigured === true) return true
   if (isDirectLlmConfigured()) return true
-  // Optimistic while status loads: logged-in users may use BE proxy
-  return hasBackendToken() && beAiConfigured !== false
+  if (beAiConfigured === true) return true
+  // Optimistic: JWT users hit Railway /ai/chat even if /ai/status blipped
+  return hasBackendToken()
 }
 
 export function llmProviderLabel(): string {
@@ -124,30 +121,26 @@ export async function callChatLlm(
     { role: 'user', content: groundedUser.slice(0, BE_TURN_MAX_CHARS) },
   ]
 
-  if (hasBackendToken() && beAiConfigured !== false) {
+  if (hasBackendToken()) {
     try {
       if (beAiConfigured === null) {
         await refreshBeAiStatus()
       }
-      if (beAiConfigured) {
-        const beMessages = buildBackendDialogue(history, groundedUser, {
-          recentTurns: options?.recentTurns,
-          userRole: options?.userRole,
-        })
-        const res = await realAi.chat(beMessages)
-        // Soft fallback message from BE (no key) — still usable as reply text
-        if (res.content?.trim()) {
-          if (res.fallback) {
-            console.warn('[chat] BE AI fallback flag; using returned content')
-          }
-          return res.content.trim()
-        }
+      const beMessages = buildBackendDialogue(history, groundedUser, {
+        recentTurns: options?.recentTurns,
+        userRole: options?.userRole,
+      })
+      const res = await realAi.chat(beMessages)
+      if (res.content?.trim()) {
         if (res.fallback) {
-          throw new Error('BE AI chưa cấu hình (fallback)')
+          console.warn('[chat] BE AI fallback flag; using returned content')
         }
+        return res.content.trim()
+      }
+      if (res.fallback) {
+        throw new Error('BE AI chưa cấu hình (fallback)')
       }
     } catch (e) {
-      // Prefer surfacing BE Gemini errors over silent local-only replies
       if (!isDirectLlmConfigured()) {
         throw e instanceof Error ? e : new Error('BE AI chat failed')
       }
