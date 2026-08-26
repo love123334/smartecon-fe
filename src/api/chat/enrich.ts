@@ -1,7 +1,7 @@
 import type { ChatContext, ChatEnrichment } from '@/api/chat/context'
 import type { ChatIntent } from '@/api/chat/intents'
 import { normalizeText, asksProductListedDate, asksProductOrigin, asksProductReview } from '@/api/chat/match'
-import { applyPriceRange, extractPriceRange, findProductsByQuery, extractProductSearchTerms, isPriceStatsQuery } from '@/api/chat/products'
+import { applyPriceRange, extractPriceRange, findProductsByQuery, extractProductSearchTerms, isPriceStatsQuery, looksLikePhone, looksLikeTablet } from '@/api/chat/products'
 import { matchCategoryFromText } from '@/api/chat/synonyms'
 import {
   demandBriefLive,
@@ -219,11 +219,18 @@ export async function enrichChatContext(
           const map = new Map<string, (typeof byCat)[0]>()
           for (const p of [...byCat, ...elec]) map.set(String(p.id), p)
           // Ưu tiên SP tên/mô tả có "điện thoại" / phone / iphone
-          const ranked = [...map.values()].sort((a, b) => {
+          const merged = [...map.values()]
+          const phoneOnly = merged.filter((p) =>
+            looksLikePhone(`${p.name} ${p.category} ${p.description ?? ''}`),
+          )
+          const ranked = (phoneOnly.length ? phoneOnly : merged.filter((p) =>
+            !looksLikeTablet(`${p.name} ${p.category} ${p.description ?? ''}`),
+          )).sort((a, b) => {
             const score = (p: (typeof byCat)[0]) => {
-              const hay = `${p.name} ${p.category} ${p.description ?? ''}`.toLowerCase()
-              if (/iphone|galaxy|điện thoại|dien thoai|smartphone/.test(hay)) return 2
-              if (/điện tử|dien tu/.test(hay)) return 1
+              const hay = `${p.name} ${p.category} ${p.description ?? ''}`
+              if (looksLikeTablet(hay)) return -1
+              if (looksLikePhone(hay)) return 2
+              if (/điện tử|dien tu/i.test(hay)) return 1
               return 0
             }
             return score(b) - score(a)

@@ -60,9 +60,12 @@ const SEARCH_CATEGORY_INTENTS: SearchCategoryIntent[] = [
     blockedCategories: ['dien thoai', 'dien tu', 'laptop', 'may tinh', 'tablet', 'nha bep', 'am thuc', 'sach'],
   },
   {
-    triggers: ['dien thoai', 'smartphone', 'iphone', 'mobile phone', 'galaxy', 'xiaomi'],
-    allowedCategories: ['dien thoai', 'dien tu', 'phu kien', 'electronics'],
-    blockedCategories: ['thoi trang', 'nha bep', 'sach', 'noi that', 'gia dung'],
+    triggers: ['dien thoai', 'smartphone', 'iphone', 'mobile phone', 'oneplus'],
+    allowedCategories: ['dien thoai', 'dien tu', 'electronics'],
+    blockedCategories: [
+      'thoi trang', 'nha bep', 'sach', 'noi that', 'gia dung',
+      'may tinh bang', 'tablet', 'laptop', 'ipad',
+    ],
   },
   {
     triggers: ['laptop', 'macbook', 'may tinh xach tay', 'notebook'],
@@ -118,6 +121,37 @@ function categoryMatchesIntent(catHay: string, intent: SearchCategoryIntent): bo
 
 function categoryBlockedByIntent(catHay: string, intent: SearchCategoryIntent): boolean {
   return intent.blockedCategories.some((b) => catHay.includes(b))
+}
+
+/** Galaxy Tab / iPad must not ride along on a phone query. */
+export function looksLikeTablet(hay: string): boolean {
+  const n = normalizeText(hay)
+  return (
+    n.includes('may tinh bang')
+    || n.includes('tablet')
+    || /\bipad\b/.test(n)
+    || n.includes('galaxy tab')
+    || n.includes('xiaomi pad')
+    || /\btab s\d/.test(n)
+  )
+}
+
+export function looksLikePhone(hay: string): boolean {
+  const n = normalizeText(hay)
+  if (looksLikeTablet(n)) return false
+  if (
+    n.includes('dien thoai')
+    || n.includes('smartphone')
+    || n.includes('iphone')
+    || n.includes('pixel')
+    || n.includes('oneplus')
+  ) {
+    return true
+  }
+  if (/\b(galaxy|xiaomi|oppo|vivo|realme|mobile)\b/.test(n) && !looksLikeTablet(n)) {
+    return true
+  }
+  return false
 }
 
 const STRICT_BRAND_TERMS = new Set([
@@ -576,10 +610,8 @@ export function findProductsByQuery(products: Product[], query: string): Product
         return true
       }
       if (phoneQuery) {
-        if (/iphone|smartphone|galaxy|xiaomi|oppo|vivo|realme|pixel|mobile/.test(nameDesc)) {
-          return true
-        }
-        if (/dien thoai/.test(catHay)) return true
+        if (looksLikeTablet(`${nameHay} ${catHay} ${descHay}`)) return false
+        if (looksLikePhone(nameDesc) || /dien thoai/.test(catHay)) return true
         return false
       }
       return false
@@ -662,7 +694,8 @@ export function keepCoherentSearchHits(
       const hay = normalizeText(`${p.name} ${p.description ?? ''} ${p.category ?? ''}`)
       if (containsWholePhrase(hay, focus) || fieldContainsToken(hay, focus)) return true
       if (focus === 'dien thoai') {
-        return /iphone|smartphone|galaxy|xiaomi|oppo|vivo|realme|pixel|mobile/.test(hay)
+        if (looksLikeTablet(hay)) return false
+        return looksLikePhone(hay)
       }
       return false
     })

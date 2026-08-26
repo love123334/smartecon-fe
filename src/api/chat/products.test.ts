@@ -413,6 +413,22 @@ describe('phone under budget — no kettle false match', () => {
     expect(hits.some((x) => x.id === 'kettle')).toBe(false)
     expect(hits.some((x) => /phone|xiaomi|iphone/i.test(x.name))).toBe(true)
   })
+
+  it('does not mix Galaxy Tab into a phone budget search', () => {
+    const catalog = [
+      p({ id: 'phone', name: 'Điện thoại OnePlus 12', price: 17_990_000, category: 'Điện thoại' }),
+      p({
+        id: 'tab',
+        name: 'Samsung Galaxy Tab S9',
+        price: 19_990_000,
+        category: 'Máy tính bảng',
+        description: 'High-end Android tablet',
+      }),
+    ]
+    const { products } = filterProductsForQuery(catalog, 'điện thoại dưới 20 triệu')
+    expect(products.map((x) => x.id)).toEqual(['phone'])
+    expect(products.some((x) => /tab|máy tính bảng/i.test(`${x.name} ${x.category}`))).toBe(false)
+  })
 })
 
 describe('tablet search — no camping table false match', () => {

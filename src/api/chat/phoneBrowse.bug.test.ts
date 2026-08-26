@@ -119,4 +119,53 @@ describe('phone browse bug', () => {
     expect(reply.content).toMatch(/•/)
     expect(reply.content).not.toMatch(/iPhone 15 Pro/i)
   })
+
+  it('does not recommend a tablet when asked for phones under 20 triệu', async () => {
+    const catalog = [
+      p({
+        id: '2',
+        name: 'Điện thoại OnePlus 12',
+        price: 17_990_000,
+        category: 'Điện thoại',
+        rating: 5,
+        soldCount: 235,
+      }),
+      p({
+        id: 'tab',
+        name: 'Samsung Galaxy Tab S9',
+        price: 19_990_000,
+        category: 'Máy tính bảng',
+        description: 'High-end Android tablet',
+      }),
+    ]
+    const ctx = {
+      role: 'customer',
+      userName: 'Test',
+      products: catalog,
+      orders: [],
+      purchaseOrders: [],
+      cartLines: [],
+      cartTotal: 0,
+      cartItemCount: 0,
+      categories: [
+        { id: '1', name: 'Điện thoại', slug: 'dien-thoai', productCount: 1 },
+        { id: '2', name: 'Máy tính bảng', slug: 'may-tinh-bang', productCount: 1 },
+      ],
+      sellerProducts: [],
+      sellerInsights: [],
+      managerInsights: [],
+      categoryChart: [],
+      users: [],
+      systemMetrics: [],
+      recommendations: [],
+      publicVouchers: [],
+      dataSource: 'api',
+      backendOnline: true,
+      catalogSource: 'backend',
+    } as ChatContext
+    const reply = await resolveChatReply('điện thoại dưới 20 triệu', [], ctx)
+    expect(reply.products?.some((x) => /oneplus/i.test(x.name))).toBe(true)
+    expect(reply.products?.some((x) => /tab/i.test(x.name))).toBe(false)
+    expect(reply.content).not.toMatch(/Tab S9|máy tính bảng/i)
+  })
 })
