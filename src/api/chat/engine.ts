@@ -28,7 +28,9 @@ import {
   findProductsBySellerName,
   formatPriceRangeLabel,
   groupProductsByShop,
+  hasSpecificProductFocus,
   isAffordableProductQuery,
+  isBestsellerShoppingQuery,
   isPriceStatsQuery,
   newestProducts,
   pickProductCatalog,
@@ -69,6 +71,7 @@ const SHOPPING_INTENTS = new Set<ChatIntent>([
   'product_review',
   'shop_overview',
   'categories',
+  'recommend',
 ])
 
 const METADATA_INTENTS = new Set<ChatIntent>([
@@ -453,7 +456,9 @@ function shoppingStructuredReply(
         content: presentProductSearchResult(policy, ctx.userName),
       }
     }
-    const hits = rankWithinBudget(filter.products, 5)
+    const hits = isBestsellerShoppingQuery(raw)
+      ? [...filter.products].sort((a, b) => (b.soldCount ?? 0) - (a.soldCount ?? 0)).slice(0, 5)
+      : rankWithinBudget(filter.products, 5)
     return {
       content: shoppingAdviceText(ctx, hits, filter.range),
       products: toChatProducts(hits, 5),
@@ -793,8 +798,10 @@ export async function generateAssistantReply(
     }
   }
 
-  // where_to_buy / recommend: ưu tiên reply chỉ seller, không qua shopping generic
-  if (intent !== 'where_to_buy' && intent !== 'recommend') {
+  // where_to_buy: chỉ seller. recommend generic (không nêu SP) → DSS toàn sàn.
+  const skipGenericShopping =
+    intent === 'where_to_buy' || (intent === 'recommend' && !hasSpecificProductFocus(raw))
+  if (!skipGenericShopping) {
     const shopping = shoppingStructuredReply(ctx, raw, intent)
     if (shopping) {
       return finish({

@@ -194,6 +194,11 @@ export function prepareCatalogSearchQuery(raw: string): string {
     .replace(/\s+co\s+gi\s*$/i, '')
     .replace(/(?<!ban)\s+gi\s*$/, '')
     .replace(/\b(loai|danh muc|category|phan loai|hang|san pham|sp|mon)\b/g, ' ')
+    // "bán chạy" không được thành token "chay" (khớp giày chạy bộ)
+    .replace(/\b(?:dang\s+)?(?:top\s+)?ban\s+chay\b/g, ' ')
+    .replace(/\bbest\s*sellers?\b/g, ' ')
+    .replace(/\btrending\b/g, ' ')
+    .replace(/\bdang\s+hot\b/g, ' ')
     // Hạt hỏi / slang: "có điện thoại gì xịn" → "dien thoai"
     .replace(/\b(gi|xin|ngon|hay|tot|dinh|hot|re|dep|ok|oke|nao|the|vay)\b/g, ' ')
     .replace(/\s+/g, ' ')

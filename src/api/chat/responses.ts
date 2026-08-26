@@ -27,6 +27,7 @@ import {
   filterProductsByCategory,
   findProductsByQuery,
   groupProductsByShop,
+  hasSpecificProductFocus,
   isAffordableProductQuery,
   isPriceStatsQuery,
   stripPriceTokens,
@@ -236,6 +237,17 @@ function recommendReply(ctx: ChatContext, raw: string): string {
       isDiscoveryNewestQuery(lower) ? 'newest' : 'recommend',
       pool[0]?.name,
     )
+  }
+  // "bàn phím RGB bán chạy" → đúng nhóm SP, không dump DSS nồi chiên / giày
+  if (hasSpecificProductFocus(raw)) {
+    const pool = resolveProductHits(ctx, raw)
+    const ranked = rankForUseCase(pool, raw, 6)
+    if (!ranked.length) {
+      const topic = extractProductFocusLabel(raw)
+      return `${name}Chưa thấy **${topic}** đang bán khớp. Thử tên khác hoặc mở **Cửa hàng**.`
+    }
+    const bundle = buildRecommendInsight(ctx, ranked)
+    return formatRecommendInsightReply(ctx, bundle)
   }
   if (ctx.recommendations.length) {
     const picks = ctx.recommendations

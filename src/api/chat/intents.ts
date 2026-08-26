@@ -1,7 +1,7 @@
 import { isShortGreeting, phraseBoost, scoreKeywords, matchAnyKeyword, normalizeText } from '@/api/chat/match'
 import { buildProcessingLocale, isShopCatalogQuestion } from '@/api/chat/chatLocale'
 import { asksProductDiscovery, isAmbiguousShoppingQuery, isStandaloneShoppingQuery } from '@/api/chat/discovery'
-import { extractPriceRange } from '@/api/chat/products'
+import { extractPriceRange, hasSpecificProductFocus } from '@/api/chat/products'
 import type { UserRole } from '@/types'
 
 export type ChatIntent =
@@ -681,6 +681,16 @@ function refineIntent(
     !/sedsp|ung dung|platform|ve sedsp|what is sedsp/.test(normalized)
   ) {
     return 'product_info'
+  }
+
+  // "bàn phím / tai nghe … bán chạy" → search đúng nhóm, không dump DSS toàn sàn
+  if (
+    hasSpecificProductFocus(normalized) &&
+    /ban chay|top ban chay|best ?seller|bestseller|dang hot|trending|noi bat|dang thinh hanh/.test(
+      normalized,
+    )
+  ) {
+    return 'product_search'
   }
 
   // "món đồ hot / bán chạy / trending" → gợi ý (seller hỏi bán chạy → top SP shop)

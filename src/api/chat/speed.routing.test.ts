@@ -77,4 +77,11 @@ describe('chatbot speed routing', () => {
     expect(reply.content).toMatch(/Sony WH-1000XM5/)
     expect(reply.content).not.toMatch(/^•/)
   })
+
+  it('keyboard bestseller chip still waits for LLM', async () => {
+    callChatLlm.mockClear()
+    const reply = await resolveChatReply('Có bàn phím cơ RGB nào đang bán chạy?', [], ctx())
+    expect(callChatLlm).toHaveBeenCalled()
+    expect(reply.source).toBe('llm')
+  })
 })

@@ -72,6 +72,13 @@ describe('chatLocale fillers & homophones', () => {
     expect(prepareCatalogSearchQuery('Điện thoại có gì?')).toBe('dien thoai')
     expect(prepareCatalogSearchQuery('Có tai nghe gì?')).toBe('tai nghe')
   })
+
+  it('keyboard bestseller chip does not keep chay as a search token', () => {
+    const q = prepareCatalogSearchQuery('Có bàn phím cơ RGB nào đang bán chạy?')
+    expect(q).toMatch(/ban phim/)
+    expect(q).toMatch(/rgb/)
+    expect(q).not.toMatch(/\bchay\b/)
+  })
 })
 
 describe('quick prompt coverage', () => {

@@ -78,6 +78,11 @@ const SEARCH_CATEGORY_INTENTS: SearchCategoryIntent[] = [
     blockedCategories: ['thoi trang', 'nha bep', 'sach'],
   },
   {
+    triggers: ['ban phim', 'keyboard', 'keypro', 'mechanical keyboard'],
+    allowedCategories: ['dien tu', 'phu kien', 'electronics'],
+    blockedCategories: ['thoi trang', 'nha bep', 'gia dung', 'giay dep', 'the thao', 'cham soc da', 'am thuc'],
+  },
+  {
     triggers: ['may tinh bang', 'tablet', 'ipad'],
     allowedCategories: ['may tinh bang', 'tablet', 'dien tu', 'phu kien'],
     blockedCategories: ['do da ngoai', 'outdoor', 'camping', 'nha bep', 'thoi trang', 'cham soc da'],
@@ -245,6 +250,36 @@ function titleCaseWords(text: string): string {
     .slice(0, 4)
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(' ')
+}
+
+const PRODUCT_FOCUS_EXTRA = [
+  'keyboard',
+  'keypro',
+  'mechanical',
+  'headphone',
+  'earbuds',
+  'headset',
+  'sneaker',
+  'marathon',
+  'airflex',
+  'air fryer',
+  'smartphone',
+  'mac book',
+]
+
+/** Câu hỏi một nhóm SP cụ thể (bàn phím, tai nghe…) — không phải “bán chạy toàn sàn”. */
+export function hasSpecificProductFocus(raw: string): boolean {
+  const n = normalizeText(raw)
+  if (!n) return false
+  for (const phrase of FOCUS_PHRASES) {
+    if (phrase.length >= 4 && n.includes(phrase)) return true
+    if (phrase.length < 4 && containsWholePhrase(n, phrase)) return true
+  }
+  return PRODUCT_FOCUS_EXTRA.some((p) => n.includes(p))
+}
+
+export function isBestsellerShoppingQuery(raw: string): boolean {
+  return /ban chay|best ?seller|bestseller|dang hot|trending|top ban chay/.test(normalizeText(raw))
 }
 
 /** Nhãn brand/SP từ câu hỏi (vd: macbook, iphone, tai nghe) */
