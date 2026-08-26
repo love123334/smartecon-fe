@@ -38,6 +38,10 @@ export interface DemandFeatureSnapshotApi {
   forecastTrendSlope?: number
   trendBreakDate?: string | null
   trendDivergenceReason?: string | null
+  trendCombined?: string
+  trendInsightLabel?: string
+  trendInsightDetail?: string
+  trendRecommendation?: string
   lag7?: number
   seasonalSignal?: number
   currentPrice?: number

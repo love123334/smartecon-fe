@@ -10,6 +10,7 @@ import type { DemandForecastApi } from '@/api/real/dss'
 import { useAuthStore } from '@/stores/auth'
 import { loadSellerCatalogForDss } from '@/utils/sellerCatalog'
 import { formatViDateTime, formatViNumber, mapDemandPredictionError } from '@/utils/demandPrediction'
+import { interpretDemandTrend } from '@/utils/demandTrendInsight'
 
 interface ProductOption { id: number; name: string }
 
@@ -49,37 +50,6 @@ const modelState = computed(() => {
     tone: 'muted' as const,
   }
 })
-const trendLabel = computed(() => {
-  const fromApi = features.value?.historyTrendLabel
-  if (fromApi) return fromApi
-  const slope = Number(features.value?.trendSlope ?? 0)
-  if (slope >= 0.02) return 'Đang tăng'
-  if (slope <= -0.02) return 'Đang giảm'
-  return 'Tương đối ổn định'
-})
-const forecastTrendLabel = computed(() => {
-  const fromApi = features.value?.forecastTrendLabel
-  if (fromApi) return fromApi
-  if (!forecastSeries.value.length) return 'Tương đối ổn định'
-  const first = forecastSeries.value[0]?.qty ?? 0
-  const last = forecastSeries.value[forecastSeries.value.length - 1]?.qty ?? first
-  const days = Math.max(1, forecastSeries.value.length - 1)
-  const slope = (last - first) / days
-  if (slope >= 0.02) return 'Đang tăng'
-  if (slope <= -0.02) return 'Đang giảm'
-  return 'Tương đối ổn định'
-})
-const forecastTrendTone = computed(() => {
-  const code = features.value?.forecastTrendDirection
-  if (code === 'up') return 'up'
-  if (code === 'down') return 'down'
-  if (code === 'seasonal') return 'seasonal'
-  return 'stable'
-})
-const trendDivergenceReason = computed(() => {
-  const reason = features.value?.trendDivergenceReason
-  return typeof reason === 'string' && reason.trim() ? reason.trim() : ''
-})
 const daysWithSales = computed(() => {
   const fromApi = Number(features.value?.positiveDays)
   if (Number.isFinite(fromApi) && fromApi >= 0) return fromApi
@@ -114,6 +84,57 @@ const forecastSeries = computed(() =>
       qty: Number(p.qty),
     })),
 )
+const localTrendInsight = computed(() => interpretDemandTrend(
+  historicalSeries.value.map((p) => p.qty),
+  forecastSeries.value.map((p) => p.qty),
+))
+const hasCombinedInsight = computed(() => Boolean(features.value?.trendCombined || features.value?.trendInsightLabel))
+const trendLabel = computed(() => {
+  const fromApi = features.value?.historyTrendLabel
+  if (fromApi) return fromApi
+  return localTrendInsight.value?.historyLabel || 'Tương đối ổn định'
+})
+const forecastTrendLabel = computed(() => {
+  const combined = features.value?.trendInsightLabel
+  if (combined) return combined
+  if (localTrendInsight.value?.insightLabel) return localTrendInsight.value.insightLabel
+  return 'Ổn định'
+})
+const forecastTrendTone = computed(() => {
+  const combined = features.value?.trendCombined || localTrendInsight.value?.combined
+  if (combined === 'continue_up' || combined === 'may_rise' || combined === 'recovering') return 'up'
+  if (combined === 'up_to_high_stable' || combined === 'up_to_stable') return 'high'
+  if (
+    combined === 'continue_down'
+    || combined === 'may_fall'
+    || combined === 'up_then_cool'
+  ) return 'down'
+  if (combined === 'seasonal') return 'seasonal'
+  const code = features.value?.forecastTrendDirection
+  if (code === 'up') return 'up'
+  if (code === 'down') return 'down'
+  if (code === 'seasonal') return 'seasonal'
+  return 'stable'
+})
+const trendInsightDetail = computed(() => {
+  const detail = features.value?.trendInsightDetail
+  return typeof detail === 'string' && detail.trim() ? detail.trim() : ''
+})
+const trendRecommendation = computed(() => {
+  const rec = features.value?.trendRecommendation
+  if (typeof rec === 'string' && rec.trim()) return rec.trim()
+  return localTrendInsight.value?.recommendation || ''
+})
+const forecastMovementLabel = computed(() => {
+  if (hasCombinedInsight.value && features.value?.forecastTrendLabel) {
+    return features.value.forecastTrendLabel
+  }
+  return localTrendInsight.value?.forecastLabel || features.value?.forecastTrendLabel || ''
+})
+const trendDivergenceReason = computed(() => {
+  const reason = features.value?.trendDivergenceReason
+  return typeof reason === 'string' && reason.trim() ? reason.trim() : ''
+})
 
 onMounted(loadProducts)
 
@@ -216,7 +237,7 @@ async function runForecast() {
       <section class="metric-grid">
         <article><span>Tổng dự báo</span><strong>{{ formatViNumber(result.predictedDemand) }}</strong><small>đơn vị / {{ result.forecastDays }} ngày</small></article>
         <article><span>TB dự báo/ngày</span><strong>{{ formatViNumber(features?.forecastAverageDailyDemand ?? result.predictedDemand / result.forecastDays) }}</strong><small>đơn vị</small></article>
-        <article><span>Xu hướng lịch sử</span><strong>{{ trendLabel }}</strong><small>độ dốc {{ formatViNumber(features?.trendSlope) }}</small></article>
+        <article><span>Xu hướng lịch sử</span><strong>{{ trendLabel }}</strong><small>{{ historyWindowLabel }} gần đây</small></article>
         <article><span>Ngày có bán</span><strong>{{ formatViNumber(features?.positiveDays) }}</strong><small>/ {{ result.historicalDays }} ngày</small></article>
       </section>
 
@@ -225,13 +246,15 @@ async function runForecast() {
         <LightGbmForecastChart :historical="historicalSeries" :forecast="forecastSeries" />
         <aside class="forecast-trend" :data-tone="forecastTrendTone">
           <div class="forecast-trend__head">
-            <h3>Xu hướng theo dự báo</h3>
+            <h3>Đọc xu hướng</h3>
             <strong>{{ forecastTrendLabel }}</strong>
           </div>
           <p class="forecast-trend__meta">
-            độ dốc {{ formatViNumber(features?.forecastTrendSlope) }}
+            Xu hướng lịch sử: {{ trendLabel }}
+            <template v-if="forecastMovementLabel"> · Xu hướng dự báo: {{ forecastMovementLabel }}</template>
             · {{ forecastWindowLabel }} tới
           </p>
+          <p v-if="trendInsightDetail" class="forecast-trend__reason">{{ trendInsightDetail }}</p>
           <p v-if="trendDivergenceReason" class="forecast-trend__reason">{{ trendDivergenceReason }}</p>
         </aside>
       </section>
@@ -246,7 +269,8 @@ async function runForecast() {
           <strong>{{ formatViNumber(result.predictedDemand) }}</strong> sản phẩm
           (~<strong>{{ formatViNumber(avgDailyForecast) }}</strong> sản phẩm/ngày).
         </p>
-        <p>Dự báo sản phẩm có xu hướng <strong>{{ forecastTrendLabel.toLowerCase() }}</strong>.</p>
+        <p v-if="trendRecommendation">{{ trendRecommendation }}</p>
+        <p v-else>Dự báo sản phẩm có xu hướng <strong>{{ forecastTrendLabel.toLowerCase() }}</strong>.</p>
       </section>
     </template>
   </div>
@@ -271,6 +295,7 @@ async function runForecast() {
 .forecast-trend h3 { margin:0; font-size:.95rem; color:#334155; }
 .forecast-trend strong { font-size:1.15rem; color:#0f3d78; }
 .forecast-trend[data-tone="up"] strong { color:#166534; }
+.forecast-trend[data-tone="high"] strong { color:#0f766e; }
 .forecast-trend[data-tone="down"] strong { color:#b45309; }
 .forecast-trend[data-tone="seasonal"] strong { color:#1d4ed8; }
 .forecast-trend__meta { margin:.35rem 0 0; color:#64748b; font-size:.82rem; }

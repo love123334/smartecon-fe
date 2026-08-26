@@ -77,6 +77,12 @@ export async function demandBriefLive(catalog: Product[], focusOverride?: Produc
       `• SP: **${r.productName || focus.name}**`,
       `• TB bán/ngày: **${r.averageDailyDemand}**`,
       `• Dự báo ${r.forecastDays} ngày: **${r.predictedDemand}**`,
+      r.featureSnapshot?.trendInsightLabel
+        ? `• Xu hướng: **${r.featureSnapshot.trendInsightLabel}** (${r.featureSnapshot.historyTrendLabel || 'lịch sử'} → ${r.featureSnapshot.forecastTrendLabel || 'dự báo'})`
+        : null,
+      r.featureSnapshot?.trendRecommendation
+        ? `• Gợi ý: ${r.featureSnapshot.trendRecommendation}`
+        : null,
       r.insufficientData ? '• ⚠ Dữ liệu lịch sử còn mỏng — kết quả mang tính tham khảo.' : null,
       `→ **DSS → Dự báo nhu cầu** để chỉnh kỳ.`,
     ]
