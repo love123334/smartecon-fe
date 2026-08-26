@@ -90,6 +90,13 @@ export function formatViDateTime(value: string | null | undefined): string {
   }).format(date)
 }
 
+/** ISO date (YYYY-MM-DD) → dd/MM for chart ticks. Never use Date() — ISO dates are UTC midnight. */
+export function formatChartDayVi(value: string | null | undefined): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value ?? '').trim())
+  if (!match) return value ? String(value) : ''
+  return `${match[3]}/${match[2]}`
+}
+
 /** ISO date (YYYY-MM-DD) → dd/MM/yyyy (padded, khớp trục biểu đồ DSS). */
 export function formatIsoDateVi(value: string | null | undefined): string {
   if (value == null || String(value).trim() === '') return ''

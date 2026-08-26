@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { ApiError } from '@/api/http/client'
 import {
+  formatChartDayVi,
   formatIsoDateVi,
   formatViDate,
   formatViDateTime,
@@ -74,6 +75,12 @@ describe('demand prediction response formatting', () => {
     expect(formatIsoDateVi('')).toBe('')
     expect(formatViDate(null)).toBe('—')
     expect(formatViDate('not-a-date')).toBe('—')
+  })
+
+  it('formats chart ticks from ISO dates without UTC day shift', () => {
+    expect(formatChartDayVi('2026-08-27')).toBe('27/08')
+    expect(formatChartDayVi('2026-08-27T00:13:37')).toBe('27/08')
+    expect(formatChartDayVi('2026-07-29')).toBe('29/07')
   })
 })
 

@@ -14,6 +14,7 @@ import {
 import { Line } from 'vue-chartjs'
 import type { ChartData } from 'chart.js'
 import { CHART_COLORS, baseLineChartOptions } from '@/utils/chartDefaults'
+import { formatChartDayVi } from '@/utils/demandPrediction'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler)
 
@@ -30,11 +31,7 @@ const props = defineProps<{
 
 function formatLabel(pt: SalesHistoryPoint): string {
   if (pt.date) {
-    const d = new Date(pt.date)
-    if (!Number.isNaN(d.getTime())) {
-      return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })
-    }
-    return String(pt.date)
+    return formatChartDayVi(pt.date) || String(pt.date)
   }
   return `Ngày ${pt.day}`
 }

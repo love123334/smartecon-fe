@@ -11,6 +11,7 @@ import {
   Filler,
 } from 'chart.js'
 import { Line } from 'vue-chartjs'
+import { formatChartDayVi } from '@/utils/demandPrediction'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler)
 
@@ -20,10 +21,7 @@ const props = defineProps<{
 }>()
 
 function shortDate(value: string) {
-  const date = new Date(`${value}T00:00:00`)
-  return Number.isNaN(date.getTime())
-    ? value
-    : new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit' }).format(date)
+  return formatChartDayVi(value) || value
 }
 
 const chartData = computed(() => {
