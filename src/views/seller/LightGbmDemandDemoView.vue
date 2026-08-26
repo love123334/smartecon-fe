@@ -27,10 +27,28 @@ const historyOptions = [7, 14, 30, 60, 180]
 const forecastOptions = [7, 14, 30]
 const selectedProduct = computed(() => products.value.find((p) => p.id === productId.value))
 const features = computed(() => result.value?.featureSnapshot)
-const modelState = computed(() => ({
-  label: 'Mô hình LightGBM',
-  tone: 'success',
-}))
+const METHOD_LABELS: Record<string, string> = {
+  lightgbm_onnx: 'Mô hình LightGBM',
+  lightgbm_onnx_with_baseline_fallback: 'Mô hình LightGBM',
+  holt_linear: 'Holt Linear',
+  holt_winters: 'Holt-Winters',
+  moving_average: 'Trung bình động',
+  croston_sba: 'Croston (nhu cầu thưa)',
+}
+
+const modelState = computed(() => {
+  if (!result.value) {
+    return { label: 'Sẵn sàng dự báo', tone: 'muted' as const }
+  }
+  if (features.value?.onnxModelUsed) {
+    return { label: 'Mô hình LightGBM', tone: 'success' as const }
+  }
+  const method = String(result.value.method || features.value?.statisticalMethod || '')
+  return {
+    label: METHOD_LABELS[method] ?? 'Mô hình thống kê',
+    tone: 'muted' as const,
+  }
+})
 const trendLabel = computed(() => {
   const slope = Number(features.value?.trendSlope ?? 0)
   if (slope >= 0.02) return 'Đang tăng'

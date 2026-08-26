@@ -73,7 +73,12 @@ const options = {
   plugins: { legend: { position: 'bottom' as const } },
   scales: {
     x: { grid: { display: false }, ticks: { maxTicksLimit: 14 } },
-    y: { beginAtZero: true, title: { display: true, text: 'Số lượng bán' } },
+    y: {
+      beginAtZero: true,
+      grace: '8%',
+      title: { display: true, text: 'Số lượng bán' },
+      ticks: { maxTicksLimit: 8 },
+    },
   },
 }
 </script>

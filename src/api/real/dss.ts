@@ -18,6 +18,8 @@ export interface DemandForecastApi {
 
 export interface DemandFeatureSnapshotApi {
   method?: string
+  statisticalMethod?: string
+  forecastStrategy?: string
   onnxModelAvailable?: boolean
   onnxModelUsed?: boolean
   totalHistoricalQuantity?: number
