@@ -65,7 +65,9 @@ ${body || '(không có SP khớp — gợi ý nới điều kiện nếu hợp l
 function collectProducts(
   local: AssistantReplyPayload,
   ctx: ChatContext,
+  intent: ChatIntent | null,
 ): ChatProductRef[] {
+  if (intent === 'promo') return []
   const fromLocal = local.products ?? []
   if (fromLocal.length) return fromLocal
   const focus = ctx.enrichment?.product
@@ -115,7 +117,7 @@ export function buildVerifiedFacts(
   local: AssistantReplyPayload,
   userMessage?: string,
 ): VerifiedFacts {
-  const products = collectProducts(local, ctx)
+  const products = collectProducts(local, ctx, intent)
   const sellers = collectSellers(local)
   const lines: string[] = []
   const allowedProductNames: string[] = []
@@ -220,6 +222,20 @@ export function buildVerifiedFacts(
 
   if (ctx.cartLines.length) {
     lines.push(`- Giỏ: ${ctx.cartItemCount} món, tổng ${formatVnd(ctx.cartTotal)}`)
+  }
+
+  if (intent === 'promo') {
+    const vouchers = ctx.publicVouchers.slice(0, 6)
+    if (vouchers.length) {
+      lines.push('Voucher công khai:')
+      for (const v of vouchers) {
+        const off =
+          v.discountType === 'PERCENTAGE' ? `${v.discountValue}%` : formatVnd(v.discountValue)
+        lines.push(`- ${v.code}: giảm ${off}${v.description ? ` — ${v.description}` : ''}`)
+      }
+    } else {
+      lines.push('- Không có voucher công khai đang hiệu lực')
+    }
   }
 
   if (ctx.orders.length && (intent === 'orders' || intent === 'order_detail') && userMessage) {

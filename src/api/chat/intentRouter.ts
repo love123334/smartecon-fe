@@ -28,7 +28,6 @@ const PRODUCT_INTENTS = new Set<ChatIntent>([
   'categories',
   'where_to_buy',
   'contact_seller',
-  'promo',
 ])
 
 const SALES_INTENTS = new Set<ChatIntent>([
@@ -62,6 +61,7 @@ const ORDER_INTENTS = new Set<ChatIntent>([
   'checkout',
   'payment',
   'return_policy',
+  'promo',
 ])
 
 const MANAGER_INTENTS = new Set<ChatIntent>([

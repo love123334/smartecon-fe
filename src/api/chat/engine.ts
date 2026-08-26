@@ -1,5 +1,5 @@
 import type { ChatContext } from '@/api/chat/context'
-import { detectIntent, type ChatIntent } from '@/api/chat/intents'
+import { detectIntent, isVoucherQuery, type ChatIntent } from '@/api/chat/intents'
 import { formatVnd, normalizeText, normalizeChatTypos, asksProductListedDate, asksProductOrigin, asksProductPrice, asksProductReview, asksSellerInfo } from '@/api/chat/match'
 import { toChatProducts } from '@/api/chat/productCards'
 import { resolveReplySellers, sellerCardFromProduct, toChatSellers } from '@/api/chat/sellerCards'
@@ -62,7 +62,6 @@ const SHOPPING_INTENTS = new Set<ChatIntent>([
   'product_search',
   'product_cheapest',
   'category_browse',
-  'promo',
   'compare',
   'product_info',
   'product_price',
@@ -94,6 +93,7 @@ const NON_SHOPPING_INTENTS = new Set<ChatIntent>([
   'checkout',
   'complaint',
   'return_policy',
+  'promo',
   'contact_escalate',
   'greeting',
   'thanks',
@@ -285,6 +285,8 @@ function shoppingStructuredReply(
   raw: string,
   intent: ChatIntent | null,
 ): AssistantReplyPayload | null {
+  if (intent === 'promo' || isVoucherQuery(raw)) return null
+
   const baseCatalog = pickProductCatalog(ctx.products, ctx.sellerProducts, ctx.role)
   const catalog = mergeShoppingCatalog(ctx, baseCatalog)
   if (!catalog.length) return null
@@ -783,10 +785,9 @@ export async function generateAssistantReply(
   const range = extractPriceRange(raw)
   if ((budget != null && budget > 0) || range) {
     if (
-      !intent ||
-      intent === 'product_budget' ||
-      intent === 'promo' ||
-      intent === 'product_search'
+      !isVoucherQuery(raw) &&
+      intent !== 'promo' &&
+      (!intent || intent === 'product_budget' || intent === 'product_search')
     ) {
       intent = 'product_budget'
     }

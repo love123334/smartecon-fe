@@ -27,7 +27,7 @@ import {
   looksLikeSafetyMetadataLeak,
 } from '@/api/chat/followup'
 import { isStandaloneShoppingQuery } from '@/api/chat/discovery'
-import { detectIntent, type ChatIntent } from '@/api/chat/intents'
+import { detectIntent, isVoucherQuery, type ChatIntent } from '@/api/chat/intents'
 import { callChatLlm, isLlmConfigured, llmProviderLabel, refreshBeAiStatus } from '@/api/chat/llm'
 import {
   asksProductListedDate,
@@ -83,6 +83,7 @@ export interface ChatReply {
 const STRICT_LOCAL_INTENTS = new Set<ChatIntent>([
   'order_cancel',
   'cart_summary',
+  'promo',
   'seller_revenue',
   'seller_profit',
   'seller_business_health',
@@ -437,6 +438,9 @@ export async function resolveChatReply(
     : facts.products.length
       ? facts.products
       : effectiveAttachments?.slice(0, 2)
+  if (intent === 'promo' || isVoucherQuery(userMessage)) {
+    products = undefined
+  }
   const sellers = local.sellers?.length ? local.sellers : undefined
   const reviewSummary = local.reviewSummary
 

@@ -1,5 +1,5 @@
 import type { ChatContext, ChatEnrichment } from '@/api/chat/context'
-import type { ChatIntent } from '@/api/chat/intents'
+import { isVoucherQuery, type ChatIntent } from '@/api/chat/intents'
 import { normalizeText, asksProductListedDate, asksProductOrigin, asksProductReview } from '@/api/chat/match'
 import { applyPriceRange, extractPriceRange, findProductsByQuery, extractProductSearchTerms, isPriceStatsQuery, looksLikePhone, looksLikeTablet } from '@/api/chat/products'
 import { matchCategoryFromText } from '@/api/chat/synonyms'
@@ -20,7 +20,6 @@ const PRODUCT_INTENTS = new Set<ChatIntent>([
   'product_info',
   'product_review',
   'compare',
-  'promo',
   'recommend',
   'where_to_buy',
   'contact_seller',
@@ -135,6 +134,9 @@ export async function enrichChatContext(
   focusProductId?: string,
 ): Promise<ChatContext> {
   if (intent && ['greeting', 'thanks', 'help', 'platform'].includes(intent)) {
+    return ctx
+  }
+  if (intent === 'promo' || isVoucherQuery(raw)) {
     return ctx
   }
 

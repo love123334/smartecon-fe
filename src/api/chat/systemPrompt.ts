@@ -22,7 +22,6 @@ const SHOPPING_INTENTS = new Set<ChatIntent>([
   'product_budget',
   'product_cheapest',
   'category_browse',
-  'promo',
   'compare',
   'product_info',
   'product_price',

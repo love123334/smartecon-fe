@@ -19,6 +19,11 @@ describe('chat intent: hot vs complaint', () => {
     expect(hit?.intent).toBe('recommend')
   })
 
+  it('maps voucher chip to promo, not product search', () => {
+    const hit = detectIntent('Có mã voucher giảm giá nào đang áp dụng được không?', 'customer')
+    expect(hit?.intent).toBe('promo')
+  })
+
   it('maps hotline to contact_escalate', () => {
     const hit = detectIntent('goi hotline cskh', 'customer')
     expect(hit?.intent).toBe('contact_escalate')

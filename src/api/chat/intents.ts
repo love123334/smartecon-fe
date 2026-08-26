@@ -1,4 +1,4 @@
-import { isShortGreeting, phraseBoost, scoreKeywords, matchAnyKeyword } from '@/api/chat/match'
+import { isShortGreeting, phraseBoost, scoreKeywords, matchAnyKeyword, normalizeText } from '@/api/chat/match'
 import { buildProcessingLocale, isShopCatalogQuestion } from '@/api/chat/chatLocale'
 import { asksProductDiscovery, isAmbiguousShoppingQuery, isStandaloneShoppingQuery } from '@/api/chat/discovery'
 import { extractPriceRange } from '@/api/chat/products'
@@ -334,11 +334,14 @@ const COMMON: IntentRule[] = [
     intent: 'promo',
     keywords: [
       'khuyen mai', 'sale', 'giam gia', 'discount', 'flash sale', 'uu dai',
-      'voucher', 'coupon', 'deal', 'ma giam gia',
+      'voucher', 'coupon', 'ma giam gia', 'ma voucher', 'ma giam',
     ],
-    phrases: ['khuyen mai', 'flash sale', 'ma giam gia', 'giam gia'],
+    phrases: [
+      'khuyen mai', 'flash sale', 'ma giam gia', 'ma voucher', 'voucher giam gia',
+      'co ma voucher', 'dang ap dung',
+    ],
     minScore: 4,
-    priority: 7,
+    priority: 11,
   },
   {
     intent: 'return_policy',
@@ -619,6 +622,7 @@ function refineIntent(
   detected: { intent: ChatIntent; score: number },
   role: UserRole,
 ): ChatIntent {
+  if (isVoucherQuery(normalized)) return 'promo'
   if (isAmbiguousShoppingQuery(normalized)) return detected.intent
   if (asksProductDiscovery(normalized)) return 'recommend'
 
@@ -803,6 +807,7 @@ function scoreIntentCandidate(
     }
     if (isStandaloneShoppingQuery(normalized)) {
       if (/^co\s+[a-z0-9\s]{2,28}\s+gi(?:\s|$)/.test(normalized)) {
+        if (isVoucherQuery(normalized)) return { intent: 'promo', score: 90 }
         return { intent: 'product_search', score: 45 }
       }
       return { intent: 'category_browse', score: 42 }
@@ -838,4 +843,12 @@ export function detectIntent(
 
 export function hasKeyword(normalized: string, keywords: string[]): boolean {
   return matchAnyKeyword(normalized, keywords, 0.65)
+}
+
+/** Câu hỏi mã voucher / coupon — không phải tìm sản phẩm giảm giá. */
+export function isVoucherQuery(raw: string): boolean {
+  const n = normalizeText(raw)
+  return /voucher|coupon|\bma giam\b|ma giam gia|ma voucher|ma khuyen mai|ma uu dai|discount code/.test(
+    n,
+  )
 }

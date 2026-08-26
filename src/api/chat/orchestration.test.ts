@@ -24,6 +24,10 @@ describe('intentRouter', () => {
     expect(routeFromIntent('shop_overview')).toBe('CATALOG_INSIGHT')
     expect(routeFromIntent('recommend')).toBe('CATALOG_INSIGHT')
   })
+
+  it('routes promo to ORDERS_CART, not PRODUCT_QUERY', () => {
+    expect(routeFromIntent('promo')).toBe('ORDERS_CART')
+  })
 })
 
 describe('conversationMemory', () => {
