@@ -577,7 +577,78 @@ export function findProductsByQuery(products: Product[], query: string): Product
     if (intentFiltered.length) picked = intentFiltered
   }
 
-  return picked.map((x) => x.p)
+  return keepCoherentSearchHits(
+    picked.map((x) => x.p),
+    query,
+    12,
+  )
+}
+
+/**
+ * Drop the odd-category tail (often the 6th card) so search stays on one group.
+ * `limit` is a hard cap for UI cards; use a higher cap when ranking a pool.
+ */
+export function keepCoherentSearchHits(
+  products: Product[],
+  query: string,
+  limit = 5,
+): Product[] {
+  if (!products.length) return []
+  const cleaned = extractProductSearchTerms(query)
+  const n = normalizeText(cleaned || query)
+  const originalWords = n.split(/\s+/).filter((w) => w.length >= 2 && !STOP_WORDS.has(w))
+  const searchPhrases = deriveSearchPhrases(n, originalWords)
+  const categoryIntent = detectSearchCategoryIntent(n, originalWords, searchPhrases)
+
+  let pool = products
+  if (categoryIntent) {
+    const allowed = products.filter((p) => {
+      const catHay = normalizeText(p.category ?? '')
+      return !categoryBlockedByIntent(catHay, categoryIntent)
+    })
+    if (allowed.length) pool = allowed
+  }
+
+  const focus = [...FOCUS_PHRASES]
+    .filter((phrase) => phrase.includes(' ') && containsWholePhrase(n, phrase))
+    .sort((a, b) => b.length - a.length)[0]
+  const shouldCluster = Boolean(categoryIntent) || Boolean(focus)
+
+  if (shouldCluster) {
+    const head = pool.slice(0, Math.min(Math.max(limit, 4), pool.length))
+    const catCounts = new Map<string, number>()
+    for (const p of head) {
+      const c = normalizeText(p.category ?? '').trim()
+      if (!c) continue
+      catCounts.set(c, (catCounts.get(c) ?? 0) + 1)
+    }
+    let dominant = ''
+    let max = 0
+    for (const [c, count] of catCounts) {
+      if (count > max) {
+        max = count
+        dominant = c
+      }
+    }
+    if (dominant && max >= Math.max(2, Math.ceil(head.length * 0.6))) {
+      const same = pool.filter((p) => normalizeText(p.category ?? '') === dominant)
+      if (same.length) pool = same
+    }
+  }
+
+  if (focus) {
+    const matched = pool.filter((p) => {
+      const hay = normalizeText(`${p.name} ${p.description ?? ''} ${p.category ?? ''}`)
+      if (containsWholePhrase(hay, focus) || fieldContainsToken(hay, focus)) return true
+      if (focus === 'dien thoai') {
+        return /iphone|smartphone|galaxy|xiaomi|oppo|vivo|realme|pixel|mobile/.test(hay)
+      }
+      return false
+    })
+    if (matched.length) pool = matched
+  }
+
+  return pool.slice(0, limit)
 }
 
 export function pickProductCatalog(
@@ -661,7 +732,7 @@ export function filterProductsForQuery(
   }
 
   return {
-    products: hits.slice(0, limit),
+    products: keepCoherentSearchHits(hits, raw, Math.min(limit, 5)),
     range,
     categoryName: null,
     queryText,

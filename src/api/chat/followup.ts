@@ -131,6 +131,21 @@ export function looksLikeSafetyMetadataLeak(reply: string): boolean {
   return /^user safety:\s*safe\s*$/im.test(r) || /^response safety:\s*safe\s*$/im.test(r)
 }
 
+/** LLM đôi khi echo system prompt / bản nháp / grounding thay vì trả lời khách. */
+export function looksLikePromptLeak(reply: string): boolean {
+  const r = reply.trim()
+  if (!r) return true
+  const n = r
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+  return (
+    /you are sedsp's intelligent|role modes:|platform_facts|multi_provider_rules|ban nhap tro ly|hay viet lai cau tra loi cuoi cung|\[english gloss|\[context san pham\/shop|product_search_keyword=/.test(
+      n,
+    ) || /thinking:\s|thoughts?:\s/i.test(r)
+  )
+}
+
 /** Câu trả lời cứng/ngớ (template CSKH, không đáp đúng câu hỏi) */
 export function looksLikeLowQualityReply(userNormalized: string, reply: string): boolean {
   const r = reply

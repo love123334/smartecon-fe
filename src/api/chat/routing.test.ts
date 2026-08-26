@@ -4,8 +4,8 @@ import { deriveSuggestedActions } from '@/api/chat/suggestedActions'
 import { createChatTelemetry } from '@/api/chat/chatTelemetry'
 import { detectIntent } from '@/api/chat/intents'
 import { resolveIntentForRole } from '@/api/chat/rolePolicy'
-import { sanitizeChatReply } from '@/api/chat/responses'
-import { looksLikeSafetyMetadataLeak } from '@/api/chat/followup'
+import { sanitizeChatReply, softenLocalFallback } from '@/api/chat/responses'
+import { looksLikePromptLeak, looksLikeSafetyMetadataLeak } from '@/api/chat/followup'
 
 describe('factRepair', () => {
   it('appends verified price when LLM contradicts', () => {
@@ -86,5 +86,29 @@ describe('sanitizeChatReply', () => {
       'User Safety: safe\nResponse Safety: safe\nPhản hồi An toàn: an toàn'
     expect(sanitizeChatReply(raw)).toBe('')
     expect(looksLikeSafetyMetadataLeak(raw)).toBe(true)
+  })
+
+  it('strips echoed internal prompt / draft scaffolding', () => {
+    const raw = `[English gloss — internal]
+search for tai nghe
+
+Bản nháp trợ lý (cần chỉnh cho đúng PLATFORM_FACTS và rõ ràng hơn):
+hello
+Hãy viết lại câu trả lời cuối cùng cho khách.
+
+Tai nghe này nghe ổn trong tầm giá.`
+    const cleaned = sanitizeChatReply(raw)
+    expect(cleaned).toMatch(/Tai nghe này nghe ổn/i)
+    expect(cleaned).not.toMatch(/English gloss|Bản nháp trợ lý|PLATFORM_FACTS/i)
+    expect(looksLikePromptLeak(raw)).toBe(true)
+    expect(looksLikePromptLeak(cleaned)).toBe(false)
+  })
+
+  it('hides keyword-router fallback copy', () => {
+    const dumped =
+      'Mình chưa hiểu rõ câu hỏi — bạn muốn hỏi về **sản phẩm nào**, **giá**?\n\nThử hỏi cụ thể, vd:\n• "Doanh thu tháng này"'
+    const softened = softenLocalFallback(dumped, false)
+    expect(softened).toMatch(/Cứ hỏi tự nhiên/i)
+    expect(softened).not.toMatch(/Doanh thu tháng này|keyword/i)
   })
 })

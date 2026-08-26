@@ -233,7 +233,7 @@ function serializeContext(ctx: ChatContext, intent?: ChatIntent | null): string 
   }
   if (e?.searchResults?.length) {
     lines.push('Kết quả tìm kiếm gần nhất:')
-    for (const p of e.searchResults.slice(0, 6)) {
+    for (const p of e.searchResults.slice(0, 5)) {
       lines.push(`- ${p.name} | shop ${p.shopName ?? 'SEDSP'} | ${formatVnd(p.price)}`)
     }
   }

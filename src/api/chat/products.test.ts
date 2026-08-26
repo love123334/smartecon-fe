@@ -376,6 +376,21 @@ describe('phone under budget — no kettle false match', () => {
     expect(products.some((x) => x.id === 'kettle' || x.id === 'phone-dear')).toBe(false)
   })
 
+  it('drops the odd-category 6th hit on phone search', () => {
+    const phones = [
+      p({ id: 'p1', name: 'iPhone 15', price: 19_990_000, category: 'Điện thoại' }),
+      p({ id: 'p2', name: 'Xiaomi 14', price: 16_990_000, category: 'Điện thoại' }),
+      p({ id: 'p3', name: 'Galaxy S24', price: 18_490_000, category: 'Điện thoại' }),
+      p({ id: 'p4', name: 'Oppo Reno 11', price: 9_990_000, category: 'Điện thoại' }),
+      p({ id: 'p5', name: 'Pixel 8', price: 17_990_000, category: 'Điện thoại' }),
+      p({ id: 'p6', name: 'Dell XPS 15', price: 38_990_000, category: 'Laptop' }),
+    ]
+    const hits = findProductsByQuery(phones, 'điện thoại')
+    expect(hits.length).toBeLessThanOrEqual(5)
+    expect(hits.every((x) => x.category === 'Điện thoại')).toBe(true)
+    expect(hits.some((x) => x.id === 'p6')).toBe(false)
+  })
+
   it('does not match Ấm điện on lone “điện” token', () => {
     const hits = findProductsByQuery(mixed, 'điện thoại')
     expect(hits.some((x) => x.id === 'kettle')).toBe(false)

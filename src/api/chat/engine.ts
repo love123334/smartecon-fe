@@ -184,7 +184,7 @@ function followUps(intent: ChatIntent | null, role: ChatContext['role']): string
   return ''
 }
 
-type IntroMode = 'search' | 'shop' | 'budget' | 'cheapest' | 'affordable'
+type IntroMode = 'search' | 'shop' | 'budget' | 'cheapest' | 'affordable' | 'category'
 
 /** Local fallback copy — conversational; UI cards carry the catalog. */
 function warmProductIntro(
@@ -216,10 +216,14 @@ function warmProductIntro(
       return topic
         ? `${name}**${topic}** giá dễ chịu thì có vài con khá ngon.${lean}`
         : `${name}Mấy lựa chọn giá dễ mua này đáng xem.${lean}`
-    default:
+    case 'category':
       return topic
-        ? `${name}Với **${topic}** thì có vài lựa chọn ổn.${lean}`
-        : `${name}Yep, có vài option khá ngon.${lean}`
+        ? `${name}**${topic}** đang có vài lựa chọn ổn.${lean}`
+        : `${name}Có vài lựa chọn ổn.${lean}`
+    default:
+      return topPick
+        ? `${name}Có vài lựa chọn ổn — mình nghiêng về **${topPick}** trước.`
+        : `${name}Có vài lựa chọn ổn.`
   }
 }
 
@@ -267,10 +271,10 @@ function shoppingStructuredReply(
           ctx,
           hits.length,
           matched?.name ?? hits[0]?.category,
-          'search',
+          'category',
           hits[0]?.name,
         ),
-        products: toChatProducts(hits, 6),
+        products: toChatProducts(hits, 5),
       }
     }
     return null
@@ -293,7 +297,7 @@ function shoppingStructuredReply(
         isDiscoveryNewestQuery(lower) ? 'newest' : 'recommend',
         hits[0]?.name,
       ),
-      products: hits.length ? toChatProducts(hits, 6) : undefined,
+      products: hits.length ? toChatProducts(hits, 5) : undefined,
     }
   }
 
@@ -322,7 +326,7 @@ function shoppingStructuredReply(
     if (hits.length) {
       return {
         content: warmProductIntro(ctx, hits.length, label, 'affordable', hits[0]?.name),
-        products: toChatProducts(hits, 6),
+        products: toChatProducts(hits, 5),
       }
     }
     return {
@@ -341,7 +345,7 @@ function shoppingStructuredReply(
       const sellers = toChatSellers(hits, 1, { showContact: true })
       return {
         content: warmProductIntro(ctx, hits.length, label, 'shop', hits[0]?.name),
-        products: toChatProducts(hits, 6),
+        products: toChatProducts(hits, 5),
         sellers,
       }
     }
@@ -415,7 +419,7 @@ function shoppingStructuredReply(
         mode,
         policy.products[0]?.name,
       ),
-      products: toChatProducts(policy.products, 6),
+      products: toChatProducts(policy.products, 5),
     }
   }
 
@@ -868,9 +872,9 @@ export async function generateAssistantReply(
         products = undefined
       } else if (intent === 'product_search') {
         const policy = searchProductsWithPolicy(catalog, raw)
-        products = policy.allowCards ? toChatProducts(policy.products, 6) : undefined
+        products = policy.allowCards ? toChatProducts(policy.products, 5) : undefined
       } else if (enrichProducts?.length) {
-        products = toChatProducts(enrichProducts, 6)
+        products = toChatProducts(enrichProducts, 5)
       }
       let content =
         reply +
@@ -934,7 +938,7 @@ export async function generateAssistantReply(
         content:
           warmProductIntro(ctx, hits.length, formatVnd(budget), 'budget', hits[0]?.name) +
           sellerHintFromProducts(hits),
-        products: toChatProducts(hits, 6),
+        products: toChatProducts(hits, 5),
       })
     }
     return finish({

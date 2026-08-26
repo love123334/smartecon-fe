@@ -94,7 +94,8 @@ export function isUnknownEscalateText(content: string): boolean {
   const n = normalizeText(content)
   return (
     /chua hieu ro cau hoi nay trong pham vi mua sam sedsp/.test(n) ||
-    /chua hieu ro cau hoi|chua chac ban muon hoi|chua hieu ro/.test(n)
+    /chua hieu ro cau hoi|chua chac ban muon hoi|chua hieu ro/.test(n) ||
+    /cu hoi tu nhien/.test(n)
   )
 }
 

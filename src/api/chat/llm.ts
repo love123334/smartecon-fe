@@ -88,17 +88,10 @@ export async function callChatLlm(
   history: ChatMessage[],
   userMessage: string,
   facts?: VerifiedFacts | null,
-  options?: { recentTurns?: ChatMessage[]; englishGloss?: string; userRole?: string },
+  options?: { recentTurns?: ChatMessage[]; userRole?: string },
 ): Promise<string> {
-  const gloss = options?.englishGloss?.trim()
   const grounding = facts ? buildLlmGroundingBlock(facts).trim() : ''
-  const groundedUser = [
-    userMessage,
-    grounding,
-    gloss ? `[English gloss — internal]\n${gloss}` : '',
-  ]
-    .filter(Boolean)
-    .join('\n\n')
+  const groundedUser = [userMessage, grounding].filter(Boolean).join('\n\n')
 
   const sourceHistory = options?.recentTurns ?? history
   const recent = sourceHistory.slice(-6).map((m) => {

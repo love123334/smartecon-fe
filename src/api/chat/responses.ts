@@ -125,6 +125,17 @@ export function sanitizeChatReply(text: string): string {
     .replace(/\*\*Top SP \(API\):\*\*/gi, '**Top SP:**')
     .replace(/\b(keyword|intent|extract|query term):\s*[^\n]+/gi, '')
     .replace(/\b(product_budget|product_search|product_cheapest)\b/gi, '')
+    .replace(/Bản nháp trợ lý[\s\S]*?cho khách\.?\s*/gi, '')
+    .replace(/Hãy viết lại câu trả lời cuối cùng cho khách\.?\s*/gi, '')
+    .replace(/\[CONTEXT SẢN PHẨM\/SHOP[^\]]*\][\s\S]*?(?:\n\n|$)/gi, '\n')
+    .replace(/\[English gloss[^\]]*\][\s\S]*?(?:\n\n|$)/gi, '\n')
+    .replace(/\[Vai trò SEDSP:[^\]]*\]\s*/gi, '')
+    .replace(/PLATFORM_FACTS[\s\S]*?(?:\n\n|$)/gi, '\n')
+    .replace(/MULTI_PROVIDER_RULES:[\s\S]*?(?:\n\n|$)/gi, '\n')
+    .replace(/You are SEDSP's intelligent[\s\S]*?bullet points\.\s*/gi, '')
+    .replace(/product_search_keyword\s*=\s*[^\n]+\n?/gi, '')
+    .replace(/product_count\s*=\s*\d+\n?/gi, '')
+    .replace(/^\s*(?:Thinking|Thoughts?)\s*:\s*[\s\S]*?(?:\n\n|$)/gim, '')
     .replace(
       /(?:^|\n)\s*(?:User Safety|Response Safety|Phản hồi\s*[Aa]n toàn|Khống chế người dùng|Khoản người dùng)\s*:\s*[^\n]*/gi,
       '',
@@ -138,6 +149,25 @@ export function sanitizeChatReply(text: string): string {
     .replace(/\s{2,}/g, ' ')
     .replace(/\n{3,}/g, '\n\n')
     .trim()
+}
+
+/** Local fallback — giọng tư vấn, không lộ nhánh keyword / ví dụ query. */
+export function softenLocalFallback(content: string, hasProducts = false): string {
+  const cleaned = sanitizeChatReply(content)
+  const looksLikeKeywordRouter =
+    /Thử hỏi cụ thể, vd:|Thử:\s*\*\*|•\s*"Doanh thu tháng này"|•\s*"Sản phẩm nào sắp hết|What-if giảm giá/i.test(
+      cleaned,
+    ) ||
+    /Bạn muốn hỏi về \*\*sản phẩm nào\*\*, \*\*giá\*\*|bạn muốn \*\*tìm sản phẩm\*\*, \*\*xem giá\*\*/i.test(
+      cleaned,
+    ) ||
+    /\b(keyword|intent|query term)\s*:/i.test(cleaned)
+  if (!cleaned.trim() || looksLikeKeywordRouter) {
+    return hasProducts
+      ? 'Mình thấy vài lựa chọn khá ổn. Bạn muốn so sánh giá, hỏi còn hàng, hay mình nghiêng 1 món đáng cân nhắc trước?'
+      : 'Cứ hỏi tự nhiên giúp mình — tìm món, giá, còn hàng hay đơn đang theo dõi đều được.'
+  }
+  return cleaned
 }
 
 export function productLines(products: Product[], limit = 4): string {

@@ -49,7 +49,7 @@ function stripCardBoilerplate(text: string): string {
 export function buildLlmGroundingBlock(facts: VerifiedFacts): string {
   const lines = facts.lines.filter((l) => !l.startsWith('- Tóm tắt local:')).slice(0, 14)
   if (!lines.length && !facts.products.length) return ''
-  const productBits = facts.products.slice(0, 6).map((p) => {
+  const productBits = facts.products.slice(0, 5).map((p) => {
     const rating = p.rating ? ` · ${p.rating}★` : ''
     const stock =
       typeof p.stock === 'number' ? (p.stock <= 0 ? ' · hết hàng' : ` · còn ${p.stock}`) : ''
@@ -125,7 +125,7 @@ export function buildVerifiedFacts(
     lines.push(`Ý định phát hiện: ${intent} (độ tin cậy ${intentScore})`)
   }
 
-  for (const p of products.slice(0, 6)) {
+  for (const p of products.slice(0, 5)) {
     allowedProductNames.push(p.name)
     const priceLine = `- **${p.name}**: ${formatVnd(p.price)}`
     const stock =

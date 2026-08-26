@@ -259,11 +259,6 @@ async function onSend(text: string) {
       sellerBackendId: auth.user?.backendId,
       attachments: attached,
       optimisticHistory: messages.value,
-      onDraft: (next) => {
-        if (seq !== sendSeq) return
-        messages.value = next
-        loading.value = false
-      },
     })
     savedSessions.value = chatApi.listSessions(chatUserId.value)
     if (seq !== sendSeq) return

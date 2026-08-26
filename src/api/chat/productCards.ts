@@ -18,7 +18,10 @@ export function toChatProduct(p: Product, opts?: { stockKnown?: boolean }): Chat
   }
 }
 
-export function toChatProducts(products: Product[], limit = 6): ChatProductRef[] {
+/** Chat search cards — 5 max so the 6th weak/wrong-category hit never shows. */
+export const CHAT_SEARCH_CARD_LIMIT = 5
+
+export function toChatProducts(products: Product[], limit = CHAT_SEARCH_CARD_LIMIT): ChatProductRef[] {
   // Catalog chat load withStock — tin được số tồn
   return products.slice(0, limit).map((p) => toChatProduct(p, { stockKnown: true }))
 }

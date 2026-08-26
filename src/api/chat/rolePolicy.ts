@@ -203,15 +203,15 @@ export function escalateReplyForRole(
 
   switch (ctx.role) {
     case 'seller':
-      return `${name}Mình chưa chắc bạn muốn hỏi về **doanh số**, **tồn kho**, **DSS** hay **mua hàng như khách**.\n\nThử hỏi cụ thể, vd:\n• "Doanh thu tháng này"\n• "Sản phẩm nào sắp hết hàng"\n• "What-if giảm giá 10%"\n• "Đơn bán gần đây"`
+      return `${name}Bạn đang muốn xem tình hình shop, tồn kho, hay DSS? Cứ nói tự nhiên, mình lấy số liệu gian hàng này.`
     case 'manager':
-      return `${name}Mình chưa hiểu rõ câu hỏi quản lý. Thử: **KPI tháng**, **đơn chờ duyệt**, **doanh thu sàn**, **xu hướng danh mục**.`
+      return `${name}Mình chưa nắm ý quản lý lắm. Cứ hỏi tự nhiên về vận hành sàn — mình sẽ lấy số liệu tương ứng.`
     case 'admin':
-      return `${name}Thử hỏi: **trạng thái hệ thống**, **số user**, **cảnh báo**, **cấu hình bảo mật**.`
+      return `${name}Cứ hỏi tự nhiên về hệ thống, mình sẽ kiểm tra giúp.`
     case 'guest':
-      return `${name}Mình chưa hiểu rõ — bạn muốn **tìm sản phẩm**, **xem giá**, hay **biết chính sách**?\n\n${roleHelpHints('guest')}\n\n👉 **Đăng nhập** để xem đơn & giỏ cá nhân.`
+      return `${name}Cứ hỏi tự nhiên — tìm món, giá, hay chính sách đều được. Đăng nhập nếu muốn xem đơn và giỏ cá nhân.`
     default:
-      return `${name}Mình chưa hiểu rõ câu hỏi — bạn muốn hỏi về **sản phẩm nào**, **giá**, **còn hàng**, **đơn hàng**, hay **đánh giá**?\n\n${roleHelpHints('customer')}`
+      return `${name}Cứ hỏi tự nhiên giúp mình — tìm món, giá, còn hàng hay đơn đang theo dõi đều được.`
   }
 }
 

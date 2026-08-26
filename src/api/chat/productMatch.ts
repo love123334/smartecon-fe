@@ -117,7 +117,7 @@ export function searchProductsWithPolicy(
   const wantAlternative = asksProductAlternative(n)
 
   if (!specific) {
-    const products = findProductsByQuery(catalog, rawQuery)
+    const products = findProductsByQuery(catalog, rawQuery).slice(0, 5)
     return {
       matchTier: products.length ? 'broad' : 'none',
       products,
@@ -132,7 +132,7 @@ export function searchProductsWithPolicy(
   if (exact.length) {
     return {
       matchTier: 'exact',
-      products: exact.slice(0, 6),
+      products: exact.slice(0, 5),
       specificLabel: specific.label,
       allowCards: true,
       allowAlternatives: false,

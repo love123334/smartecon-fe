@@ -20,7 +20,7 @@ function pickSearchProducts(ctx: ChatContext): ChatToolResult {
     ok: list.length > 0,
     data: {
       count: list.length,
-      products: list.slice(0, 6).map((p) => ({
+      products: list.slice(0, 5).map((p) => ({
         id: p.id,
         name: p.name,
         price: p.price,

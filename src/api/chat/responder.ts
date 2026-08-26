@@ -23,6 +23,7 @@ import {
   llmMissingCriticalFacts,
   looksLikeLowQualityReply,
   looksLikeOffTopicPlatformReply,
+  looksLikePromptLeak,
   looksLikeSafetyMetadataLeak,
 } from '@/api/chat/followup'
 import { isStandaloneShoppingQuery } from '@/api/chat/discovery'
@@ -37,14 +38,14 @@ import {
   normalizeText,
 } from '@/api/chat/match'
 import { extractPriceRange, isPriceStatsQuery } from '@/api/chat/products'
-import { sanitizeChatReply } from '@/api/chat/responses'
+import { sanitizeChatReply, softenLocalFallback } from '@/api/chat/responses'
 import { deriveSuggestedActions } from '@/api/chat/suggestedActions'
 import {
   intentAllowedForRole,
   outOfScopeReply,
   resolveIntentForRole,
 } from '@/api/chat/rolePolicy'
-import { buildProcessingLocale, englishGlossForPrompt } from '@/api/chat/chatLocale'
+import { buildProcessingLocale } from '@/api/chat/chatLocale'
 import { buildChatMemoryLayers } from '@/api/chat/conversationMemory'
 import { executeChatTools } from '@/api/chat/toolExecutor'
 import { routeFromIntent } from '@/api/chat/intentRouter'
@@ -207,7 +208,7 @@ function preferLocalOverLlm(
   role?: string,
   userMessage?: string,
 ): ChatFallbackReason | null {
-  if (looksLikeSafetyMetadataLeak(llmContent)) {
+  if (looksLikeSafetyMetadataLeak(llmContent) || looksLikePromptLeak(llmContent)) {
     return 'low_quality'
   }
   if (llmDeniesProductsWhileLocalHasHits(llmContent, localProducts)) {
@@ -308,7 +309,6 @@ export async function resolveChatReply(
   ctx: ChatContext,
   attachments?: ChatProductRef[],
   priorConversation?: ConversationContext,
-  onDraft?: (reply: ChatReply) => void,
 ): Promise<ChatReply> {
   const started = performance.now()
   let localLatencyMs = 0
@@ -464,8 +464,12 @@ export async function resolveChatReply(
       activeTask: conversationContext.activeTask,
     })
     logChatTurn(telemetry)
+    const display =
+      source === 'local' && fallbackReason !== 'force_local'
+        ? softenLocalFallback(content, Boolean(products?.length))
+        : sanitizeChatReply(content)
     return {
-      content: sanitizeChatReply(content),
+      content: display,
       source,
       products,
       sellers,
@@ -487,7 +491,6 @@ export async function resolveChatReply(
   }
 
   if (isLlmConfigured()) {
-    onDraft?.(replyPayload('local', localContent))
     try {
       const llmStarted = performance.now()
       const route = routeFromIntent(intent)
@@ -511,12 +514,15 @@ export async function resolveChatReply(
         facts,
         {
           recentTurns: memory.recentTurns,
-          englishGloss: englishGlossForPrompt(locale),
           userRole: ctx.role,
         },
       )
       llmLatencyMs = Math.round(performance.now() - llmStarted)
       const content = sanitizeChatReply(llmRaw)
+
+      if (looksLikePromptLeak(content) || looksLikeSafetyMetadataLeak(content)) {
+        return replyPayload('local', localContent, 'low_quality', true)
+      }
 
       const backendGrounded = backendReplyLooksGrounded(content)
       const fallbackReason = preferLocalOverLlm(
@@ -531,7 +537,7 @@ export async function resolveChatReply(
       )
       if (fallbackReason === 'contradicts_facts') {
         const repaired = repairPriceFactsInReply(content, facts)
-        if (repaired && !llmContradictsFacts(repaired, facts)) {
+        if (repaired && !llmContradictsFacts(repaired, facts) && !looksLikePromptLeak(repaired)) {
           return replyPayload('llm_repaired', repaired, undefined, true)
         }
       }
